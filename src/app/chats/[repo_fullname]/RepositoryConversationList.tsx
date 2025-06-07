@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Chat, ChatListResponse } from '../../types/chat'
-import { chatApi, ApiError } from '../../lib/api'
-import ConversationCard from './ConversationCard'
-import LoadingSpinner from './LoadingSpinner'
+import { Chat, ChatListResponse } from '../../../types/chat'
+import { chatApi, ApiError } from '../../../lib/api'
+import ConversationCard from '../../components/ConversationCard'
+import LoadingSpinner from '../../components/LoadingSpinner'
+import Link from 'next/link'
 
 interface FilterState {
   status: Chat['status'] | 'all'
@@ -12,7 +13,11 @@ interface FilterState {
   limit: number
 }
 
-export default function ConversationList() {
+interface RepositoryConversationListProps {
+  repository: string
+}
+
+export default function RepositoryConversationList({ repository }: RepositoryConversationListProps) {
   const [chats, setChats] = useState<Chat[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -34,7 +39,7 @@ export default function ConversationList() {
 
   useEffect(() => {
     fetchChats()
-  }, [filters])
+  }, [filters, repository])
 
   const fetchChats = async () => {
     try {
@@ -44,6 +49,7 @@ export default function ConversationList() {
       const params = {
         page: filters.page,
         limit: filters.limit,
+        repository: repository,
         ...(filters.status !== 'all' && { status: filters.status }),
       }
 
@@ -58,8 +64,15 @@ export default function ConversationList() {
       }
       
       // Set mock data for demo purposes when API is not available
-      setChats(getMockChats())
-      setTotalChats(getMockChats().length)
+      // Filter mock data by repository
+      const mockChats = getMockChats().filter(chat => 
+        chat.metadata?.repository === repository ||
+        chat.metadata?.repository_name === repository ||
+        (chat.metadata?.repository_owner && chat.metadata?.repository_name && 
+         `${chat.metadata.repository_owner}/${chat.metadata.repository_name}` === repository)
+      )
+      setChats(mockChats)
+      setTotalChats(mockChats.length)
     } finally {
       setLoading(false)
     }
@@ -129,22 +142,6 @@ export default function ConversationList() {
         repository_owner: 'users',
         repository_name: 'test-app'
       }
-    },
-    {
-      id: 'chat-005',
-      title: 'Performance Optimization',
-      summary: 'Investigating performance bottlenecks in a large React application and implementing solutions.',
-      status: 'cancelled',
-      created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
-      message_count: 12,
-      duration: 900,
-      metadata: {
-        repository: 'orgs/analytics-platform',
-        repository_owner: 'orgs',
-        repository_name: 'analytics-platform',
-        branch: 'feature/performance'
-      }
     }
   ]
 
@@ -168,6 +165,20 @@ export default function ConversationList() {
 
   return (
     <div className="space-y-6">
+      {/* Navigation */}
+      <div className="flex items-center gap-2 text-sm">
+        <Link 
+          href="/chats" 
+          className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+        >
+          All Conversations
+        </Link>
+        <span className="text-gray-400 dark:text-gray-500">→</span>
+        <span className="text-gray-600 dark:text-gray-400">
+          {repository}
+        </span>
+      </div>
+
       {/* Filter Bar */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -193,7 +204,7 @@ export default function ConversationList() {
 
         <div className="mt-3 flex items-center justify-between">
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            {totalChats} conversation{totalChats !== 1 ? 's' : ''} total
+            {totalChats} conversation{totalChats !== 1 ? 's' : ''} for {repository}
           </span>
           <button
             onClick={fetchChats}
@@ -228,8 +239,8 @@ export default function ConversationList() {
             </h3>
             <p className="text-gray-500 dark:text-gray-400">
               {filters.status === 'all' 
-                ? 'Start a new conversation to see it here.'
-                : `No conversations with status "${filters.status}".`
+                ? `No conversations found for repository "${repository}".`
+                : `No conversations with status "${filters.status}" for repository "${repository}".`
               }
             </p>
           </div>

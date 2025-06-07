@@ -56,12 +56,14 @@ export const chatApi = {
     page?: number
     limit?: number
     status?: Chat['status']
+    repository?: string
   }): Promise<ChatListResponse> {
     const searchParams = new URLSearchParams()
     
     if (params?.page) searchParams.set('page', params.page.toString())
     if (params?.limit) searchParams.set('limit', params.limit.toString())
     if (params?.status) searchParams.set('status', params.status)
+    if (params?.repository) searchParams.set('repository', params.repository)
 
     const endpoint = `/chats${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
     return apiRequest<ChatListResponse>(endpoint)

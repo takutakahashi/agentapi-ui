@@ -7,7 +7,15 @@ export interface Chat {
   updated_at: string
   message_count?: number
   duration?: number
-  metadata?: Record<string, any>
+  metadata?: {
+    repository?: string
+    repository_url?: string
+    repository_owner?: string
+    repository_name?: string
+    branch?: string
+    commit_hash?: string
+    [key: string]: any
+  }
 }
 
 export interface ChatListResponse {
