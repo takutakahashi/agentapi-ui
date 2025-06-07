@@ -1,11 +1,11 @@
 import {
   Agent,
-  AgentConfig,
   AgentListResponse,
   AgentListParams,
   CreateAgentRequest,
   UpdateAgentRequest,
   Metrics,
+  AgentMetrics,
   MetricsHistoryParams,
   SystemConfig,
   AgentAPIClientConfig,
@@ -20,7 +20,7 @@ export class AgentAPIError extends Error {
     public status: number,
     public code: string,
     message: string,
-    public details?: Record<string, any>
+    public details?: Record<string, unknown>
   ) {
     super(message);
     this.name = 'AgentAPIError';
@@ -201,12 +201,12 @@ export class AgentAPIClient {
     return result.data;
   }
 
-  async getAgentMetrics(agentId: string): Promise<any> {
-    const result = await this.makeRequest<any>(`/metrics/agents/${agentId}`);
+  async getAgentMetrics(agentId: string): Promise<AgentMetrics> {
+    const result = await this.makeRequest<AgentMetrics>(`/metrics/agents/${agentId}`);
     return result.data;
   }
 
-  async getMetricsHistory(params: MetricsHistoryParams): Promise<any> {
+  async getMetricsHistory(params: MetricsHistoryParams): Promise<Metrics[]> {
     const searchParams = new URLSearchParams();
     searchParams.set('from', params.from);
     searchParams.set('to', params.to);
@@ -214,7 +214,7 @@ export class AgentAPIClient {
     if (params.agent_id) searchParams.set('agent_id', params.agent_id);
 
     const endpoint = `/metrics/history?${searchParams.toString()}`;
-    const result = await this.makeRequest<any>(endpoint);
+    const result = await this.makeRequest<Metrics[]>(endpoint);
     return result.data;
   }
 

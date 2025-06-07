@@ -25,7 +25,7 @@ class MockWebSocket extends EventTarget {
     }, 10);
   }
 
-  send(data: string): void {
+  send(): void {
     // Mock send implementation
   }
 
@@ -35,7 +35,7 @@ class MockWebSocket extends EventTarget {
   }
 }
 
-global.WebSocket = MockWebSocket as any;
+global.WebSocket = MockWebSocket as unknown as typeof WebSocket;
 
 describe('AgentAPIClient', () => {
   let client: AgentAPIClient;

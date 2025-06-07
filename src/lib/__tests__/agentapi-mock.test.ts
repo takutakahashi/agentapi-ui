@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   MockAgentAPIClient,
   MockWebSocket,
@@ -226,7 +226,7 @@ describe('MockAgentAPIClient', () => {
         ws.addEventListener('open', () => {
           mockClient.subscribeToAgents(ws, 'agent-1');
           
-          ws.addEventListener('message', (event: any) => {
+          ws.addEventListener('message', (event: MessageEvent) => {
             const data = JSON.parse(event.data);
             if (data.type === 'subscription_confirmed') {
               expect(data.channel).toBe('agents');
@@ -244,7 +244,7 @@ describe('MockAgentAPIClient', () => {
         ws.addEventListener('open', () => {
           mockClient.subscribeToMetrics(ws, 1000);
           
-          ws.addEventListener('message', (event: any) => {
+          ws.addEventListener('message', (event: MessageEvent) => {
             const data = JSON.parse(event.data);
             if (data.type === 'subscription_confirmed') {
               expect(data.channel).toBe('metrics');

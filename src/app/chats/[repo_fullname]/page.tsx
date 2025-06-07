@@ -3,14 +3,16 @@ import LoadingSpinner from '../../components/LoadingSpinner'
 import RepositoryConversationList from './RepositoryConversationList'
 
 interface RepositoryChatsPageProps {
-  params: {
+  params: Promise<{
     repo_fullname: string
-  }
+  }>
 }
 
-export default function RepositoryChatsPage({ params }: RepositoryChatsPageProps) {
+export default async function RepositoryChatsPage({ params }: RepositoryChatsPageProps) {
+  // Await params in Next.js 15+
+  const resolvedParams = await params
   // Decode the repo_fullname parameter (since it comes URL-encoded)
-  const repoFullname = decodeURIComponent(params.repo_fullname)
+  const repoFullname = decodeURIComponent(resolvedParams.repo_fullname)
   
   // Parse owner and repo name from the full name (e.g. "users/repo_name" or "orgs/repo_name")
   const [ownerType, repoName] = repoFullname.split('/', 2)
