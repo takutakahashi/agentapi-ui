@@ -1,0 +1,38 @@
+{
+  "name": "agentapi-ui",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "bun@1.2.11",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:ui": "vitest --ui",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "14.2.16",
+    "react": "^18",
+    "react-dom": "^18"
+  },
+  "devDependencies": {
+    "@next/eslint-config-next": "14.2.16",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.16",
+    "jsdom": "^25.0.1",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5",
+    "vitest": "^2.1.8"
+  }
+}
