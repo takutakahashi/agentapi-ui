@@ -18,27 +18,30 @@ jobs:
       with:
         path: agentapi-ui
         
-    - name: Checkout agentapi
-      uses: actions/checkout@v4
-      with:
-        repository: coder/agentapi
-        path: agentapi
-        
     - name: Setup Bun
       uses: oven-sh/setup-bun@v2
       with:
         bun-version: '1.2.11'
         
-    - name: Setup Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.21'
+    - name: Download agentapi binary from releases
+      run: |
+        # Get the latest release from GitHub API
+        LATEST_RELEASE=$(curl -s https://api.github.com/repos/coder/agentapi/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+        echo "Latest agentapi release: $LATEST_RELEASE"
+        
+        # Download the binary for Linux AMD64
+        DOWNLOAD_URL="https://github.com/coder/agentapi/releases/download/${LATEST_RELEASE}/agentapi-linux-amd64"
+        echo "Downloading from: $DOWNLOAD_URL"
+        
+        curl -L -o agentapi "$DOWNLOAD_URL"
+        chmod +x agentapi
+        
+        # Verify the binary works
+        ./agentapi --version
         
     - name: Start agentapi service
-      working-directory: agentapi
       run: |
-        # Build and start agentapi in background
-        go build -o agentapi ./cmd/agentapi
+        # Start agentapi in background
         ./agentapi &
         echo $! > agentapi.pid
         
@@ -80,8 +83,8 @@ jobs:
       if: always()
       run: |
         # Stop services
-        if [ -f agentapi/agentapi.pid ]; then
-          kill $(cat agentapi/agentapi.pid) || true
+        if [ -f agentapi.pid ]; then
+          kill $(cat agentapi.pid) || true
         fi
         if [ -f agentapi-ui/ui.pid ]; then
           kill $(cat agentapi-ui/ui.pid) || true
