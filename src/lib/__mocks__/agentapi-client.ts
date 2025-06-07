@@ -297,10 +297,11 @@ export class MockAgentAPIClient {
       throw new AgentAPIError(404, 'AGENT_NOT_FOUND', `Agent with id ${id} not found`);
     }
 
-    const updatedAgent = {
+    const updatedAgent: Agent = {
       ...mockAgents[agentIndex],
       ...data,
       updated_at: new Date().toISOString(),
+      config: data.config ? { ...mockAgents[agentIndex].config, ...data.config } : mockAgents[agentIndex].config,
     };
     
     mockAgents[agentIndex] = updatedAgent;
@@ -325,7 +326,7 @@ export class MockAgentAPIClient {
     });
   }
 
-  async getAgentMetrics(agentId: string): Promise<AgentMetrics> {
+  async getAgentMetrics(agentId: string): Promise<import('../../types/agentapi').AgentMetrics> {
     const agentMetrics = mockMetrics.agents.find(m => m.agent_id === agentId);
     if (!agentMetrics) {
       throw new AgentAPIError(404, 'METRICS_NOT_FOUND', `Metrics for agent ${agentId} not found`);
