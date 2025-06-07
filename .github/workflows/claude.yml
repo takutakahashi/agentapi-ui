@@ -33,6 +33,7 @@ jobs:
         id: claude
         uses: anthropics/claude-code-action@beta
         with:
+          github_token: ${{ secrets.CLAUDE_CODE_PAT }}
           allowed_tools: Bash
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
 
