@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Chat, ChatListResponse } from '../../../types/chat'
 import { chatApi, ApiError } from '../../../lib/api'
 import ConversationCard from '../../components/ConversationCard'
@@ -37,11 +37,7 @@ export default function RepositoryConversationList({ repository }: RepositoryCon
     { value: 'cancelled', label: 'Cancelled' },
   ]
 
-  useEffect(() => {
-    fetchChats()
-  }, [filters, repository])
-
-  const fetchChats = async () => {
+  const fetchChats = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -76,7 +72,11 @@ export default function RepositoryConversationList({ repository }: RepositoryCon
     } finally {
       setLoading(false)
     }
-  }
+  }, [filters, repository])
+
+  useEffect(() => {
+    fetchChats()
+  }, [fetchChats])
 
   const getMockChats = (): Chat[] => [
     {

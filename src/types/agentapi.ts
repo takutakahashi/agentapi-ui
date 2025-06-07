@@ -12,7 +12,7 @@ export interface Agent {
 
 export interface AgentConfig {
   type: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   timeout?: number;
   retry_policy?: {
     max_retries: number;
@@ -109,7 +109,7 @@ export interface WebSocketMessage {
   channel?: 'agents' | 'metrics';
   agent_id?: string;
   interval?: number;
-  data?: any;
+  data?: unknown;
 }
 
 export interface WebSocketOptions {
@@ -122,7 +122,7 @@ export interface WebSocketOptions {
 export interface APIError {
   code: string;
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   timestamp: string;
 }
 

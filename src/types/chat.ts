@@ -14,7 +14,7 @@ export interface Chat {
     repository_name?: string
     branch?: string
     commit_hash?: string
-    [key: string]: any
+    [key: string]: unknown
   }
 }
 
@@ -31,5 +31,5 @@ export interface Message {
   role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: string
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }

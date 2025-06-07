@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { SettingsFormData, getDefaultSettings } from '../../../types/settings'
 import type { AgentApiSettings, EnvironmentVariable } from '../../../types/settings'
@@ -15,12 +15,7 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
-  // Load saved settings on component mount
-  useEffect(() => {
-    loadSettings()
-  }, [repoFullname])
-
-  const loadSettings = () => {
+  const loadSettings = useCallback(() => {
     try {
       const savedSettings = localStorage.getItem(`agentapi-settings-${repoFullname}`)
       if (savedSettings) {
@@ -30,7 +25,12 @@ export default function SettingsPage() {
     } catch (err) {
       console.error('Failed to load settings:', err)
     }
-  }
+  }, [repoFullname])
+
+  // Load saved settings on component mount
+  useEffect(() => {
+    loadSettings()
+  }, [loadSettings])
 
   const saveSettings = async () => {
     try {
@@ -42,7 +42,7 @@ export default function SettingsPage() {
       
       setSaved(true)
       setTimeout(() => setSaved(false), 3000) // Clear saved message after 3 seconds
-    } catch (err) {
+    } catch {
       setError('Failed to save settings')
     } finally {
       setLoading(false)
@@ -103,8 +103,9 @@ export default function SettingsPage() {
   }
 
   const removeCustomHeader = (key: string) => {
-    const { [key]: removed, ...rest } = settings.agentApi.customHeaders
-    updateAgentApiSetting('customHeaders', rest)
+    const newHeaders = { ...settings.agentApi.customHeaders }
+    delete newHeaders[key]
+    updateAgentApiSetting('customHeaders', newHeaders)
   }
 
   return (

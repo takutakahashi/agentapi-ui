@@ -5,10 +5,8 @@ import {
   CreateAgentRequest,
   UpdateAgentRequest,
   Metrics,
-  MetricsHistoryParams,
   SystemConfig,
   AgentAPIClientConfig,
-  WebSocketOptions,
   WebSocketMessage
 } from '../../types/agentapi';
 import { AgentAPIError } from '../agentapi-client';
@@ -327,7 +325,7 @@ export class MockAgentAPIClient {
     });
   }
 
-  async getAgentMetrics(agentId: string): Promise<any> {
+  async getAgentMetrics(agentId: string): Promise<AgentMetrics> {
     const agentMetrics = mockMetrics.agents.find(m => m.agent_id === agentId);
     if (!agentMetrics) {
       throw new AgentAPIError(404, 'METRICS_NOT_FOUND', `Metrics for agent ${agentId} not found`);
@@ -335,14 +333,14 @@ export class MockAgentAPIClient {
     return this.mockRequest(agentMetrics);
   }
 
-  async getMetricsHistory(params: MetricsHistoryParams): Promise<any> {
+  async getMetricsHistory(): Promise<Metrics[]> {
     // Mock historical data
     const history = Array.from({ length: 10 }, (_, i) => ({
       ...mockMetrics,
       timestamp: new Date(Date.now() - i * 3600000).toISOString(), // Hour intervals
     }));
     
-    return this.mockRequest({ history });
+    return this.mockRequest(history);
   }
 
   // Configuration Methods
@@ -360,7 +358,7 @@ export class MockAgentAPIClient {
   }
 
   // WebSocket Methods
-  createWebSocket(options?: WebSocketOptions): MockWebSocket {
+  createWebSocket(): MockWebSocket {
     return new MockWebSocket(this.config.baseURL.replace(/^http/, 'ws') + '/websocket');
   }
 

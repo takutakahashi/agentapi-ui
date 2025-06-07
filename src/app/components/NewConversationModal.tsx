@@ -66,7 +66,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess }: New
       const validEnvVars = envVars.filter(envVar => envVar.key.trim() && envVar.value.trim())
       
       // Create metadata object with environment variables
-      const metadata: Record<string, any> = {}
+      const metadata: { environment?: Record<string, string> } = {}
       if (validEnvVars.length > 0) {
         metadata.environment = validEnvVars.reduce((acc, envVar) => {
           acc[envVar.key] = envVar.value
