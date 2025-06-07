@@ -8,6 +8,7 @@ import {
   RealAgentAPIConfig,
   APIError
 } from '../types/real-agentapi';
+import { loadGlobalSettings, loadRepositorySettings } from '../types/settings';
 
 export class RealAgentAPIError extends Error {
   constructor(
@@ -211,14 +212,55 @@ export class RealAgentAPIClient {
   }
 }
 
+// Utility functions to get settings from browser storage
+export function getRealAgentAPIConfigFromStorage(repoFullname?: string): RealAgentAPIConfig {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined') {
+    // Server-side rendering or Node.js environment - use environment variables
+    return {
+      baseURL: process.env.NEXT_PUBLIC_REAL_AGENTAPI_URL || 'http://localhost:8080',
+      timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
+      debug: process.env.NODE_ENV === 'development',
+    };
+  }
+  
+  let settings;
+  
+  try {
+    if (repoFullname) {
+      // Get repository-specific settings (which includes global settings as fallback)
+      settings = loadRepositorySettings(repoFullname);
+    } else {
+      // Get global settings
+      settings = loadGlobalSettings();
+    }
+    
+    return {
+      baseURL: settings.agentApi.endpoint || process.env.NEXT_PUBLIC_REAL_AGENTAPI_URL || 'http://localhost:8080',
+      timeout: settings.agentApi.timeout || parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
+      debug: process.env.NODE_ENV === 'development',
+    };
+  } catch (error) {
+    console.warn('Failed to load settings from storage for real agentapi, using environment variables:', error);
+    // Fallback to environment variables if storage access fails
+    return {
+      baseURL: process.env.NEXT_PUBLIC_REAL_AGENTAPI_URL || 'http://localhost:8080',
+      timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
+      debug: process.env.NODE_ENV === 'development',
+    };
+  }
+}
+
 // Factory function for easier client creation
 export function createRealAgentAPIClient(config: RealAgentAPIConfig): RealAgentAPIClient {
   return new RealAgentAPIClient(config);
 }
 
-// Default client instance for convenience
-export const realAgentAPI = createRealAgentAPIClient({
-  baseURL: process.env.NEXT_PUBLIC_REAL_AGENTAPI_URL || 'http://localhost:8080',
-  timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
-  debug: process.env.NODE_ENV === 'development',
-});
+// Factory function to create client using stored settings
+export function createRealAgentAPIClientFromStorage(repoFullname?: string): RealAgentAPIClient {
+  const config = getRealAgentAPIConfigFromStorage(repoFullname);
+  return new RealAgentAPIClient(config);
+}
+
+// Default client instance for convenience (uses global settings from storage)
+export const realAgentAPI = createRealAgentAPIClientFromStorage();

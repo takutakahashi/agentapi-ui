@@ -14,6 +14,7 @@ import {
   WebSocketMessage,
   WebSocketOptions
 } from '../types/agentapi';
+import { loadGlobalSettings, loadRepositorySettings } from '../types/settings';
 
 export class AgentAPIError extends Error {
   constructor(
@@ -307,15 +308,58 @@ export class AgentAPIClient {
   }
 }
 
+// Utility functions to get settings from browser storage
+export function getAgentAPIConfigFromStorage(repoFullname?: string): AgentAPIClientConfig {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined') {
+    // Server-side rendering or Node.js environment - use environment variables
+    return {
+      baseURL: process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8080/api/v1',
+      apiKey: process.env.AGENTAPI_API_KEY,
+      timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
+      debug: process.env.NODE_ENV === 'development',
+    };
+  }
+  
+  let settings;
+  
+  try {
+    if (repoFullname) {
+      // Get repository-specific settings (which includes global settings as fallback)
+      settings = loadRepositorySettings(repoFullname);
+    } else {
+      // Get global settings
+      settings = loadGlobalSettings();
+    }
+    
+    return {
+      baseURL: settings.agentApi.endpoint || process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8080/api/v1',
+      apiKey: settings.agentApi.apiKey || process.env.AGENTAPI_API_KEY,
+      timeout: settings.agentApi.timeout || parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
+      debug: process.env.NODE_ENV === 'development',
+    };
+  } catch (error) {
+    console.warn('Failed to load settings from storage, using environment variables:', error);
+    // Fallback to environment variables if storage access fails
+    return {
+      baseURL: process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8080/api/v1',
+      apiKey: process.env.AGENTAPI_API_KEY,
+      timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
+      debug: process.env.NODE_ENV === 'development',
+    };
+  }
+}
+
 // Factory function for easier client creation
 export function createAgentAPIClient(config: AgentAPIClientConfig): AgentAPIClient {
   return new AgentAPIClient(config);
 }
 
-// Default client instance for convenience
-export const agentAPI = createAgentAPIClient({
-  baseURL: process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8080/api/v1',
-  apiKey: process.env.AGENTAPI_API_KEY,
-  timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
-  debug: process.env.NODE_ENV === 'development',
-});
+// Factory function to create client using stored settings
+export function createAgentAPIClientFromStorage(repoFullname?: string): AgentAPIClient {
+  const config = getAgentAPIConfigFromStorage(repoFullname);
+  return new AgentAPIClient(config);
+}
+
+// Default client instance for convenience (uses global settings from storage)
+export const agentAPI = createAgentAPIClientFromStorage();

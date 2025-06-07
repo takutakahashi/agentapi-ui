@@ -44,6 +44,11 @@ export const getDefaultSettings = (): SettingsFormData => ({
 
 // Global settings utilities
 export const loadGlobalSettings = (): SettingsFormData => {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined') {
+    return getDefaultSettings()
+  }
+  
   try {
     const savedSettings = localStorage.getItem('agentapi-global-settings')
     if (savedSettings) {
@@ -56,6 +61,12 @@ export const loadGlobalSettings = (): SettingsFormData => {
 }
 
 export const saveGlobalSettings = (settings: SettingsFormData): void => {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined') {
+    console.warn('Cannot save settings: localStorage not available (server-side)')
+    return
+  }
+  
   try {
     localStorage.setItem('agentapi-global-settings', JSON.stringify(settings))
   } catch (err) {
@@ -67,6 +78,11 @@ export const saveGlobalSettings = (settings: SettingsFormData): void => {
 // Repository settings utilities with hierarchy support
 export const loadRepositorySettings = (repoFullname: string): SettingsFormData => {
   const globalSettings = loadGlobalSettings()
+  
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined') {
+    return globalSettings
+  }
   
   try {
     const savedSettings = localStorage.getItem(`agentapi-settings-${repoFullname}`)
@@ -84,6 +100,12 @@ export const loadRepositorySettings = (repoFullname: string): SettingsFormData =
 }
 
 export const saveRepositorySettings = (repoFullname: string, settings: SettingsFormData): void => {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined') {
+    console.warn('Cannot save repository settings: localStorage not available (server-side)')
+    return
+  }
+  
   try {
     localStorage.setItem(`agentapi-settings-${repoFullname}`, JSON.stringify(settings))
   } catch (err) {

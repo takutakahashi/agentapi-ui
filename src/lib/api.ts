@@ -1,6 +1,31 @@
 import { Chat, ChatListResponse } from '../types/chat'
+import { loadGlobalSettings } from '../types/settings'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'
+// Get API configuration from browser storage
+function getAPIConfig(): { baseURL: string; apiKey?: string } {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined') {
+    // Server-side rendering or Node.js environment - use environment variables
+    return {
+      baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8080',
+      apiKey: process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
+    };
+  }
+  
+  try {
+    const settings = loadGlobalSettings();
+    return {
+      baseURL: settings.agentApi.endpoint || process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8080',
+      apiKey: settings.agentApi.apiKey || process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
+    };
+  } catch (error) {
+    console.warn('Failed to load settings from storage for chat API, using environment variables:', error);
+    return {
+      baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8080',
+      apiKey: process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
+    };
+  }
+}
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -13,16 +38,16 @@ async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`
+  const config = getAPIConfig()
+  const url = `${config.baseURL}${endpoint}`
   
   const defaultHeaders: HeadersInit = {
     'Content-Type': 'application/json',
   }
 
   // Add authorization header if API key is available
-  const apiKey = process.env.NEXT_PUBLIC_API_KEY
-  if (apiKey) {
-    defaultHeaders['Authorization'] = `Bearer ${apiKey}`
+  if (config.apiKey) {
+    defaultHeaders['Authorization'] = `Bearer ${config.apiKey}`
   }
 
   try {
