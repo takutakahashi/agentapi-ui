@@ -1,5 +1,6 @@
 import { Chat, ChatListResponse } from '../types/chat'
 import { loadGlobalSettings } from '../types/settings'
+import { createUnifiedAgentAPIClientFromStorage } from './unified-agentapi-client'
 
 // Get API configuration from browser storage
 function getAPIConfig(): { baseURL: string; apiKey?: string } {
@@ -118,3 +119,6 @@ export const chatApi = {
     })
   },
 }
+
+// Unified AgentAPI client with automatic production/mock fallback
+export const agentAPI = createUnifiedAgentAPIClientFromStorage()
