@@ -1,4 +1,5 @@
 // AgentAPI TypeScript types based on the API documentation
+import { AgentStatus } from './real-agentapi';
 
 export interface Agent {
   id: string;
@@ -204,6 +205,18 @@ export interface SessionMessageListParams {
 
 export interface SendSessionMessageRequest {
   content: string;
-  role?: 'user' | 'system';
-  metadata?: Record<string, unknown>;
+  type: 'user' | 'system';
+}
+
+// Session events types for Server-Sent Events
+export interface SessionEventData {
+  type: 'message' | 'status' | 'error';
+  data: SessionMessage | AgentStatus | { error: string };
+  timestamp: string;
+}
+
+export interface SessionEventsOptions {
+  reconnect?: boolean;
+  reconnectInterval?: number;
+  maxReconnectAttempts?: number;
 }

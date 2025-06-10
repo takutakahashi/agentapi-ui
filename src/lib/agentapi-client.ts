@@ -20,8 +20,11 @@ import {
   SessionMessage,
   SessionMessageListResponse,
   SessionMessageListParams,
-  SendSessionMessageRequest
+  SendSessionMessageRequest,
+  SessionEventData,
+  SessionEventsOptions
 } from '../types/agentapi';
+import { AgentStatus } from '../types/real-agentapi';
 import { loadGlobalSettings, loadRepositorySettings } from '../types/settings';
 
 export class AgentAPIError extends Error {
@@ -62,6 +65,7 @@ export class AgentAPIClient {
     
     const defaultHeaders: HeadersInit = {
       'Content-Type': 'application/json',
+      'Accept': 'application/json, application/problem+json',
     };
 
     if (this.apiKey) {
@@ -348,6 +352,84 @@ export class AgentAPIClient {
       body: JSON.stringify(data),
     });
     return result.data;
+  }
+
+  async getSessionStatus(sessionId: string): Promise<AgentStatus> {
+    const result = await this.makeRequest<AgentStatus>(`/${sessionId}/status`);
+    return result.data;
+  }
+
+  // Session Events Methods (Server-Sent Events)
+  subscribeToSessionEvents(
+    sessionId: string,
+    onMessage: (message: SessionMessage) => void,
+    onStatus?: (status: AgentStatus) => void,
+    onError?: (error: Error) => void,
+    options?: SessionEventsOptions
+  ): EventSource {
+    const eventSourceUrl = `${this.baseURL}/${sessionId}/events`;
+    
+    if (this.debug) {
+      console.log(`[AgentAPI] Creating EventSource for session ${sessionId}:`, eventSourceUrl);
+    }
+
+    const eventSource = new EventSource(eventSourceUrl);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const eventData: SessionEventData = JSON.parse(event.data);
+        
+        if (this.debug) {
+          console.log(`[AgentAPI] Session event received:`, eventData);
+        }
+
+        switch (eventData.type) {
+          case 'message':
+            onMessage(eventData.data as SessionMessage);
+            break;
+          case 'status':
+            if (onStatus) {
+              onStatus(eventData.data as AgentStatus);
+            }
+            break;
+          case 'error':
+            if (onError) {
+              const errorData = eventData.data as { error: string };
+              onError(new Error(errorData.error));
+            }
+            break;
+          default:
+            if (this.debug) {
+              console.warn(`[AgentAPI] Unknown event type: ${eventData.type}`);
+            }
+        }
+      } catch (err) {
+        console.error('[AgentAPI] Failed to parse session event:', err);
+        if (onError) {
+          onError(err instanceof Error ? err : new Error('Failed to parse event data'));
+        }
+      }
+    };
+
+    eventSource.onerror = (event) => {
+      console.error('[AgentAPI] Session EventSource error:', event);
+      if (onError) {
+        onError(new Error('Session EventSource connection error'));
+      }
+
+      // Handle reconnection if enabled
+      if (options?.reconnect !== false) {
+        const reconnectInterval = options?.reconnectInterval || 5000;
+        
+        // Note: Reconnection logic would need to be implemented in the calling code
+        // as EventSource doesn't provide access to reconnection attempt counts
+        if (this.debug) {
+          console.log(`[AgentAPI] Session EventSource will attempt to reconnect in ${reconnectInterval}ms`);
+        }
+      }
+    };
+
+    return eventSource;
   }
 
   // Utility Methods
