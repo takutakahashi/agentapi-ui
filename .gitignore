@@ -37,3 +37,8 @@ next-env.d.ts
 
 # bun
 .bun
+
+# PWA generated files
+/public/sw.js
+/public/fallback-*.js
+/public/workbox-*.js
