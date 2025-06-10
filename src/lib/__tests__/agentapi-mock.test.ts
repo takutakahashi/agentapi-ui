@@ -165,11 +165,11 @@ describe('MockAgentAPIClient', () => {
         interval: '1h',
       };
 
-      const result = await mockClient.getMetricsHistory(params);
+      const result = await mockClient.getMetricsHistory();
       
-      expect(result.history).toHaveLength(10);
-      expect(result.history[0].system).toBeDefined();
-      expect(result.history[0].timestamp).toBeDefined();
+      expect(result).toHaveLength(10);
+      expect(result[0].system).toBeDefined();
+      expect(result[0].timestamp).toBeDefined();
     });
   });
 
@@ -226,8 +226,8 @@ describe('MockAgentAPIClient', () => {
         ws.addEventListener('open', () => {
           mockClient.subscribeToAgents(ws, 'agent-1');
           
-          ws.addEventListener('message', (event: MessageEvent) => {
-            const data = JSON.parse(event.data);
+          ws.addEventListener('message', (event: Event) => {
+            const data = JSON.parse((event as MessageEvent).data);
             if (data.type === 'subscription_confirmed') {
               expect(data.channel).toBe('agents');
               resolve();
@@ -244,8 +244,8 @@ describe('MockAgentAPIClient', () => {
         ws.addEventListener('open', () => {
           mockClient.subscribeToMetrics(ws, 1000);
           
-          ws.addEventListener('message', (event: MessageEvent) => {
-            const data = JSON.parse(event.data);
+          ws.addEventListener('message', (event: Event) => {
+            const data = JSON.parse((event as MessageEvent).data);
             if (data.type === 'subscription_confirmed') {
               expect(data.channel).toBe('metrics');
               resolve();
@@ -363,7 +363,7 @@ describe('MockAgentAPIClient', () => {
       await expect(mockClient.deleteAgent('agent-1')).rejects.toThrow(AgentAPIError);
       await expect(mockClient.getMetrics()).rejects.toThrow(AgentAPIError);
       await expect(mockClient.getAgentMetrics('agent-1')).rejects.toThrow(AgentAPIError);
-      await expect(mockClient.getMetricsHistory({ from: '2024-01-01', to: '2024-01-02' }))
+      await expect(mockClient.getMetricsHistory())
         .rejects.toThrow(AgentAPIError);
       await expect(mockClient.getConfig()).rejects.toThrow(AgentAPIError);
       await expect(mockClient.updateConfig({})).rejects.toThrow(AgentAPIError);

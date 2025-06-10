@@ -7,13 +7,13 @@ import { MockAgentAPIClient } from '../__mocks__/agentapi-client';
 vi.mock('../real-agentapi-client');
 vi.mock('../__mocks__/agentapi-client');
 
-const mockRealAgentAPIClient = vi.mocked(RealAgentAPIClient);
-const mockMockAgentAPIClient = vi.mocked(MockAgentAPIClient);
+const mockRealAgentAPIClient = RealAgentAPIClient as any;
+const mockMockAgentAPIClient = MockAgentAPIClient as any;
 
 describe('UnifiedAgentAPIClient', () => {
   let client: UnifiedAgentAPIClient;
-  let realClientMock: Record<string, vi.Mock>;
-  let mockClientMock: Record<string, vi.Mock>;
+  let realClientMock: any;
+  let mockClientMock: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
