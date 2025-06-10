@@ -12,7 +12,15 @@ import {
   APIErrorResponse,
   RateLimitInfo,
   WebSocketMessage,
-  WebSocketOptions
+  WebSocketOptions,
+  Session,
+  SessionListParams,
+  SessionListResponse,
+  CreateSessionRequest,
+  SessionMessage,
+  SessionMessageListResponse,
+  SessionMessageListParams,
+  SendSessionMessageRequest
 } from '../types/agentapi';
 import { loadGlobalSettings, loadRepositorySettings } from '../types/settings';
 
@@ -289,6 +297,59 @@ export class AgentAPIClient {
     ws.send(JSON.stringify(message));
   }
 
+  // Session Management Methods (for agentapi-proxy)
+  async getSessions(params?: SessionListParams): Promise<SessionListResponse> {
+    const searchParams = new URLSearchParams();
+    
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.user_id) searchParams.set('user_id', params.user_id);
+
+    const endpoint = `/search${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const result = await this.makeRequest<SessionListResponse>(endpoint);
+    return result.data;
+  }
+
+  async createSession(data: CreateSessionRequest): Promise<Session> {
+    const result = await this.makeRequest<Session>('/start', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return result.data;
+  }
+
+  async getSessionAgentAPI(sessionId: string): Promise<AgentAPIClient> {
+    // Create a new client that routes through the session
+    const sessionConfig: AgentAPIClientConfig = {
+      ...this,
+      baseURL: `${this.baseURL}/${sessionId}/api/v1`
+    };
+    return new AgentAPIClient(sessionConfig);
+  }
+
+  // Session Message Methods
+  async getSessionMessages(sessionId: string, params?: SessionMessageListParams): Promise<SessionMessageListResponse> {
+    const searchParams = new URLSearchParams();
+    
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.from) searchParams.set('from', params.from);
+    if (params?.to) searchParams.set('to', params.to);
+
+    const endpoint = `/${sessionId}/messages${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const result = await this.makeRequest<SessionMessageListResponse>(endpoint);
+    return result.data;
+  }
+
+  async sendSessionMessage(sessionId: string, data: SendSessionMessageRequest): Promise<SessionMessage> {
+    const result = await this.makeRequest<SessionMessage>(`/${sessionId}/message`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return result.data;
+  }
+
   // Utility Methods
   async healthCheck(): Promise<boolean> {
     try {
@@ -314,7 +375,7 @@ export function getAgentAPIConfigFromStorage(repoFullname?: string): AgentAPICli
   if (typeof window === 'undefined') {
     // Server-side rendering or Node.js environment - use environment variables
     return {
-      baseURL: process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8080/api/v1',
+      baseURL: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8081',
       apiKey: process.env.AGENTAPI_API_KEY,
       timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
       debug: process.env.NODE_ENV === 'development',
@@ -332,17 +393,26 @@ export function getAgentAPIConfigFromStorage(repoFullname?: string): AgentAPICli
       settings = loadGlobalSettings();
     }
     
+    // Use proxy if enabled, otherwise use direct AgentAPI endpoint
+    const baseURL = settings.agentApiProxy.enabled 
+      ? settings.agentApiProxy.endpoint 
+      : settings.agentApi.endpoint;
+    
+    const timeout = settings.agentApiProxy.enabled 
+      ? settings.agentApiProxy.timeout 
+      : settings.agentApi.timeout;
+    
     return {
-      baseURL: settings.agentApi.endpoint || process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8080/api/v1',
+      baseURL: baseURL || process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8081',
       apiKey: settings.agentApi.apiKey || process.env.AGENTAPI_API_KEY,
-      timeout: settings.agentApi.timeout || parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
+      timeout: timeout || parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
       debug: process.env.NODE_ENV === 'development',
     };
   } catch (error) {
     console.warn('Failed to load settings from storage, using environment variables:', error);
     // Fallback to environment variables if storage access fails
     return {
-      baseURL: process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8080/api/v1',
+      baseURL: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8081',
       apiKey: process.env.AGENTAPI_API_KEY,
       timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
       debug: process.env.NODE_ENV === 'development',

@@ -1,23 +1,23 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Chat, ChatListResponse } from '../../types/chat'
-import { chatApi, ApiError } from '../../lib/api'
-import ConversationCard from './ConversationCard'
+import { Session, SessionListParams } from '../../types/agentapi'
+import { createAgentAPIClientFromStorage, AgentAPIError } from '../../lib/agentapi-client'
+import SessionCard from './SessionCard'
 import LoadingSpinner from './LoadingSpinner'
 import NewConversationModal from './NewConversationModal'
 
 interface FilterState {
-  status: Chat['status'] | 'all'
+  status: Session['status'] | 'all'
   page: number
   limit: number
 }
 
 export default function ConversationList() {
-  const [chats, setChats] = useState<Chat[]>([])
+  const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [totalChats, setTotalChats] = useState(0)
+  const [totalSessions, setTotalSessions] = useState(0)
   const [filters, setFilters] = useState<FilterState>({
     status: 'all',
     page: 1,
@@ -25,132 +25,121 @@ export default function ConversationList() {
   })
   const [showNewConversationModal, setShowNewConversationModal] = useState(false)
 
-  const statusOptions: Array<{ value: Chat['status'] | 'all'; label: string; count?: number }> = [
+  const statusOptions: Array<{ value: Session['status'] | 'all'; label: string; count?: number }> = [
     { value: 'all', label: 'All' },
-    { value: 'running', label: 'Running' },
-    { value: 'completed', label: 'Completed' },
-    { value: 'failed', label: 'Failed' },
-    { value: 'pending', label: 'Pending' },
-    { value: 'cancelled', label: 'Cancelled' },
+    { value: 'active', label: 'Active' },
+    { value: 'inactive', label: 'Inactive' },
+    { value: 'error', label: 'Error' },
   ]
 
-  const fetchChats = useCallback(async () => {
+  const fetchSessions = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
 
-      const params = {
+      const client = createAgentAPIClientFromStorage()
+      const params: SessionListParams = {
         page: filters.page,
         limit: filters.limit,
         ...(filters.status !== 'all' && { status: filters.status }),
       }
 
-      const response: ChatListResponse = await chatApi.getChats(params)
-      setChats(response.chats)
-      setTotalChats(response.total)
+      const response = await client.getSessions(params)
+      setSessions(response.sessions)
+      setTotalSessions(response.total)
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(`Failed to load conversations: ${err.message}`)
+      if (err instanceof AgentAPIError) {
+        setError(`Failed to load sessions: ${err.message}`)
       } else {
-        setError('An unexpected error occurred while loading conversations')
+        setError('An unexpected error occurred while loading sessions')
       }
       
       // Set mock data for demo purposes when API is not available
-      setChats(getMockChats())
-      setTotalChats(getMockChats().length)
+      setSessions(getMockSessions())
+      setTotalSessions(getMockSessions().length)
     } finally {
       setLoading(false)
     }
   }, [filters])
 
   useEffect(() => {
-    fetchChats()
-  }, [fetchChats])
+    fetchSessions()
+  }, [fetchSessions])
 
-  const getMockChats = (): Chat[] => [
+  const getMockSessions = (): Session[] => [
     {
-      id: 'chat-001',
-      title: 'Code Review Discussion',
-      summary: 'Discussing best practices for React component architecture and performance optimization strategies.',
-      status: 'completed',
+      session_id: 'session-001',
+      user_id: 'user-alice',
+      status: 'active',
       created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
       updated_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-      message_count: 15,
-      duration: 1200,
+      environment: {
+        GITHUB_TOKEN: '***',
+        WORKSPACE_NAME: 'code-review-project'
+      },
       metadata: {
-        repository: 'orgs/example-repo',
-        repository_owner: 'orgs',
-        repository_name: 'example-repo',
-        branch: 'main',
-        commit_hash: 'abc123'
+        description: 'Code review session for React architecture'
       }
     },
     {
-      id: 'chat-002',
-      title: 'API Integration Help',
-      summary: 'Working through REST API integration issues and authentication flow problems.',
-      status: 'running',
+      session_id: 'session-002',
+      user_id: 'user-bob',
+      status: 'active',
       created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
       updated_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-      message_count: 8,
-      duration: 2400,
+      environment: {
+        GITHUB_TOKEN: '***',
+        WORKSPACE_NAME: 'api-integration-help'
+      },
       metadata: {
-        repository: 'users/demo-project',
-        repository_owner: 'users',
-        repository_name: 'demo-project',
-        branch: 'feature/api-integration'
+        description: 'REST API integration assistance'
       }
     },
     {
-      id: 'chat-003',
-      title: 'Database Schema Design',
-      summary: 'Designing optimal database schema for a multi-tenant application with complex relationships.',
-      status: 'failed',
+      session_id: 'session-003',
+      user_id: 'user-charlie',
+      status: 'error',
       created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
       updated_at: new Date(Date.now() - 22 * 60 * 60 * 1000).toISOString(),
-      message_count: 23,
-      duration: 3600,
+      environment: {
+        GITHUB_TOKEN: '***',
+        WORKSPACE_NAME: 'database-design'
+      },
       metadata: {
-        repository: 'orgs/example-repo',
-        repository_owner: 'orgs',
-        repository_name: 'example-repo',
-        branch: 'develop'
+        description: 'Database schema design session'
       }
     },
     {
-      id: 'chat-004',
-      title: 'Frontend Testing Strategy',
-      summary: 'Exploring different testing approaches for React applications including unit, integration, and e2e tests.',
-      status: 'pending',
+      session_id: 'session-004',
+      user_id: 'user-diana',
+      status: 'inactive',
       created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
       updated_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      message_count: 5,
-      duration: 600,
+      environment: {
+        GITHUB_TOKEN: '***',
+        WORKSPACE_NAME: 'testing-strategy'
+      },
       metadata: {
-        repository: 'users/test-app',
-        repository_owner: 'users',
-        repository_name: 'test-app'
+        description: 'Frontend testing strategy discussion'
       }
     },
     {
-      id: 'chat-005',
-      title: 'Performance Optimization',
-      summary: 'Investigating performance bottlenecks in a large React application and implementing solutions.',
-      status: 'cancelled',
+      session_id: 'session-005',
+      user_id: 'user-eve',
+      status: 'inactive',
       created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
       updated_at: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
-      message_count: 12,
-      duration: 900,
+      environment: {
+        GITHUB_TOKEN: '***',
+        WORKSPACE_NAME: 'performance-optimization'
+      },
       metadata: {
-        repository: 'orgs/analytics-platform',
-        repository_owner: 'orgs',
-        repository_name: 'analytics-platform',
-        branch: 'feature/performance'
+        description: 'Performance optimization session'
       }
     }
   ]
 
-  const handleStatusFilter = (status: Chat['status'] | 'all') => {
+  const handleStatusFilter = (status: Session['status'] | 'all') => {
     setFilters(prev => ({ ...prev, status, page: 1 }))
   }
 
@@ -159,17 +148,17 @@ export default function ConversationList() {
   }
 
   const handleNewConversationSuccess = () => {
-    // Refresh the conversation list to show the new conversation
-    fetchChats()
+    // Refresh the session list to show the new session
+    fetchSessions()
   }
 
-  const filteredChats = filters.status === 'all' 
-    ? chats 
-    : chats.filter(chat => chat.status === filters.status)
+  const filteredSessions = filters.status === 'all' 
+    ? (sessions || [])
+    : (sessions || []).filter(session => session.status === filters.status)
 
-  const totalPages = Math.ceil(totalChats / filters.limit)
+  const totalPages = Math.ceil(totalSessions / filters.limit)
 
-  if (loading && chats.length === 0) {
+  if (loading && (!sessions || sessions.length === 0)) {
     return <LoadingSpinner />
   }
 
@@ -214,10 +203,10 @@ export default function ConversationList() {
 
         <div className="mt-3 flex items-center justify-between">
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            {totalChats} conversation{totalChats !== 1 ? 's' : ''} total
+            {totalSessions} session{totalSessions !== 1 ? 's' : ''} total
           </span>
           <button
-            onClick={fetchChats}
+            onClick={fetchSessions}
             disabled={loading}
             className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 disabled:opacity-50"
           >
@@ -235,29 +224,29 @@ export default function ConversationList() {
         </div>
       )}
 
-      {/* Conversation List */}
+      {/* Session List */}
       <div className="space-y-4">
-        {filteredChats.length === 0 ? (
+        {filteredSessions.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-gray-400 dark:text-gray-500 mb-2">
               <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
-              No conversations found
+              No sessions found
             </h3>
             <p className="text-gray-500 dark:text-gray-400">
               {filters.status === 'all' 
-                ? 'Start a new conversation to see it here.'
-                : `No conversations with status "${filters.status}".`
+                ? 'Start a new session to see it here.'
+                : `No sessions with status "${filters.status}".`
               }
             </p>
           </div>
         ) : (
           <>
-            {filteredChats.map((chat) => (
-              <ConversationCard key={chat.id} chat={chat} />
+            {filteredSessions.map((session) => (
+              <SessionCard key={session.session_id} session={session} />
             ))}
 
             {/* Pagination */}

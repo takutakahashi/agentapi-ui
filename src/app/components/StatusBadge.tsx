@@ -1,13 +1,16 @@
 import { Chat } from '../../types/chat'
+import { Session } from '../../types/agentapi'
 
 interface StatusBadgeProps {
-  status: Chat['status']
+  status: Chat['status'] | Session['status']
+  variant?: 'green' | 'yellow' | 'red' | 'gray'
   className?: string
 }
 
 export default function StatusBadge({ status, className = '' }: StatusBadgeProps) {
-  const getStatusConfig = (status: Chat['status']) => {
+  const getStatusConfig = (status: Chat['status'] | Session['status']) => {
     switch (status) {
+      // Chat statuses
       case 'running':
         return {
           bg: 'bg-yellow-100 dark:bg-yellow-900',
@@ -47,6 +50,31 @@ export default function StatusBadge({ status, className = '' }: StatusBadgeProps
           border: 'border-gray-200 dark:border-gray-600',
           icon: '⏹️',
           label: 'Cancelled'
+        }
+      // Session statuses
+      case 'active':
+        return {
+          bg: 'bg-green-100 dark:bg-green-900',
+          text: 'text-green-800 dark:text-green-200',
+          border: 'border-green-200 dark:border-green-700',
+          icon: '🟢',
+          label: 'Active'
+        }
+      case 'inactive':
+        return {
+          bg: 'bg-gray-100 dark:bg-gray-800',
+          text: 'text-gray-800 dark:text-gray-200',
+          border: 'border-gray-200 dark:border-gray-600',
+          icon: '⚪',
+          label: 'Inactive'
+        }
+      case 'error':
+        return {
+          bg: 'bg-red-100 dark:bg-red-900',
+          text: 'text-red-800 dark:text-red-200',
+          border: 'border-red-200 dark:border-red-700',
+          icon: '🔴',
+          label: 'Error'
         }
       default:
         return {

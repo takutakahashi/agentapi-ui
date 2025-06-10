@@ -1,10 +1,16 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { realAgentAPI, RealAgentAPIError } from '../../lib/real-agentapi-client';
+import { createAgentAPIClientFromStorage, AgentAPIError } from '../../lib/agentapi-client';
 import { Message, AgentStatus } from '../../types/real-agentapi';
+import { SessionMessage } from '../../types/agentapi';
 
 export default function AgentAPIChat() {
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get('session');
+  
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -18,25 +24,57 @@ export default function AgentAPIChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Load initial messages and status
+  // Initialize session-based or direct AgentAPI connection
   useEffect(() => {
     const initializeChat = async () => {
       try {
         setError(null);
         
+        if (sessionId) {
+          // Session-based connection: load messages from agentapi-proxy
+          try {
+            const proxyClient = createAgentAPIClientFromStorage();
+            const sessionMessagesResponse = await proxyClient.getSessionMessages(sessionId, { limit: 100 });
+            
+            // Convert SessionMessage to Message format for display
+            const convertedMessages: Message[] = sessionMessagesResponse.messages.map((msg: SessionMessage, index: number) => ({
+              id: parseInt(msg.id) || index, // Convert string ID to number
+              role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'), // Convert roles to Message format
+              content: msg.content,
+              timestamp: msg.timestamp
+            }));
+            
+            setMessages(convertedMessages);
+            setIsConnected(true);
+            setError(null);
+            return;
+          } catch (err) {
+            console.error('Failed to load session messages:', err);
+            if (err instanceof AgentAPIError) {
+              setError(`Failed to load session messages: ${err.message} (Session: ${sessionId})`);
+            } else {
+              setError(`Failed to connect to session ${sessionId}`);
+            }
+            return;
+          }
+        }
+        
+        // Direct AgentAPI connection
+        const apiClient = realAgentAPI;
+        
         // Check if API is available
-        const isHealthy = await realAgentAPI.healthCheck();
+        const isHealthy = await apiClient.healthCheck();
         if (!isHealthy) {
           setError('AgentAPI is not available. Please check the connection.');
           return;
         }
 
         // Get initial status
-        const status = await realAgentAPI.getStatus();
+        const status = await apiClient.getStatus();
         setAgentStatus(status);
 
         // Get message history
-        const messagesResponse = await realAgentAPI.getMessages();
+        const messagesResponse = await apiClient.getMessages();
         setMessages(messagesResponse.messages);
 
         setIsConnected(true);
@@ -51,7 +89,7 @@ export default function AgentAPIChat() {
     };
 
     initializeChat();
-  }, []);
+  }, [sessionId]);
 
   // Setup real-time event listening
   useEffect(() => {
@@ -93,7 +131,7 @@ export default function AgentAPIChat() {
   const sendMessage = async () => {
     if (!inputValue.trim() || isLoading || !isConnected) return;
     
-    if (agentStatus?.status === 'running') {
+    if (!sessionId && agentStatus?.status === 'running') {
       setError('Agent is currently running. Please wait for it to become stable.');
       return;
     }
@@ -102,17 +140,39 @@ export default function AgentAPIChat() {
     setError(null);
 
     try {
-      const message = await realAgentAPI.sendMessage({
-        content: inputValue.trim(),
-        type: 'user'
-      });
+      if (sessionId) {
+        // Send message via session
+        const proxyClient = createAgentAPIClientFromStorage();
+        const sessionMessage = await proxyClient.sendSessionMessage(sessionId, {
+          content: inputValue.trim(),
+          role: 'user'
+        });
 
-      // Add the message immediately (it will be updated via EventSource if needed)
-      setMessages(prev => [...prev, message]);
+        // Convert to Message format and add to display
+        const convertedMessage: Message = {
+          id: parseInt(sessionMessage.id) || Date.now(), // Convert string ID to number
+          role: sessionMessage.role === 'assistant' ? 'agent' : (sessionMessage.role === 'system' ? 'agent' : sessionMessage.role as 'user' | 'agent'),
+          content: sessionMessage.content,
+          timestamp: sessionMessage.timestamp
+        };
+
+        setMessages(prev => [...prev, convertedMessage]);
+      } else {
+        // Send message via direct AgentAPI
+        const message = await realAgentAPI.sendMessage({
+          content: inputValue.trim(),
+          type: 'user'
+        });
+
+        setMessages(prev => [...prev, message]);
+      }
+      
       setInputValue('');
     } catch (err) {
       console.error('Failed to send message:', err);
-      if (err instanceof RealAgentAPIError) {
+      if (sessionId && err instanceof AgentAPIError) {
+        setError(`Failed to send message: ${err.message} (Session: ${sessionId})`);
+      } else if (err instanceof RealAgentAPIError) {
         setError(`Failed to send message: ${err.message}`);
       } else {
         setError('Failed to send message');
@@ -146,7 +206,16 @@ export default function AgentAPIChat() {
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 md:p-4 flex-shrink-0">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">AgentAPI Chat</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              AgentAPI Chat
+              {sessionId && (
+                <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+                  Session: {sessionId.substring(0, 8)}...
+                </span>
+              )}
+            </h2>
+          </div>
           <div className="flex items-center space-x-2 md:space-x-4">
             {agentStatus && (
               <div className="flex items-center space-x-1 md:space-x-2">
