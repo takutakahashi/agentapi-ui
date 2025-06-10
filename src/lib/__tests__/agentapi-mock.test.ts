@@ -159,12 +159,6 @@ describe('MockAgentAPIClient', () => {
     });
 
     it('should get metrics history', async () => {
-      const params = {
-        from: '2024-01-01T00:00:00Z',
-        to: '2024-01-02T00:00:00Z',
-        interval: '1h',
-      };
-
       const result = await mockClient.getMetricsHistory();
       
       expect(result).toHaveLength(10);
