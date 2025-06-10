@@ -1,42 +1,102 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { realAgentAPI, RealAgentAPIError } from '../../lib/real-agentapi-client';
+import { createAgentAPIClientFromStorage, AgentAPIError } from '../../lib/agentapi-client';
 import { Message, AgentStatus } from '../../types/real-agentapi';
+import { SessionMessage } from '../../types/agentapi';
 
 export default function AgentAPIChat() {
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get('session');
+  
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const [hasNewMessages, setHasNewMessages] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const prevMessagesLengthRef = useRef(0);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Load initial messages and status
+  const checkIfAtBottom = () => {
+    if (!messagesContainerRef.current) return false;
+    const container = messagesContainerRef.current;
+    const threshold = 100; // 100px以内なら「下部にいる」と判断
+    return container.scrollHeight - container.scrollTop - container.clientHeight <= threshold;
+  };
+
+  const handleScroll = () => {
+    const isAtBottom = checkIfAtBottom();
+    setShouldAutoScroll(isAtBottom);
+    
+    // 下部にスクロールしたら新着メッセージ通知をクリア
+    if (isAtBottom) {
+      setHasNewMessages(false);
+    }
+  };
+
+  // Initialize session-based or direct AgentAPI connection
   useEffect(() => {
     const initializeChat = async () => {
       try {
         setError(null);
         
+        if (sessionId) {
+          // Session-based connection: load messages from agentapi-proxy
+          try {
+            const proxyClient = createAgentAPIClientFromStorage();
+            const sessionMessagesResponse = await proxyClient.getSessionMessages(sessionId, { limit: 100 });
+            
+            // Convert SessionMessage to Message format for display
+            const convertedMessages: Message[] = sessionMessagesResponse.messages.map((msg: SessionMessage, index: number) => ({
+              id: parseInt(msg.id) || index, // Convert string ID to number
+              role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'), // Convert roles to Message format
+              content: msg.content,
+              timestamp: msg.timestamp
+            }));
+            
+            setMessages(convertedMessages);
+            setIsConnected(true);
+            setError(null);
+            return;
+          } catch (err) {
+            console.error('Failed to load session messages:', err);
+            if (err instanceof AgentAPIError) {
+              setError(`Failed to load session messages: ${err.message} (Session: ${sessionId})`);
+            } else {
+              setError(`Failed to connect to session ${sessionId}`);
+            }
+            return;
+          }
+        }
+        
+        // Direct AgentAPI connection
+        const apiClient = realAgentAPI;
+        
         // Check if API is available
-        const isHealthy = await realAgentAPI.healthCheck();
+        const isHealthy = await apiClient.healthCheck();
         if (!isHealthy) {
           setError('AgentAPI is not available. Please check the connection.');
           return;
         }
 
         // Get initial status
-        const status = await realAgentAPI.getStatus();
+        const status = await apiClient.getStatus();
         setAgentStatus(status);
 
         // Get message history
-        const messagesResponse = await realAgentAPI.getMessages();
+        const messagesResponse = await apiClient.getMessages();
         setMessages(messagesResponse.messages);
 
         setIsConnected(true);
@@ -51,11 +111,55 @@ export default function AgentAPIChat() {
     };
 
     initializeChat();
-  }, []);
+  }, [sessionId]);
 
   // Setup real-time event listening
   useEffect(() => {
     if (!isConnected) return;
+
+    if (sessionId) {
+      // Session-based polling for messages (1 second interval)
+      const proxyClient = createAgentAPIClientFromStorage();
+      
+      const pollMessages = async () => {
+        try {
+          // Poll both messages and status
+          const [sessionMessagesResponse, sessionStatus] = await Promise.all([
+            proxyClient.getSessionMessages(sessionId, { limit: 100 }),
+            proxyClient.getSessionStatus(sessionId)
+          ]);
+          
+          // Convert SessionMessage to Message format for display
+          const convertedMessages: Message[] = sessionMessagesResponse.messages.map((msg: SessionMessage, index: number) => ({
+            id: parseInt(msg.id) || index, // Convert string ID to number
+            role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'), // Convert roles to Message format
+            content: msg.content,
+            timestamp: msg.timestamp
+          }));
+          
+          setMessages(convertedMessages);
+          setAgentStatus(sessionStatus);
+        } catch (err) {
+          console.error('Failed to poll session data:', err);
+          if (err instanceof AgentAPIError) {
+            setError(`Failed to update messages: ${err.message}`);
+          }
+        }
+      };
+
+      // Initial poll
+      pollMessages();
+
+      // Set up polling every 1 second
+      const pollInterval = setInterval(pollMessages, 1000);
+      pollingIntervalRef.current = pollInterval;
+
+      return () => {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+        }
+      };
+    }
 
     const eventSource = realAgentAPI.subscribeToEvents(
       (message: Message) => {
@@ -79,16 +183,33 @@ export default function AgentAPIChat() {
     eventSourceRef.current = eventSource;
 
     return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
       }
     };
-  }, [isConnected]);
+  }, [isConnected, sessionId]);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Handle new messages and auto-scroll
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    const currentLength = messages.length;
+    const previousLength = prevMessagesLengthRef.current;
+    
+    // 新しいメッセージが追加された場合
+    if (currentLength > previousLength) {
+      if (shouldAutoScroll) {
+        // ユーザーが下部にいる場合のみ自動スクロール
+        scrollToBottom();
+      } else {
+        // ユーザーが上部を見ている場合は新着通知を表示
+        setHasNewMessages(true);
+      }
+    }
+    
+    prevMessagesLengthRef.current = currentLength;
+  }, [messages, shouldAutoScroll]);
 
   const sendMessage = async () => {
     if (!inputValue.trim() || isLoading || !isConnected) return;
@@ -102,17 +223,42 @@ export default function AgentAPIChat() {
     setError(null);
 
     try {
-      const message = await realAgentAPI.sendMessage({
-        content: inputValue.trim(),
-        type: 'user'
-      });
+      if (sessionId) {
+        // Send message via session
+        const proxyClient = createAgentAPIClientFromStorage();
+        const sessionMessage = await proxyClient.sendSessionMessage(sessionId, {
+          content: inputValue.trim(),
+          type: 'user'
+        });
 
-      // Add the message immediately (it will be updated via EventSource if needed)
-      setMessages(prev => [...prev, message]);
+        // Convert to Message format and add to display
+        const convertedMessage: Message = {
+          id: parseInt(sessionMessage.id) || Date.now(), // Convert string ID to number
+          role: sessionMessage.role === 'assistant' ? 'agent' : (sessionMessage.role === 'system' ? 'agent' : sessionMessage.role as 'user' | 'agent'),
+          content: sessionMessage.content,
+          timestamp: sessionMessage.timestamp
+        };
+
+        setMessages(prev => [...prev, convertedMessage]);
+      } else {
+        // Send message via direct AgentAPI
+        const message = await realAgentAPI.sendMessage({
+          content: inputValue.trim(),
+          type: 'user'
+        });
+
+        setMessages(prev => [...prev, message]);
+      }
+      
       setInputValue('');
+      // メッセージ送信時は必ずスクロール
+      setShouldAutoScroll(true);
+      setTimeout(() => scrollToBottom(), 100);
     } catch (err) {
       console.error('Failed to send message:', err);
-      if (err instanceof RealAgentAPIError) {
+      if (sessionId && err instanceof AgentAPIError) {
+        setError(`Failed to send message: ${err.message} (Session: ${sessionId})`);
+      } else if (err instanceof RealAgentAPIError) {
         setError(`Failed to send message: ${err.message}`);
       } else {
         setError('Failed to send message');
@@ -146,22 +292,43 @@ export default function AgentAPIChat() {
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 md:p-4 flex-shrink-0">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">AgentAPI Chat</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              AgentAPI Chat
+              {sessionId && (
+                <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+                  Session: {sessionId.substring(0, 8)}...
+                </span>
+              )}
+            </h2>
+          </div>
           <div className="flex items-center space-x-2 md:space-x-4">
+            {/* Agent Status */}
             {agentStatus && (
               <div className="flex items-center space-x-1 md:space-x-2">
                 <div className={`w-2 h-2 rounded-full ${agentStatus.status === 'stable' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
                 <span className={`text-xs md:text-sm font-medium ${getStatusColor(agentStatus.status)}`}>
-                  {agentStatus.status}
+                  {agentStatus.status === 'stable' ? 'Stable' : agentStatus.status === 'running' ? 'Running' : agentStatus.status}
                 </span>
               </div>
             )}
+            
+            {/* Connection Status */}
             <div className={`flex items-center space-x-1 md:space-x-2`}>
               <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
               <span className={`text-xs md:text-sm ${isConnected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {isConnected ? 'Connected' : 'Disconnected'}
+                {isConnected ? (sessionId ? 'Session' : 'Direct') : 'Disconnected'}
               </span>
             </div>
+            
+            {/* Session ID (if present) */}
+            {sessionId && (
+              <div className="hidden md:flex items-center space-x-1">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  ID: {sessionId.substring(0, 8)}...
+                </span>
+              </div>
+            )}
           </div>
         </div>
         {error && (
@@ -172,7 +339,11 @@ export default function AgentAPIChat() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-4 bg-gray-50 dark:bg-gray-900 mobile-scroll min-h-0">
+      <div 
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-3 md:p-4 space-y-4 bg-gray-50 dark:bg-gray-900 mobile-scroll min-h-0 relative"
+      >
         {messages.length === 0 && isConnected && (
           <div className="text-center text-gray-500 dark:text-gray-400 py-8">
             No messages yet. Start a conversation with the agent!
@@ -203,6 +374,43 @@ export default function AgentAPIChat() {
           </div>
         ))}
         <div ref={messagesEndRef} />
+        
+        {/* 新着メッセージ通知とスクロールボタン */}
+        {hasNewMessages && (
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
+            <button
+              onClick={() => {
+                setShouldAutoScroll(true);
+                setHasNewMessages(false);
+                scrollToBottom();
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full shadow-lg flex items-center space-x-2 transition-colors"
+            >
+              <span className="text-sm">新しいメッセージ</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+            </button>
+          </div>
+        )}
+        
+        {/* スクロールボタン（新着メッセージがない場合でも表示） */}
+        {!shouldAutoScroll && !hasNewMessages && (
+          <div className="absolute bottom-4 right-4">
+            <button
+              onClick={() => {
+                setShouldAutoScroll(true);
+                scrollToBottom();
+              }}
+              className="bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-full shadow-lg transition-colors"
+              title="最新メッセージにスクロール"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Input */}
@@ -214,10 +422,12 @@ export default function AgentAPIChat() {
             onKeyPress={handleKeyPress}
             placeholder={
               !isConnected 
-                ? "Connecting to AgentAPI..." 
+                ? "Connecting..." 
                 : agentStatus?.status === 'running'
                   ? "Agent is running, please wait..."
-                  : "Type your message and press Enter to send..."
+                  : sessionId
+                    ? "Type your message to session and press Enter..."
+                    : "Type your message and press Enter to send..."
             }
             className="flex-1 resize-none border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[2.5rem]"
             rows={2}

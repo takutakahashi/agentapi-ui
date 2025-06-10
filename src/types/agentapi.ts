@@ -1,4 +1,5 @@
 // AgentAPI TypeScript types based on the API documentation
+import { AgentStatus } from './real-agentapi';
 
 export interface Agent {
   id: string;
@@ -145,4 +146,77 @@ export interface RateLimitInfo {
   limit: number;
   remaining: number;
   reset: number;
+}
+
+// Session types for agentapi-proxy
+export interface Session {
+  session_id: string;
+  user_id: string;
+  status: 'active' | 'inactive' | 'error';
+  created_at: string;
+  updated_at: string;
+  environment?: Record<string, string>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SessionListParams {
+  user_id?: string;
+  status?: Session['status'];
+  page?: number;
+  limit?: number;
+}
+
+export interface SessionListResponse {
+  sessions: Session[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface CreateSessionRequest {
+  user_id: string;
+  environment?: Record<string, string>;
+  metadata?: Record<string, unknown>;
+}
+
+// Session message types
+export interface SessionMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: string;
+  session_id: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SessionMessageListResponse {
+  messages: SessionMessage[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface SessionMessageListParams {
+  page?: number;
+  limit?: number;
+  from?: string;
+  to?: string;
+}
+
+export interface SendSessionMessageRequest {
+  content: string;
+  type: 'user' | 'system';
+}
+
+// Session events types for Server-Sent Events
+export interface SessionEventData {
+  type: 'message' | 'status' | 'error';
+  data: SessionMessage | AgentStatus | { error: string };
+  timestamp: string;
+}
+
+export interface SessionEventsOptions {
+  reconnect?: boolean;
+  reconnectInterval?: number;
+  maxReconnectAttempts?: number;
 }

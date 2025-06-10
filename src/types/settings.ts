@@ -5,6 +5,12 @@ export interface AgentApiSettings {
   customHeaders: Record<string, string>
 }
 
+export interface AgentApiProxySettings {
+  endpoint: string
+  enabled: boolean
+  timeout: number
+}
+
 export interface EnvironmentVariable {
   key: string
   value: string
@@ -14,6 +20,7 @@ export interface EnvironmentVariable {
 export interface RepositorySettings {
   repoFullname: string
   agentApi: AgentApiSettings
+  agentApiProxy: AgentApiProxySettings
   environmentVariables: EnvironmentVariable[]
   created_at: string
   updated_at: string
@@ -21,6 +28,7 @@ export interface RepositorySettings {
 
 export interface GlobalSettings {
   agentApi: AgentApiSettings
+  agentApiProxy: AgentApiProxySettings
   environmentVariables: EnvironmentVariable[]
   created_at: string
   updated_at: string
@@ -28,16 +36,22 @@ export interface GlobalSettings {
 
 export interface SettingsFormData {
   agentApi: AgentApiSettings
+  agentApiProxy: AgentApiProxySettings
   environmentVariables: EnvironmentVariable[]
 }
 
 // Default settings
 export const getDefaultSettings = (): SettingsFormData => ({
   agentApi: {
-    endpoint: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080',
+    endpoint: process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8080/api/v1',
     apiKey: '',
     timeout: 30000,
     customHeaders: {}
+  },
+  agentApiProxy: {
+    endpoint: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8081',
+    enabled: true,
+    timeout: 30000
   },
   environmentVariables: []
 })
@@ -124,6 +138,10 @@ const mergeSettings = (globalSettings: SettingsFormData, repoSettings: SettingsF
         ...globalSettings.agentApi.customHeaders,
         ...repoSettings.agentApi.customHeaders
       }
+    },
+    agentApiProxy: {
+      ...globalSettings.agentApiProxy,
+      ...repoSettings.agentApiProxy
     },
     environmentVariables: [
       ...globalSettings.environmentVariables,
