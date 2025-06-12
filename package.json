@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "NODE_OPTIONS='--max-old-space-size=4096' vitest",
+    "test": "NODE_OPTIONS='--max-old-space-size=16384' vitest",
     "test:watch": "vitest --watch",
     "test:ui": "vitest --ui",
     "type-check": "tsc --noEmit"
