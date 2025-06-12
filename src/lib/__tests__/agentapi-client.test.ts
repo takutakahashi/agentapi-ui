@@ -100,11 +100,19 @@ describe('AgentAPIClient', () => {
     });
 
     it('should handle timeout errors', async () => {
-      mockFetch.mockImplementationOnce(() => 
-        new Promise((resolve, reject) => {
-          // Never resolve, let the AbortController timeout kick in
-        })
-      );
+      mockFetch.mockImplementationOnce((url, options) => {
+        return new Promise((resolve, reject) => {
+          // Simulate AbortController timeout by listening to the signal
+          if (options?.signal) {
+            options.signal.addEventListener('abort', () => {
+              const abortError = new Error('AbortError');
+              abortError.name = 'AbortError';
+              reject(abortError);
+            });
+          }
+          // Don't resolve this promise - let the timeout handle it
+        });
+      });
 
       await expect(client.getAgents()).rejects.toThrow('Request timeout');
     }, 7000);
