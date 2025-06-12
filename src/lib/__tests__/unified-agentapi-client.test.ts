@@ -143,7 +143,10 @@ describe('UnifiedAgentAPIClient', () => {
     });
 
     it('should fall back to mock on production API error', async () => {
-      realClientMock.getStatus.mockRejectedValue(new RealAgentAPIError(500, 'server_error', 'Server Error'));
+      const error = new Error('Server Error');
+      (error as any).status = 500;
+      (error as any).type = 'server_error';
+      realClientMock.getStatus.mockRejectedValue(error);
       
       const status = await client.getStatus();
       
@@ -154,7 +157,10 @@ describe('UnifiedAgentAPIClient', () => {
 
     it('should not fall back if fallbackToMock is disabled', async () => {
       const clientNoFallback = new UnifiedAgentAPIClient({ mode: 'auto', fallbackToMock: false });
-      realClientMock.getStatus.mockRejectedValue(new RealAgentAPIError(500, 'server_error', 'Server Error'));
+      const error = new Error('Server Error');
+      (error as any).status = 500;
+      (error as any).type = 'server_error';
+      realClientMock.getStatus.mockRejectedValue(error);
       
       await expect(clientNoFallback.getStatus()).rejects.toThrow('Server Error');
     });
@@ -298,7 +304,9 @@ describe('UnifiedAgentAPIClient', () => {
     });
 
     it('should preserve original errors when fallback is disabled', async () => {
-      const originalError = new RealAgentAPIError(404, 'not_found', 'Not Found');
+      const originalError = new Error('Not Found');
+      (originalError as any).status = 404;
+      (originalError as any).type = 'not_found';
       realClientMock.getStatus.mockRejectedValue(originalError);
       
       await expect(client.getStatus()).rejects.toThrow('Not Found');

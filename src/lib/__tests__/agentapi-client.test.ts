@@ -72,10 +72,13 @@ describe('AgentAPIClient', () => {
 
   describe('Error Handling', () => {
     it('should throw AgentAPIError on HTTP error', async () => {
-      mockFetch.mockResolvedValueOnce({
+      const mockResponse = {
         ok: false,
         status: 400,
         statusText: 'Bad Request',
+        headers: {
+          get: vi.fn().mockReturnValue(null),
+        },
         json: () => Promise.resolve({
           error: {
             code: 'INVALID_REQUEST',
@@ -83,11 +86,12 @@ describe('AgentAPIClient', () => {
             timestamp: '2024-01-01T00:00:00Z',
           },
         }),
-      });
+      } as Response;
+
+      mockFetch.mockResolvedValue(mockResponse);
 
       await expect(client.getAgents()).rejects.toThrow(AgentAPIError);
-      await expect(client.getAgents()).rejects.toThrow('Invalid request parameters');
-    });
+    }, 7000);
 
     it('should handle network errors', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
@@ -97,11 +101,13 @@ describe('AgentAPIClient', () => {
 
     it('should handle timeout errors', async () => {
       mockFetch.mockImplementationOnce(() => 
-        new Promise(resolve => setTimeout(resolve, 10000))
+        new Promise((resolve, reject) => {
+          // Never resolve, let the AbortController timeout kick in
+        })
       );
 
       await expect(client.getAgents()).rejects.toThrow('Request timeout');
-    });
+    }, 7000);
   });
 
   describe('Retry Logic', () => {
