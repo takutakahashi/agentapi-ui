@@ -457,7 +457,7 @@ export function getAgentAPIConfigFromStorage(repoFullname?: string): AgentAPICli
   if (typeof window === 'undefined') {
     // Server-side rendering or Node.js environment - use environment variables
     return {
-      baseURL: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8081',
+      baseURL: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8080',
       apiKey: process.env.AGENTAPI_API_KEY,
       timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
       debug: process.env.NODE_ENV === 'development',
@@ -485,7 +485,7 @@ export function getAgentAPIConfigFromStorage(repoFullname?: string): AgentAPICli
       : settings.agentApi.timeout;
     
     return {
-      baseURL: baseURL || process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8081',
+      baseURL: baseURL || process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8080',
       apiKey: settings.agentApi.apiKey || process.env.AGENTAPI_API_KEY,
       timeout: timeout || parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
       debug: process.env.NODE_ENV === 'development',
@@ -494,7 +494,7 @@ export function getAgentAPIConfigFromStorage(repoFullname?: string): AgentAPICli
     console.warn('Failed to load settings from storage, using environment variables:', error);
     // Fallback to environment variables if storage access fails
     return {
-      baseURL: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8081',
+      baseURL: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8080',
       apiKey: process.env.AGENTAPI_API_KEY,
       timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
       debug: process.env.NODE_ENV === 'development',

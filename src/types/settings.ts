@@ -49,7 +49,7 @@ export const getDefaultSettings = (): SettingsFormData => ({
     customHeaders: {}
   },
   agentApiProxy: {
-    endpoint: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8081',
+    endpoint: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
     enabled: true,
     timeout: 30000
   },
