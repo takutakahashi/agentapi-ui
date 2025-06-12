@@ -290,7 +290,7 @@ export default function AgentAPIChat() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 md:p-4 flex-shrink-0">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 md:p-6 lg:p-8 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -342,7 +342,7 @@ export default function AgentAPIChat() {
       <div 
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-3 md:p-4 space-y-4 bg-gray-50 dark:bg-gray-900 mobile-scroll min-h-0 relative"
+        className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 bg-gray-50 dark:bg-gray-900 mobile-scroll min-h-0 relative"
       >
         {messages.length === 0 && isConnected && (
           <div className="text-center text-gray-500 dark:text-gray-400 py-8">
@@ -356,7 +356,7 @@ export default function AgentAPIChat() {
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[85%] md:max-w-lg px-3 md:px-4 py-2 rounded-lg ${
+              className={`max-w-[95%] md:max-w-4xl px-4 md:px-6 py-3 md:py-4 rounded-lg shadow-sm ${
                 message.role === 'user'
                   ? 'bg-blue-600 text-white'
                   : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600'
@@ -414,7 +414,7 @@ export default function AgentAPIChat() {
       </div>
 
       {/* Input */}
-      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 md:p-4 flex-shrink-0">
+      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4 md:p-6 lg:p-8 flex-shrink-0">
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
           <textarea
             value={inputValue}
