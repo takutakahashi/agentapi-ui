@@ -63,7 +63,7 @@ export default function ChatsPage() {
           )}
           
           {activeTab === 'agentapi' && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 min-h-[600px] h-[calc(100vh-16rem)]">
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg min-h-[600px] h-[calc(100vh-16rem)]">
               <AgentAPIChat />
             </div>
           )}

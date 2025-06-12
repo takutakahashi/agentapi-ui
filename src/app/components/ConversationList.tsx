@@ -225,7 +225,7 @@ export default function ConversationList() {
       )}
 
       {/* Session List */}
-      <div className="space-y-4">
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
         {filteredSessions.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-gray-400 dark:text-gray-500 mb-2">
@@ -244,14 +244,14 @@ export default function ConversationList() {
             </p>
           </div>
         ) : (
-          <>
+          <div>
             {filteredSessions.map((session) => (
               <SessionCard key={session.session_id} session={session} />
             ))}
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 pt-6">
+              <div className="flex items-center justify-center gap-2 px-4 py-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   onClick={() => handlePageChange(filters.page - 1)}
                   disabled={filters.page === 1}
@@ -273,7 +273,7 @@ export default function ConversationList() {
                 </button>
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
 
