@@ -1,19 +1,36 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, Mock } from 'vitest';
 import { UnifiedAgentAPIClient } from '../unified-agentapi-client';
-import { RealAgentAPIClient, RealAgentAPIError } from '../real-agentapi-client';
+import { RealAgentAPIClient } from '../real-agentapi-client';
 import { MockAgentAPIClient } from '../__mocks__/agentapi-client';
 
 // Mock the dependencies
 vi.mock('../real-agentapi-client');
 vi.mock('../__mocks__/agentapi-client');
 
-const mockRealAgentAPIClient = RealAgentAPIClient as unknown as vi.MockedFunction<typeof RealAgentAPIClient>;
-const mockMockAgentAPIClient = MockAgentAPIClient as unknown as vi.MockedFunction<typeof MockAgentAPIClient>;
+const MockedRealAgentAPIClient = vi.mocked(RealAgentAPIClient);
+const MockedMockAgentAPIClient = vi.mocked(MockAgentAPIClient);
 
 describe('UnifiedAgentAPIClient', () => {
   let client: UnifiedAgentAPIClient;
-  let realClientMock: RealAgentAPIClient;
-  let mockClientMock: MockAgentAPIClient;
+  let realClientMock: {
+    getStatus: Mock;
+    getMessages: Mock;
+    sendMessage: Mock;
+    healthCheck: Mock;
+  };
+  let mockClientMock: {
+    getStatus: Mock;
+    getMessages: Mock;
+    sendMessage: Mock;
+    getAgents: Mock;
+    getAgent: Mock;
+    createAgent: Mock;
+    updateAgent: Mock;
+    deleteAgent: Mock;
+    getMetrics: Mock;
+    getConfig: Mock;
+    healthCheck: Mock;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -40,8 +57,8 @@ describe('UnifiedAgentAPIClient', () => {
       healthCheck: vi.fn(),
     };
 
-    mockRealAgentAPIClient.mockImplementation(() => realClientMock);
-    mockMockAgentAPIClient.mockImplementation(() => mockClientMock);
+    MockedRealAgentAPIClient.mockImplementation(() => realClientMock as unknown as InstanceType<typeof RealAgentAPIClient>);
+    MockedMockAgentAPIClient.mockImplementation(() => mockClientMock as unknown as InstanceType<typeof MockAgentAPIClient>);
   });
 
   afterEach(() => {
@@ -126,7 +143,10 @@ describe('UnifiedAgentAPIClient', () => {
     });
 
     it('should fall back to mock on production API error', async () => {
-      realClientMock.getStatus.mockRejectedValue(new RealAgentAPIError(500, 'server_error', 'Server Error'));
+      const error = new Error('Server Error') as Error & { status: number; type: string };
+      error.status = 500;
+      error.type = 'server_error';
+      realClientMock.getStatus.mockRejectedValue(error);
       
       const status = await client.getStatus();
       
@@ -137,7 +157,10 @@ describe('UnifiedAgentAPIClient', () => {
 
     it('should not fall back if fallbackToMock is disabled', async () => {
       const clientNoFallback = new UnifiedAgentAPIClient({ mode: 'auto', fallbackToMock: false });
-      realClientMock.getStatus.mockRejectedValue(new RealAgentAPIError(500, 'server_error', 'Server Error'));
+      const error = new Error('Server Error') as Error & { status: number; type: string };
+      error.status = 500;
+      error.type = 'server_error';
+      realClientMock.getStatus.mockRejectedValue(error);
       
       await expect(clientNoFallback.getStatus()).rejects.toThrow('Server Error');
     });
@@ -281,7 +304,9 @@ describe('UnifiedAgentAPIClient', () => {
     });
 
     it('should preserve original errors when fallback is disabled', async () => {
-      const originalError = new RealAgentAPIError(404, 'not_found', 'Not Found');
+      const originalError = new Error('Not Found') as Error & { status: number; type: string };
+      originalError.status = 404;
+      originalError.type = 'not_found';
       realClientMock.getStatus.mockRejectedValue(originalError);
       
       await expect(client.getStatus()).rejects.toThrow('Not Found');

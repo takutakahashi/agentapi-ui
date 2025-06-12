@@ -66,7 +66,9 @@ export const loadGlobalSettings = (): SettingsFormData => {
   try {
     const savedSettings = localStorage.getItem('agentapi-global-settings')
     if (savedSettings) {
-      return JSON.parse(savedSettings)
+      const parsedSettings = JSON.parse(savedSettings)
+      // Ensure all required properties exist with proper defaults
+      return mergeWithDefaults(parsedSettings, getDefaultSettings())
     }
   } catch (err) {
     console.error('Failed to load global settings:', err)
@@ -102,8 +104,10 @@ export const loadRepositorySettings = (repoFullname: string): SettingsFormData =
     const savedSettings = localStorage.getItem(`agentapi-settings-${repoFullname}`)
     if (savedSettings) {
       const repoSettings = JSON.parse(savedSettings)
+      // Ensure repository settings have proper structure before merging
+      const safeRepoSettings = mergeWithDefaults(repoSettings, getDefaultSettings())
       // Merge global settings with repository-specific overrides
-      return mergeSettings(globalSettings, repoSettings)
+      return mergeSettings(globalSettings, safeRepoSettings)
     }
   } catch (err) {
     console.error('Failed to load repository settings:', err)
@@ -128,25 +132,45 @@ export const saveRepositorySettings = (repoFullname: string, settings: SettingsF
   }
 }
 
+// Safely merge partial settings with defaults to ensure all properties exist
+const mergeWithDefaults = (partialSettings: Partial<SettingsFormData> | null | undefined, defaultSettings: SettingsFormData): SettingsFormData => {
+  return {
+    agentApi: {
+      endpoint: partialSettings?.agentApi?.endpoint ?? defaultSettings.agentApi.endpoint,
+      apiKey: partialSettings?.agentApi?.apiKey ?? defaultSettings.agentApi.apiKey,
+      timeout: partialSettings?.agentApi?.timeout ?? defaultSettings.agentApi.timeout,
+      customHeaders: partialSettings?.agentApi?.customHeaders ?? defaultSettings.agentApi.customHeaders
+    },
+    agentApiProxy: {
+      endpoint: partialSettings?.agentApiProxy?.endpoint ?? defaultSettings.agentApiProxy.endpoint,
+      enabled: partialSettings?.agentApiProxy?.enabled ?? defaultSettings.agentApiProxy.enabled,
+      timeout: partialSettings?.agentApiProxy?.timeout ?? defaultSettings.agentApiProxy.timeout
+    },
+    environmentVariables: Array.isArray(partialSettings?.environmentVariables) 
+      ? partialSettings.environmentVariables 
+      : defaultSettings.environmentVariables
+  }
+}
+
 // Merge settings with hierarchy: global settings as base, repo settings as overrides
 const mergeSettings = (globalSettings: SettingsFormData, repoSettings: SettingsFormData): SettingsFormData => {
   return {
     agentApi: {
       ...globalSettings.agentApi,
-      ...repoSettings.agentApi,
+      ...(repoSettings.agentApi || {}),
       customHeaders: {
-        ...globalSettings.agentApi.customHeaders,
-        ...repoSettings.agentApi.customHeaders
+        ...(globalSettings.agentApi?.customHeaders || {}),
+        ...(repoSettings.agentApi?.customHeaders || {})
       }
     },
     agentApiProxy: {
       ...globalSettings.agentApiProxy,
-      ...repoSettings.agentApiProxy
+      ...(repoSettings.agentApiProxy || {})
     },
     environmentVariables: [
-      ...globalSettings.environmentVariables,
-      ...repoSettings.environmentVariables.filter(repoVar => 
-        !globalSettings.environmentVariables.some(globalVar => globalVar.key === repoVar.key)
+      ...(globalSettings.environmentVariables || []),
+      ...(repoSettings.environmentVariables || []).filter(repoVar => 
+        !(globalSettings.environmentVariables || []).some(globalVar => globalVar.key === repoVar.key)
       )
     ]
   }

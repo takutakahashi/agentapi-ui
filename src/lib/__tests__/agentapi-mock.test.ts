@@ -378,11 +378,22 @@ describe('Mock Factory Functions', () => {
 });
 
 describe('Mock Data Consistency', () => {
+  beforeEach(() => {
+    // Reset mock data to ensure consistent state
+    const client = new MockAgentAPIClient({
+      baseURL: 'http://localhost:8080/api/v1',
+      apiKey: 'test-api-key',
+    });
+    client.resetMockData();
+  });
+
   it('should have consistent mock agents data', () => {
     expect(mockAgents).toHaveLength(3);
     expect(mockAgents[0].id).toBe('agent-1');
     expect(mockAgents[0].status).toBe('active');
+    expect(mockAgents[1].id).toBe('agent-2');
     expect(mockAgents[1].status).toBe('inactive');
+    expect(mockAgents[2].id).toBe('agent-3');
     expect(mockAgents[2].status).toBe('error');
   });
 

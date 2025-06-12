@@ -24,6 +24,8 @@ export default function ConversationList() {
     limit: 20
   })
   const [showNewConversationModal, setShowNewConversationModal] = useState(false)
+  const [quickStartMessage, setQuickStartMessage] = useState('')
+  const [isCreatingQuickSession, setIsCreatingQuickSession] = useState(false)
 
   const statusOptions: Array<{ value: Session['status'] | 'all'; label: string; count?: number }> = [
     { value: 'all', label: 'All' },
@@ -152,6 +154,43 @@ export default function ConversationList() {
     fetchSessions()
   }
 
+  const handleQuickStart = async () => {
+    if (!quickStartMessage.trim()) return
+
+    try {
+      setIsCreatingQuickSession(true)
+      setError(null)
+
+      const client = createAgentAPIClientFromStorage()
+      
+      await client.createSession({
+        user_id: 'current-user', // TODO: Get actual user ID
+        environment: {},
+        metadata: {
+          description: quickStartMessage.trim()
+        }
+      })
+
+      setQuickStartMessage('')
+      fetchSessions() // Refresh the session list
+    } catch (err) {
+      if (err instanceof AgentAPIError) {
+        setError(`Failed to start session: ${err.message}`)
+      } else {
+        setError('An unexpected error occurred while starting session')
+      }
+    } finally {
+      setIsCreatingQuickSession(false)
+    }
+  }
+
+  const handleQuickStartKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleQuickStart()
+    }
+  }
+
   const filteredSessions = filters.status === 'all' 
     ? (sessions || [])
     : (sessions || []).filter(session => session.status === filters.status)
@@ -164,17 +203,57 @@ export default function ConversationList() {
 
   return (
     <div className="space-y-6">
+      {/* Quick Start Input */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+        <div className="flex gap-3">
+          <input
+            type="text"
+            value={quickStartMessage}
+            onChange={(e) => setQuickStartMessage(e.target.value)}
+            onKeyPress={handleQuickStartKeyPress}
+            placeholder="Type your message to start a new session..."
+            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            disabled={isCreatingQuickSession}
+          />
+          <button
+            onClick={handleQuickStart}
+            disabled={!quickStartMessage.trim() || isCreatingQuickSession}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            {isCreatingQuickSession ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Starting...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+                Start
+              </>
+            )}
+          </button>
+        </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+          Press Enter or click Start to begin a new conversation session
+        </p>
+      </div>
+
       {/* Header with New Conversation Button */}
       <div className="flex justify-between items-center">
         <div></div>
         <button
           onClick={() => setShowNewConversationModal(true)}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="inline-flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
         >
           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
           </svg>
-          Start New Conversation
+          Advanced Options
         </button>
       </div>
 
@@ -225,7 +304,7 @@ export default function ConversationList() {
       )}
 
       {/* Session List */}
-      <div className="space-y-4">
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
         {filteredSessions.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-gray-400 dark:text-gray-500 mb-2">
@@ -244,14 +323,14 @@ export default function ConversationList() {
             </p>
           </div>
         ) : (
-          <>
+          <div>
             {filteredSessions.map((session) => (
               <SessionCard key={session.session_id} session={session} />
             ))}
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 pt-6">
+              <div className="flex items-center justify-center gap-2 px-4 py-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   onClick={() => handlePageChange(filters.page - 1)}
                   disabled={filters.page === 1}
@@ -273,7 +352,7 @@ export default function ConversationList() {
                 </button>
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
 
