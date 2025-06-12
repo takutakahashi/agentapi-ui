@@ -7,6 +7,11 @@ import { createAgentAPIClientFromStorage, AgentAPIError } from '../../lib/agenta
 import { Message, AgentStatus } from '../../types/real-agentapi';
 import { SessionMessage } from '../../types/agentapi';
 
+// Type guard function to validate session message response
+function isValidSessionMessageResponse(response: any): response is { messages: SessionMessage[] } {
+  return response && Array.isArray(response.messages);
+}
+
 // Utility function to safely convert string IDs to numbers
 function convertSessionMessageId(stringId: string, fallbackId: number): number {
   // Try to parse as number
@@ -80,8 +85,14 @@ export default function AgentAPIChat() {
             const proxyClient = createAgentAPIClientFromStorage();
             const sessionMessagesResponse = await proxyClient.getSessionMessages(sessionId, { limit: 100 });
             
-            // Convert SessionMessage to Message format for display
-            const convertedMessages: Message[] = sessionMessagesResponse.messages.map((msg: SessionMessage, index: number) => ({
+            // Validate and safely handle session messages response
+            if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
+              console.warn('Invalid session messages response structure:', sessionMessagesResponse);
+            }
+            
+            // Convert SessionMessage to Message format for display with safe array handling
+            const messages = sessionMessagesResponse?.messages || [];
+            const convertedMessages: Message[] = messages.map((msg: SessionMessage, index: number) => ({
               id: convertSessionMessageId(msg.id, Date.now() + index), // Safe ID conversion with unique fallback
               role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'), // Convert roles to Message format
               content: msg.content,
@@ -151,8 +162,14 @@ export default function AgentAPIChat() {
             proxyClient.getSessionStatus(sessionId)
           ]);
           
-          // Convert SessionMessage to Message format for display
-          const convertedMessages: Message[] = sessionMessagesResponse.messages.map((msg: SessionMessage, index: number) => ({
+          // Validate and safely handle session messages response
+          if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
+            console.warn('Invalid session messages response structure during polling:', sessionMessagesResponse);
+          }
+          
+          // Convert SessionMessage to Message format for display with safe array handling
+          const messages = sessionMessagesResponse?.messages || [];
+          const convertedMessages: Message[] = messages.map((msg: SessionMessage, index: number) => ({
             id: convertSessionMessageId(msg.id, Date.now() + index), // Safe ID conversion with unique fallback
             role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'), // Convert roles to Message format
             content: msg.content,
