@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi, Mock } from 'vitest';
 import { UnifiedAgentAPIClient } from '../unified-agentapi-client';
-import { RealAgentAPIClient, RealAgentAPIError } from '../real-agentapi-client';
+import { RealAgentAPIClient } from '../real-agentapi-client';
 import { MockAgentAPIClient } from '../__mocks__/agentapi-client';
 
 // Mock the dependencies
@@ -143,9 +143,9 @@ describe('UnifiedAgentAPIClient', () => {
     });
 
     it('should fall back to mock on production API error', async () => {
-      const error = new Error('Server Error');
-      (error as any).status = 500;
-      (error as any).type = 'server_error';
+      const error = new Error('Server Error') as Error & { status: number; type: string };
+      error.status = 500;
+      error.type = 'server_error';
       realClientMock.getStatus.mockRejectedValue(error);
       
       const status = await client.getStatus();
@@ -157,9 +157,9 @@ describe('UnifiedAgentAPIClient', () => {
 
     it('should not fall back if fallbackToMock is disabled', async () => {
       const clientNoFallback = new UnifiedAgentAPIClient({ mode: 'auto', fallbackToMock: false });
-      const error = new Error('Server Error');
-      (error as any).status = 500;
-      (error as any).type = 'server_error';
+      const error = new Error('Server Error') as Error & { status: number; type: string };
+      error.status = 500;
+      error.type = 'server_error';
       realClientMock.getStatus.mockRejectedValue(error);
       
       await expect(clientNoFallback.getStatus()).rejects.toThrow('Server Error');
@@ -304,9 +304,9 @@ describe('UnifiedAgentAPIClient', () => {
     });
 
     it('should preserve original errors when fallback is disabled', async () => {
-      const originalError = new Error('Not Found');
-      (originalError as any).status = 404;
-      (originalError as any).type = 'not_found';
+      const originalError = new Error('Not Found') as Error & { status: number; type: string };
+      originalError.status = 404;
+      originalError.type = 'not_found';
       realClientMock.getStatus.mockRejectedValue(originalError);
       
       await expect(client.getStatus()).rejects.toThrow('Not Found');

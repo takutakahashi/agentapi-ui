@@ -86,7 +86,7 @@ describe('AgentAPIClient', () => {
             timestamp: '2024-01-01T00:00:00Z',
           },
         }),
-      } as Response;
+      } as unknown as Response;
 
       mockFetch.mockResolvedValue(mockResponse);
 
