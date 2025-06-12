@@ -289,20 +289,15 @@ export default function AgentAPIChat() {
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex-shrink-0">
+      {/* Status Bar */}
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex-shrink-0">
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              AgentAPI Chat
-              {sessionId && (
-                <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
-                  #{sessionId.substring(0, 8)}
-                </span>
-              )}
-            </h2>
-          </div>
           <div className="flex items-center space-x-4">
+            {sessionId && (
+              <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Session #{sessionId.substring(0, 8)}
+              </span>
+            )}
             {/* Agent Status */}
             {agentStatus && (
               <div className="flex items-center space-x-2">
@@ -323,7 +318,7 @@ export default function AgentAPIChat() {
           </div>
         </div>
         {error && (
-          <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-700 dark:text-red-400 text-sm">
+          <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-700 dark:text-red-400 text-sm">
             {error}
           </div>
         )}
