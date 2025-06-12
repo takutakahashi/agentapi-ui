@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, Mock } from 'vitest';
 import { UnifiedAgentAPIClient } from '../unified-agentapi-client';
 import { RealAgentAPIClient, RealAgentAPIError } from '../real-agentapi-client';
 import { MockAgentAPIClient } from '../__mocks__/agentapi-client';
@@ -7,13 +7,30 @@ import { MockAgentAPIClient } from '../__mocks__/agentapi-client';
 vi.mock('../real-agentapi-client');
 vi.mock('../__mocks__/agentapi-client');
 
-const mockRealAgentAPIClient = RealAgentAPIClient as unknown as vi.MockedFunction<typeof RealAgentAPIClient>;
-const mockMockAgentAPIClient = MockAgentAPIClient as unknown as vi.MockedFunction<typeof MockAgentAPIClient>;
+const MockedRealAgentAPIClient = vi.mocked(RealAgentAPIClient);
+const MockedMockAgentAPIClient = vi.mocked(MockAgentAPIClient);
 
 describe('UnifiedAgentAPIClient', () => {
   let client: UnifiedAgentAPIClient;
-  let realClientMock: RealAgentAPIClient;
-  let mockClientMock: MockAgentAPIClient;
+  let realClientMock: {
+    getStatus: Mock;
+    getMessages: Mock;
+    sendMessage: Mock;
+    healthCheck: Mock;
+  };
+  let mockClientMock: {
+    getStatus: Mock;
+    getMessages: Mock;
+    sendMessage: Mock;
+    getAgents: Mock;
+    getAgent: Mock;
+    createAgent: Mock;
+    updateAgent: Mock;
+    deleteAgent: Mock;
+    getMetrics: Mock;
+    getConfig: Mock;
+    healthCheck: Mock;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -40,8 +57,8 @@ describe('UnifiedAgentAPIClient', () => {
       healthCheck: vi.fn(),
     };
 
-    mockRealAgentAPIClient.mockImplementation(() => realClientMock);
-    mockMockAgentAPIClient.mockImplementation(() => mockClientMock);
+    MockedRealAgentAPIClient.mockImplementation(() => realClientMock as unknown as InstanceType<typeof RealAgentAPIClient>);
+    MockedMockAgentAPIClient.mockImplementation(() => mockClientMock as unknown as InstanceType<typeof MockAgentAPIClient>);
   });
 
   afterEach(() => {

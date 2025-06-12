@@ -5,6 +5,7 @@
       "dom.iterable",
       "es6"
     ],
+    "types": ["vitest/globals", "@testing-library/jest-dom"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
