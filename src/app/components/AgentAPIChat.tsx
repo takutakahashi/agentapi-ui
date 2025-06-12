@@ -5,11 +5,16 @@ import { useSearchParams } from 'next/navigation';
 import { realAgentAPI, RealAgentAPIError } from '../../lib/real-agentapi-client';
 import { createAgentAPIClientFromStorage, AgentAPIError } from '../../lib/agentapi-client';
 import { Message, AgentStatus } from '../../types/real-agentapi';
-import { SessionMessage } from '../../types/agentapi';
+import { SessionMessage, SessionMessageListResponse } from '../../types/agentapi';
 
 // Type guard function to validate session message response
-function isValidSessionMessageResponse(response: any): response is { messages: SessionMessage[] } {
-  return response && Array.isArray(response.messages);
+function isValidSessionMessageResponse(response: unknown): response is SessionMessageListResponse {
+  return (
+    response !== null &&
+    typeof response === 'object' &&
+    'messages' in response &&
+    Array.isArray((response as SessionMessageListResponse).messages)
+  );
 }
 
 // Utility function to safely convert string IDs to numbers
