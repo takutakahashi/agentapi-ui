@@ -28,7 +28,7 @@ cp .env.example .env.local
 NEXT_PUBLIC_AGENTAPI_URL=http://localhost:8080/api/v1
 
 # AgentAPI Proxy Configuration (Session management)
-NEXT_PUBLIC_AGENTAPI_PROXY_URL=http://localhost:8081
+NEXT_PUBLIC_AGENTAPI_PROXY_URL=http://localhost:8080
 ```
 
 4. 開発サーバーの起動:
@@ -42,7 +42,7 @@ npm run dev
 
 1. [agentapi-proxy](https://github.com/takutakahashi/agentapi-proxy) を起動
 2. UIの設定画面 (`/settings`) でproxy設定を有効化
-3. Proxy Endpoint を設定 (デフォルト: `http://localhost:8081`)
+3. Proxy Endpoint を設定 (デフォルト: `http://localhost:8080`)
 
 ### Settings管理
 
