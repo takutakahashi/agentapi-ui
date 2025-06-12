@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
-import { chatApi } from '../../lib/api'
+import { useState, useEffect, useCallback } from 'react'
+import { createAgentAPIClientFromStorage, AgentAPIError } from '../../lib/agentapi-client'
+import { SessionFilter, getFilterValuesForSessionCreation } from '../../lib/filter-utils'
 
 interface NewConversationModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
+  currentFilters?: SessionFilter
 }
 
 interface EnvironmentVariable {
@@ -14,12 +16,32 @@ interface EnvironmentVariable {
   value: string
 }
 
-export default function NewConversationModal({ isOpen, onClose, onSuccess }: NewConversationModalProps) {
-  const [title, setTitle] = useState('')
-  const [summary, setSummary] = useState('')
+export default function NewConversationModal({ isOpen, onClose, onSuccess, currentFilters }: NewConversationModalProps) {
+  const [description, setDescription] = useState('')
+  const [userId, setUserId] = useState('current-user')
   const [envVars, setEnvVars] = useState<EnvironmentVariable[]>([{ key: '', value: '' }])
+  const [metadataVars, setMetadataVars] = useState<EnvironmentVariable[]>([{ key: '', value: '' }])
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  // Initialize with current filter values
+  const initializeFromFilters = useCallback(() => {
+    if (currentFilters) {
+      const { metadata, environment } = getFilterValuesForSessionCreation(currentFilters)
+      
+      // Set environment variables from filters
+      const envEntries = Object.entries(environment)
+      if (envEntries.length > 0) {
+        setEnvVars(envEntries.map(([key, value]) => ({ key, value })))
+      }
+      
+      // Set metadata variables from filters
+      const metadataEntries = Object.entries(metadata)
+      if (metadataEntries.length > 0) {
+        setMetadataVars(metadataEntries.map(([key, value]) => ({ key, value: String(value) })))
+      }
+    }
+  }, [currentFilters])
 
   const addEnvVar = () => {
     setEnvVars([...envVars, { key: '', value: '' }])
@@ -38,10 +60,28 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess }: New
     setEnvVars(updated)
   }
 
+  const addMetadataVar = () => {
+    setMetadataVars([...metadataVars, { key: '', value: '' }])
+  }
+
+  const removeMetadataVar = (index: number) => {
+    if (metadataVars.length > 1) {
+      setMetadataVars(metadataVars.filter((_, i) => i !== index))
+    }
+  }
+
+  const updateMetadataVar = (index: number, field: 'key' | 'value', value: string) => {
+    const updated = metadataVars.map((metaVar, i) => 
+      i === index ? { ...metaVar, [field]: value } : metaVar
+    )
+    setMetadataVars(updated)
+  }
+
   const resetForm = () => {
-    setTitle('')
-    setSummary('')
+    setDescription('')
+    setUserId('current-user')
     setEnvVars([{ key: '', value: '' }])
+    setMetadataVars([{ key: '', value: '' }])
     setError(null)
   }
 
@@ -49,12 +89,19 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess }: New
     resetForm()
     onClose()
   }
+  
+  // Initialize form when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      initializeFromFilters()
+    }
+  }, [isOpen, currentFilters, initializeFromFilters])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!title.trim()) {
-      setError('Title is required')
+    if (!description.trim()) {
+      setError('Description is required')
       return
     }
 
@@ -62,29 +109,39 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess }: New
     setError(null)
 
     try {
+      const client = createAgentAPIClientFromStorage()
+      
       // Filter out empty environment variables
       const validEnvVars = envVars.filter(envVar => envVar.key.trim() && envVar.value.trim())
+      const environment = validEnvVars.reduce((acc, envVar) => {
+        acc[envVar.key] = envVar.value
+        return acc
+      }, {} as Record<string, string>)
       
-      // Create metadata object with environment variables
-      const metadata: { environment?: Record<string, string> } = {}
-      if (validEnvVars.length > 0) {
-        metadata.environment = validEnvVars.reduce((acc, envVar) => {
-          acc[envVar.key] = envVar.value
-          return acc
-        }, {} as Record<string, string>)
-      }
+      // Filter out empty metadata variables
+      const validMetadataVars = metadataVars.filter(metaVar => metaVar.key.trim() && metaVar.value.trim())
+      const metadata = validMetadataVars.reduce((acc, metaVar) => {
+        acc[metaVar.key] = metaVar.value
+        return acc
+      }, {} as Record<string, unknown>)
+      
+      // Add description to metadata
+      metadata.description = description.trim()
 
-      await chatApi.createChat({
-        title: title.trim(),
-        summary: summary.trim() || undefined,
-        status: 'pending',
+      await client.createSession({
+        user_id: userId.trim(),
+        environment: Object.keys(environment).length > 0 ? environment : undefined,
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined
       })
 
       onSuccess()
       handleClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create conversation')
+      if (err instanceof AgentAPIError) {
+        setError(`Failed to create session: ${err.message}`)
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to create session')
+      }
     } finally {
       setIsCreating(false)
     }
@@ -98,7 +155,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess }: New
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Start New Conversation
+              Start New Session
             </h2>
             <button
               onClick={handleClose}
@@ -112,34 +169,34 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess }: New
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Title Field */}
+          {/* User ID Field */}
           <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Title *
+            <label htmlFor="userId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              User ID *
             </label>
             <input
               type="text"
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              id="userId"
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              placeholder="Enter conversation title"
+              placeholder="Enter your user ID"
               disabled={isCreating}
             />
           </div>
 
-          {/* Summary Field */}
+          {/* Description Field */}
           <div>
-            <label htmlFor="summary" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Summary (Optional)
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Description *
             </label>
             <textarea
-              id="summary"
-              value={summary}
-              onChange={(e) => setSummary(e.target.value)}
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              placeholder="Describe what this conversation is about"
+              placeholder="Describe what this session is about"
               disabled={isCreating}
             />
           </div>
@@ -195,7 +252,62 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess }: New
               ))}
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              Environment variables will be available as context during the conversation.
+              Environment variables will be available as context during the session.
+            </p>
+          </div>
+
+          {/* Metadata Variables */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Metadata (Optional)
+              </label>
+              <button
+                type="button"
+                onClick={addMetadataVar}
+                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium"
+                disabled={isCreating}
+              >
+                + Add Metadata
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              {metadataVars.map((metaVar, index) => (
+                <div key={index} className="flex gap-3 items-center">
+                  <input
+                    type="text"
+                    value={metaVar.key}
+                    onChange={(e) => updateMetadataVar(index, 'key', e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="Metadata key (e.g., project_type)"
+                    disabled={isCreating}
+                  />
+                  <input
+                    type="text"
+                    value={metaVar.value}
+                    onChange={(e) => updateMetadataVar(index, 'value', e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="Metadata value"
+                    disabled={isCreating}
+                  />
+                  {metadataVars.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeMetadataVar(index)}
+                      className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                      disabled={isCreating}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+              Metadata fields for categorizing and filtering sessions.
             </p>
           </div>
 
@@ -219,9 +331,9 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess }: New
             <button
               type="submit"
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isCreating || !title.trim()}
+              disabled={isCreating || !description.trim()}
             >
-              {isCreating ? 'Creating...' : 'Start Conversation'}
+              {isCreating ? 'Creating...' : 'Start Session'}
             </button>
           </div>
         </form>
