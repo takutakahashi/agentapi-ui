@@ -7,6 +7,28 @@ import { createAgentAPIClientFromStorage, AgentAPIError } from '../../lib/agenta
 import { Message, AgentStatus } from '../../types/real-agentapi';
 import { SessionMessage } from '../../types/agentapi';
 
+// Utility function to safely convert string IDs to numbers
+function convertSessionMessageId(stringId: string, fallbackId: number): number {
+  // Try to parse as number
+  const parsed = parseInt(stringId, 10);
+  if (!isNaN(parsed) && parsed >= 0) {
+    return parsed;
+  }
+  
+  // If string ID is not numeric, create a stable hash from the string
+  // This ensures the same string always produces the same number
+  let hash = 0;
+  for (let i = 0; i < stringId.length; i++) {
+    const char = stringId.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  
+  // Ensure positive number and use fallback if hash is still problematic
+  const hashId = Math.abs(hash);
+  return hashId > 0 ? hashId : fallbackId;
+}
+
 export default function AgentAPIChat() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session');
@@ -60,7 +82,7 @@ export default function AgentAPIChat() {
             
             // Convert SessionMessage to Message format for display
             const convertedMessages: Message[] = sessionMessagesResponse.messages.map((msg: SessionMessage, index: number) => ({
-              id: parseInt(msg.id) || index, // Convert string ID to number
+              id: convertSessionMessageId(msg.id, Date.now() + index), // Safe ID conversion with unique fallback
               role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'), // Convert roles to Message format
               content: msg.content,
               timestamp: msg.timestamp
@@ -131,7 +153,7 @@ export default function AgentAPIChat() {
           
           // Convert SessionMessage to Message format for display
           const convertedMessages: Message[] = sessionMessagesResponse.messages.map((msg: SessionMessage, index: number) => ({
-            id: parseInt(msg.id) || index, // Convert string ID to number
+            id: convertSessionMessageId(msg.id, Date.now() + index), // Safe ID conversion with unique fallback
             role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'), // Convert roles to Message format
             content: msg.content,
             timestamp: msg.timestamp
@@ -233,7 +255,7 @@ export default function AgentAPIChat() {
 
         // Convert to Message format and add to display
         const convertedMessage: Message = {
-          id: parseInt(sessionMessage.id) || Date.now(), // Convert string ID to number
+          id: convertSessionMessageId(sessionMessage.id, Date.now()), // Safe ID conversion
           role: sessionMessage.role === 'assistant' ? 'agent' : (sessionMessage.role === 'system' ? 'agent' : sessionMessage.role as 'user' | 'agent'),
           content: sessionMessage.content,
           timestamp: sessionMessage.timestamp
