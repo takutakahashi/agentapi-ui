@@ -19,4 +19,22 @@ vi.mock('next/navigation', () => ({
 // Global test setup
 beforeEach(() => {
   // Reset any mocks or test state if needed
+  vi.clearAllTimers();
+})
+
+// Global cleanup after each test to prevent memory leaks
+import { afterEach } from 'vitest'
+afterEach(() => {
+  // Clear any pending timers
+  vi.clearAllTimers();
+  
+  // Force cleanup of DOM if in jsdom environment
+  if (typeof document !== 'undefined') {
+    document.body.innerHTML = '';
+  }
+  
+  // Trigger garbage collection if available (mainly for local development)
+  if (global.gc) {
+    global.gc();
+  }
 })
