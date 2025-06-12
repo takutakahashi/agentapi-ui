@@ -27,42 +27,27 @@ export default function SessionCard({ session }: SessionCardProps) {
 
 
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 hover:shadow-lg transition-shadow">
+    <div className="border-b border-gray-200 dark:border-gray-700 px-4 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
       <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-3">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Session: {session.session_id.substring(0, 8)}...
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 mb-2">
+            <h3 className="text-base font-medium text-gray-900 dark:text-white truncate">
+              {(typeof session.metadata?.description === 'string' ? session.metadata.description : null) || `Session ${session.session_id.substring(0, 8)}`}
             </h3>
             <StatusBadge 
               status={session.status}
             />
           </div>
 
-          <div className="space-y-2 mb-4">
-            <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-              <span className="font-medium">User:</span>
-              <span className="ml-2">{session.user_id}</span>
-            </div>
-            
+          <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-4 mb-2">
+            <span>#{session.session_id.substring(0, 8)}</span>
+            <span>opened {formatDate(session.created_at)}</span>
+            <span>by {session.user_id}</span>
             {session.environment?.WORKSPACE_NAME && (
-              <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                <span className="font-medium">Workspace:</span>
-                <span className="ml-2">{session.environment.WORKSPACE_NAME}</span>
-              </div>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">
+                {session.environment.WORKSPACE_NAME}
+              </span>
             )}
-
-            {session.metadata?.description && typeof session.metadata.description === 'string' ? (
-              <div className="flex items-start text-sm text-gray-600 dark:text-gray-400">
-                <span className="font-medium">Description:</span>
-                <span className="ml-2">{session.metadata.description}</span>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-4">
-            <span>Created: {formatDate(session.created_at)}</span>
-            <span>Updated: {formatDate(session.updated_at)}</span>
           </div>
         </div>
 
