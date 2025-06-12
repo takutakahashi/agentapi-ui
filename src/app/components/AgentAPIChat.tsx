@@ -19,13 +19,18 @@ function isValidSessionMessageResponse(response: unknown): response is SessionMe
 
 // Utility function to safely convert string IDs to numbers
 function convertSessionMessageId(stringId: string, fallbackId: number): number {
+  // Handle empty string
+  if (!stringId || stringId.trim() === '') {
+    return fallbackId;
+  }
+  
   // Try to parse as number
   const parsed = parseInt(stringId, 10);
   if (!isNaN(parsed) && parsed >= 0) {
     return parsed;
   }
   
-  // If string ID is not numeric, create a stable hash from the string
+  // For negative numbers or non-numeric strings, create a stable hash
   // This ensures the same string always produces the same number
   let hash = 0;
   for (let i = 0; i < stringId.length; i++) {
@@ -34,7 +39,7 @@ function convertSessionMessageId(stringId: string, fallbackId: number): number {
     hash = hash & hash; // Convert to 32-bit integer
   }
   
-  // Ensure positive number and use fallback if hash is still problematic
+  // Ensure positive number and use fallback if hash is problematic
   const hashId = Math.abs(hash);
   return hashId > 0 ? hashId : fallbackId;
 }
