@@ -26,6 +26,9 @@ export default function ConversationList() {
   const searchParams = useSearchParams()
   const router = useRouter()
   
+  // Extract repository from query parameters
+  const repositoryParam = searchParams.get('repository')
+  
   const [allSessions, setAllSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -416,6 +419,7 @@ export default function ConversationList() {
           onClose={() => setShowNewConversationModal(false)}
           onSuccess={handleNewConversationSuccess}
           currentFilters={sessionFilters}
+          initialRepository={repositoryParam || undefined}
         />
       </div>
     </div>

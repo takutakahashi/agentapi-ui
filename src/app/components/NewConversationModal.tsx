@@ -9,6 +9,7 @@ interface NewConversationModalProps {
   onClose: () => void
   onSuccess: () => void
   currentFilters?: SessionFilter
+  initialRepository?: string
 }
 
 interface EnvironmentVariable {
@@ -16,9 +17,10 @@ interface EnvironmentVariable {
   value: string
 }
 
-export default function NewConversationModal({ isOpen, onClose, onSuccess, currentFilters }: NewConversationModalProps) {
+export default function NewConversationModal({ isOpen, onClose, onSuccess, currentFilters, initialRepository }: NewConversationModalProps) {
   const [description, setDescription] = useState('')
   const [userId, setUserId] = useState('current-user')
+  const [repository, setRepository] = useState('')
   const [envVars, setEnvVars] = useState<EnvironmentVariable[]>([{ key: '', value: '' }])
   const [metadataVars, setMetadataVars] = useState<EnvironmentVariable[]>([{ key: '', value: '' }])
   const [isCreating, setIsCreating] = useState(false)
@@ -80,6 +82,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
   const resetForm = () => {
     setDescription('')
     setUserId('current-user')
+    setRepository('')
     setEnvVars([{ key: '', value: '' }])
     setMetadataVars([{ key: '', value: '' }])
     setError(null)
@@ -94,8 +97,11 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
   useEffect(() => {
     if (isOpen) {
       initializeFromFilters()
+      if (initialRepository) {
+        setRepository(initialRepository)
+      }
     }
-  }, [isOpen, currentFilters, initializeFromFilters])
+  }, [isOpen, currentFilters, initialRepository, initializeFromFilters])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -127,6 +133,11 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
       
       // Add description to metadata
       metadata.description = description.trim()
+      
+      // Add repository tag to metadata if provided
+      if (repository.trim()) {
+        metadata.repository = repository.trim()
+      }
 
       await client.createSession({
         user_id: userId.trim(),
@@ -199,6 +210,25 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
               placeholder="Describe what this session is about"
               disabled={isCreating}
             />
+          </div>
+
+          {/* Repository Tag Field */}
+          <div>
+            <label htmlFor="repository" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Repository Tag (Optional)
+            </label>
+            <input
+              type="text"
+              id="repository"
+              value={repository}
+              onChange={(e) => setRepository(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              placeholder="e.g., my-org/my-repo"
+              disabled={isCreating}
+            />
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+              Specify a repository context for this conversation session.
+            </p>
           </div>
 
           {/* Environment Variables */}
