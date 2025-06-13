@@ -177,6 +177,7 @@ export interface CreateSessionRequest {
   user_id: string;
   environment?: Record<string, string>;
   metadata?: Record<string, unknown>;
+  tags?: Record<string, string>;
 }
 
 // Session message types

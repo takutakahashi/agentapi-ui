@@ -37,9 +37,11 @@ export default function NewSessionModal({ isOpen, onClose, onSuccess }: NewSessi
           REPOSITORY: repository.trim()
         } : {},
         metadata: {
-          description: initialMessage.trim(),
-          repository: repository.trim() || undefined
-        }
+          description: initialMessage.trim()
+        },
+        tags: repository.trim() ? {
+          repository: repository.trim()
+        } : undefined
       })
 
       setInitialMessage('')
