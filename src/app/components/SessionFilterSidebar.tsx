@@ -40,7 +40,19 @@ export default function SessionFilterSidebar({
   const handleFilterValueChange = (groupKey: string, value: string, checked: boolean) => {
     const newFilters = { ...currentFilters }
 
-    if (groupKey.startsWith('metadata.')) {
+    if (groupKey.startsWith('tags.')) {
+      const tagKey = groupKey.replace('tags.', '')
+      const currentValues = newFilters.tagFilters[tagKey] || []
+      
+      if (checked) {
+        newFilters.tagFilters[tagKey] = [...currentValues, value]
+      } else {
+        newFilters.tagFilters[tagKey] = currentValues.filter(v => v !== value)
+        if (newFilters.tagFilters[tagKey].length === 0) {
+          delete newFilters.tagFilters[tagKey]
+        }
+      }
+    } else if (groupKey.startsWith('metadata.')) {
       const metadataKey = groupKey.replace('metadata.', '')
       const currentValues = newFilters.metadataFilters[metadataKey] || []
       
@@ -70,7 +82,10 @@ export default function SessionFilterSidebar({
   }
 
   const isValueSelected = (groupKey: string, value: string): boolean => {
-    if (groupKey.startsWith('metadata.')) {
+    if (groupKey.startsWith('tags.')) {
+      const tagKey = groupKey.replace('tags.', '')
+      return currentFilters.tagFilters[tagKey]?.includes(value) || false
+    } else if (groupKey.startsWith('metadata.')) {
       const metadataKey = groupKey.replace('metadata.', '')
       return currentFilters.metadataFilters[metadataKey]?.includes(value) || false
     } else if (groupKey.startsWith('environment.')) {
@@ -84,6 +99,7 @@ export default function SessionFilterSidebar({
     onFiltersChange({
       metadataFilters: {},
       environmentFilters: {},
+      tagFilters: {},
       status: undefined
     })
   }
@@ -91,7 +107,8 @@ export default function SessionFilterSidebar({
   const hasActiveFilters = 
     currentFilters.status ||
     Object.keys(currentFilters.metadataFilters).length > 0 ||
-    Object.keys(currentFilters.environmentFilters).length > 0
+    Object.keys(currentFilters.environmentFilters).length > 0 ||
+    Object.keys(currentFilters.tagFilters).length > 0
 
   const statusOptions = [
     { value: 'all' as const, label: 'All Statuses' },

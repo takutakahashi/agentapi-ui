@@ -29,7 +29,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
   // Initialize with current filter values
   const initializeFromFilters = useCallback(() => {
     if (currentFilters) {
-      const { metadata, environment } = getFilterValuesForSessionCreation(currentFilters)
+      const { metadata, environment, tags } = getFilterValuesForSessionCreation(currentFilters)
       
       // Set environment variables from filters
       const envEntries = Object.entries(environment)
@@ -37,10 +37,18 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
         setEnvVars(envEntries.map(([key, value]) => ({ key, value })))
       }
       
-      // Set metadata variables from filters
+      // Set metadata variables from filters (includes tags for backward compatibility)
       const metadataEntries = Object.entries(metadata)
-      if (metadataEntries.length > 0) {
-        setMetadataVars(metadataEntries.map(([key, value]) => ({ key, value: String(value) })))
+      const tagEntries = Object.entries(tags)
+      const combinedEntries = [...tagEntries, ...metadataEntries]
+      
+      if (combinedEntries.length > 0) {
+        setMetadataVars(combinedEntries.map(([key, value]) => ({ key, value: String(value) })))
+      }
+      
+      // Set repository from tags if available
+      if (tags.repository) {
+        setRepository(tags.repository)
       }
     }
   }, [currentFilters])
@@ -134,15 +142,28 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
       // Add description to metadata
       metadata.description = description.trim()
       
-      // Add repository tag to metadata if provided
+      // Prepare tags separately (preferred over metadata for key-value pairs)
+      const tags: Record<string, string> = {}
+      
+      // Add repository tag if provided
       if (repository.trim()) {
-        metadata.repository = repository.trim()
+        tags.repository = repository.trim()
       }
+      
+      // Move simple key-value pairs from metadata to tags
+      const tagsToMove = ['project_type', 'technology', 'priority', 'status', 'category']
+      tagsToMove.forEach(key => {
+        if (metadata[key] && typeof metadata[key] === 'string') {
+          tags[key] = String(metadata[key])
+          delete metadata[key]
+        }
+      })
 
       await client.createSession({
         user_id: userId.trim(),
         environment: Object.keys(environment).length > 0 ? environment : undefined,
-        metadata: Object.keys(metadata).length > 0 ? metadata : undefined
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+        tags: Object.keys(tags).length > 0 ? tags : undefined
       })
 
       onSuccess()
