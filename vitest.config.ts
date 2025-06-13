@@ -8,20 +8,6 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
-    // Memory optimization for CI environments
-    pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-        isolate: false,
-      },
-    },
-    // Reduce parallel execution to prevent memory pressure
-    maxWorkers: 1,
-    minWorkers: 1,
-    // Set reasonable timeouts
-    testTimeout: 10000,
-    hookTimeout: 10000,
   },
   resolve: {
     alias: {

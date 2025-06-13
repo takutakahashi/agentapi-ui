@@ -15,16 +15,14 @@ class MockWebSocket extends EventTarget {
 
   public readyState = MockWebSocket.CONNECTING;
   public url: string;
-  private openTimer?: ReturnType<typeof setTimeout>;
 
   constructor(url: string) {
     super();
     this.url = url;
-    this.openTimer = setTimeout(() => {
+    setTimeout(() => {
       this.readyState = MockWebSocket.OPEN;
       this.dispatchEvent(new Event('open'));
-      this.openTimer = undefined;
-    }, 1); // Reduced from 10ms to 1ms for faster tests
+    }, 10);
   }
 
   send(): void {
@@ -32,10 +30,6 @@ class MockWebSocket extends EventTarget {
   }
 
   close(): void {
-    if (this.openTimer) {
-      clearTimeout(this.openTimer);
-      this.openTimer = undefined;
-    }
     this.readyState = MockWebSocket.CLOSED;
     this.dispatchEvent(new Event('close'));
   }
@@ -60,12 +54,6 @@ describe('AgentAPIClient', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    // Clear any pending timers to prevent memory leaks
-    vi.clearAllTimers();
-    // Force garbage collection if available
-    if (global.gc) {
-      global.gc();
-    }
   });
 
   describe('Constructor', () => {
@@ -103,7 +91,7 @@ describe('AgentAPIClient', () => {
       mockFetch.mockResolvedValue(mockResponse);
 
       await expect(client.getAgents()).rejects.toThrow(AgentAPIError);
-    }, 3000);
+    }, 7000);
 
     it('should handle network errors', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
@@ -112,19 +100,22 @@ describe('AgentAPIClient', () => {
     });
 
     it('should handle timeout errors', async () => {
-      mockFetch.mockImplementationOnce(() => {
+      mockFetch.mockImplementationOnce((url, options) => {
         return new Promise((resolve, reject) => {
-          // Simulate immediate timeout by rejecting with AbortError
-          setTimeout(() => {
-            const abortError = new Error('AbortError');
-            abortError.name = 'AbortError';
-            reject(abortError);
-          }, 100);
+          // Simulate AbortController timeout by listening to the signal
+          if (options?.signal) {
+            options.signal.addEventListener('abort', () => {
+              const abortError = new Error('AbortError');
+              abortError.name = 'AbortError';
+              reject(abortError);
+            });
+          }
+          // Don't resolve this promise - let the timeout handle it
         });
       });
 
       await expect(client.getAgents()).rejects.toThrow('Request timeout');
-    }, 2000);
+    }, 7000);
   });
 
   describe('Retry Logic', () => {

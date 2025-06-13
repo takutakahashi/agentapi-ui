@@ -5,44 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { realAgentAPI, RealAgentAPIError } from '../../lib/real-agentapi-client';
 import { createAgentAPIClientFromStorage, AgentAPIError } from '../../lib/agentapi-client';
 import { Message, AgentStatus } from '../../types/real-agentapi';
-import { SessionMessage, SessionMessageListResponse } from '../../types/agentapi';
-
-// Type guard function to validate session message response
-function isValidSessionMessageResponse(response: unknown): response is SessionMessageListResponse {
-  return (
-    response !== null &&
-    typeof response === 'object' &&
-    'messages' in response &&
-    Array.isArray((response as SessionMessageListResponse).messages)
-  );
-}
-
-// Utility function to safely convert string IDs to numbers
-function convertSessionMessageId(stringId: string, fallbackId: number): number {
-  // Handle empty string
-  if (!stringId || stringId.trim() === '') {
-    return fallbackId;
-  }
-  
-  // Try to parse as number
-  const parsed = parseInt(stringId, 10);
-  if (!isNaN(parsed) && parsed >= 0) {
-    return parsed;
-  }
-  
-  // For negative numbers or non-numeric strings, create a stable hash
-  // This ensures the same string always produces the same number
-  let hash = 0;
-  for (let i = 0; i < stringId.length; i++) {
-    const char = stringId.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  
-  // Ensure positive number and use fallback if hash is problematic
-  const hashId = Math.abs(hash);
-  return hashId > 0 ? hashId : fallbackId;
-}
+import { SessionMessage } from '../../types/agentapi';
 
 export default function AgentAPIChat() {
   const searchParams = useSearchParams();
@@ -95,15 +58,9 @@ export default function AgentAPIChat() {
             const proxyClient = createAgentAPIClientFromStorage();
             const sessionMessagesResponse = await proxyClient.getSessionMessages(sessionId, { limit: 100 });
             
-            // Validate and safely handle session messages response
-            if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
-              console.warn('Invalid session messages response structure:', sessionMessagesResponse);
-            }
-            
-            // Convert SessionMessage to Message format for display with safe array handling
-            const messages = sessionMessagesResponse?.messages || [];
-            const convertedMessages: Message[] = messages.map((msg: SessionMessage, index: number) => ({
-              id: convertSessionMessageId(msg.id, Date.now() + index), // Safe ID conversion with unique fallback
+            // Convert SessionMessage to Message format for display
+            const convertedMessages: Message[] = sessionMessagesResponse.messages.map((msg: SessionMessage, index: number) => ({
+              id: parseInt(msg.id) || index, // Convert string ID to number
               role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'), // Convert roles to Message format
               content: msg.content,
               timestamp: msg.timestamp
@@ -172,15 +129,9 @@ export default function AgentAPIChat() {
             proxyClient.getSessionStatus(sessionId)
           ]);
           
-          // Validate and safely handle session messages response
-          if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
-            console.warn('Invalid session messages response structure during polling:', sessionMessagesResponse);
-          }
-          
-          // Convert SessionMessage to Message format for display with safe array handling
-          const messages = sessionMessagesResponse?.messages || [];
-          const convertedMessages: Message[] = messages.map((msg: SessionMessage, index: number) => ({
-            id: convertSessionMessageId(msg.id, Date.now() + index), // Safe ID conversion with unique fallback
+          // Convert SessionMessage to Message format for display
+          const convertedMessages: Message[] = sessionMessagesResponse.messages.map((msg: SessionMessage, index: number) => ({
+            id: parseInt(msg.id) || index, // Convert string ID to number
             role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'), // Convert roles to Message format
             content: msg.content,
             timestamp: msg.timestamp
@@ -282,7 +233,7 @@ export default function AgentAPIChat() {
 
         // Convert to Message format and add to display
         const convertedMessage: Message = {
-          id: convertSessionMessageId(sessionMessage.id, Date.now()), // Safe ID conversion
+          id: parseInt(sessionMessage.id) || Date.now(), // Convert string ID to number
           role: sessionMessage.role === 'assistant' ? 'agent' : (sessionMessage.role === 'system' ? 'agent' : sessionMessage.role as 'user' | 'agent'),
           content: sessionMessage.content,
           timestamp: sessionMessage.timestamp
