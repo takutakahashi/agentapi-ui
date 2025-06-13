@@ -25,6 +25,11 @@ export function extractFilterGroups(sessions: Session[]): FilterGroup[] {
   const metadataKeys = new Map<string, Map<string, number>>()
   const environmentKeys = new Map<string, Map<string, number>>()
 
+  // Handle null/undefined sessions gracefully
+  if (!sessions || !Array.isArray(sessions)) {
+    return []
+  }
+
   // Process each session to extract keys and values
   sessions.forEach(session => {
     // Process metadata
@@ -91,6 +96,11 @@ export function extractFilterGroups(sessions: Session[]): FilterGroup[] {
  * Apply filters to sessions (client-side filtering)
  */
 export function applySessionFilters(sessions: Session[], filters: SessionFilter): Session[] {
+  // Handle null/undefined sessions gracefully
+  if (!sessions || !Array.isArray(sessions)) {
+    return []
+  }
+
   return sessions.filter(session => {
     // Status filter
     if (filters.status && session.status !== filters.status) {

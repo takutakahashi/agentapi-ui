@@ -312,7 +312,10 @@ export class AgentAPIClient {
 
     const endpoint = `/search${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
     const result = await this.makeRequest<SessionListResponse>(endpoint);
-    return result.data;
+    return {
+      ...result.data,
+      sessions: result.data.sessions || []
+    };
   }
 
   async createSession(data: CreateSessionRequest): Promise<Session> {
@@ -343,7 +346,10 @@ export class AgentAPIClient {
 
     const endpoint = `/${sessionId}/messages${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
     const result = await this.makeRequest<SessionMessageListResponse>(endpoint);
-    return result.data;
+    return {
+      ...result.data,
+      messages: result.data.messages || []
+    };
   }
 
   async sendSessionMessage(sessionId: string, data: SendSessionMessageRequest): Promise<SessionMessage> {
