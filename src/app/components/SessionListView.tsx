@@ -29,9 +29,6 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
-  const [sendingMessages, setSendingMessages] = useState<Set<string>>(new Set())
-  const [messageInputs, setMessageInputs] = useState<{ [sessionId: string]: string }>({})
   const [deletingSession, setDeletingSession] = useState<string | null>(null)
   const [sessionMessages, setSessionMessages] = useState<{ [sessionId: string]: string }>({})
 
@@ -168,62 +165,6 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     // ページ変更の実装は省略（既存の実装があれば使用）
   }
 
-  const toggleDescription = (sessionId: string) => {
-    const newExpanded = new Set(expandedDescriptions)
-    if (newExpanded.has(sessionId)) {
-      newExpanded.delete(sessionId)
-    } else {
-      newExpanded.add(sessionId)
-    }
-    setExpandedDescriptions(newExpanded)
-  }
-
-  const handleMessageInputChange = (sessionId: string, value: string) => {
-    setMessageInputs(prev => ({
-      ...prev,
-      [sessionId]: value
-    }))
-  }
-
-  const sendMessage = async (sessionId: string) => {
-    const message = messageInputs[sessionId]?.trim()
-    if (!message) return
-
-    try {
-      setSendingMessages(prev => new Set([...prev, sessionId]))
-      
-      const client = createAgentAPIClientFromStorage()
-      // メッセージ送信のAPIを呼び出し（実際のAPIに応じて調整が必要）
-      await client.sendSessionMessage(sessionId, {
-        content: message,
-        type: 'user'
-      })
-
-      setMessageInputs(prev => ({
-        ...prev,
-        [sessionId]: ''
-      }))
-
-      // セッション一覧を更新
-      onSessionsUpdate()
-    } catch (err) {
-      console.error('Failed to send message:', err)
-      setError('メッセージの送信に失敗しました')
-    } finally {
-      setSendingMessages(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(sessionId)
-        return newSet
-      })
-    }
-  }
-
-  const handleKeyPress = (e: React.KeyboardEvent, sessionId: string) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      sendMessage(sessionId)
-    }
-  }
 
   const navigateToChat = (sessionId: string) => {
     // AgentAPIチャット画面への遷移
@@ -400,107 +341,79 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
               <h4 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-4">
                 アクティブなセッション ({filteredSessions.length})
               </h4>
-              <div className="space-y-4">
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
                 {paginatedSessions.map((session) => (
-            <div
-              key={session.session_id}
-              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6"
-            >
-              {/* セッション概要と状態 */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <StatusBadge status={session.status} />
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      {formatRelativeTime(session.updated_at)}
-                    </span>
-                  </div>
-                  
-                  <div className="mb-2">
-                    {(() => {
-                      const description = String(sessionMessages[session.session_id] || session.metadata?.description || 'No description available')
-                      const displayText = expandedDescriptions.has(session.session_id) 
-                        ? description
-                        : truncateText(description)
-                      const hasLongDescription = description.length > 100
-                      
-                      return (
-                        <p className="text-gray-900 dark:text-white">
-                          {displayText}
-                          {hasLongDescription && (
-                            <button
-                              onClick={() => toggleDescription(session.session_id)}
-                              className="ml-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm"
-                            >
-                              {expandedDescriptions.has(session.session_id) ? '閉じる' : '続きを読む'}
-                            </button>
+                  <div
+                    key={session.session_id}
+                    className="px-4 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-base font-medium text-gray-900 dark:text-white truncate">
+                            {truncateText(String(sessionMessages[session.session_id] || session.metadata?.description || 'No description available'), 80)}
+                          </h3>
+                          <StatusBadge status={session.status} />
+                        </div>
+
+                        <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-4 mb-2">
+                          <span>#{session.session_id.substring(0, 8)}</span>
+                          <span>作成: {formatRelativeTime(session.created_at)}</span>
+                          <span>更新: {formatRelativeTime(session.updated_at)}</span>
+                          <span>by {session.user_id}</span>
+                          {session.environment?.WORKSPACE_NAME && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">
+                              {session.environment.WORKSPACE_NAME}
+                            </span>
                           )}
-                        </p>
-                      )
-                    })()}
-                  </div>
+                        </div>
 
-                  {/* メタデータタグ */}
-                  {session.metadata && (
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {Object.entries(session.metadata).map(([key, value]) => {
-                        if (key === 'description') return null
-                        return (
-                          <span
-                            key={key}
-                            className="inline-flex items-center px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-full"
+                        {/* メタデータタグ */}
+                        {session.metadata && (
+                          <div className="flex flex-wrap gap-2">
+                            {Object.entries(session.metadata).map(([key, value]) => {
+                              if (key === 'description') return null
+                              return (
+                                <span
+                                  key={key}
+                                  className="inline-flex items-center px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full"
+                                >
+                                  {key}: {String(value)}
+                                </span>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* アクションボタン */}
+                      <div className="flex items-center space-x-2 ml-4">
+                        {session.status === 'active' && (
+                          <button
+                            onClick={() => navigateToChat(session.session_id)}
+                            className="inline-flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
                           >
-                            {key}: {String(value)}
-                          </span>
-                        )
-                      })}
+                            <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            チャット
+                          </button>
+                        )}
+                        
+                        <button
+                          onClick={() => deleteSession(session.session_id)}
+                          disabled={deletingSession === session.session_id}
+                          className="inline-flex items-center px-3 py-1.5 border border-red-300 dark:border-red-600 hover:bg-red-50 dark:hover:bg-red-700 text-red-700 dark:text-red-300 text-sm font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          {deletingSession === session.session_id ? '削除中...' : '削除'}
+                        </button>
+                      </div>
                     </div>
-                  )}
-                </div>
-
-                {/* アクションボタン */}
-                <div className="flex gap-2 ml-4">
-                  <button
-                    onClick={() => navigateToChat(session.session_id)}
-                    className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
-                  >
-                    チャット
-                  </button>
-                  <button
-                    onClick={() => deleteSession(session.session_id)}
-                    disabled={deletingSession === session.session_id}
-                    className="px-3 py-2 text-sm bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-md transition-colors disabled:cursor-not-allowed"
-                  >
-                    {deletingSession === session.session_id ? '削除中...' : '削除'}
-                  </button>
-                </div>
-              </div>
-
-              {/* メッセージ送信エリア */}
-              <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                <input
-                  type="text"
-                  value={messageInputs[session.session_id] || ''}
-                  onChange={(e) => handleMessageInputChange(session.session_id, e.target.value)}
-                  onKeyPress={(e) => handleKeyPress(e, session.session_id)}
-                  placeholder="追加のメッセージを入力..."
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
-                  disabled={sendingMessages.has(session.session_id) || session.status === 'error'}
-                />
-                <button
-                  onClick={() => sendMessage(session.session_id)}
-                  disabled={
-                    !messageInputs[session.session_id]?.trim() || 
-                    sendingMessages.has(session.session_id) ||
-                    session.status === 'error'
-                  }
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-sm rounded-md transition-colors"
-                >
-                  {sendingMessages.has(session.session_id) ? '送信中...' : '送信'}
-                </button>
-              </div>
-            </div>
-          ))}
+                  </div>
+                ))}
 
               {/* Pagination */}
               {totalPages > 1 && (
