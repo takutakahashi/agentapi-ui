@@ -71,16 +71,19 @@ export default function ConversationCard({ chat }: ConversationCardProps) {
         </p>
       )}
 
+      {chat.metadata?.repository && (
+        <div className="mt-2">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+            {chat.metadata.repository}
+          </span>
+        </div>
+      )}
+
       <div className="mt-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-400 dark:text-gray-500">
             ID: {chat.id.slice(0, 8)}...
           </span>
-          {chat.metadata?.repository && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-              {chat.metadata.repository}
-            </span>
-          )}
         </div>
         <div className="flex items-center gap-2">
           <button className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium">
