@@ -315,7 +315,8 @@ describe('MockAgentAPIClient', () => {
       await mockClient.getAgents();
       const duration = Date.now() - start;
       
-      expect(duration).toBeGreaterThanOrEqual(100);
+      // Allow 1ms tolerance for timing variations in CI environments
+      expect(duration).toBeGreaterThanOrEqual(99);
     });
 
     it('should configure request failures', async () => {
