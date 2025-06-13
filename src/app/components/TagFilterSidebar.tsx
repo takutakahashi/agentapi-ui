@@ -45,6 +45,19 @@ export default function TagFilterSidebar({
       const tagMap = new Map<string, Set<string>>()
       
       sessions.forEach(session => {
+        // Process tags field first (prioritize tags over metadata)
+        if (session.tags) {
+          Object.entries(session.tags).forEach(([key, value]) => {
+            if (value && value !== '') {
+              if (!tagMap.has(key)) {
+                tagMap.set(key, new Set())
+              }
+              tagMap.get(key)!.add(value)
+            }
+          })
+        }
+        
+        // Fallback to metadata for backward compatibility
         if (session.metadata) {
           Object.entries(session.metadata).forEach(([key, value]) => {
             if (key !== 'description') { // description は除外

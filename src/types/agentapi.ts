@@ -157,6 +157,7 @@ export interface Session {
   updated_at: string;
   environment?: Record<string, string>;
   metadata?: Record<string, unknown>;
+  tags?: Record<string, string>;
 }
 
 export interface SessionListParams {

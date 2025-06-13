@@ -15,15 +15,17 @@ export interface FilterGroup {
 export interface SessionFilter {
   metadataFilters: Record<string, string[]>
   environmentFilters: Record<string, string[]>
+  tagFilters: Record<string, string[]>
   status?: Session['status']
 }
 
 /**
- * Extract all unique metadata and environment keys and their values from sessions
+ * Extract all unique metadata, environment keys and tags and their values from sessions
  */
 export function extractFilterGroups(sessions: Session[]): FilterGroup[] {
   const metadataKeys = new Map<string, Map<string, number>>()
   const environmentKeys = new Map<string, Map<string, number>>()
+  const tagKeys = new Map<string, Map<string, number>>()
 
   // Handle null/undefined sessions gracefully
   if (!sessions || !Array.isArray(sessions)) {
@@ -58,9 +60,35 @@ export function extractFilterGroups(sessions: Session[]): FilterGroup[] {
         }
       })
     }
+
+    // Process tags
+    if (session.tags) {
+      Object.entries(session.tags).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+          if (!tagKeys.has(key)) {
+            tagKeys.set(key, new Map<string, number>())
+          }
+          const valueMap = tagKeys.get(key)!
+          valueMap.set(value, (valueMap.get(value) || 0) + 1)
+        }
+      })
+    }
   })
 
   const filterGroups: FilterGroup[] = []
+
+  // Convert tags to FilterGroups (prioritize tags first)
+  tagKeys.forEach((valueMap, key) => {
+    const values: FilterValue[] = Array.from(valueMap.entries())
+      .map(([value, count]) => ({ key, value, count }))
+      .sort((a, b) => b.count - a.count) // Sort by count descending
+
+    filterGroups.push({
+      key: `tags.${key}`,
+      label: `Tag: ${key}`,
+      values
+    })
+  })
 
   // Convert metadata keys to FilterGroups
   metadataKeys.forEach((valueMap, key) => {
@@ -107,6 +135,16 @@ export function applySessionFilters(sessions: Session[], filters: SessionFilter)
       return false
     }
 
+    // Tag filters
+    for (const [key, values] of Object.entries(filters.tagFilters)) {
+      if (values.length === 0) continue
+      
+      const sessionValue = session.tags?.[key]
+      if (!sessionValue || !values.includes(sessionValue)) {
+        return false
+      }
+    }
+
     // Metadata filters
     for (const [key, values] of Object.entries(filters.metadataFilters)) {
       if (values.length === 0) continue
@@ -137,11 +175,15 @@ export function applySessionFilters(sessions: Session[], filters: SessionFilter)
 export function parseFiltersFromURL(searchParams: URLSearchParams): SessionFilter {
   const metadataFilters: Record<string, string[]> = {}
   const environmentFilters: Record<string, string[]> = {}
+  const tagFilters: Record<string, string[]> = {}
   let status: Session['status'] | undefined
 
   for (const [key, value] of searchParams.entries()) {
     if (key === 'status' && ['active', 'inactive', 'error'].includes(value)) {
       status = value as Session['status']
+    } else if (key.startsWith('tags.')) {
+      const tagKey = key.replace('tags.', '')
+      tagFilters[tagKey] = value.split(',').filter(v => typeof v === 'string' && v.trim() !== '')
     } else if (key.startsWith('metadata.')) {
       const metadataKey = key.replace('metadata.', '')
       metadataFilters[metadataKey] = value.split(',').filter(v => typeof v === 'string' && v.trim() !== '')
@@ -154,6 +196,7 @@ export function parseFiltersFromURL(searchParams: URLSearchParams): SessionFilte
   return {
     metadataFilters,
     environmentFilters,
+    tagFilters,
     status
   }
 }
@@ -167,6 +210,12 @@ export function filtersToURLParams(filters: SessionFilter): URLSearchParams {
   if (filters.status) {
     params.set('status', filters.status)
   }
+
+  Object.entries(filters.tagFilters).forEach(([key, values]) => {
+    if (values.length > 0) {
+      params.set(`tags.${key}`, values.join(','))
+    }
+  })
 
   Object.entries(filters.metadataFilters).forEach(([key, values]) => {
     if (values.length > 0) {
@@ -189,11 +238,19 @@ export function filtersToURLParams(filters: SessionFilter): URLSearchParams {
 export function getFilterValuesForSessionCreation(filters: SessionFilter): {
   metadata: Record<string, unknown>
   environment: Record<string, string>
+  tags: Record<string, string>
 } {
   const metadata: Record<string, unknown> = {}
   const environment: Record<string, string> = {}
+  const tags: Record<string, string> = {}
 
   // Take the first value from each filter (most common/recent)
+  Object.entries(filters.tagFilters).forEach(([key, values]) => {
+    if (values.length > 0) {
+      tags[key] = values[0]
+    }
+  })
+
   Object.entries(filters.metadataFilters).forEach(([key, values]) => {
     if (values.length > 0) {
       metadata[key] = values[0]
@@ -206,5 +263,5 @@ export function getFilterValuesForSessionCreation(filters: SessionFilter): {
     }
   })
 
-  return { metadata, environment }
+  return { metadata, environment, tags }
 }
