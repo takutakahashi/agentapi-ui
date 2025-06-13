@@ -11,7 +11,10 @@ function isValidSessionMessageResponse(response: unknown): response is { message
   );
 }
 
-function convertSessionMessageId(stringId: string, fallbackId: number): number {
+function convertSessionMessageId(id: string | number, fallbackId: number): number {
+  // Convert to string safely
+  const stringId = String(id);
+  
   // Handle empty string
   if (!stringId || stringId.trim() === '') {
     return fallbackId;

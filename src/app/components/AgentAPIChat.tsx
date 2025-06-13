@@ -17,8 +17,11 @@ function isValidSessionMessageResponse(response: unknown): response is SessionMe
   );
 }
 
-// Utility function to safely convert string IDs to numbers
-function convertSessionMessageId(stringId: string, fallbackId: number): number {
+// Utility function to safely convert string or number IDs to numbers
+function convertSessionMessageId(id: string | number, fallbackId: number): number {
+  // Convert to string safely
+  const stringId = String(id);
+  
   // Handle empty string
   if (!stringId || stringId.trim() === '') {
     return fallbackId;
