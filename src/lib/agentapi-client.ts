@@ -326,6 +326,12 @@ export class AgentAPIClient {
     return result.data;
   }
 
+  async deleteSession(sessionId: string): Promise<void> {
+    await this.makeRequest<void>(`/${sessionId}`, {
+      method: 'DELETE',
+    });
+  }
+
   async getSessionAgentAPI(sessionId: string): Promise<AgentAPIClient> {
     // Create a new client that routes through the session
     const sessionConfig: AgentAPIClientConfig = {
