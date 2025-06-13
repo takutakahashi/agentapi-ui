@@ -196,6 +196,25 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
             />
           </div>
 
+          {/* Repository Field - Moved to Basic Settings */}
+          <div>
+            <label htmlFor="repository" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Repository
+            </label>
+            <input
+              type="text"
+              id="repository"
+              value={repository}
+              onChange={(e) => setRepository(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              placeholder="e.g., my-org/my-repo"
+              disabled={isCreating}
+            />
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+              Specify a repository context for this conversation session.
+            </p>
+          </div>
+
           {/* Description Field */}
           <div>
             <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -210,25 +229,6 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
               placeholder="Describe what this session is about"
               disabled={isCreating}
             />
-          </div>
-
-          {/* Repository Tag Field */}
-          <div>
-            <label htmlFor="repository" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Repository Tag (Optional)
-            </label>
-            <input
-              type="text"
-              id="repository"
-              value={repository}
-              onChange={(e) => setRepository(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              placeholder="e.g., my-org/my-repo"
-              disabled={isCreating}
-            />
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              Specify a repository context for this conversation session.
-            </p>
           </div>
 
           {/* Environment Variables */}
@@ -249,12 +249,12 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
             
             <div className="space-y-3">
               {envVars.map((envVar, index) => (
-                <div key={index} className="flex gap-3 items-center">
+                <div key={index} className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
                   <input
                     type="text"
                     value={envVar.key}
                     onChange={(e) => updateEnvVar(index, 'key', e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    className="w-full sm:flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="Variable name (e.g., NODE_ENV)"
                     disabled={isCreating}
                   />
@@ -262,7 +262,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
                     type="text"
                     value={envVar.value}
                     onChange={(e) => updateEnvVar(index, 'value', e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    className="w-full sm:flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="Variable value"
                     disabled={isCreating}
                   />
@@ -270,7 +270,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
                     <button
                       type="button"
                       onClick={() => removeEnvVar(index)}
-                      className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                      className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 self-start sm:self-center"
                       disabled={isCreating}
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -304,12 +304,12 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
             
             <div className="space-y-3">
               {metadataVars.map((metaVar, index) => (
-                <div key={index} className="flex gap-3 items-center">
+                <div key={index} className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
                   <input
                     type="text"
                     value={metaVar.key}
                     onChange={(e) => updateMetadataVar(index, 'key', e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    className="w-full sm:flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="Metadata key (e.g., project_type)"
                     disabled={isCreating}
                   />
@@ -317,7 +317,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
                     type="text"
                     value={metaVar.value}
                     onChange={(e) => updateMetadataVar(index, 'value', e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    className="w-full sm:flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="Metadata value"
                     disabled={isCreating}
                   />
@@ -325,7 +325,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
                     <button
                       type="button"
                       onClick={() => removeMetadataVar(index)}
-                      className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                      className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 self-start sm:self-center"
                       disabled={isCreating}
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
