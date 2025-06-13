@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import TopNavigationBar from './components/TopNavigationBar'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -47,10 +46,7 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
       </head>
-      <body className={inter.className}>
-        <TopNavigationBar />
-        {children}
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
   )
 }
