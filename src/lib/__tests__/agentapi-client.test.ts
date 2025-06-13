@@ -61,7 +61,9 @@ describe('AgentAPIClient', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     // Clear any pending timers to prevent memory leaks
-    vi.clearAllTimers();
+    if (vi.clearAllTimers) {
+      vi.clearAllTimers();
+    }
     // Force garbage collection if available
     if (global.gc) {
       global.gc();
@@ -524,7 +526,7 @@ describe('AgentAPIClient', () => {
     });
 
     it('should return false on health check failure', async () => {
-      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+      mockFetch.mockRejectedValue(new Error('Network error'));
 
       const result = await client.healthCheck();
       expect(result).toBe(false);
