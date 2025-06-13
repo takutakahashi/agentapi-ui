@@ -41,6 +41,7 @@ export default function ConversationList() {
   const [quickStartMessage, setQuickStartMessage] = useState('')
   const [isCreatingQuickSession, setIsCreatingQuickSession] = useState(false)
   const [sidebarVisible, setSidebarVisible] = useState(false)
+  const [deletingSession, setDeletingSession] = useState<string | null>(null)
 
   // Extract filter groups from all sessions
   const filterGroups = extractFilterGroups(allSessions)
@@ -242,6 +243,25 @@ export default function ConversationList() {
     }
   }
 
+  const deleteSession = async (sessionId: string) => {
+    if (!confirm('このセッションを削除してもよろしいですか？')) return
+
+    try {
+      setDeletingSession(sessionId)
+      
+      const client = createAgentAPIClientFromStorage()
+      await client.deleteSession(sessionId)
+
+      // セッション一覧を更新
+      fetchSessions()
+    } catch (err) {
+      console.error('Failed to delete session:', err)
+      setError('セッションの削除に失敗しました')
+    } finally {
+      setDeletingSession(null)
+    }
+  }
+
   // Initialize filters from URL on mount
   useEffect(() => {
     const urlFilters = parseFiltersFromURL(searchParams)
@@ -382,7 +402,12 @@ export default function ConversationList() {
           ) : (
             <div>
               {paginatedSessions.map((session) => (
-                <SessionCard key={session.session_id} session={session} />
+                <SessionCard 
+                  key={session.session_id} 
+                  session={session} 
+                  onDelete={deleteSession}
+                  isDeleting={deletingSession === session.session_id}
+                />
               ))}
 
               {/* Pagination */}

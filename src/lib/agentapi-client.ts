@@ -327,7 +327,7 @@ export class AgentAPIClient {
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    await this.makeRequest<void>(`/${sessionId}`, {
+    await this.makeRequest<void>(`/sessions/${sessionId}`, {
       method: 'DELETE',
     });
   }
