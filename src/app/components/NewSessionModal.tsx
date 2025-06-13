@@ -31,6 +31,14 @@ export default function NewSessionModal({ isOpen, onClose, onSuccess }: NewSessi
 
       const client = createAgentAPIClientFromStorage()
       
+      const tags: Record<string, string> = {
+        message: initialMessage.trim()
+      }
+      
+      if (repository.trim()) {
+        tags.repository = repository.trim()
+      }
+
       await client.createSession({
         user_id: 'current-user',
         environment: repository.trim() ? {
@@ -39,9 +47,7 @@ export default function NewSessionModal({ isOpen, onClose, onSuccess }: NewSessi
         metadata: {
           description: initialMessage.trim()
         },
-        tags: repository.trim() ? {
-          repository: repository.trim()
-        } : undefined
+        tags: tags
       })
 
       setInitialMessage('')
