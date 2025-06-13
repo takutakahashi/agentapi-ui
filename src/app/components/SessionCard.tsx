@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Session } from '../../types/agentapi'
 import StatusBadge from './StatusBadge'
@@ -9,6 +10,19 @@ interface SessionCardProps {
 }
 
 export default function SessionCard({ session }: SessionCardProps) {
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   const formatRelativeTime = (dateString: string) => {
     const date = new Date(dateString)
     const now = new Date()
@@ -28,68 +42,80 @@ export default function SessionCard({ session }: SessionCardProps) {
   }
 
   return (
-    <div className="border-b border-gray-200 dark:border-gray-700 px-4 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-      <div className="flex items-start justify-between">
+    <div className="border-b border-gray-200 dark:border-gray-700 px-3 py-4 sm:px-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 mb-2">
-            <h3 className="text-base font-medium text-gray-900 dark:text-white truncate">
-              {truncateText(String(session.metadata?.description || `Session ${session.session_id.substring(0, 8)}`), 80)}
+          {/* タイトルとステータス */}
+          <div className="flex items-start gap-3 mb-2">
+            <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white leading-5 sm:leading-6">
+              {truncateText(String(session.metadata?.description || `Session ${session.session_id.substring(0, 8)}`), isMobile ? 60 : 80)}
             </h3>
             <StatusBadge status={session.status} />
           </div>
 
-          <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-4 mb-2">
+          {/* セッション情報 */}
+          <div className="flex flex-col sm:flex-row sm:items-center text-xs text-gray-500 dark:text-gray-400 space-y-1 sm:space-y-0 sm:space-x-4 mb-3">
             <span>#{session.session_id.substring(0, 8)}</span>
-            <span>作成: {formatRelativeTime(session.created_at)}</span>
-            <span>更新: {formatRelativeTime(session.updated_at)}</span>
-            <span>by {session.user_id}</span>
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <span>作成: {formatRelativeTime(session.created_at)}</span>
+              <span className="hidden sm:inline">更新: {formatRelativeTime(session.updated_at)}</span>
+            </div>
+            <span className="hidden sm:inline">by {session.user_id}</span>
             {session.environment?.WORKSPACE_NAME && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 self-start">
                 {session.environment.WORKSPACE_NAME}
               </span>
             )}
           </div>
 
-          {/* メタデータタグ */}
+          {/* メタデータタグ - モバイルでは最大2個まで表示 */}
           {session.metadata && (
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(session.metadata).map(([key, value]) => {
-                if (key === 'description') return null
-                return (
+            <div className="flex flex-wrap gap-1 sm:gap-2">
+              {Object.entries(session.metadata)
+                .filter(([key]) => key !== 'description')
+                .slice(0, isMobile ? 2 : 10)
+                .map(([key, value]) => (
                   <span
                     key={key}
                     className="inline-flex items-center px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full"
                   >
-                    {key}: {String(value)}
+                    <span className="hidden sm:inline">{key}: </span>
+                    <span className="sm:hidden">{key.substring(0, 8)}: </span>
+                    {String(value).substring(0, isMobile ? 8 : 20)}
                   </span>
-                )
-              })}
+                ))}
+              {Object.entries(session.metadata).filter(([key]) => key !== 'description').length > 2 && isMobile && (
+                <span className="inline-flex items-center px-2 py-1 text-xs bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400 rounded-full">
+                  +{Object.entries(session.metadata).filter(([key]) => key !== 'description').length - 2}
+                </span>
+              )}
             </div>
           )}
         </div>
 
-        <div className="flex items-center space-x-2 ml-4">
+        {/* アクションボタン - モバイルでは横並び */}
+        <div className="flex flex-row sm:flex-row items-center space-x-2 sm:space-x-2 sm:ml-4">
           {session.status === 'active' && (
             <Link
               href={`/agentapi?session=${session.session_id}`}
-              className="inline-flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
+              className="inline-flex items-center justify-center px-3 py-2 sm:px-3 sm:py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors min-h-[44px] sm:min-h-0"
             >
-              <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-              チャット
+              <span className="hidden sm:inline">チャット</span>
             </Link>
           )}
           
           <Link
             href={`/sessions/${session.session_id}`}
-            className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-md transition-colors"
+            className="inline-flex items-center justify-center px-3 py-2 sm:px-3 sm:py-1.5 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-md transition-colors min-h-[44px] sm:min-h-0"
           >
-            <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
             </svg>
-            詳細
+            <span className="hidden sm:inline">詳細</span>
           </Link>
         </div>
       </div>
