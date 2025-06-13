@@ -66,7 +66,7 @@ export default function ConversationList() {
       }
 
       const response = await client.getSessions(params)
-      setAllSessions(response.sessions)
+      setAllSessions(response.sessions || [])
     } catch (err) {
       if (err instanceof AgentAPIError) {
         setError(`Failed to load sessions: ${err.message}`)
