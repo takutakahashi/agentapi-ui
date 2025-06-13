@@ -1,19 +1,112 @@
 'use client'
 
 import { useState } from 'react'
-import { createAgentAPIClientFromStorage, AgentAPIError } from '../../lib/agentapi-client'
+import { createAgentAPIClientFromStorage } from '../../lib/agentapi-client'
+import type { AgentAPIClient } from '../../lib/agentapi-client'
 
 interface NewSessionModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
+  onSessionStart: (id: string, message: string, repository?: string) => void
+  onSessionStatusUpdate: (id: string, status: 'creating' | 'waiting-agent' | 'sending-message' | 'completed' | 'failed') => void
+  onSessionCompleted: (id: string) => void
 }
 
-export default function NewSessionModal({ isOpen, onClose, onSuccess }: NewSessionModalProps) {
+export default function NewSessionModal({ 
+  isOpen, 
+  onClose, 
+  onSuccess, 
+  onSessionStart, 
+  onSessionStatusUpdate, 
+  onSessionCompleted 
+}: NewSessionModalProps) {
   const [initialMessage, setInitialMessage] = useState('')
   const [repository, setRepository] = useState('')
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [statusMessage, setStatusMessage] = useState('')
+
+  const createSessionInBackground = async (client: AgentAPIClient, message: string, repo: string, sessionId: string) => {
+    try {
+      console.log('Starting background session creation...')
+      onSessionStatusUpdate(sessionId, 'creating')
+      
+      const tags: Record<string, string> = {}
+      
+      if (repo) {
+        tags.repository = repo
+      }
+
+      // セッションを作成
+      const session = await client.createSession({
+        user_id: 'current-user',
+        environment: repo ? {
+          REPOSITORY: repo
+        } : {},
+        metadata: {
+          description: message
+        },
+        tags: Object.keys(tags).length > 0 ? tags : undefined
+      })
+      console.log('Session created:', session)
+
+      // セッション作成後、statusが "Agent Available" になるまで待機
+      onSessionStatusUpdate(sessionId, 'waiting-agent')
+      let retryCount = 0
+      const maxRetries = 30 // 最大30回（30秒）待機
+      const retryInterval = 1000 // 1秒間隔
+
+      while (retryCount < maxRetries) {
+        try {
+          const status = await client.getSessionStatus(session.session_id)
+          console.log(`Session ${session.session_id} status:`, status)
+          if (status.status === 'stable') {
+            console.log('Agent is now available')
+            break
+          }
+        } catch (err) {
+          console.warn(`Status check failed (attempt ${retryCount + 1}):`, err)
+        }
+        
+        retryCount++
+        if (retryCount >= maxRetries) {
+          onSessionStatusUpdate(sessionId, 'failed')
+          onSessionCompleted(sessionId)
+          throw new Error('セッションの準備がタイムアウトしました。しばらく待ってから再試行してください。')
+        }
+        
+        // 1秒待機
+        await new Promise(resolve => setTimeout(resolve, retryInterval))
+      }
+
+      // Agent Availableになったら初期メッセージを送信
+      onSessionStatusUpdate(sessionId, 'sending-message')
+      console.log(`Sending initial message to session ${session.session_id}:`, message)
+      try {
+        await client.sendSessionMessage(session.session_id, {
+          content: message,
+          type: 'user'
+        })
+        console.log('Initial message sent successfully')
+        
+        // 作成完了
+        onSessionStatusUpdate(sessionId, 'completed')
+        onSessionCompleted(sessionId)
+        
+        // セッション一覧を更新
+        onSuccess()
+      } catch (messageErr) {
+        console.error('Failed to send initial message:', messageErr)
+        onSessionStatusUpdate(sessionId, 'failed')
+        onSessionCompleted(sessionId)
+      }
+    } catch (err) {
+      console.error('Background session creation failed:', err)
+      onSessionStatusUpdate(sessionId, 'failed')
+      onSessionCompleted(sessionId)
+    }
+  }
 
   if (!isOpen) return null
 
@@ -28,50 +121,40 @@ export default function NewSessionModal({ isOpen, onClose, onSuccess }: NewSessi
     try {
       setIsCreating(true)
       setError(null)
+      setStatusMessage('セッションを作成中...')
 
       const client = createAgentAPIClientFromStorage()
+      const currentMessage = initialMessage.trim()
+      const currentRepository = repository.trim()
       
-      const tags: Record<string, string> = {
-        message: initialMessage.trim()
-      }
+      // セッションIDを生成
+      const sessionId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       
-      if (repository.trim()) {
-        tags.repository = repository.trim()
-      }
-
-      await client.createSession({
-        user_id: 'current-user',
-        environment: repository.trim() ? {
-          REPOSITORY: repository.trim()
-        } : {},
-        metadata: {
-          description: initialMessage.trim()
-        },
-        tags: tags
-      })
-
+      // 作成開始をコールバック
+      onSessionStart(sessionId, currentMessage, currentRepository || undefined)
+      
+      // 入力値をクリアしてモーダルを閉じる
       setInitialMessage('')
       setRepository('')
-      onSuccess()
+      setStatusMessage('')
+      setIsCreating(false)
       onClose()
-    } catch (err) {
-      if (err instanceof AgentAPIError) {
-        setError(`セッション作成に失敗しました: ${err.message}`)
-      } else {
-        setError('予期しないエラーが発生しました')
-      }
-    } finally {
+      
+      // バックグラウンドでセッション作成処理を続行
+      createSessionInBackground(client, currentMessage, currentRepository, sessionId)
+      
+    } catch {
+      setError('セッション開始に失敗しました')
       setIsCreating(false)
     }
   }
 
   const handleClose = () => {
-    if (!isCreating) {
-      setInitialMessage('')
-      setRepository('')
-      setError(null)
-      onClose()
-    }
+    setInitialMessage('')
+    setRepository('')
+    setError(null)
+    setStatusMessage('')
+    onClose()
   }
 
   return (
@@ -83,8 +166,7 @@ export default function NewSessionModal({ isOpen, onClose, onSuccess }: NewSessi
           </h2>
           <button
             onClick={handleClose}
-            disabled={isCreating}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 disabled:opacity-50"
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -130,14 +212,19 @@ export default function NewSessionModal({ isOpen, onClose, onSuccess }: NewSessi
             </div>
           )}
 
+          {statusMessage && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+              <p className="text-blue-600 dark:text-blue-400 text-sm">{statusMessage}</p>
+            </div>
+          )}
+
           <div className="flex justify-end space-x-3 pt-4">
             <button
               type="button"
               onClick={handleClose}
-              disabled={isCreating}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md"
             >
-              キャンセル
+              閉じる
             </button>
             <button
               type="submit"

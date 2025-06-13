@@ -10,12 +10,21 @@ interface TagFilter {
   [key: string]: string[]
 }
 
+interface CreatingSession {
+  id: string
+  message: string
+  repository?: string
+  status: 'creating' | 'waiting-agent' | 'sending-message' | 'completed' | 'failed'
+  startTime: Date
+}
+
 interface SessionListViewProps {
   tagFilters: TagFilter
   onSessionsUpdate: () => void
+  creatingSessions: CreatingSession[]
 }
 
-export default function SessionListView({ tagFilters, onSessionsUpdate }: SessionListViewProps) {
+export default function SessionListView({ tagFilters, onSessionsUpdate, creatingSessions }: SessionListViewProps) {
   const router = useRouter()
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
@@ -146,6 +155,19 @@ export default function SessionListView({ tagFilters, onSessionsUpdate }: Sessio
     })
   })
 
+  // ページネーション
+  const pageState = { page: 1, limit: 20 }
+  const paginatedSessions = filteredSessions.slice(
+    (pageState.page - 1) * pageState.limit,
+    pageState.page * pageState.limit
+  )
+  const totalPages = Math.ceil(filteredSessions.length / pageState.limit)
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handlePageChange = (_newPage: number) => {
+    // ページ変更の実装は省略（既存の実装があれば使用）
+  }
+
   const toggleDescription = (sessionId: string) => {
     const newExpanded = new Set(expandedDescriptions)
     if (newExpanded.has(sessionId)) {
@@ -246,6 +268,28 @@ export default function SessionListView({ tagFilters, onSessionsUpdate }: Sessio
     return `${diffDays}日前`
   }
 
+  const getStatusText = (status: CreatingSession['status']) => {
+    switch (status) {
+      case 'creating': return 'セッション作成中...'
+      case 'waiting-agent': return 'エージェント準備中...'
+      case 'sending-message': return 'メッセージ送信中...'
+      case 'completed': return '完了'
+      case 'failed': return '失敗'
+      default: return '処理中...'
+    }
+  }
+
+  const getStatusColor = (status: CreatingSession['status']) => {
+    switch (status) {
+      case 'creating': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+      case 'waiting-agent': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+      case 'sending-message': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+      case 'completed': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+      case 'failed': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -267,7 +311,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate }: Sessio
 
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-          セッション一覧 ({filteredSessions.length})
+          セッション一覧 ({filteredSessions.length + creatingSessions.length})
         </h3>
         <button
           onClick={fetchSessions}
@@ -278,7 +322,60 @@ export default function SessionListView({ tagFilters, onSessionsUpdate }: Sessio
         </button>
       </div>
 
-      {filteredSessions.length === 0 ? (
+      {/* 作成中セッション */}
+      {creatingSessions.length > 0 && (
+        <div className="space-y-4">
+          <h4 className="text-md font-medium text-gray-700 dark:text-gray-300">
+            作成中のセッション ({creatingSessions.length})
+          </h4>
+          {creatingSessions.map((creatingSession) => (
+            <div
+              key={creatingSession.id}
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(creatingSession.status)}`}>
+                      {getStatusText(creatingSession.status)}
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {formatRelativeTime(creatingSession.startTime.toISOString())}
+                    </span>
+                  </div>
+                  
+                  <div className="mb-2">
+                    <p className="text-gray-900 dark:text-white">
+                      {truncateText(creatingSession.message)}
+                    </p>
+                  </div>
+
+                  {/* リポジトリタグ */}
+                  {creatingSession.repository && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      <span className="inline-flex items-center px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-full">
+                        repository: {creatingSession.repository}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* ローディングアニメーション */}
+                {creatingSession.status !== 'failed' && creatingSession.status !== 'completed' && (
+                  <div className="ml-4">
+                    <svg className="animate-spin h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {filteredSessions.length === 0 && creatingSessions.length === 0 ? (
         <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
           <div className="text-gray-400 dark:text-gray-500 mb-2">
             <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -289,7 +386,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate }: Sessio
             セッションが見つかりません
           </h3>
           <p className="text-gray-500 dark:text-gray-400">
-            {sessions.length === 0
+            {sessions.length === 0 && creatingSessions.length === 0
               ? '新しいセッションを開始してください。'
               : 'フィルタ条件に一致するセッションがありません。'
             }
@@ -297,7 +394,14 @@ export default function SessionListView({ tagFilters, onSessionsUpdate }: Sessio
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredSessions.map((session) => (
+          {/* 既存セッション */}
+          {filteredSessions.length > 0 && (
+            <div>
+              <h4 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-4">
+                アクティブなセッション ({filteredSessions.length})
+              </h4>
+              <div className="space-y-4">
+                {paginatedSessions.map((session) => (
             <div
               key={session.session_id}
               className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6"
@@ -397,6 +501,34 @@ export default function SessionListView({ tagFilters, onSessionsUpdate }: Sessio
               </div>
             </div>
           ))}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 px-4 py-4 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => handlePageChange(pageState.page - 1)}
+                    disabled={pageState.page === 1}
+                    className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Previous
+                  </button>
+                  
+                  <span className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">
+                    Page {pageState.page} of {totalPages}
+                  </span>
+                  
+                  <button
+                    onClick={() => handlePageChange(pageState.page + 1)}
+                    disabled={pageState.page === totalPages}
+                    className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -9,11 +9,20 @@ interface TagFilter {
   [key: string]: string[]
 }
 
+interface CreatingSession {
+  id: string
+  message: string
+  repository?: string
+  status: 'creating' | 'waiting-agent' | 'sending-message' | 'completed' | 'failed'
+  startTime: Date
+}
+
 export default function ChatsPage() {
   const [showNewSessionModal, setShowNewSessionModal] = useState(false)
   const [sidebarVisible, setSidebarVisible] = useState(false)
   const [tagFilters, setTagFilters] = useState<TagFilter>({})
   const [refreshKey, setRefreshKey] = useState(0)
+  const [creatingSessions, setCreatingSessions] = useState<CreatingSession[]>([])
 
   const handleNewSessionSuccess = () => {
     setRefreshKey(prev => prev + 1)
@@ -22,6 +31,30 @@ export default function ChatsPage() {
   const handleSessionsUpdate = useCallback(() => {
     setRefreshKey(prev => prev + 1)
   }, [])
+
+  const handleSessionStart = (id: string, message: string, repository?: string) => {
+    const newSession: CreatingSession = {
+      id,
+      message,
+      repository,
+      status: 'creating',
+      startTime: new Date()
+    }
+    setCreatingSessions(prev => [...prev, newSession])
+  }
+
+  const handleSessionStatusUpdate = (id: string, status: CreatingSession['status']) => {
+    setCreatingSessions(prev => 
+      prev.map(session => 
+        session.id === id ? { ...session, status } : session
+      )
+    )
+  }
+
+  const handleSessionCompleted = (id: string) => {
+    setCreatingSessions(prev => prev.filter(session => session.id !== id))
+    setRefreshKey(prev => prev + 1)
+  }
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -117,6 +150,7 @@ export default function ChatsPage() {
           <SessionListView
             tagFilters={tagFilters}
             onSessionsUpdate={handleSessionsUpdate}
+            creatingSessions={creatingSessions}
             key={refreshKey}
           />
 
@@ -125,6 +159,9 @@ export default function ChatsPage() {
             isOpen={showNewSessionModal}
             onClose={() => setShowNewSessionModal(false)}
             onSuccess={handleNewSessionSuccess}
+            onSessionStart={handleSessionStart}
+            onSessionStatusUpdate={handleSessionStatusUpdate}
+            onSessionCompleted={handleSessionCompleted}
           />
         </div>
       </div>
