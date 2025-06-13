@@ -144,10 +144,10 @@ export function parseFiltersFromURL(searchParams: URLSearchParams): SessionFilte
       status = value as Session['status']
     } else if (key.startsWith('metadata.')) {
       const metadataKey = key.replace('metadata.', '')
-      metadataFilters[metadataKey] = value.split(',').filter(v => v.trim())
+      metadataFilters[metadataKey] = value.split(',').filter(v => typeof v === 'string' && v.trim() !== '')
     } else if (key.startsWith('environment.')) {
       const envKey = key.replace('environment.', '')
-      environmentFilters[envKey] = value.split(',').filter(v => v.trim())
+      environmentFilters[envKey] = value.split(',').filter(v => typeof v === 'string' && v.trim() !== '')
     }
   }
 
