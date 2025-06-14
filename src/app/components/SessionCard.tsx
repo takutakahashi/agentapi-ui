@@ -50,7 +50,7 @@ export default function SessionCard({ session, onDelete, isDeleting }: SessionCa
           {/* タイトルとステータス */}
           <div className="flex items-start gap-3 mb-2">
             <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white leading-5 sm:leading-6">
-              {truncateText(String(session.metadata?.description || `Session ${session.session_id.substring(0, 8)}`), isMobile ? 60 : 80)}
+              {truncateText(String(session.metadata?.description || `Session ${session.session_id.substring(0, 8)}`), isMobile ? 100 : 120)}
             </h3>
             <StatusBadge status={session.status} />
           </div>
