@@ -1,5 +1,6 @@
 import { RealAgentAPIClient } from './real-agentapi-client';
 import { MockAgentAPIClient } from './__mocks__/agentapi-client';
+import { AgentAPIProxyClient } from './agentapi-proxy-client';
 import { 
   AgentAPIClientConfig, 
   Agent, 
@@ -8,7 +9,16 @@ import {
   CreateAgentRequest,
   UpdateAgentRequest,
   Metrics,
-  SystemConfig 
+  SystemConfig,
+  Session,
+  SessionListParams,
+  SessionListResponse,
+  CreateSessionRequest,
+  SessionMessage,
+  SessionMessageListResponse,
+  SessionMessageListParams,
+  SendSessionMessageRequest,
+  SessionEventsOptions
 } from '../types/agentapi';
 import { 
   RealAgentAPIConfig,
@@ -19,6 +29,8 @@ import {
 } from '../types/real-agentapi';
 import { getAgentAPIConfigFromStorage } from './agentapi-client';
 import { getRealAgentAPIConfigFromStorage } from './real-agentapi-client';
+import { getAgentAPIProxyConfigFromStorage } from './agentapi-proxy-client';
+import { loadGlobalSettings, loadRepositorySettings } from '../types/settings';
 
 export type ClientMode = 'production' | 'mock' | 'auto';
 
@@ -26,6 +38,7 @@ export interface UnifiedAgentAPIConfig {
   mode?: ClientMode;
   realApiConfig?: RealAgentAPIConfig;
   mockApiConfig?: AgentAPIClientConfig;
+  proxyEnabled?: boolean;
   fallbackToMock?: boolean;
   healthCheckTimeout?: number;
 }
@@ -48,6 +61,22 @@ export interface UnifiedAgentAPIInterface {
   getMetrics?(): Promise<Metrics>;
   getConfig?(): Promise<SystemConfig>;
   
+  // Session management (proxy enabled)
+  start?(userId: string, metadata?: Record<string, unknown>): Promise<Session>;
+  search?(params?: SessionListParams): Promise<SessionListResponse>;
+  delete?(sessionId: string): Promise<void>;
+  getSession?(sessionId: string): any; // Returns AgentAPIClient
+  getSessionMessages?(sessionId: string, params?: SessionMessageListParams): Promise<SessionMessageListResponse>;
+  sendSessionMessage?(sessionId: string, data: SendSessionMessageRequest): Promise<SessionMessage>;
+  getSessionStatus?(sessionId: string): Promise<AgentStatus>;
+  subscribeToSessionEvents?(
+    sessionId: string,
+    onMessage: (message: SessionMessage) => void,
+    onStatus?: (status: AgentStatus) => void,
+    onError?: (error: Error) => void,
+    options?: SessionEventsOptions
+  ): EventSource;
+  
   // Utility methods
   healthCheck(): Promise<boolean>;
   getCurrentMode(): ClientMode;
@@ -57,6 +86,7 @@ export interface UnifiedAgentAPIInterface {
 export class UnifiedAgentAPIClient implements UnifiedAgentAPIInterface {
   private realClient?: RealAgentAPIClient;
   private mockClient?: MockAgentAPIClient;
+  private proxyClient?: AgentAPIProxyClient;
   private currentMode: ClientMode;
   private config: UnifiedAgentAPIConfig;
   private isInitialized = false;
@@ -64,6 +94,7 @@ export class UnifiedAgentAPIClient implements UnifiedAgentAPIInterface {
   constructor(config: UnifiedAgentAPIConfig = {}) {
     this.config = {
       mode: 'auto',
+      proxyEnabled: false,
       fallbackToMock: true,
       healthCheckTimeout: 5000,
       ...config
@@ -77,6 +108,12 @@ export class UnifiedAgentAPIClient implements UnifiedAgentAPIInterface {
     // Get configurations from storage if not provided
     const realConfig = this.config.realApiConfig || getRealAgentAPIConfigFromStorage();
     const mockConfig = this.config.mockApiConfig || getAgentAPIConfigFromStorage();
+
+    // Initialize proxy client if enabled
+    if (this.config.proxyEnabled) {
+      const proxyConfig = getAgentAPIProxyConfigFromStorage();
+      this.proxyClient = new AgentAPIProxyClient(proxyConfig);
+    }
 
     // Initialize clients based on mode
     if (this.config.mode === 'mock') {
@@ -257,6 +294,89 @@ export class UnifiedAgentAPIClient implements UnifiedAgentAPIInterface {
     return this.mockClient.getConfig();
   }
 
+  // Session management methods (proxy enabled)
+  async start(userId: string, metadata?: Record<string, unknown>): Promise<Session> {
+    await this.initialize();
+    
+    if (!this.proxyClient) {
+      throw new Error('Session management features require proxy to be enabled');
+    }
+    
+    return this.proxyClient.start(userId, metadata);
+  }
+
+  async search(params?: SessionListParams): Promise<SessionListResponse> {
+    await this.initialize();
+    
+    if (!this.proxyClient) {
+      throw new Error('Session management features require proxy to be enabled');
+    }
+    
+    return this.proxyClient.search(params);
+  }
+
+  async delete(sessionId: string): Promise<void> {
+    await this.initialize();
+    
+    if (!this.proxyClient) {
+      throw new Error('Session management features require proxy to be enabled');
+    }
+    
+    return this.proxyClient.delete(sessionId);
+  }
+
+  getSession(sessionId: string): any {
+    if (!this.proxyClient) {
+      throw new Error('Session management features require proxy to be enabled');
+    }
+    
+    return this.proxyClient.getSession(sessionId);
+  }
+
+  async getSessionMessages(sessionId: string, params?: SessionMessageListParams): Promise<SessionMessageListResponse> {
+    await this.initialize();
+    
+    if (!this.proxyClient) {
+      throw new Error('Session management features require proxy to be enabled');
+    }
+    
+    return this.proxyClient.getSessionMessages(sessionId, params);
+  }
+
+  async sendSessionMessage(sessionId: string, data: SendSessionMessageRequest): Promise<SessionMessage> {
+    await this.initialize();
+    
+    if (!this.proxyClient) {
+      throw new Error('Session management features require proxy to be enabled');
+    }
+    
+    return this.proxyClient.sendSessionMessage(sessionId, data);
+  }
+
+  async getSessionStatus(sessionId: string): Promise<AgentStatus> {
+    await this.initialize();
+    
+    if (!this.proxyClient) {
+      throw new Error('Session management features require proxy to be enabled');
+    }
+    
+    return this.proxyClient.getSessionStatus(sessionId);
+  }
+
+  subscribeToSessionEvents(
+    sessionId: string,
+    onMessage: (message: SessionMessage) => void,
+    onStatus?: (status: AgentStatus) => void,
+    onError?: (error: Error) => void,
+    options?: SessionEventsOptions
+  ): EventSource {
+    if (!this.proxyClient) {
+      throw new Error('Session management features require proxy to be enabled');
+    }
+    
+    return this.proxyClient.subscribeToSessionEvents(sessionId, onMessage, onStatus, onError, options);
+  }
+
   // Utility methods
   async healthCheck(): Promise<boolean> {
     await this.initialize();
@@ -280,6 +400,10 @@ export class UnifiedAgentAPIClient implements UnifiedAgentAPIInterface {
       'getAgents', 'getAgent', 'createAgent', 'updateAgent', 'deleteAgent',
       'getMetrics', 'getConfig'
     ];
+    const sessionFeatures = [
+      'start', 'search', 'delete', 'getSession', 'getSessionMessages', 
+      'sendSessionMessage', 'getSessionStatus', 'subscribeToSessionEvents'
+    ];
 
     if (coreFeatures.indexOf(feature) !== -1) {
       return true;
@@ -289,6 +413,10 @@ export class UnifiedAgentAPIClient implements UnifiedAgentAPIInterface {
       // For auto mode, mock client is always available
       // For explicit modes, check if mock client exists
       return this.config.mode === 'auto' || this.config.mode === 'mock' || this.mockClient !== undefined;
+    }
+
+    if (sessionFeatures.indexOf(feature) !== -1) {
+      return this.config.proxyEnabled === true;
     }
 
     return false;
@@ -307,12 +435,16 @@ export class UnifiedAgentAPIClient implements UnifiedAgentAPIInterface {
     mode: ClientMode, 
     hasRealClient: boolean, 
     hasMockClient: boolean,
+    hasProxyClient: boolean,
+    proxyEnabled: boolean,
     isInitialized: boolean 
   } {
     return {
       mode: this.currentMode,
       hasRealClient: !!this.realClient,
       hasMockClient: !!this.mockClient,
+      hasProxyClient: !!this.proxyClient,
+      proxyEnabled: this.config.proxyEnabled || false,
       isInitialized: this.isInitialized
     };
   }
@@ -327,14 +459,29 @@ export function createUnifiedAgentAPIClientFromStorage(repoFullname?: string): U
   // Check environment variables for mode configuration
   const mode = (process.env.AGENTAPI_MODE as ClientMode) || 'auto';
   const fallbackToMock = process.env.AGENTAPI_FALLBACK !== 'false';
+  const proxyEnabled = process.env.AGENTAPI_PROXY_ENABLED === 'true';
   
   const realApiConfig = getRealAgentAPIConfigFromStorage(repoFullname);
   const mockApiConfig = getAgentAPIConfigFromStorage(repoFullname);
+  
+  // Check if proxy is enabled in settings - default to true for session management
+  let proxyEnabledFromSettings = proxyEnabled || true; // Default to enabled
+  try {
+    if (typeof window !== 'undefined') {
+      const settings = repoFullname ? loadRepositorySettings(repoFullname) : loadGlobalSettings();
+      proxyEnabledFromSettings = settings.agentApiProxy?.enabled !== false; // Enable unless explicitly disabled
+    }
+  } catch (error) {
+    // Fallback to enabled by default if settings can't be loaded
+    console.warn('Could not load proxy settings from storage, enabling proxy by default:', error);
+    proxyEnabledFromSettings = true;
+  }
   
   return new UnifiedAgentAPIClient({
     mode,
     realApiConfig,
     mockApiConfig,
+    proxyEnabled: proxyEnabledFromSettings,
     fallbackToMock
   });
 }

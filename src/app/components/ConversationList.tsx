@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Session, SessionListParams } from '../../types/agentapi'
-import { createAgentAPIClientFromStorage, AgentAPIError } from '../../lib/agentapi-client'
+import { agentAPI } from '../../lib/api'
+import { AgentAPIError } from '../../lib/agentapi-client'
 import { 
   extractFilterGroups, 
   applySessionFilters, 
@@ -62,14 +63,13 @@ export default function ConversationList() {
       setLoading(true)
       setError(null)
 
-      const client = createAgentAPIClientFromStorage()
       // Fetch all sessions (or a large number) to enable client-side filtering
       // TODO: When backend supports metadata filtering, add those params here
       const params: SessionListParams = {
         limit: 1000, // Fetch many sessions for client-side filtering
       }
 
-      const response = await client.getSessions(params)
+      const response = await agentAPI.search(params)
       setAllSessions(response.sessions || [])
     } catch (err) {
       if (err instanceof AgentAPIError) {
@@ -206,20 +206,15 @@ export default function ConversationList() {
       setIsCreatingQuickSession(true)
       setError(null)
 
-      const client = createAgentAPIClientFromStorage()
-      
       // Get current filter values to use as default parameters for new session
       const { metadata, environment } = getFilterValuesForSessionCreation(sessionFilters)
       
-      await client.createSession({
-        user_id: 'current-user', // TODO: Get actual user ID
+      await agentAPI.start('current-user', { // TODO: Get actual user ID
+        ...metadata,
+        description: quickStartMessage.trim(),
         environment: {
           ...environment,
           // Add any default environment variables if needed
-        },
-        metadata: {
-          ...metadata,
-          description: quickStartMessage.trim()
         }
       })
 
@@ -249,8 +244,7 @@ export default function ConversationList() {
     try {
       setDeletingSession(sessionId)
       
-      const client = createAgentAPIClientFromStorage()
-      await client.deleteSession(sessionId)
+      await agentAPI.delete(sessionId)
 
       // セッション一覧を更新
       fetchSessions()
