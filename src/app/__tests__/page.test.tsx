@@ -19,8 +19,7 @@ describe('Home Page', () => {
   it('renders navigation links', () => {
     render(<Home />)
     
-    expect(screen.getByText('AgentAPI Chat')).toBeInTheDocument()
-    expect(screen.getByText('Agents')).toBeInTheDocument()
+    expect(screen.getByText('Conversations')).toBeInTheDocument()
     expect(screen.getByText('Metrics')).toBeInTheDocument()
     expect(screen.getByText('Settings')).toBeInTheDocument()
   })
