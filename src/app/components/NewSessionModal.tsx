@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { agentAPI } from '../../lib/api'
 import type { UnifiedAgentAPIInterface } from '../../lib/unified-agentapi-client'
 
@@ -26,6 +26,16 @@ export default function NewSessionModal({
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState('')
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   const createSessionInBackground = async (client: UnifiedAgentAPIInterface, message: string, repo: string, sessionId: string) => {
     try {
@@ -183,8 +193,8 @@ export default function NewSessionModal({
               value={initialMessage}
               onChange={(e) => setInitialMessage(e.target.value)}
               placeholder="このセッションで何をしたいか説明してください..."
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white resize-y min-h-[120px] max-h-[300px] sm:min-h-[96px]"
+              rows={isMobile ? 6 : 4}
               disabled={isCreating}
               required
             />

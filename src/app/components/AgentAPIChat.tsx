@@ -428,7 +428,7 @@ export default function AgentAPIChat() {
                     </span>
                   </div>
                   <div className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300">
-                    <div className="whitespace-pre-wrap break-words">{message.content}</div>
+                    <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">{message.content}</div>
                   </div>
                 </div>
               </div>
