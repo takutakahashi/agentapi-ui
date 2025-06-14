@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { createAgentAPIClientFromStorage } from '../../lib/agentapi-client'
-import type { AgentAPIClient } from '../../lib/agentapi-client'
+import { agentAPI } from '../../lib/api'
+import type { UnifiedAgentAPIInterface } from '../../lib/unified-agentapi-client'
 
 interface NewSessionModalProps {
   isOpen: boolean
@@ -27,7 +27,7 @@ export default function NewSessionModal({
   const [error, setError] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState('')
 
-  const createSessionInBackground = async (client: AgentAPIClient, message: string, repo: string, sessionId: string) => {
+  const createSessionInBackground = async (client: UnifiedAgentAPIInterface, message: string, repo: string, sessionId: string) => {
     try {
       console.log('Starting background session creation...')
       onSessionStatusUpdate(sessionId, 'creating')
@@ -38,9 +38,8 @@ export default function NewSessionModal({
         tags.repository = repo
       }
 
-      // セッションを作成
-      const session = await client.createSession({
-        user_id: 'current-user',
+      // セッションを作成 (createSession -> start)
+      const session = await client.start!('current-user', {
         environment: repo ? {
           REPOSITORY: repo
         } : {},
@@ -59,7 +58,7 @@ export default function NewSessionModal({
 
       while (retryCount < maxRetries) {
         try {
-          const status = await client.getSessionStatus(session.session_id)
+          const status = await client.getSessionStatus!(session.session_id)
           console.log(`Session ${session.session_id} status:`, status)
           if (status.status === 'stable') {
             console.log('Agent is now available')
@@ -84,7 +83,7 @@ export default function NewSessionModal({
       onSessionStatusUpdate(sessionId, 'sending-message')
       console.log(`Sending initial message to session ${session.session_id}:`, message)
       try {
-        await client.sendSessionMessage(session.session_id, {
+        await client.sendSessionMessage!(session.session_id, {
           content: message,
           type: 'user'
         })
@@ -123,7 +122,7 @@ export default function NewSessionModal({
       setError(null)
       setStatusMessage('セッションを作成中...')
 
-      const client = createAgentAPIClientFromStorage()
+      const client = agentAPI
       const currentMessage = initialMessage.trim()
       const currentRepository = repository.trim()
       

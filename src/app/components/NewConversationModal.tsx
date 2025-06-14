@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createAgentAPIClientFromStorage, AgentAPIError } from '../../lib/agentapi-client'
+import { agentAPI } from '../../lib/api'
+import { AgentAPIError } from '../../lib/agentapi-client'
 import { SessionFilter, getFilterValuesForSessionCreation } from '../../lib/filter-utils'
 
 interface NewConversationModalProps {
@@ -123,8 +124,6 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
     setError(null)
 
     try {
-      const client = createAgentAPIClientFromStorage()
-      
       // Filter out empty environment variables
       const validEnvVars = envVars.filter(envVar => envVar.key.trim() && envVar.value.trim())
       const environment = validEnvVars.reduce((acc, envVar) => {
@@ -159,11 +158,18 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
         }
       })
 
-      await client.createSession({
+      // Use unified API client with createSession -> start mapping
+      const sessionData = {
         user_id: userId.trim(),
         environment: Object.keys(environment).length > 0 ? environment : undefined,
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
         tags: Object.keys(tags).length > 0 ? tags : undefined
+      }
+      
+      await agentAPI.start!(userId.trim(), {
+        environment: sessionData.environment,
+        metadata: sessionData.metadata,
+        tags: sessionData.tags
       })
 
       onSuccess()

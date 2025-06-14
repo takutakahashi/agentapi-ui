@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { realAgentAPI, RealAgentAPIError } from '../../lib/real-agentapi-client';
-import { createAgentAPIClientFromStorage, AgentAPIError } from '../../lib/agentapi-client';
+import { agentAPI } from '../../lib/api';
+import { AgentAPIError } from '../../lib/agentapi-client';
 import { Message, AgentStatus } from '../../types/real-agentapi';
 import { SessionMessage, SessionMessageListResponse } from '../../types/agentapi';
 
@@ -95,8 +96,7 @@ export default function AgentAPIChat() {
         if (sessionId) {
           // Session-based connection: load messages from agentapi-proxy
           try {
-            const proxyClient = createAgentAPIClientFromStorage();
-            const sessionMessagesResponse = await proxyClient.getSessionMessages(sessionId, { limit: 100 });
+            const sessionMessagesResponse = await agentAPI.getSessionMessages!(sessionId, { limit: 100 });
             
             // Validate and safely handle session messages response
             if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
@@ -165,14 +165,13 @@ export default function AgentAPIChat() {
 
     if (sessionId) {
       // Session-based polling for messages (1 second interval)
-      const proxyClient = createAgentAPIClientFromStorage();
       
       const pollMessages = async () => {
         try {
           // Poll both messages and status
           const [sessionMessagesResponse, sessionStatus] = await Promise.all([
-            proxyClient.getSessionMessages(sessionId, { limit: 100 }),
-            proxyClient.getSessionStatus(sessionId)
+            agentAPI.getSessionMessages!(sessionId, { limit: 100 }),
+            agentAPI.getSessionStatus!(sessionId)
           ]);
           
           // Validate and safely handle session messages response
@@ -277,8 +276,7 @@ export default function AgentAPIChat() {
     try {
       if (sessionId) {
         // Send message via session
-        const proxyClient = createAgentAPIClientFromStorage();
-        const sessionMessage = await proxyClient.sendSessionMessage(sessionId, {
+        const sessionMessage = await agentAPI.sendSessionMessage!(sessionId, {
           content: inputValue.trim(),
           type: 'user'
         });
