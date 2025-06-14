@@ -369,7 +369,6 @@ export class AgentAPIProxyClient {
   async cleanupInactiveSessions(): Promise<void> {
     // This would typically query the proxy for inactive sessions
     // and remove them from the local cache
-    const now = Date.now();
     const sessionsToRemove: string[] = [];
 
     // For now, just clean up old cached clients
