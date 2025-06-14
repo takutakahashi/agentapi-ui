@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { SettingsFormData, loadRepositorySettings, saveRepositorySettings } from '../../../types/settings'
-import type { AgentApiSettings, AgentApiProxySettings, EnvironmentVariable } from '../../../types/settings'
+import type { AgentApiProxySettings, EnvironmentVariable } from '../../../types/settings'
 
 export default function SettingsPage() {
   const params = useParams()
@@ -46,17 +46,7 @@ export default function SettingsPage() {
     }
   }
 
-  const updateAgentApiSetting = (key: keyof AgentApiSettings, value: string | number | Record<string, string>) => {
-    setSettings(prev => ({
-      ...prev,
-      agentApi: {
-        ...prev.agentApi,
-        [key]: value
-      }
-    }))
-  }
-
-  const updateAgentApiProxySetting = (key: keyof AgentApiProxySettings, value: string | number | boolean | { username: string; password: string } | undefined) => {
+  const updateAgentApiProxySetting = (key: keyof AgentApiProxySettings, value: string | number | boolean) => {
     setSettings(prev => ({
       ...prev,
       agentApiProxy: {
@@ -92,28 +82,7 @@ export default function SettingsPage() {
     }))
   }
 
-  const addCustomHeader = () => {
-    const key = prompt('Enter header name:')
-    if (key && key.trim()) {
-      updateAgentApiSetting('customHeaders', {
-        ...settings.agentApi.customHeaders,
-        [key.trim()]: ''
-      })
-    }
-  }
 
-  const updateCustomHeader = (key: string, value: string) => {
-    updateAgentApiSetting('customHeaders', {
-      ...settings.agentApi.customHeaders,
-      [key]: value
-    })
-  }
-
-  const removeCustomHeader = (key: string) => {
-    const newHeaders = { ...settings.agentApi.customHeaders }
-    delete newHeaders[key]
-    updateAgentApiSetting('customHeaders', newHeaders)
-  }
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -137,99 +106,6 @@ export default function SettingsPage() {
         </div>
 
         <div className="space-y-8">
-          {/* AgentAPI Configuration */}
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              AgentAPI Configuration
-            </h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  API Endpoint
-                </label>
-                <input
-                  type="url"
-                  value={settings.agentApi.endpoint}
-                  onChange={(e) => updateAgentApiSetting('endpoint', e.target.value)}
-                  placeholder="http://localhost:8080"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  API Key
-                </label>
-                <input
-                  type="password"
-                  value={settings.agentApi.apiKey}
-                  onChange={(e) => updateAgentApiSetting('apiKey', e.target.value)}
-                  placeholder="Enter your API key"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Request Timeout (ms)
-                </label>
-                <input
-                  type="number"
-                  value={settings.agentApi.timeout}
-                  onChange={(e) => updateAgentApiSetting('timeout', parseInt(e.target.value) || 30000)}
-                  min="1000"
-                  max="300000"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              {/* Custom Headers */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Custom Headers
-                  </label>
-                  <button
-                    onClick={addCustomHeader}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-                  >
-                    + Add Header
-                  </button>
-                </div>
-                
-                {Object.entries(settings.agentApi.customHeaders).length === 0 ? (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-                    No custom headers configured
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {Object.entries(settings.agentApi.customHeaders).map(([key, value]) => (
-                      <div key={key} className="flex items-center gap-2">
-                        <span className="text-sm font-mono text-gray-700 dark:text-gray-300 min-w-0 flex-shrink-0">
-                          {key}:
-                        </span>
-                        <input
-                          type="text"
-                          value={value}
-                          onChange={(e) => updateCustomHeader(key, e.target.value)}
-                          placeholder="Header value"
-                          className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        />
-                        <button
-                          onClick={() => removeCustomHeader(key)}
-                          className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
           {/* AgentAPI Proxy Configuration */}
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
@@ -269,7 +145,21 @@ export default function SettingsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Proxy Request Timeout (ms)
+                  API Key
+                </label>
+                <input
+                  type="password"
+                  value={settings.agentApiProxy.apiKey}
+                  onChange={(e) => updateAgentApiProxySetting('apiKey', e.target.value)}
+                  placeholder="Enter your API key"
+                  disabled={!settings.agentApiProxy.enabled}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Request Timeout (ms)
                 </label>
                 <input
                   type="number"
@@ -282,67 +172,6 @@ export default function SettingsPage() {
                 />
               </div>
 
-              {/* Basic Auth Configuration */}
-              <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">
-                  Basic Authentication (Optional)
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Configure Basic Auth credentials to authenticate with the proxy server.
-                </p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Username
-                    </label>
-                    <input
-                      type="text"
-                      value={settings.agentApiProxy.basicAuth?.username || ''}
-                      onChange={(e) => {
-                        const username = e.target.value;
-                        const password = settings.agentApiProxy.basicAuth?.password || '';
-                        updateAgentApiProxySetting('basicAuth', 
-                          username || password ? { username, password } : undefined
-                        );
-                      }}
-                      placeholder="Enter username"
-                      disabled={!settings.agentApiProxy.enabled}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      value={settings.agentApiProxy.basicAuth?.password || ''}
-                      onChange={(e) => {
-                        const password = e.target.value;
-                        const username = settings.agentApiProxy.basicAuth?.username || '';
-                        updateAgentApiProxySetting('basicAuth', 
-                          username || password ? { username, password } : undefined
-                        );
-                      }}
-                      placeholder="Enter password"
-                      disabled={!settings.agentApiProxy.enabled}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
-                    />
-                  </div>
-                </div>
-                
-                {settings.agentApiProxy.basicAuth?.username || settings.agentApiProxy.basicAuth?.password ? (
-                  <button
-                    onClick={() => updateAgentApiProxySetting('basicAuth', undefined)}
-                    disabled={!settings.agentApiProxy.enabled}
-                    className="mt-3 text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Clear Basic Auth Credentials
-                  </button>
-                ) : null}
-              </div>
             </div>
           </div>
 
