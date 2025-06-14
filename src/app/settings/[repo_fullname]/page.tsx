@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { SettingsFormData, loadRepositorySettings, saveRepositorySettings } from '../../../types/settings'
-import type { AgentApiSettings, EnvironmentVariable } from '../../../types/settings'
+import type { AgentApiSettings, AgentApiProxySettings, EnvironmentVariable } from '../../../types/settings'
 
 export default function SettingsPage() {
   const params = useParams()
@@ -51,6 +51,16 @@ export default function SettingsPage() {
       ...prev,
       agentApi: {
         ...prev.agentApi,
+        [key]: value
+      }
+    }))
+  }
+
+  const updateAgentApiProxySetting = (key: keyof AgentApiProxySettings, value: string | number | boolean | { username: string; password: string } | undefined) => {
+    setSettings(prev => ({
+      ...prev,
+      agentApiProxy: {
+        ...prev.agentApiProxy,
         [key]: value
       }
     }))
@@ -216,6 +226,116 @@ export default function SettingsPage() {
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+
+          {/* AgentAPI Proxy Configuration */}
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+              AgentAPI Proxy Configuration
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Configure the AgentAPI proxy for session management and routing. Repository settings override global proxy settings.
+            </p>
+            
+            <div className="space-y-4">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="proxy-enabled"
+                  checked={settings.agentApiProxy.enabled}
+                  onChange={(e) => updateAgentApiProxySetting('enabled', e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="proxy-enabled" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                  Enable AgentAPI Proxy
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Proxy Endpoint
+                </label>
+                <input
+                  type="url"
+                  value={settings.agentApiProxy.endpoint}
+                  onChange={(e) => updateAgentApiProxySetting('endpoint', e.target.value)}
+                  placeholder="http://localhost:8080"
+                  disabled={!settings.agentApiProxy.enabled}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Proxy Request Timeout (ms)
+                </label>
+                <input
+                  type="number"
+                  value={settings.agentApiProxy.timeout}
+                  onChange={(e) => updateAgentApiProxySetting('timeout', parseInt(e.target.value) || 30000)}
+                  min="1000"
+                  max="300000"
+                  disabled={!settings.agentApiProxy.enabled}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
+                />
+              </div>
+
+              {/* Basic Auth Configuration */}
+              <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">
+                  Basic Authentication (Optional)
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  Configure Basic Auth credentials to authenticate with the proxy server.
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Username
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.agentApiProxy.basicAuth?.username || ''}
+                      onChange={(e) => updateAgentApiProxySetting('basicAuth', {
+                        username: e.target.value,
+                        password: settings.agentApiProxy.basicAuth?.password || ''
+                      })}
+                      placeholder="Enter username"
+                      disabled={!settings.agentApiProxy.enabled}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      value={settings.agentApiProxy.basicAuth?.password || ''}
+                      onChange={(e) => updateAgentApiProxySetting('basicAuth', {
+                        username: settings.agentApiProxy.basicAuth?.username || '',
+                        password: e.target.value
+                      })}
+                      placeholder="Enter password"
+                      disabled={!settings.agentApiProxy.enabled}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+                
+                {settings.agentApiProxy.basicAuth?.username || settings.agentApiProxy.basicAuth?.password ? (
+                  <button
+                    onClick={() => updateAgentApiProxySetting('basicAuth', undefined)}
+                    disabled={!settings.agentApiProxy.enabled}
+                    className="mt-3 text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Clear Basic Auth Credentials
+                  </button>
+                ) : null}
               </div>
             </div>
           </div>

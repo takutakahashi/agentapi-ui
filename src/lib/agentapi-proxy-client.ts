@@ -20,6 +20,10 @@ export interface AgentAPIProxyClientConfig {
   maxSessions?: number;
   sessionTimeout?: number;
   debug?: boolean;
+  basicAuth?: {
+    username: string;
+    password: string;
+  };
 }
 
 export class AgentAPIProxyError extends Error {
@@ -45,6 +49,7 @@ export class AgentAPIProxyClient {
   private maxSessions: number;
   private sessionTimeout: number;
   private debug: boolean;
+  private basicAuth?: { username: string; password: string };
 
   constructor(config: AgentAPIProxyClientConfig) {
     this.agentApiClient = createAgentAPIClient(config.agentApiConfig);
@@ -52,6 +57,7 @@ export class AgentAPIProxyClient {
     this.maxSessions = config.maxSessions || 10;
     this.sessionTimeout = config.sessionTimeout || 300000; // 5 minutes
     this.debug = config.debug || false;
+    this.basicAuth = config.basicAuth;
 
     if (this.debug) {
       console.log('[AgentAPIProxy] Initialized with config:', {
@@ -73,6 +79,12 @@ export class AgentAPIProxyClient {
       'Content-Type': 'application/json',
       'Accept': 'application/json, application/problem+json',
     };
+
+    // Add Basic Auth header if configured
+    if (this.basicAuth) {
+      const credentials = btoa(`${this.basicAuth.username}:${this.basicAuth.password}`);
+      defaultHeaders['Authorization'] = `Basic ${credentials}`;
+    }
 
     const requestOptions: RequestInit = {
       ...options,
@@ -473,6 +485,7 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string): AgentA
       maxSessions: 10,
       sessionTimeout: 300000, // 5 minutes
       debug: process.env.NODE_ENV === 'development',
+      basicAuth: settings.agentApiProxy.basicAuth,
     };
   } catch (error) {
     console.warn('Failed to load proxy settings from storage, using environment variables:', error);
@@ -487,6 +500,12 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string): AgentA
       maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),
       sessionTimeout: parseInt(process.env.AGENTAPI_PROXY_SESSION_TIMEOUT || '300000'),
       debug: process.env.NODE_ENV === 'development',
+      basicAuth: process.env.AGENTAPI_PROXY_BASIC_AUTH_USERNAME && process.env.AGENTAPI_PROXY_BASIC_AUTH_PASSWORD
+        ? {
+            username: process.env.AGENTAPI_PROXY_BASIC_AUTH_USERNAME,
+            password: process.env.AGENTAPI_PROXY_BASIC_AUTH_PASSWORD
+          }
+        : undefined,
     };
   }
 }

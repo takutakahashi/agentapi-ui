@@ -9,6 +9,10 @@ export interface AgentApiProxySettings {
   endpoint: string
   enabled: boolean
   timeout: number
+  basicAuth?: {
+    username: string
+    password: string
+  }
 }
 
 export interface EnvironmentVariable {
@@ -144,7 +148,8 @@ const mergeWithDefaults = (partialSettings: Partial<SettingsFormData> | null | u
     agentApiProxy: {
       endpoint: partialSettings?.agentApiProxy?.endpoint ?? defaultSettings.agentApiProxy.endpoint,
       enabled: partialSettings?.agentApiProxy?.enabled ?? defaultSettings.agentApiProxy.enabled,
-      timeout: partialSettings?.agentApiProxy?.timeout ?? defaultSettings.agentApiProxy.timeout
+      timeout: partialSettings?.agentApiProxy?.timeout ?? defaultSettings.agentApiProxy.timeout,
+      basicAuth: partialSettings?.agentApiProxy?.basicAuth
     },
     environmentVariables: Array.isArray(partialSettings?.environmentVariables) 
       ? partialSettings.environmentVariables 
