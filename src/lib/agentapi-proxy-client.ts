@@ -80,8 +80,8 @@ export class AgentAPIProxyClient {
       'Accept': 'application/json, application/problem+json',
     };
 
-    // Add Basic Auth header if configured
-    if (this.basicAuth) {
+    // Add Basic Auth header if configured with valid credentials
+    if (this.basicAuth && this.basicAuth.username && this.basicAuth.password) {
       const credentials = btoa(`${this.basicAuth.username}:${this.basicAuth.password}`);
       defaultHeaders['Authorization'] = `Basic ${credentials}`;
     }
