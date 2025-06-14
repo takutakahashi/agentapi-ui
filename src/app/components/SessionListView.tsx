@@ -33,6 +33,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   const [deletingSession, setDeletingSession] = useState<string | null>(null)
   const [sessionMessages, setSessionMessages] = useState<{ [sessionId: string]: string }>({})
   const [isMobile, setIsMobile] = useState(false)
+  const [runningSessions, setRunningSessions] = useState<Set<string>>(new Set())
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -88,6 +89,51 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   useEffect(() => {
     fetchSessions()
   }, [fetchSessions])
+
+  // running状態のセッションを10秒ごとに更新
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+
+    const checkRunningStatus = async () => {
+      try {
+        const newRunningSessions = new Set<string>()
+        
+        for (const session of sessions) {
+          if (session.status === 'active') {
+            try {
+              // agentapi statusをチェック (実際のAPIエンドポイントに合わせて調整)
+              const statusResponse = await fetch(`/api/sessions/${session.session_id}/status`)
+              if (statusResponse.ok) {
+                const statusData = await statusResponse.json()
+                if (statusData.status === 'running') {
+                  newRunningSessions.add(session.session_id)
+                }
+              }
+            } catch (err) {
+              console.warn(`Failed to check status for session ${session.session_id}:`, err)
+            }
+          }
+        }
+        
+        setRunningSessions(newRunningSessions)
+      } catch (err) {
+        console.warn('Failed to check running status:', err)
+      }
+    }
+
+    // running状態のセッションがある場合のみ定期的にチェック
+    const hasActiveSessions = sessions.some(s => s.status === 'active')
+    if (hasActiveSessions) {
+      checkRunningStatus() // 初回実行
+      interval = setInterval(checkRunningStatus, 10000) // 10秒ごとに実行
+    }
+
+    return () => {
+      if (interval) {
+        clearInterval(interval)
+      }
+    }
+  }, [sessions])
 
   useEffect(() => {
     const checkMobile = () => {
@@ -371,7 +417,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                           <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white leading-5 sm:leading-6">
                             {truncateText(String(sessionMessages[session.session_id] || session.metadata?.description || 'No description available'), isMobile ? 60 : 80)}
                           </h3>
-                          <StatusBadge status={session.status} />
+                          <StatusBadge status={runningSessions.has(session.session_id) ? 'running' : session.status} />
                         </div>
 
                         {/* セッション情報 */}
