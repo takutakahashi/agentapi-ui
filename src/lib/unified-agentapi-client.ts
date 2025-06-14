@@ -13,7 +13,6 @@ import {
   Session,
   SessionListParams,
   SessionListResponse,
-  CreateSessionRequest,
   SessionMessage,
   SessionMessageListResponse,
   SessionMessageListParams,
@@ -27,7 +26,7 @@ import {
   SendMessageRequest,
   SendMessageResponse
 } from '../types/real-agentapi';
-import { getAgentAPIConfigFromStorage } from './agentapi-client';
+import { getAgentAPIConfigFromStorage, AgentAPIClient } from './agentapi-client';
 import { getRealAgentAPIConfigFromStorage } from './real-agentapi-client';
 import { getAgentAPIProxyConfigFromStorage } from './agentapi-proxy-client';
 import { loadGlobalSettings, loadRepositorySettings } from '../types/settings';
@@ -65,7 +64,7 @@ export interface UnifiedAgentAPIInterface {
   start?(userId: string, metadata?: Record<string, unknown>): Promise<Session>;
   search?(params?: SessionListParams): Promise<SessionListResponse>;
   delete?(sessionId: string): Promise<void>;
-  getSession?(sessionId: string): any; // Returns AgentAPIClient
+  getSession?(sessionId: string): AgentAPIClient; // Returns AgentAPIClient
   getSessionMessages?(sessionId: string, params?: SessionMessageListParams): Promise<SessionMessageListResponse>;
   sendSessionMessage?(sessionId: string, data: SendSessionMessageRequest): Promise<SessionMessage>;
   getSessionStatus?(sessionId: string): Promise<AgentStatus>;
@@ -325,7 +324,7 @@ export class UnifiedAgentAPIClient implements UnifiedAgentAPIInterface {
     return this.proxyClient.delete(sessionId);
   }
 
-  getSession(sessionId: string): any {
+  getSession(sessionId: string): AgentAPIClient {
     if (!this.proxyClient) {
       throw new Error('Session management features require proxy to be enabled');
     }
@@ -465,7 +464,7 @@ export function createUnifiedAgentAPIClientFromStorage(repoFullname?: string): U
   const mockApiConfig = getAgentAPIConfigFromStorage(repoFullname);
   
   // Check if proxy is enabled in settings - default to true for session management
-  let proxyEnabledFromSettings = proxyEnabled || true; // Default to enabled
+  let proxyEnabledFromSettings: boolean = proxyEnabled || true; // Default to enabled
   try {
     if (typeof window !== 'undefined') {
       const settings = repoFullname ? loadRepositorySettings(repoFullname) : loadGlobalSettings();

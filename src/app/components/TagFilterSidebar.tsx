@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createAgentAPIClientFromStorage } from '../../lib/agentapi-client'
+import { agentAPI } from '../../lib/api'
 
 interface Tag {
   key: string
@@ -36,10 +36,8 @@ export default function TagFilterSidebar({
   const fetchTags = async () => {
     try {
       setLoading(true)
-      const client = createAgentAPIClientFromStorage()
-      
       // search APIの代わりに、既存のセッションからメタデータを抽出してTagを作成
-      const response = await client.getSessions({ limit: 1000 })
+      const response = await agentAPI.search!({ limit: 1000 })
       const sessions = response.sessions || []
       
       const tagMap = new Map<string, Set<string>>()

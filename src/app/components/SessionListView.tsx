@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Session } from '../../types/agentapi'
-import { createAgentAPIClientFromStorage, AgentAPIError } from '../../lib/agentapi-client'
+import { agentAPI } from '../../lib/api'
+import { AgentAPIError } from '../../lib/agentapi-client'
 import StatusBadge from './StatusBadge'
 
 interface TagFilter {
@@ -38,15 +39,14 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       setLoading(true)
       setError(null)
 
-      const client = createAgentAPIClientFromStorage()
-      const response = await client.getSessions({ limit: 1000 })
+      const response = await agentAPI.search!({ limit: 1000 })
       const sessionList = response.sessions || []
       setSessions(sessionList)
 
       // 各セッションの初期メッセージを取得
       const messagePromises = sessionList.map(async (session) => {
         try {
-          const messages = await client.getSessionMessages(session.session_id, { limit: 10 })
+          const messages = await agentAPI.getSessionMessages!(session.session_id, { limit: 10 })
           const userMessages = messages.messages.filter(msg => msg.role === 'user')
           if (userMessages.length > 0) {
             return { sessionId: session.session_id, message: userMessages[0].content }
@@ -195,8 +195,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     try {
       setDeletingSession(sessionId)
       
-      const client = createAgentAPIClientFromStorage()
-      await client.deleteSession(sessionId)
+      await agentAPI.delete!(sessionId)
 
       // セッション一覧を更新
       fetchSessions()
