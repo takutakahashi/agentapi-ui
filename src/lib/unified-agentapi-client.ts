@@ -13,6 +13,7 @@ import {
   Session,
   SessionListParams,
   SessionListResponse,
+  CreateSessionRequest,
   SessionMessage,
   SessionMessageListResponse,
   SessionMessageListParams,
@@ -294,14 +295,14 @@ export class UnifiedAgentAPIClient implements UnifiedAgentAPIInterface {
   }
 
   // Session management methods (proxy enabled)
-  async start(userId: string, metadata?: Record<string, unknown>): Promise<Session> {
+  async start(userId: string, sessionData?: Partial<CreateSessionRequest> | Record<string, unknown>): Promise<Session> {
     await this.initialize();
     
     if (!this.proxyClient) {
       throw new Error('Session management features require proxy to be enabled');
     }
     
-    return this.proxyClient.start(userId, metadata);
+    return this.proxyClient.start(userId, sessionData);
   }
 
   async search(params?: SessionListParams): Promise<SessionListResponse> {
