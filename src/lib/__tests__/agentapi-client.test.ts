@@ -318,15 +318,13 @@ describe('AgentAPIClient', () => {
       );
     });
 
-    it('should delete agent', async () => {
-      await client.deleteAgent('agent-1');
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/v1/agents/agent-1',
-        expect.objectContaining({
-          method: 'DELETE',
-        })
+    it('should throw error when attempting to delete agent', async () => {
+      await expect(client.deleteAgent('agent-1')).rejects.toThrow(
+        'Agent deletion is not supported by the AgentAPI backend. This feature is only available in mock mode.'
       );
+      
+      // Should not make any HTTP request
+      expect(mockFetch).not.toHaveBeenCalled();
     });
   });
 

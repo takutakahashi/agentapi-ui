@@ -203,9 +203,7 @@ export class AgentAPIClient {
   }
 
   async deleteAgent(id: string): Promise<void> {
-    await this.makeRequest<void>(`/agents/${id}`, {
-      method: 'DELETE',
-    });
+    throw new Error('Agent deletion is not supported by the AgentAPI backend. This feature is only available in mock mode.');
   }
 
   // Metrics Methods
