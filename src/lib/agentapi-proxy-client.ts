@@ -155,9 +155,9 @@ export class AgentAPIProxyClient {
       // New format: sessionData contains environment, metadata, and/or tags
       data = {
         user_id: userId,
-        environment: sessionData.environment,
-        metadata: sessionData.metadata || { source: 'agentapi-ui' },
-        tags: sessionData.tags
+        environment: sessionData.environment as Record<string, string> | undefined,
+        metadata: sessionData.metadata as Record<string, unknown> | undefined || { source: 'agentapi-ui' },
+        tags: sessionData.tags as Record<string, string> | undefined
       };
     } else {
       // Backward compatibility: sessionData is just metadata
