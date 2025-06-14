@@ -282,67 +282,6 @@ export default function SettingsPage() {
                 />
               </div>
 
-              {/* Basic Auth Configuration */}
-              <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">
-                  Basic Authentication (Optional)
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Configure Basic Auth credentials to authenticate with the proxy server.
-                </p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Username
-                    </label>
-                    <input
-                      type="text"
-                      value={settings.agentApiProxy.basicAuth?.username || ''}
-                      onChange={(e) => {
-                        const username = e.target.value;
-                        const password = settings.agentApiProxy.basicAuth?.password || '';
-                        updateAgentApiProxySetting('basicAuth', 
-                          username || password ? { username, password } : undefined
-                        );
-                      }}
-                      placeholder="Enter username"
-                      disabled={!settings.agentApiProxy.enabled}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      value={settings.agentApiProxy.basicAuth?.password || ''}
-                      onChange={(e) => {
-                        const password = e.target.value;
-                        const username = settings.agentApiProxy.basicAuth?.username || '';
-                        updateAgentApiProxySetting('basicAuth', 
-                          username || password ? { username, password } : undefined
-                        );
-                      }}
-                      placeholder="Enter password"
-                      disabled={!settings.agentApiProxy.enabled}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
-                    />
-                  </div>
-                </div>
-                
-                {settings.agentApiProxy.basicAuth?.username || settings.agentApiProxy.basicAuth?.password ? (
-                  <button
-                    onClick={() => updateAgentApiProxySetting('basicAuth', undefined)}
-                    disabled={!settings.agentApiProxy.enabled}
-                    className="mt-3 text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Clear Basic Auth Credentials
-                  </button>
-                ) : null}
-              </div>
             </div>
           </div>
 
