@@ -26,10 +26,6 @@ export interface AgentAPIProxyClientConfig {
   maxSessions?: number;
   sessionTimeout?: number;
   debug?: boolean;
-  basicAuth?: {
-    username: string;
-    password: string;
-  };
 }
 
 export class AgentAPIProxyError extends Error {
@@ -54,8 +50,6 @@ export class AgentAPIProxyClient {
   private maxSessions: number;
   private sessionTimeout: number;
   private debug: boolean;
-  private basicAuth?: { username: string; password: string };
-
   constructor(config: AgentAPIProxyClientConfig) {
     this.baseURL = config.baseURL.replace(/\/$/, ''); // Remove trailing slash
     this.apiKey = config.apiKey;
@@ -63,7 +57,6 @@ export class AgentAPIProxyClient {
     this.maxSessions = config.maxSessions || 10;
     this.sessionTimeout = config.sessionTimeout || 300000; // 5 minutes
     this.debug = config.debug || false;
-    this.basicAuth = config.basicAuth;
 
     if (this.debug) {
       console.log('[AgentAPIProxy] Initialized with config:', {
@@ -86,12 +79,6 @@ export class AgentAPIProxyClient {
       'Accept': 'application/json, application/problem+json',
     };
 
-    // Add Basic Auth header if configured with valid credentials
-    if (this.basicAuth && this.basicAuth.username && this.basicAuth.password) {
-      const credentials = btoa(`${this.basicAuth.username}:${this.basicAuth.password}`);
-      defaultHeaders['Authorization'] = `Basic ${credentials}`;
-    }
-    
     // Add API Key header if available
     if (this.apiKey) {
       defaultHeaders['Authorization'] = `Bearer ${this.apiKey}`;
@@ -409,12 +396,11 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string): AgentA
     
     return {
       baseURL,
-      apiKey: settings.agentApi.apiKey || process.env.AGENTAPI_API_KEY,
+      apiKey: settings.agentApiProxy.apiKey || process.env.AGENTAPI_API_KEY,
       timeout,
       maxSessions: 10,
       sessionTimeout: 300000, // 5 minutes
       debug: process.env.NODE_ENV === 'development',
-      basicAuth: settings.agentApiProxy.basicAuth,
     };
   } catch (error) {
     console.warn('Failed to load proxy settings from storage, using environment variables:', error);
@@ -426,12 +412,6 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string): AgentA
       maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),
       sessionTimeout: parseInt(process.env.AGENTAPI_PROXY_SESSION_TIMEOUT || '300000'),
       debug: process.env.NODE_ENV === 'development',
-      basicAuth: process.env.AGENTAPI_PROXY_BASIC_AUTH_USERNAME && process.env.AGENTAPI_PROXY_BASIC_AUTH_PASSWORD
-        ? {
-            username: process.env.AGENTAPI_PROXY_BASIC_AUTH_USERNAME,
-            password: process.env.AGENTAPI_PROXY_BASIC_AUTH_PASSWORD
-          }
-        : undefined,
     };
   }
 }

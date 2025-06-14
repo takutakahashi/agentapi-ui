@@ -1,18 +1,8 @@
-export interface AgentApiSettings {
-  endpoint: string
-  apiKey: string
-  timeout: number
-  customHeaders: Record<string, string>
-}
-
 export interface AgentApiProxySettings {
   endpoint: string
   enabled: boolean
   timeout: number
-  basicAuth?: {
-    username: string
-    password: string
-  }
+  apiKey: string
 }
 
 export interface EnvironmentVariable {
@@ -23,7 +13,6 @@ export interface EnvironmentVariable {
 
 export interface RepositorySettings {
   repoFullname: string
-  agentApi: AgentApiSettings
   agentApiProxy: AgentApiProxySettings
   environmentVariables: EnvironmentVariable[]
   created_at: string
@@ -31,7 +20,6 @@ export interface RepositorySettings {
 }
 
 export interface GlobalSettings {
-  agentApi: AgentApiSettings
   agentApiProxy: AgentApiProxySettings
   environmentVariables: EnvironmentVariable[]
   created_at: string
@@ -39,24 +27,17 @@ export interface GlobalSettings {
 }
 
 export interface SettingsFormData {
-  agentApi: AgentApiSettings
   agentApiProxy: AgentApiProxySettings
   environmentVariables: EnvironmentVariable[]
 }
 
 // Default settings
 export const getDefaultSettings = (): SettingsFormData => ({
-  agentApi: {
-    endpoint: '', // No longer used directly
-    apiKey: '',
-    timeout: 30000,
-    customHeaders: {}
-  },
   agentApiProxy: {
     endpoint: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
     enabled: true,
     timeout: 30000,
-    basicAuth: undefined
+    apiKey: ''
   },
   environmentVariables: []
 })
@@ -140,17 +121,11 @@ export const saveRepositorySettings = (repoFullname: string, settings: SettingsF
 // Safely merge partial settings with defaults to ensure all properties exist
 const mergeWithDefaults = (partialSettings: Partial<SettingsFormData> | null | undefined, defaultSettings: SettingsFormData): SettingsFormData => {
   return {
-    agentApi: {
-      endpoint: partialSettings?.agentApi?.endpoint ?? defaultSettings.agentApi.endpoint,
-      apiKey: partialSettings?.agentApi?.apiKey ?? defaultSettings.agentApi.apiKey,
-      timeout: partialSettings?.agentApi?.timeout ?? defaultSettings.agentApi.timeout,
-      customHeaders: partialSettings?.agentApi?.customHeaders ?? defaultSettings.agentApi.customHeaders
-    },
     agentApiProxy: {
       endpoint: partialSettings?.agentApiProxy?.endpoint ?? defaultSettings.agentApiProxy.endpoint,
       enabled: partialSettings?.agentApiProxy?.enabled ?? defaultSettings.agentApiProxy.enabled,
       timeout: partialSettings?.agentApiProxy?.timeout ?? defaultSettings.agentApiProxy.timeout,
-      basicAuth: partialSettings?.agentApiProxy?.basicAuth
+      apiKey: partialSettings?.agentApiProxy?.apiKey ?? defaultSettings.agentApiProxy.apiKey
     },
     environmentVariables: Array.isArray(partialSettings?.environmentVariables) 
       ? partialSettings.environmentVariables 
@@ -161,14 +136,6 @@ const mergeWithDefaults = (partialSettings: Partial<SettingsFormData> | null | u
 // Merge settings with hierarchy: global settings as base, repo settings as overrides
 const mergeSettings = (globalSettings: SettingsFormData, repoSettings: SettingsFormData): SettingsFormData => {
   return {
-    agentApi: {
-      ...globalSettings.agentApi,
-      ...(repoSettings.agentApi || {}),
-      customHeaders: {
-        ...(globalSettings.agentApi?.customHeaders || {}),
-        ...(repoSettings.agentApi?.customHeaders || {})
-      }
-    },
     agentApiProxy: {
       ...globalSettings.agentApiProxy,
       ...(repoSettings.agentApiProxy || {})
