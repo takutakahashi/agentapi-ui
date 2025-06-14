@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Session } from '../../types/agentapi'
 import { agentAPI } from '../../lib/api'
-import { AgentAPIError } from '../../lib/agentapi-client'
+import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import StatusBadge from './StatusBadge'
 
 interface TagFilter {
@@ -64,7 +64,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       })
       setSessionMessages(messageMap)
     } catch (err) {
-      if (err instanceof AgentAPIError) {
+      if (err instanceof AgentAPIProxyError) {
         setError(`Failed to load sessions: ${err.message}`)
       } else {
         setError('An unexpected error occurred while loading sessions')

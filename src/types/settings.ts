@@ -47,7 +47,7 @@ export interface SettingsFormData {
 // Default settings
 export const getDefaultSettings = (): SettingsFormData => ({
   agentApi: {
-    endpoint: process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8080/api/v1',
+    endpoint: '', // No longer used directly
     apiKey: '',
     timeout: 30000,
     customHeaders: {}

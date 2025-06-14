@@ -1,5 +1,11 @@
 // AgentAPI TypeScript types based on the API documentation
-import { AgentStatus } from './real-agentapi';
+
+// Define AgentStatus locally
+export interface AgentStatus {
+  status: 'stable' | 'running' | 'error';
+  last_activity?: string;
+  current_task?: string;
+}
 
 export interface Agent {
   id: string;

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { agentAPI } from '../../lib/api'
-import { AgentAPIError } from '../../lib/agentapi-client'
+import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { SessionFilter, getFilterValuesForSessionCreation } from '../../lib/filter-utils'
 
 interface NewConversationModalProps {
@@ -175,7 +175,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
       onSuccess()
       handleClose()
     } catch (err) {
-      if (err instanceof AgentAPIError) {
+      if (err instanceof AgentAPIProxyError) {
         setError(`Failed to create session: ${err.message}`)
       } else {
         setError(err instanceof Error ? err.message : 'Failed to create session')

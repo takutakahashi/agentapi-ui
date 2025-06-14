@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Session, SessionListParams } from '../../types/agentapi'
 import { agentAPI } from '../../lib/api'
-import { AgentAPIError } from '../../lib/agentapi-client'
+import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { 
   extractFilterGroups, 
   applySessionFilters, 
@@ -72,7 +72,7 @@ export default function ConversationList() {
       const response = await agentAPI.search(params)
       setAllSessions(response.sessions || [])
     } catch (err) {
-      if (err instanceof AgentAPIError) {
+      if (err instanceof AgentAPIProxyError) {
         setError(`Failed to load sessions: ${err.message}`)
       } else {
         setError('An unexpected error occurred while loading sessions')
@@ -221,7 +221,7 @@ export default function ConversationList() {
       setQuickStartMessage('')
       fetchSessions() // Refresh the session list
     } catch (err) {
-      if (err instanceof AgentAPIError) {
+      if (err instanceof AgentAPIProxyError) {
         setError(`Failed to start session: ${err.message}`)
       } else {
         setError('An unexpected error occurred while starting session')

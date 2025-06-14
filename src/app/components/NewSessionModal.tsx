@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { agentAPI } from '../../lib/api'
-import type { UnifiedAgentAPIInterface } from '../../lib/unified-agentapi-client'
+import type { AgentAPIProxyClient } from '../../lib/agentapi-proxy-client'
 
 interface NewSessionModalProps {
   isOpen: boolean
@@ -37,7 +37,7 @@ export default function NewSessionModal({
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  const createSessionInBackground = async (client: UnifiedAgentAPIInterface, message: string, repo: string, sessionId: string) => {
+  const createSessionInBackground = async (client: AgentAPIProxyClient, message: string, repo: string, sessionId: string) => {
     try {
       console.log('Starting background session creation...')
       onSessionStatusUpdate(sessionId, 'creating')
@@ -49,7 +49,7 @@ export default function NewSessionModal({
       }
 
       // セッションを作成 (createSession -> start)
-      const session = await client.start!('current-user', {
+      const session = await client.start('current-user', {
         environment: repo ? {
           REPOSITORY: repo
         } : {},
@@ -68,7 +68,7 @@ export default function NewSessionModal({
 
       while (retryCount < maxRetries) {
         try {
-          const status = await client.getSessionStatus!(session.session_id)
+          const status = await client.getSessionStatus(session.session_id)
           console.log(`Session ${session.session_id} status:`, status)
           if (status.status === 'stable') {
             console.log('Agent is now available')
@@ -93,7 +93,7 @@ export default function NewSessionModal({
       onSessionStatusUpdate(sessionId, 'sending-message')
       console.log(`Sending initial message to session ${session.session_id}:`, message)
       try {
-        await client.sendSessionMessage!(session.session_id, {
+        await client.sendSessionMessage(session.session_id, {
           content: message,
           type: 'user'
         })

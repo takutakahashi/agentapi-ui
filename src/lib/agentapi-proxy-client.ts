@@ -10,13 +10,19 @@ import {
   SessionEventData,
   SessionEventsOptions
 } from '../types/agentapi';
-import { AgentStatus } from '../types/real-agentapi';
-import { AgentAPIClient, createAgentAPIClient } from './agentapi-client';
-import { AgentAPIClientConfig } from '../types/agentapi';
 import { loadGlobalSettings, loadRepositorySettings } from '../types/settings';
 
+// Define local AgentStatus type
+interface AgentStatus {
+  status: 'stable' | 'running' | 'error';
+  last_activity?: string;
+  current_task?: string;
+}
+
 export interface AgentAPIProxyClientConfig {
-  agentApiConfig: AgentAPIClientConfig;
+  baseURL: string;
+  apiKey?: string;
+  timeout?: number;
   maxSessions?: number;
   sessionTimeout?: number;
   debug?: boolean;
@@ -39,21 +45,21 @@ export class AgentAPIProxyError extends Error {
 }
 
 /**
- * AgentAPIProxyClient handles session management and high-level operations
- * on top of the AgentAPIClient. This is inspired by agentapi-proxy implementation.
+ * AgentAPIProxyClient handles session management and communicates directly with agentapi-proxy.
  */
 export class AgentAPIProxyClient {
   private baseURL: string;
-  private agentApiClient: AgentAPIClient;
-  private sessions: Map<string, AgentAPIClient> = new Map();
+  private apiKey?: string;
+  private timeout: number;
   private maxSessions: number;
   private sessionTimeout: number;
   private debug: boolean;
   private basicAuth?: { username: string; password: string };
 
   constructor(config: AgentAPIProxyClientConfig) {
-    this.agentApiClient = createAgentAPIClient(config.agentApiConfig);
-    this.baseURL = config.agentApiConfig.baseURL;
+    this.baseURL = config.baseURL.replace(/\/$/, ''); // Remove trailing slash
+    this.apiKey = config.apiKey;
+    this.timeout = config.timeout || 10000;
     this.maxSessions = config.maxSessions || 10;
     this.sessionTimeout = config.sessionTimeout || 300000; // 5 minutes
     this.debug = config.debug || false;
@@ -84,6 +90,11 @@ export class AgentAPIProxyClient {
     if (this.basicAuth && this.basicAuth.username && this.basicAuth.password) {
       const credentials = btoa(`${this.basicAuth.username}:${this.basicAuth.password}`);
       defaultHeaders['Authorization'] = `Basic ${credentials}`;
+    }
+    
+    // Add API Key header if available
+    if (this.apiKey) {
+      defaultHeaders['Authorization'] = `Bearer ${this.apiKey}`;
     }
 
     const requestOptions: RequestInit = {
@@ -172,28 +183,6 @@ export class AgentAPIProxyClient {
       body: JSON.stringify(data),
     });
 
-    // Create a session-specific client
-    const baseConfig = this.agentApiClient.getClientConfig();
-    const sessionConfig: AgentAPIClientConfig = {
-      ...baseConfig,
-      baseURL: `${this.baseURL}/${session.session_id}/api/v1`
-    };
-    
-    const sessionClient = createAgentAPIClient(sessionConfig);
-    this.sessions.set(session.session_id, sessionClient);
-
-    // Cleanup sessions if we exceed the maximum
-    if (this.sessions.size > this.maxSessions) {
-      const oldestSessionId = this.sessions.keys().next().value;
-      if (oldestSessionId) {
-        this.sessions.delete(oldestSessionId);
-        
-        if (this.debug) {
-          console.log(`[AgentAPIProxy] Cleaned up old session: ${oldestSessionId}`);
-        }
-      }
-    }
-
     if (this.debug) {
       console.log(`[AgentAPIProxy] Started session: ${session.session_id}`);
     }
@@ -229,38 +218,11 @@ export class AgentAPIProxyClient {
       method: 'DELETE',
     });
 
-    // Remove from local session cache
-    this.sessions.delete(sessionId);
-
     if (this.debug) {
       console.log(`[AgentAPIProxy] Deleted session: ${sessionId}`);
     }
   }
 
-  /**
-   * Get a session-specific AgentAPI client
-   */
-  getSession(sessionId: string): AgentAPIClient {
-    let sessionClient = this.sessions.get(sessionId);
-    
-    if (!sessionClient) {
-      // Create a new session client if not cached
-      const baseConfig = this.agentApiClient.getClientConfig();
-      const sessionConfig: AgentAPIClientConfig = {
-        ...baseConfig,
-        baseURL: `${this.baseURL}/${sessionId}/api/v1`
-      };
-      
-      sessionClient = createAgentAPIClient(sessionConfig);
-      this.sessions.set(sessionId, sessionClient);
-
-      if (this.debug) {
-        console.log(`[AgentAPIProxy] Created new session client: ${sessionId}`);
-      }
-    }
-
-    return sessionClient;
-  }
 
   // Session message operations
 
@@ -389,46 +351,6 @@ export class AgentAPIProxyClient {
 
   // Session management utilities
 
-  /**
-   * Clean up inactive sessions
-   */
-  async cleanupInactiveSessions(): Promise<void> {
-    // This would typically query the proxy for inactive sessions
-    // and remove them from the local cache
-    const sessionsToRemove: string[] = [];
-
-    // For now, just clean up old cached clients
-    // In a real implementation, this would check session last activity
-    if (this.sessions.size > this.maxSessions) {
-      const sessionIds = Array.from(this.sessions.keys());
-      const excessCount = this.sessions.size - this.maxSessions;
-      
-      for (let i = 0; i < excessCount; i++) {
-        sessionsToRemove.push(sessionIds[i]);
-      }
-    }
-
-    sessionsToRemove.forEach(sessionId => {
-      this.sessions.delete(sessionId);
-      if (this.debug) {
-        console.log(`[AgentAPIProxy] Cleaned up session: ${sessionId}`);
-      }
-    });
-  }
-
-  /**
-   * Get session count
-   */
-  getSessionCount(): number {
-    return this.sessions.size;
-  }
-
-  /**
-   * Get all active session IDs
-   */
-  getActiveSessionIds(): string[] {
-    return Array.from(this.sessions.keys());
-  }
 
   /**
    * Health check for the proxy
@@ -447,7 +369,6 @@ export class AgentAPIProxyClient {
    */
   setDebug(debug: boolean): void {
     this.debug = debug;
-    this.agentApiClient.setDebug(debug);
   }
 }
 
@@ -457,12 +378,9 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string): AgentA
   if (typeof window === 'undefined') {
     // Server-side rendering or Node.js environment - use environment variables
     return {
-      agentApiConfig: {
-        baseURL: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
-        apiKey: process.env.AGENTAPI_API_KEY,
-        timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
-        debug: process.env.NODE_ENV === 'development',
-      },
+      baseURL: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
+      apiKey: process.env.AGENTAPI_API_KEY,
+      timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
       maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),
       sessionTimeout: parseInt(process.env.AGENTAPI_PROXY_SESSION_TIMEOUT || '300000'),
       debug: process.env.NODE_ENV === 'development',
@@ -490,12 +408,9 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string): AgentA
       : parseInt(process.env.AGENTAPI_TIMEOUT || '10000');
     
     return {
-      agentApiConfig: {
-        baseURL,
-        apiKey: settings.agentApi.apiKey || process.env.AGENTAPI_API_KEY,
-        timeout,
-        debug: process.env.NODE_ENV === 'development',
-      },
+      baseURL,
+      apiKey: settings.agentApi.apiKey || process.env.AGENTAPI_API_KEY,
+      timeout,
       maxSessions: 10,
       sessionTimeout: 300000, // 5 minutes
       debug: process.env.NODE_ENV === 'development',
@@ -505,12 +420,9 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string): AgentA
     console.warn('Failed to load proxy settings from storage, using environment variables:', error);
     // Fallback to environment variables if storage access fails
     return {
-      agentApiConfig: {
-        baseURL: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
-        apiKey: process.env.AGENTAPI_API_KEY,
-        timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
-        debug: process.env.NODE_ENV === 'development',
-      },
+      baseURL: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
+      apiKey: process.env.AGENTAPI_API_KEY,
+      timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
       maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),
       sessionTimeout: parseInt(process.env.AGENTAPI_PROXY_SESSION_TIMEOUT || '300000'),
       debug: process.env.NODE_ENV === 'development',

@@ -1,6 +1,6 @@
 import { Chat, ChatListResponse } from '../types/chat'
 import { loadGlobalSettings } from '../types/settings'
-import { createUnifiedAgentAPIClientFromStorage } from './unified-agentapi-client'
+import { createAgentAPIProxyClientFromStorage } from './agentapi-proxy-client'
 
 // Get API configuration from browser storage
 function getAPIConfig(): { baseURL: string; apiKey?: string } {
@@ -8,7 +8,7 @@ function getAPIConfig(): { baseURL: string; apiKey?: string } {
   if (typeof window === 'undefined') {
     // Server-side rendering or Node.js environment - use environment variables
     return {
-      baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8080',
+      baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
       apiKey: process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
     };
   }
@@ -16,13 +16,13 @@ function getAPIConfig(): { baseURL: string; apiKey?: string } {
   try {
     const settings = loadGlobalSettings();
     return {
-      baseURL: settings.agentApi.endpoint || process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8080',
+      baseURL: settings.agentApiProxy.endpoint || process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
       apiKey: settings.agentApi.apiKey || process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
     };
   } catch (error) {
     console.warn('Failed to load settings from storage for chat API, using environment variables:', error);
     return {
-      baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_AGENTAPI_URL || 'http://localhost:8080',
+      baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
       apiKey: process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
     };
   }
@@ -120,5 +120,5 @@ export const chatApi = {
   },
 }
 
-// Unified AgentAPI client with automatic production/mock fallback
-export const agentAPI = createUnifiedAgentAPIClientFromStorage()
+// AgentAPI Proxy client
+export const agentAPI = createAgentAPIProxyClientFromStorage()

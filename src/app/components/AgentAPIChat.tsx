@@ -2,11 +2,23 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { realAgentAPI, RealAgentAPIError } from '../../lib/real-agentapi-client';
 import { agentAPI } from '../../lib/api';
-import { AgentAPIError } from '../../lib/agentapi-client';
-import { Message, AgentStatus } from '../../types/real-agentapi';
+import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client';
 import { SessionMessage, SessionMessageListResponse } from '../../types/agentapi';
+
+// Define local types for message and agent status
+interface Message {
+  id: number;
+  role: 'user' | 'agent';
+  content: string;
+  timestamp: string;
+}
+
+interface AgentStatus {
+  status: 'stable' | 'running' | 'error';
+  last_activity?: string;
+  current_task?: string;
+}
 
 // Type guard function to validate session message response
 function isValidSessionMessageResponse(response: unknown): response is SessionMessageListResponse {
@@ -62,7 +74,6 @@ export default function AgentAPIChat() {
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const prevMessagesLengthRef = useRef(0);
 
@@ -96,7 +107,7 @@ export default function AgentAPIChat() {
         if (sessionId) {
           // Session-based connection: load messages from agentapi-proxy
           try {
-            const sessionMessagesResponse = await agentAPI.getSessionMessages!(sessionId, { limit: 100 });
+            const sessionMessagesResponse = await agentAPI.getSessionMessages(sessionId, { limit: 100 });
             
             // Validate and safely handle session messages response
             if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
@@ -118,40 +129,23 @@ export default function AgentAPIChat() {
             return;
           } catch (err) {
             console.error('Failed to load session messages:', err);
-            if (err instanceof AgentAPIError) {
+            if (err instanceof AgentAPIProxyError) {
               setError(`Failed to load session messages: ${err.message} (Session: ${sessionId})`);
             } else {
               setError(`Failed to connect to session ${sessionId}`);
             }
             return;
           }
-        }
-        
-        // Direct AgentAPI connection
-        const apiClient = realAgentAPI;
-        
-        // Check if API is available
-        const isHealthy = await apiClient.healthCheck();
-        if (!isHealthy) {
-          setError('AgentAPI is not available. Please check the connection.');
+        } else {
+          setError('No session ID provided. Please provide a session ID to connect.');
           return;
         }
-
-        // Get initial status
-        const status = await apiClient.getStatus();
-        setAgentStatus(status);
-
-        // Get message history
-        const messagesResponse = await apiClient.getMessages();
-        setMessages(messagesResponse.messages);
-
-        setIsConnected(true);
       } catch (err) {
         console.error('Failed to initialize chat:', err);
-        if (err instanceof RealAgentAPIError) {
+        if (err instanceof AgentAPIProxyError) {
           setError(`Failed to connect: ${err.message}`);
         } else {
-          setError('Failed to connect to AgentAPI');
+          setError('Failed to connect to AgentAPI Proxy');
         }
       }
     };
@@ -161,84 +155,51 @@ export default function AgentAPIChat() {
 
   // Setup real-time event listening
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !sessionId) return;
 
-    if (sessionId) {
-      // Session-based polling for messages (1 second interval)
-      
-      const pollMessages = async () => {
-        try {
-          // Poll both messages and status
-          const [sessionMessagesResponse, sessionStatus] = await Promise.all([
-            agentAPI.getSessionMessages!(sessionId, { limit: 100 }),
-            agentAPI.getSessionStatus!(sessionId)
-          ]);
-          
-          // Validate and safely handle session messages response
-          if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
-            console.warn('Invalid session messages response structure during polling:', sessionMessagesResponse);
-          }
-          
-          // Convert SessionMessage to Message format for display with safe array handling
-          const messages = sessionMessagesResponse?.messages || [];
-          const convertedMessages: Message[] = messages.map((msg: SessionMessage, index: number) => ({
-            id: convertSessionMessageId(msg.id, Date.now() + index), // Safe ID conversion with unique fallback
-            role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'), // Convert roles to Message format
-            content: msg.content,
-            timestamp: msg.timestamp
-          }));
-          
-          setMessages(convertedMessages);
-          setAgentStatus(sessionStatus);
-        } catch (err) {
-          console.error('Failed to poll session data:', err);
-          if (err instanceof AgentAPIError) {
-            setError(`Failed to update messages: ${err.message}`);
-          }
+    // Session-based polling for messages (1 second interval)
+    const pollMessages = async () => {
+      try {
+        // Poll both messages and status
+        const [sessionMessagesResponse, sessionStatus] = await Promise.all([
+          agentAPI.getSessionMessages(sessionId, { limit: 100 }),
+          agentAPI.getSessionStatus(sessionId)
+        ]);
+        
+        // Validate and safely handle session messages response
+        if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
+          console.warn('Invalid session messages response structure during polling:', sessionMessagesResponse);
         }
-      };
-
-      // Initial poll
-      pollMessages();
-
-      // Set up polling every 1 second
-      const pollInterval = setInterval(pollMessages, 1000);
-      pollingIntervalRef.current = pollInterval;
-
-      return () => {
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
+        
+        // Convert SessionMessage to Message format for display with safe array handling
+        const messages = sessionMessagesResponse?.messages || [];
+        const convertedMessages: Message[] = messages.map((msg: SessionMessage, index: number) => ({
+          id: convertSessionMessageId(msg.id, Date.now() + index), // Safe ID conversion with unique fallback
+          role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'), // Convert roles to Message format
+          content: msg.content,
+          timestamp: msg.timestamp
+        }));
+        
+        setMessages(convertedMessages);
+        setAgentStatus(sessionStatus);
+      } catch (err) {
+        console.error('Failed to poll session data:', err);
+        if (err instanceof AgentAPIProxyError) {
+          setError(`Failed to update messages: ${err.message}`);
         }
-      };
-    }
-
-    const eventSource = realAgentAPI.subscribeToEvents(
-      (message: Message) => {
-        setMessages(prev => {
-          // Avoid duplicates
-          if (prev.some(m => m.id === message.id)) {
-            return prev.map(m => m.id === message.id ? message : m);
-          }
-          return [...prev, message];
-        });
-      },
-      (status: AgentStatus) => {
-        setAgentStatus(status);
-      },
-      (error: Error) => {
-        console.error('EventSource error:', error);
-        setError('Real-time connection lost. Some updates may be delayed.');
       }
-    );
+    };
 
-    eventSourceRef.current = eventSource;
+    // Initial poll
+    pollMessages();
+
+    // Set up polling every 1 second
+    const pollInterval = setInterval(pollMessages, 1000);
+    pollingIntervalRef.current = pollInterval;
 
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
-      }
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
       }
     };
   }, [isConnected, sessionId]);
@@ -276,7 +237,7 @@ export default function AgentAPIChat() {
     try {
       if (sessionId) {
         // Send message via session
-        const sessionMessage = await agentAPI.sendSessionMessage!(sessionId, {
+        const sessionMessage = await agentAPI.sendSessionMessage(sessionId, {
           content: inputValue.trim(),
           type: 'user'
         });
@@ -291,13 +252,8 @@ export default function AgentAPIChat() {
 
         setMessages(prev => [...prev, convertedMessage]);
       } else {
-        // Send message via direct AgentAPI
-        const message = await realAgentAPI.sendMessage({
-          content: inputValue.trim(),
-          type: 'user'
-        });
-
-        setMessages(prev => [...prev, message]);
+        setError('No session ID available. Cannot send message.');
+        return;
       }
       
       setInputValue('');
@@ -306,10 +262,8 @@ export default function AgentAPIChat() {
       setTimeout(() => scrollToBottom(), 100);
     } catch (err) {
       console.error('Failed to send message:', err);
-      if (sessionId && err instanceof AgentAPIError) {
+      if (err instanceof AgentAPIProxyError) {
         setError(`Failed to send message: ${err.message} (Session: ${sessionId})`);
-      } else if (err instanceof RealAgentAPIError) {
-        setError(`Failed to send message: ${err.message}`);
       } else {
         setError('Failed to send message');
       }
