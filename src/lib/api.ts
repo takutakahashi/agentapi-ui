@@ -17,7 +17,7 @@ function getAPIConfig(): { baseURL: string; apiKey?: string } {
     const settings = loadGlobalSettings();
     return {
       baseURL: settings.agentApiProxy.endpoint || process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
-      apiKey: settings.agentApi.apiKey || process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
+      apiKey: settings.agentApiProxy.apiKey || process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
     };
   } catch (error) {
     console.warn('Failed to load settings from storage for chat API, using environment variables:', error);

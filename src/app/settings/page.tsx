@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { SettingsFormData, loadGlobalSettings, saveGlobalSettings } from '../../types/settings'
-import type { AgentApiSettings, AgentApiProxySettings, EnvironmentVariable } from '../../types/settings'
+import type { AgentApiProxySettings, EnvironmentVariable } from '../../types/settings'
 
 export default function GlobalSettingsPage() {
   const [settings, setSettings] = useState<SettingsFormData>(loadGlobalSettings())
@@ -41,17 +41,7 @@ export default function GlobalSettingsPage() {
     }
   }
 
-  const updateAgentApiSetting = (key: keyof AgentApiSettings, value: string | number | Record<string, string>) => {
-    setSettings(prev => ({
-      ...prev,
-      agentApi: {
-        ...prev.agentApi,
-        [key]: value
-      }
-    }))
-  }
-
-  const updateAgentApiProxySetting = (key: keyof AgentApiProxySettings, value: string | number | boolean | { username: string; password: string } | undefined) => {
+  const updateAgentApiProxySetting = (key: keyof AgentApiProxySettings, value: string | number | boolean) => {
     setSettings(prev => ({
       ...prev,
       agentApiProxy: {
@@ -87,28 +77,6 @@ export default function GlobalSettingsPage() {
     }))
   }
 
-  const addCustomHeader = () => {
-    const key = prompt('Enter header name:')
-    if (key && key.trim()) {
-      updateAgentApiSetting('customHeaders', {
-        ...settings.agentApi.customHeaders,
-        [key.trim()]: ''
-      })
-    }
-  }
-
-  const updateCustomHeader = (key: string, value: string) => {
-    updateAgentApiSetting('customHeaders', {
-      ...settings.agentApi.customHeaders,
-      [key]: value
-    })
-  }
-
-  const removeCustomHeader = (key: string) => {
-    const newHeaders = { ...settings.agentApi.customHeaders }
-    delete newHeaders[key]
-    updateAgentApiSetting('customHeaders', newHeaders)
-  }
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -118,7 +86,7 @@ export default function GlobalSettingsPage() {
             Global Settings
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-1">
-            Configure default AgentAPI settings and environment variables
+            Configure AgentAPI Proxy settings and environment variables
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-500">
             These settings will be used as defaults for all repositories. Individual repository settings can override these values.
@@ -126,99 +94,6 @@ export default function GlobalSettingsPage() {
         </div>
 
         <div className="space-y-8">
-          {/* AgentAPI Configuration */}
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              Default AgentAPI Configuration
-            </h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  API Endpoint
-                </label>
-                <input
-                  type="url"
-                  value={settings.agentApi.endpoint}
-                  onChange={(e) => updateAgentApiSetting('endpoint', e.target.value)}
-                  placeholder="http://localhost:8080"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  API Key
-                </label>
-                <input
-                  type="password"
-                  value={settings.agentApi.apiKey}
-                  onChange={(e) => updateAgentApiSetting('apiKey', e.target.value)}
-                  placeholder="Enter your default API key"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Request Timeout (ms)
-                </label>
-                <input
-                  type="number"
-                  value={settings.agentApi.timeout}
-                  onChange={(e) => updateAgentApiSetting('timeout', parseInt(e.target.value) || 30000)}
-                  min="1000"
-                  max="300000"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              {/* Custom Headers */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Default Custom Headers
-                  </label>
-                  <button
-                    onClick={addCustomHeader}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-                  >
-                    + Add Header
-                  </button>
-                </div>
-                
-                {Object.entries(settings.agentApi.customHeaders).length === 0 ? (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-                    No default custom headers configured
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {Object.entries(settings.agentApi.customHeaders).map(([key, value]) => (
-                      <div key={key} className="flex items-center gap-2">
-                        <span className="text-sm font-mono text-gray-700 dark:text-gray-300 min-w-0 flex-shrink-0">
-                          {key}:
-                        </span>
-                        <input
-                          type="text"
-                          value={value}
-                          onChange={(e) => updateCustomHeader(key, e.target.value)}
-                          placeholder="Header value"
-                          className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        />
-                        <button
-                          onClick={() => removeCustomHeader(key)}
-                          className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
           {/* AgentAPI Proxy Configuration */}
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
@@ -258,7 +133,21 @@ export default function GlobalSettingsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Proxy Request Timeout (ms)
+                  API Key
+                </label>
+                <input
+                  type="password"
+                  value={settings.agentApiProxy.apiKey}
+                  onChange={(e) => updateAgentApiProxySetting('apiKey', e.target.value)}
+                  placeholder="Enter your API key"
+                  disabled={!settings.agentApiProxy.enabled}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Request Timeout (ms)
                 </label>
                 <input
                   type="number"

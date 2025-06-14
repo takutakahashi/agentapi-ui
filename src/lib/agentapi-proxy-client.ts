@@ -396,7 +396,7 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string): AgentA
     
     return {
       baseURL,
-      apiKey: settings.agentApi.apiKey || process.env.AGENTAPI_API_KEY,
+      apiKey: settings.agentApiProxy.apiKey || process.env.AGENTAPI_API_KEY,
       timeout,
       maxSessions: 10,
       sessionTimeout: 300000, // 5 minutes
