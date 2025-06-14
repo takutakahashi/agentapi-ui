@@ -8,7 +8,10 @@ import {
   SessionMessageListParams,
   SendSessionMessageRequest,
   SessionEventData,
-  SessionEventsOptions
+  SessionEventsOptions,
+  Agent,
+  AgentListResponse,
+  AgentListParams
 } from '../types/agentapi';
 import { loadGlobalSettings, loadRepositorySettings } from '../types/settings';
 
@@ -338,6 +341,34 @@ export class AgentAPIProxyClient {
 
   // Session management utilities
 
+  // Agent operations
+
+  /**
+   * Get list of agents
+   */
+  async getAgents(params?: AgentListParams): Promise<AgentListResponse> {
+    const searchParams = new URLSearchParams();
+    
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.name) searchParams.set('name', params.name);
+
+    const endpoint = `/agents${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const result = await this.makeRequest<AgentListResponse>(endpoint);
+    
+    return {
+      ...result,
+      agents: result.agents || []
+    };
+  }
+
+  /**
+   * Get a specific agent by ID
+   */
+  async getAgent(agentId: string): Promise<Agent> {
+    return this.makeRequest<Agent>(`/agents/${agentId}`);
+  }
 
   /**
    * Health check for the proxy
