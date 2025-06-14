@@ -13,10 +13,10 @@ export default function StatusBadge({ status, className = '' }: StatusBadgeProps
       // Chat statuses
       case 'running':
         return {
-          bg: 'bg-yellow-100 dark:bg-yellow-900',
-          text: 'text-yellow-800 dark:text-yellow-200',
-          border: 'border-yellow-200 dark:border-yellow-700',
-          icon: '⏱️',
+          bg: 'bg-yellow-100 dark:bg-yellow-900 animate-pulse',
+          text: 'text-yellow-800 dark:text-yellow-200 font-semibold',
+          border: 'border-yellow-200 dark:border-yellow-700 border-2',
+          icon: '🔄',
           label: 'Running'
         }
       case 'completed':
