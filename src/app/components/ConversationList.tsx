@@ -334,16 +334,6 @@ export default function ConversationList() {
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button
-                onClick={() => setSidebarVisible(!sidebarVisible)}
-                className="inline-flex items-center px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.414A1 1 0 013 6.707V4z" />
-                </svg>
-                {sidebarVisible ? 'Hide Filters' : 'Show Filters'}
-              </button>
-              
               <span className="text-sm text-gray-500 dark:text-gray-400">
                 {filteredSessions.length} of {allSessions.length} sessions
                 {sessionFilters.status && ` • Status: ${sessionFilters.status}`}
