@@ -5,6 +5,7 @@ import TagFilterSidebar from '../components/TagFilterSidebar'
 import SessionListView from '../components/SessionListView'
 import NewSessionModal from '../components/NewSessionModal'
 import TopBar from '../components/TopBar'
+import FloatingNewSessionButton from '../components/FloatingNewSessionButton'
 
 interface TagFilter {
   [key: string]: string[]
@@ -78,8 +79,8 @@ export default function ChatsPage() {
 
         {/* メインコンテンツ */}
         <div className="flex-1 px-4 md:px-6 lg:px-8 pt-6 md:pt-8 pb-6 md:pb-8">
-          {/* セッション開始ボタン */}
-          <div className="mb-6 flex justify-end">
+          {/* セッション開始ボタン（デスクトップのみ） */}
+          <div className="mb-6 flex justify-end hidden md:flex">
             <button
               onClick={() => setShowNewSessionModal(true)}
               className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
@@ -152,6 +153,9 @@ export default function ChatsPage() {
           />
         </div>
       </div>
+
+      {/* フローティング新セッションボタン */}
+      <FloatingNewSessionButton onClick={() => setShowNewSessionModal(true)} />
     </main>
   )
 }
