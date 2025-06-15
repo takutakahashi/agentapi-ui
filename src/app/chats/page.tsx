@@ -59,15 +59,11 @@ export default function ChatsPage() {
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* トップバー */}
       <TopBar
         title="Conversations"
-        subtitle="Manage and monitor your conversation sessions with agent status"
         showFilterButton={true}
         filterButtonText={sidebarVisible ? 'フィルタを隠す' : 'フィルタを表示'}
         onFilterToggle={() => setSidebarVisible(!sidebarVisible)}
-        showNewSessionButton={true}
-        onNewSession={() => setShowNewSessionModal(true)}
         showSettingsButton={true}
       />
 
@@ -82,6 +78,19 @@ export default function ChatsPage() {
 
         {/* メインコンテンツ */}
         <div className="flex-1 px-4 md:px-6 lg:px-8 pt-6 md:pt-8 pb-6 md:pb-8">
+          {/* セッション開始ボタン */}
+          <div className="mb-6">
+            <button
+              onClick={() => setShowNewSessionModal(true)}
+              className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              新しいセッションを開始
+            </button>
+          </div>
+
           {/* アクティブフィルタの表示 */}
           {Object.keys(tagFilters).length > 0 && (
             <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">

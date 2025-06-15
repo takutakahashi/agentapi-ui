@@ -25,7 +25,6 @@ export default function RepositoryChatsPage({ params }: RepositoryChatsPageProps
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <TopBar
         title="Repository Conversations"
-        subtitle={`Conversations filtered for repository: ${displayName}`}
         showSettingsButton={true}
       >
         <div className="flex items-center gap-2">
