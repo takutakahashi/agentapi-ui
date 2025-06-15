@@ -41,8 +41,8 @@ export default function ConversationList() {
   const [showNewConversationModal, setShowNewConversationModal] = useState(false)
   const [quickStartMessage, setQuickStartMessage] = useState('')
   const [isCreatingQuickSession, setIsCreatingQuickSession] = useState(false)
-  const [sidebarVisible, setSidebarVisible] = useState(false)
   const [deletingSession, setDeletingSession] = useState<string | null>(null)
+  const [sidebarVisible, setSidebarVisible] = useState(false)
 
   // Extract filter groups from all sessions
   const filterGroups = extractFilterGroups(allSessions)

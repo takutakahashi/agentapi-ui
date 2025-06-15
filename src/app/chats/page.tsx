@@ -21,10 +21,10 @@ interface CreatingSession {
 
 export default function ChatsPage() {
   const [showNewSessionModal, setShowNewSessionModal] = useState(false)
-  const [sidebarVisible, setSidebarVisible] = useState(false)
   const [tagFilters, setTagFilters] = useState<TagFilter>({})
   const [refreshKey, setRefreshKey] = useState(0)
   const [creatingSessions, setCreatingSessions] = useState<CreatingSession[]>([])
+  const [sidebarVisible, setSidebarVisible] = useState(false)
 
   const handleNewSessionSuccess = () => {
     setRefreshKey(prev => prev + 1)
@@ -63,18 +63,17 @@ export default function ChatsPage() {
       <TopBar
         title="Conversations"
         showFilterButton={true}
-        filterButtonText={sidebarVisible ? 'フィルタを隠す' : 'フィルタを表示'}
-        onFilterToggle={() => setSidebarVisible(!sidebarVisible)}
         showSettingsButton={true}
+        onFilterToggle={() => setSidebarVisible(!sidebarVisible)}
       />
 
       <div className="flex">
         {/* フィルタサイドバー */}
         <TagFilterSidebar
-          isVisible={sidebarVisible}
-          onToggleVisibility={() => setSidebarVisible(!sidebarVisible)}
           onFiltersChange={setTagFilters}
           currentFilters={tagFilters}
+          isVisible={sidebarVisible}
+          onToggleVisibility={() => setSidebarVisible(!sidebarVisible)}
         />
 
         {/* メインコンテンツ */}
