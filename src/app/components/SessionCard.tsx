@@ -97,6 +97,17 @@ export default function SessionCard({ session, onDelete, isDeleting }: SessionCa
 
         {/* アクションボタン - モバイルでは横並び */}
         <div className="flex flex-row sm:flex-row items-center space-x-2 sm:space-x-2 sm:ml-4">
+          {session.status === 'active' && (
+            <Link
+              href={`/agentapi?session=${session.session_id}`}
+              className="inline-flex items-center justify-center px-3 py-2 sm:px-3 sm:py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors min-h-[44px] sm:min-h-0"
+            >
+              <svg className="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              <span className="hidden sm:inline">チャット</span>
+            </Link>
+          )}
           
           <Link
             href={`/sessions/${session.session_id}`}
