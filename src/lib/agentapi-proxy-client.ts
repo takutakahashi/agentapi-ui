@@ -84,7 +84,7 @@ export class AgentAPIProxyClient {
 
     // Add API Key header if available
     if (this.apiKey) {
-      defaultHeaders['Authorization'] = `Bearer ${this.apiKey}`;
+      defaultHeaders['X-API-Key'] = this.apiKey;
     }
 
     const requestOptions: RequestInit = {

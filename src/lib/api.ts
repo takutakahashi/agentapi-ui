@@ -46,9 +46,9 @@ async function apiRequest<T>(
     'Content-Type': 'application/json',
   }
 
-  // Add authorization header if API key is available
+  // Add API key header if API key is available
   if (config.apiKey) {
-    defaultHeaders['Authorization'] = `Bearer ${config.apiKey}`
+    defaultHeaders['X-API-Key'] = config.apiKey
   }
 
   try {
