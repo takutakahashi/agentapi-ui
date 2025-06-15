@@ -554,15 +554,29 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                           </button>
                         )}
                         
-                        <button
-                          onClick={() => handleCreatePR(session.session_id)}
-                          className="inline-flex items-center justify-center px-3 py-2 sm:px-3 sm:py-1.5 border border-green-300 dark:border-green-600 hover:bg-green-50 dark:hover:bg-green-700 text-green-700 dark:text-green-300 text-sm font-medium rounded-md transition-colors min-h-[44px] sm:min-h-0"
-                        >
-                          <svg className="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                          </svg>
-                          <span className="hidden sm:inline">PR作成</span>
-                        </button>
+                        {session.metadata?.pr_url ? (
+                          <a
+                            href={String(session.metadata.pr_url)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center px-3 py-2 sm:px-3 sm:py-1.5 border border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-700 text-purple-700 dark:text-purple-300 text-sm font-medium rounded-md transition-colors min-h-[44px] sm:min-h-0"
+                          >
+                            <svg className="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            <span className="hidden sm:inline">PR表示</span>
+                          </a>
+                        ) : (
+                          <button
+                            onClick={() => handleCreatePR(session.session_id)}
+                            className="inline-flex items-center justify-center px-3 py-2 sm:px-3 sm:py-1.5 border border-green-300 dark:border-green-600 hover:bg-green-50 dark:hover:bg-green-700 text-green-700 dark:text-green-300 text-sm font-medium rounded-md transition-colors min-h-[44px] sm:min-h-0"
+                          >
+                            <svg className="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                            </svg>
+                            <span className="hidden sm:inline">PR作成</span>
+                          </button>
+                        )}
                         
                         <button
                           onClick={() => deleteSession(session.session_id)}
