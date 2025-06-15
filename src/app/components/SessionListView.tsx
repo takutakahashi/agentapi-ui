@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Session, Agent, AgentStatus } from '../../types/agentapi'
+import { Session, AgentStatus } from '../../types/agentapi'
 import { agentAPI } from '../../lib/api'
 import { agentAPIProxy, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import StatusBadge from './StatusBadge'
