@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Session, Agent } from '../../types/agentapi'
+import { Session, Agent, AgentStatus } from '../../types/agentapi'
 import { agentAPI } from '../../lib/api'
 import { agentAPIProxy, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import StatusBadge from './StatusBadge'
@@ -33,7 +33,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   const [deletingSession, setDeletingSession] = useState<string | null>(null)
   const [sessionMessages, setSessionMessages] = useState<{ [sessionId: string]: string }>({})
   const [isMobile, setIsMobile] = useState(false)
-  const [sessionAgentStatus, setSessionAgentStatus] = useState<{ [sessionId: string]: { status: string; lastActivity?: string } }>({})
+  const [sessionAgentStatus, setSessionAgentStatus] = useState<{ [sessionId: string]: AgentStatus }>({})
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -86,62 +86,56 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     }
   }, [])
 
-  const fetchAgents = useCallback(async () => {
+  const fetchSessionStatuses = useCallback(async () => {
     if (sessions.length === 0) return
     
     try {
-      const response = await agentAPIProxy.getAgents({ limit: 100 })
-      
-      // セッションとエージェントを関連付けてステータスを更新
-      const statusMap: { [sessionId: string]: { status: string; lastActivity?: string } } = {}
-      
-      sessions.forEach(session => {
-        // セッションのメタデータやタグからエージェント情報を推測
-        // または実際のAPI実装に合わせてエージェントIDを取得
-        const relatedAgent = response.agents.find(agent => 
-          // エージェント名がセッションのメタデータに含まれているかチェック
-          session.metadata?.agent_id === agent.id ||
-          session.tags?.agent_id === agent.id ||
-          // ワークスペース名でマッチング
-          session.environment?.WORKSPACE_NAME?.includes(agent.name) ||
-          // リポジトリ名でマッチング
-          (session.metadata?.repository && agent.name.includes(session.metadata.repository as string))
-        )
-        
-        if (relatedAgent) {
-          statusMap[session.session_id] = {
-            status: getAgentRunningStatus(relatedAgent),
-            lastActivity: relatedAgent.metrics?.last_activity
-          }
-        } else {
-          // デフォルトステータス
-          statusMap[session.session_id] = {
-            status: session.status === 'active' ? 'idle' : 'stopped'
+      // 各セッションのエージェント状態を並列で取得
+      const statusPromises = sessions.map(async (session) => {
+        try {
+          const status = await agentAPIProxy.getSessionStatus(session.session_id)
+          return { sessionId: session.session_id, status }
+        } catch (err) {
+          console.warn(`Failed to fetch status for session ${session.session_id}:`, err)
+          // エラーの場合はセッションステータスからデフォルト値を推測
+          return {
+            sessionId: session.session_id,
+            status: {
+              status: session.status === 'active' ? 'stable' : 'error',
+              last_activity: session.updated_at,
+              current_task: undefined
+            } as AgentStatus
           }
         }
       })
       
+      const statusResults = await Promise.all(statusPromises)
+      const statusMap: { [sessionId: string]: AgentStatus } = {}
+      
+      statusResults.forEach(result => {
+        statusMap[result.sessionId] = result.status
+      })
+      
       setSessionAgentStatus(statusMap)
     } catch (err) {
-      console.warn('Failed to fetch agents:', err)
+      console.warn('Failed to fetch session statuses:', err)
     }
   }, [sessions])
 
-  const getAgentRunningStatus = (agent: Agent) => {
-    if (!agent.metrics?.last_activity) {
-      return 'idle'
+  const getAgentStatusDisplayInfo = (agentStatus: AgentStatus | undefined) => {
+    if (!agentStatus) {
+      return { text: 'Unknown', colorClass: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200' }
     }
     
-    const lastActivityDate = new Date(agent.metrics.last_activity)
-    const now = new Date()
-    const diffInSeconds = (now.getTime() - lastActivityDate.getTime()) / 1000
-    
-    if (diffInSeconds < 30) {
-      return 'running'
-    } else if (diffInSeconds < 300) {
-      return 'idle'
-    } else {
-      return 'stopped'
+    switch (agentStatus.status) {
+      case 'stable':
+        return { text: 'Available', colorClass: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' }
+      case 'running':
+        return { text: 'Running', colorClass: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' }
+      case 'error':
+        return { text: 'Error', colorClass: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' }
+      default:
+        return { text: 'Unknown', colorClass: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200' }
     }
   }
 
@@ -152,15 +146,15 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   // エージェントステータスを定期的に更新
   useEffect(() => {
     if (sessions.length > 0) {
-      fetchAgents()
+      fetchSessionStatuses()
       
       const interval = setInterval(() => {
-        fetchAgents()
+        fetchSessionStatuses()
       }, 10000) // 10秒ごとに更新
       
       return () => clearInterval(interval)
     }
-  }, [sessions.length, fetchAgents])
+  }, [sessions.length, fetchSessionStatuses])
 
 
   useEffect(() => {
@@ -468,17 +462,21 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                           </h3>
                           <div className="flex items-center gap-2">
                             <StatusBadge status={session.status} />
-                            {sessionAgentStatus[session.session_id] && (
-                              <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
-                                sessionAgentStatus[session.session_id].status === 'running'
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                  : sessionAgentStatus[session.session_id].status === 'idle'
-                                  ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-                              }`}>
-                                Agent: {sessionAgentStatus[session.session_id].status}
-                              </span>
-                            )}
+                            {sessionAgentStatus[session.session_id] && (() => {
+                              const statusInfo = getAgentStatusDisplayInfo(sessionAgentStatus[session.session_id])
+                              return (
+                                <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${statusInfo.colorClass}`}>
+                                  <span className={`w-2 h-2 rounded-full mr-1.5 ${
+                                    sessionAgentStatus[session.session_id].status === 'running'
+                                      ? 'bg-yellow-500 animate-pulse'
+                                      : sessionAgentStatus[session.session_id].status === 'stable'
+                                      ? 'bg-green-500'
+                                      : 'bg-red-500'
+                                  }`} />
+                                  Agent: {statusInfo.text}
+                                </span>
+                              )
+                            })()}
                           </div>
                         </div>
 
@@ -488,8 +486,11 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                           <div className="flex items-center space-x-2 sm:space-x-4">
                             <span>作成: {formatRelativeTime(session.created_at)}</span>
                             <span className="hidden sm:inline">更新: {formatRelativeTime(session.updated_at)}</span>
-                            {sessionAgentStatus[session.session_id]?.lastActivity && (
-                              <span className="hidden sm:inline">Agent活動: {formatRelativeTime(sessionAgentStatus[session.session_id].lastActivity!)}</span>
+                            {sessionAgentStatus[session.session_id]?.last_activity && (
+                              <span className="hidden sm:inline">Agent活動: {formatRelativeTime(sessionAgentStatus[session.session_id].last_activity!)}</span>
+                            )}
+                            {sessionAgentStatus[session.session_id]?.current_task && (
+                              <span className="hidden sm:inline text-blue-600 dark:text-blue-400">タスク: {sessionAgentStatus[session.session_id].current_task!.substring(0, 30)}...</span>
                             )}
                           </div>
                           <span className="hidden sm:inline">by {session.user_id}</span>
