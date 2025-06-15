@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import TagFilterSidebar from '../components/TagFilterSidebar'
 import SessionListView from '../components/SessionListView'
 import NewSessionModal from '../components/NewSessionModal'
+import TopBar from '../components/TopBar'
 
 interface TagFilter {
   [key: string]: string[]
@@ -19,7 +19,6 @@ interface CreatingSession {
 }
 
 export default function ChatsPage() {
-  const router = useRouter()
   const [showNewSessionModal, setShowNewSessionModal] = useState(false)
   const [sidebarVisible, setSidebarVisible] = useState(false)
   const [tagFilters, setTagFilters] = useState<TagFilter>({})
@@ -60,6 +59,14 @@ export default function ChatsPage() {
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <TopBar
+        title="Conversations"
+        showFilterButton={true}
+        filterButtonText={sidebarVisible ? 'フィルタを隠す' : 'フィルタを表示'}
+        onFilterToggle={() => setSidebarVisible(!sidebarVisible)}
+        showSettingsButton={true}
+      />
+
       <div className="flex">
         {/* フィルタサイドバー */}
         <TagFilterSidebar
@@ -70,30 +77,9 @@ export default function ChatsPage() {
         />
 
         {/* メインコンテンツ */}
-        <div className="flex-1 px-4 md:px-6 lg:px-8 py-6 md:py-8">
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-2">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                Conversations
-              </h1>
-              <button
-                onClick={() => router.push('/settings')}
-                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
-                title="Settings"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </button>
-            </div>
-            <p className="text-gray-600 dark:text-gray-400">
-              Manage and monitor your conversation sessions with agent status
-            </p>
-          </div>
-
+        <div className="flex-1 px-4 md:px-6 lg:px-8 pt-6 md:pt-8 pb-6 md:pb-8">
           {/* セッション開始ボタン */}
-          <div className="mb-6">
+          <div className="mb-6 flex justify-end">
             <button
               onClick={() => setShowNewSessionModal(true)}
               className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
@@ -104,19 +90,6 @@ export default function ChatsPage() {
               新しいセッションを開始
             </button>
           </div>
-
-          {/* フィルタトグルボタン (デスクトップ) */}
-          <div className="hidden md:block mb-6">
-              <button
-                onClick={() => setSidebarVisible(!sidebarVisible)}
-                className="inline-flex items-center px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.414A1 1 0 013 6.707V4z" />
-              </svg>
-                {sidebarVisible ? 'フィルタを隠す' : 'フィルタを表示'}
-              </button>
-            </div>
 
           {/* アクティブフィルタの表示 */}
           {Object.keys(tagFilters).length > 0 && (
