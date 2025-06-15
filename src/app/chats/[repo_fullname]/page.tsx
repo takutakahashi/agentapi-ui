@@ -1,7 +1,6 @@
 'use client'
 
 import { Suspense, use } from 'react'
-import { useRouter } from 'next/navigation'
 import LoadingSpinner from '../../components/LoadingSpinner'
 import RepositoryConversationList from './RepositoryConversationList'
 import TopBar from '../../components/TopBar'
@@ -13,7 +12,6 @@ interface RepositoryChatsPageProps {
 }
 
 export default function RepositoryChatsPage({ params }: RepositoryChatsPageProps) {
-  const router = useRouter()
   // Use React 18's use() hook to unwrap the Promise
   const resolvedParams = use(params)
   // Decode the repo_fullname parameter (since it comes URL-encoded)

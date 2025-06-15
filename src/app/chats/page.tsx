@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import TagFilterSidebar from '../components/TagFilterSidebar'
 import SessionListView from '../components/SessionListView'
 import NewSessionModal from '../components/NewSessionModal'
@@ -20,7 +19,6 @@ interface CreatingSession {
 }
 
 export default function ChatsPage() {
-  const router = useRouter()
   const [showNewSessionModal, setShowNewSessionModal] = useState(false)
   const [sidebarVisible, setSidebarVisible] = useState(false)
   const [tagFilters, setTagFilters] = useState<TagFilter>({})
