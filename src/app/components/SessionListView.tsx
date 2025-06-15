@@ -463,7 +463,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                           <div className="flex items-center gap-2">
                             <StatusBadge status={session.status} />
                             {sessionAgentStatus[session.session_id] && (
-                              <span className={`w-3 h-3 rounded-full ${
+                              <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
                                 sessionAgentStatus[session.session_id].status === 'running'
                                   ? 'bg-yellow-500 animate-pulse'
                                   : sessionAgentStatus[session.session_id].status === 'stable'
