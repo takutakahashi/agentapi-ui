@@ -73,6 +73,7 @@ export default function AgentAPIChat() {
   const [isConnected, setIsConnected] = useState(false);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const [hasNewMessages, setHasNewMessages] = useState(false);
+  const [showControlPanel, setShowControlPanel] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -285,6 +286,21 @@ export default function AgentAPIChat() {
     sendMessage('raw', '\u001b');
   };
 
+  const sendArrowUp = () => {
+    // Send up arrow key (raw message)
+    sendMessage('raw', '\u001b[A');
+  };
+
+  const sendArrowDown = () => {
+    // Send down arrow key (raw message)
+    sendMessage('raw', '\u001b[B');
+  };
+
+  const sendEnterKey = () => {
+    // Send enter key (raw message)
+    sendMessage('raw', '\r');
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -330,6 +346,19 @@ export default function AgentAPIChat() {
               </div>
             )}
 
+            {/* Control Panel Toggle */}
+            <button
+              onClick={() => setShowControlPanel(!showControlPanel)}
+              disabled={!isConnected}
+              className="px-2 sm:px-3 py-1 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white text-xs sm:text-sm rounded-md transition-colors disabled:cursor-not-allowed flex items-center space-x-1"
+              title="Toggle Control Panel"
+            >
+              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+              </svg>
+              <span className="hidden sm:inline">Controls</span>
+            </button>
+
             {/* Stop Button */}
             {agentStatus?.status === 'running' && (
               <button
@@ -370,6 +399,66 @@ export default function AgentAPIChat() {
         {error && (
           <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-700 dark:text-red-400 text-sm">
             {error}
+          </div>
+        )}
+        
+        {/* Control Panel */}
+        {showControlPanel && (
+          <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Agent Controls</h3>
+            <div className="flex flex-wrap gap-2">
+              {/* Arrow Up Button */}
+              <button
+                onClick={sendArrowUp}
+                disabled={!isConnected || isLoading}
+                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white text-sm rounded-md transition-colors disabled:cursor-not-allowed flex items-center space-x-2"
+                title="Send Up Arrow Key"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+                <span>Up Arrow</span>
+              </button>
+              
+              {/* Arrow Down Button */}
+              <button
+                onClick={sendArrowDown}
+                disabled={!isConnected || isLoading}
+                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white text-sm rounded-md transition-colors disabled:cursor-not-allowed flex items-center space-x-2"
+                title="Send Down Arrow Key"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                <span>Down Arrow</span>
+              </button>
+              
+              {/* Enter Button */}
+              <button
+                onClick={sendEnterKey}
+                disabled={!isConnected || isLoading}
+                className="px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white text-sm rounded-md transition-colors disabled:cursor-not-allowed flex items-center space-x-2"
+                title="Send Enter Key"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Enter</span>
+              </button>
+              
+              {/* ESC Button (existing functionality) */}
+              <button
+                onClick={sendStopSignal}
+                disabled={!isConnected || isLoading}
+                className="px-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white text-sm rounded-md transition-colors disabled:cursor-not-allowed flex items-center space-x-2"
+                title="Send ESC Key (Force Stop)"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>ESC</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
