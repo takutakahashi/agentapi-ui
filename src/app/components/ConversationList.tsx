@@ -41,7 +41,6 @@ export default function ConversationList() {
   const [showNewConversationModal, setShowNewConversationModal] = useState(false)
   const [quickStartMessage, setQuickStartMessage] = useState('')
   const [isCreatingQuickSession, setIsCreatingQuickSession] = useState(false)
-  const [sidebarVisible, setSidebarVisible] = useState(false)
   const [deletingSession, setDeletingSession] = useState<string | null>(null)
 
   // Extract filter groups from all sessions
@@ -273,8 +272,6 @@ export default function ConversationList() {
         filterGroups={filterGroups}
         currentFilters={sessionFilters}
         onFiltersChange={handleFiltersChange}
-        isVisible={sidebarVisible}
-        onToggleVisibility={() => setSidebarVisible(!sidebarVisible)}
       />
       
       {/* Main Content */}

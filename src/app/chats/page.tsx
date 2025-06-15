@@ -21,7 +21,6 @@ interface CreatingSession {
 
 export default function ChatsPage() {
   const [showNewSessionModal, setShowNewSessionModal] = useState(false)
-  const [sidebarVisible, setSidebarVisible] = useState(false)
   const [tagFilters, setTagFilters] = useState<TagFilter>({})
   const [refreshKey, setRefreshKey] = useState(0)
   const [creatingSessions, setCreatingSessions] = useState<CreatingSession[]>([])
@@ -62,17 +61,13 @@ export default function ChatsPage() {
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <TopBar
         title="Conversations"
-        showFilterButton={true}
-        filterButtonText={sidebarVisible ? 'フィルタを隠す' : 'フィルタを表示'}
-        onFilterToggle={() => setSidebarVisible(!sidebarVisible)}
+        showFilterButton={false}
         showSettingsButton={true}
       />
 
       <div className="flex">
         {/* フィルタサイドバー */}
         <TagFilterSidebar
-          isVisible={sidebarVisible}
-          onToggleVisibility={() => setSidebarVisible(!sidebarVisible)}
           onFiltersChange={setTagFilters}
           currentFilters={tagFilters}
         />
