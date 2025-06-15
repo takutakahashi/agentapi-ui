@@ -74,7 +74,7 @@ export default function ChatsPage() {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-2">
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                Chats
+                Conversations
               </h1>
               <button
                 onClick={() => router.push('/settings')}
@@ -88,7 +88,7 @@ export default function ChatsPage() {
               </button>
             </div>
             <p className="text-gray-600 dark:text-gray-400">
-              Manage and monitor your conversation sessions
+              Manage and monitor your conversation sessions with agent status
             </p>
           </div>
 
@@ -107,16 +107,16 @@ export default function ChatsPage() {
 
           {/* フィルタトグルボタン (デスクトップ) */}
           <div className="hidden md:block mb-6">
-            <button
-              onClick={() => setSidebarVisible(!sidebarVisible)}
-              className="inline-flex items-center px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.414A1 1 0 013 6.707V4z" />
+              <button
+                onClick={() => setSidebarVisible(!sidebarVisible)}
+                className="inline-flex items-center px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.414A1 1 0 013 6.707V4z" />
               </svg>
-              {sidebarVisible ? 'フィルタを隠す' : 'フィルタを表示'}
-            </button>
-          </div>
+                {sidebarVisible ? 'フィルタを隠す' : 'フィルタを表示'}
+              </button>
+            </div>
 
           {/* アクティブフィルタの表示 */}
           {Object.keys(tagFilters).length > 0 && (
