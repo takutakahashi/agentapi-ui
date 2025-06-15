@@ -10,7 +10,7 @@ describe('Home Page', () => {
     render(<Home />)
     
     const welcomeHeading = screen.getByRole('heading', {
-      name: /welcome to agentapi ui/i,
+      name: /welcome to conversations ui/i,
     })
     
     expect(welcomeHeading).toBeInTheDocument()
@@ -27,7 +27,7 @@ describe('Home Page', () => {
   it('renders interface description', () => {
     render(<Home />)
     
-    const description = screen.getByText(/a powerful ui for interacting with agentapi/i)
+    const description = screen.getByText(/a powerful ui for managing conversations/i)
     expect(description).toBeInTheDocument()
   })
 })
