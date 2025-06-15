@@ -29,9 +29,9 @@ export default function TopBar({
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-      <div className="px-4 md:px-6 lg:px-8 py-4 md:py-6">
+      <div className="px-4 md:px-6 lg:px-8 py-3 md:py-4">
         {/* ヘッダーセクション */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+        <div className="flex items-center justify-between gap-4">
           <div className="flex-1">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
               {title}
@@ -89,7 +89,7 @@ export default function TopBar({
         </div>
 
         {/* 追加コンテンツ */}
-        {children}
+        {children && <div className="mt-3">{children}</div>}
       </div>
     </div>
   )
