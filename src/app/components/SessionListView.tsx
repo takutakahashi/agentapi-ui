@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Session } from '../../types/agentapi'
+import { Session, Agent } from '../../types/agentapi'
 import { agentAPI } from '../../lib/api'
-import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
+import { agentAPIProxy, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import StatusBadge from './StatusBadge'
 
 interface TagFilter {
@@ -34,6 +34,8 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   const [sessionMessages, setSessionMessages] = useState<{ [sessionId: string]: string }>({})
   const [isMobile, setIsMobile] = useState(false)
   const [runningSessions, setRunningSessions] = useState<Set<string>>(new Set())
+  const [agents, setAgents] = useState<Agent[]>([])
+  const [sessionAgentStatus, setSessionAgentStatus] = useState<{ [sessionId: string]: { status: string; lastActivity?: string } }>({})
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -64,6 +66,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
         messageMap[result.sessionId] = result.message
       })
       setSessionMessages(messageMap)
+      
+      // エージェント情報を取得
+      await fetchAgents()
     } catch (err) {
       if (err instanceof AgentAPIProxyError) {
         setError(`Failed to load sessions: ${err.message}`)
@@ -86,9 +91,80 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     }
   }, [])
 
+  const fetchAgents = useCallback(async () => {
+    try {
+      const response = await agentAPIProxy.getAgents({ limit: 100 })
+      setAgents(response.agents)
+      
+      // セッションとエージェントを関連付けてステータスを更新
+      const statusMap: { [sessionId: string]: { status: string; lastActivity?: string } } = {}
+      
+      sessions.forEach(session => {
+        // セッションのメタデータやタグからエージェント情報を推測
+        // または実際のAPI実装に合わせてエージェントIDを取得
+        const relatedAgent = response.agents.find(agent => 
+          // エージェント名がセッションのメタデータに含まれているかチェック
+          session.metadata?.agent_id === agent.id ||
+          session.tags?.agent_id === agent.id ||
+          // ワークスペース名でマッチング
+          session.environment?.WORKSPACE_NAME?.includes(agent.name) ||
+          // リポジトリ名でマッチング
+          (session.metadata?.repository && agent.name.includes(session.metadata.repository as string))
+        )
+        
+        if (relatedAgent) {
+          statusMap[session.session_id] = {
+            status: getAgentRunningStatus(relatedAgent),
+            lastActivity: relatedAgent.metrics?.last_activity
+          }
+        } else {
+          // デフォルトステータス
+          statusMap[session.session_id] = {
+            status: session.status === 'active' ? 'idle' : 'stopped'
+          }
+        }
+      })
+      
+      setSessionAgentStatus(statusMap)
+    } catch (err) {
+      console.warn('Failed to fetch agents:', err)
+    }
+  }, [sessions])
+
+  const getAgentRunningStatus = (agent: Agent) => {
+    if (!agent.metrics?.last_activity) {
+      return 'idle'
+    }
+    
+    const lastActivityDate = new Date(agent.metrics.last_activity)
+    const now = new Date()
+    const diffInSeconds = (now.getTime() - lastActivityDate.getTime()) / 1000
+    
+    if (diffInSeconds < 30) {
+      return 'running'
+    } else if (diffInSeconds < 300) {
+      return 'idle'
+    } else {
+      return 'stopped'
+    }
+  }
+
   useEffect(() => {
     fetchSessions()
   }, [fetchSessions])
+
+  // エージェントステータスを定期的に更新
+  useEffect(() => {
+    if (sessions.length > 0) {
+      fetchAgents()
+      
+      const interval = setInterval(() => {
+        fetchAgents()
+      }, 10000) // 10秒ごとに更新
+      
+      return () => clearInterval(interval)
+    }
+  }, [sessions.length, fetchAgents])
 
   // running状態のセッションを10秒ごとに更新
   useEffect(() => {
@@ -438,7 +514,20 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                           <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white leading-5 sm:leading-6">
                             {truncateText(String(sessionMessages[session.session_id] || session.metadata?.description || 'No description available'), isMobile ? 60 : 80)}
                           </h3>
-                          <StatusBadge status={runningSessions.has(session.session_id) ? 'running' : session.status} />
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={session.status} />
+                            {sessionAgentStatus[session.session_id] && (
+                              <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
+                                sessionAgentStatus[session.session_id].status === 'running'
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                  : sessionAgentStatus[session.session_id].status === 'idle'
+                                  ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                              }`}>
+                                Agent: {sessionAgentStatus[session.session_id].status}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         {/* セッション情報 */}
@@ -447,6 +536,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                           <div className="flex items-center space-x-2 sm:space-x-4">
                             <span>作成: {formatRelativeTime(session.created_at)}</span>
                             <span className="hidden sm:inline">更新: {formatRelativeTime(session.updated_at)}</span>
+                            {sessionAgentStatus[session.session_id]?.lastActivity && (
+                              <span className="hidden sm:inline">Agent活動: {formatRelativeTime(sessionAgentStatus[session.session_id].lastActivity!)}</span>
+                            )}
                           </div>
                           <span className="hidden sm:inline">by {session.user_id}</span>
                           {session.environment?.WORKSPACE_NAME && (

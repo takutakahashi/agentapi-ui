@@ -1,12 +1,10 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import TagFilterSidebar from '../components/TagFilterSidebar'
 import SessionListView from '../components/SessionListView'
 import NewSessionModal from '../components/NewSessionModal'
-import { Agent, AgentListResponse } from '@/types/agentapi'
-import { agentAPIProxy } from '@/lib/agentapi-proxy-client'
 
 interface TagFilter {
   [key: string]: string[]
@@ -27,10 +25,6 @@ export default function ChatsPage() {
   const [tagFilters, setTagFilters] = useState<TagFilter>({})
   const [refreshKey, setRefreshKey] = useState(0)
   const [creatingSessions, setCreatingSessions] = useState<CreatingSession[]>([])
-  const [activeTab, setActiveTab] = useState<'conversations' | 'agents'>('conversations')
-  const [agents, setAgents] = useState<Agent[]>([])
-  const [agentsLoading, setAgentsLoading] = useState(true)
-  const [agentsError, setAgentsError] = useState<string | null>(null)
 
   const handleNewSessionSuccess = () => {
     setRefreshKey(prev => prev + 1)
@@ -64,88 +58,23 @@ export default function ChatsPage() {
     setRefreshKey(prev => prev + 1)
   }
 
-  const fetchAgents = useCallback(async () => {
-    try {
-      setAgentsError(null)
-      const response: AgentListResponse = await agentAPIProxy.getAgents({
-        limit: 50,
-        page: 1,
-      })
-      setAgents(response.agents)
-    } catch (err) {
-      console.error('Failed to fetch agents:', err)
-      setAgentsError(err instanceof Error ? err.message : 'Failed to fetch agents')
-    } finally {
-      setAgentsLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (activeTab === 'agents') {
-      fetchAgents()
-      // Set up periodic refresh every 10 seconds for agents
-      const interval = setInterval(() => {
-        fetchAgents()
-      }, 10000)
-      return () => clearInterval(interval)
-    }
-  }, [activeTab, fetchAgents])
-
-  const getStatusBadgeVariant = (status: Agent['status']) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800'
-      case 'inactive':
-        return 'bg-gray-100 text-gray-800'
-      case 'error':
-        return 'bg-red-100 text-red-800'
-      default:
-        return 'bg-white text-gray-600 border border-gray-300'
-    }
-  }
-
-  const getRunningStatus = (agent: Agent) => {
-    if (!agent.metrics) {
-      return { status: 'idle', variant: 'bg-gray-100 text-gray-800' }
-    }
-
-    const lastActivity = agent.metrics.last_activity
-    if (!lastActivity) {
-      return { status: 'idle', variant: 'bg-gray-100 text-gray-800' }
-    }
-
-    const lastActivityDate = new Date(lastActivity)
-    const now = new Date()
-    const diffInSeconds = (now.getTime() - lastActivityDate.getTime()) / 1000
-
-    if (diffInSeconds < 30) {
-      return { status: 'running', variant: 'bg-green-100 text-green-800' }
-    } else if (diffInSeconds < 300) {
-      return { status: 'idle', variant: 'bg-gray-100 text-gray-800' }
-    } else {
-      return { status: 'stopped', variant: 'bg-red-100 text-red-800' }
-    }
-  }
-
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="flex">
         {/* フィルタサイドバー */}
-        {activeTab === 'conversations' && (
-          <TagFilterSidebar
-            isVisible={sidebarVisible}
-            onToggleVisibility={() => setSidebarVisible(!sidebarVisible)}
-            onFiltersChange={setTagFilters}
-            currentFilters={tagFilters}
-          />
-        )}
+        <TagFilterSidebar
+          isVisible={sidebarVisible}
+          onToggleVisibility={() => setSidebarVisible(!sidebarVisible)}
+          onFiltersChange={setTagFilters}
+          currentFilters={tagFilters}
+        />
 
         {/* メインコンテンツ */}
         <div className="flex-1 px-4 md:px-6 lg:px-8 py-6 md:py-8">
           <div className="mb-8">
             <div className="flex items-center justify-between mb-2">
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                {activeTab === 'conversations' ? 'Conversations' : 'Agents'}
+                Conversations
               </h1>
               <button
                 onClick={() => router.push('/settings')}
@@ -158,53 +87,26 @@ export default function ChatsPage() {
                 </svg>
               </button>
             </div>
-            <div className="flex space-x-1 mb-4">
-              <button
-                onClick={() => setActiveTab('conversations')}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  activeTab === 'conversations'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                Conversations
-              </button>
-              <button
-                onClick={() => setActiveTab('agents')}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  activeTab === 'agents'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                Agents
-              </button>
-            </div>
             <p className="text-gray-600 dark:text-gray-400">
-              {activeTab === 'conversations' 
-                ? 'Manage and monitor your conversation sessions'
-                : 'Monitor agent status and performance'
-              }
+              Manage and monitor your conversation sessions with agent status
             </p>
           </div>
 
           {/* セッション開始ボタン */}
-          {activeTab === 'conversations' && (
-            <div className="mb-6">
-              <button
-                onClick={() => setShowNewSessionModal(true)}
-                className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                新しいセッションを開始
-              </button>
-            </div>
-          )}
+          <div className="mb-6">
+            <button
+              onClick={() => setShowNewSessionModal(true)}
+              className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              新しいセッションを開始
+            </button>
+          </div>
 
           {/* フィルタトグルボタン (デスクトップ) */}
-          {activeTab === 'conversations' && (
+          <div className="hidden md:block mb-6">
             <div className="hidden md:block mb-6">
               <button
                 onClick={() => setSidebarVisible(!sidebarVisible)}
@@ -219,7 +121,7 @@ export default function ChatsPage() {
           )}
 
           {/* アクティブフィルタの表示 */}
-          {activeTab === 'conversations' && Object.keys(tagFilters).length > 0 && (
+          {Object.keys(tagFilters).length > 0 && (
             <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
               <div className="flex items-center justify-between">
                 <div className="flex flex-wrap gap-2">
@@ -260,110 +162,23 @@ export default function ChatsPage() {
             </div>
           )}
 
-          {/* コンテンツ表示 */}
-          {activeTab === 'conversations' ? (
-            <SessionListView
-              tagFilters={tagFilters}
-              onSessionsUpdate={handleSessionsUpdate}
-              creatingSessions={creatingSessions}
-              key={refreshKey}
-            />
-          ) : (
-            <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Agents</h2>
-                <button
-                  onClick={fetchAgents}
-                  disabled={agentsLoading}
-                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
-                >
-                  <svg className={`h-4 w-4 mr-2 ${agentsLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Refresh
-                </button>
-              </div>
-              <div className="p-6">
-                {agentsLoading && agents.length === 0 ? (
-                  <div className="text-center text-gray-500 dark:text-gray-400 p-8">
-                    Loading agents...
-                  </div>
-                ) : agentsError ? (
-                  <div className="text-center text-red-600 dark:text-red-400 p-8">
-                    Error: {agentsError}
-                  </div>
-                ) : agents.length === 0 ? (
-                  <div className="text-center text-gray-500 dark:text-gray-400 p-8">
-                    No agents found
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                      <thead className="bg-gray-50 dark:bg-gray-700">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Name</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Running</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Type</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Success Rate</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Last Activity</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Created</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                        {agents.map((agent) => {
-                          const runningStatus = getRunningStatus(agent)
-                          return (
-                            <tr key={agent.id}>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                                {agent.name}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeVariant(agent.status)}`}>
-                                  {agent.status}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${runningStatus.variant}`}>
-                                  {runningStatus.status}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{agent.config.type}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                {agent.metrics
-                                  ? `${(agent.metrics.success_rate * 100).toFixed(1)}%`
-                                  : '-'}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                {agent.metrics?.last_activity
-                                  ? new Date(agent.metrics.last_activity).toLocaleString()
-                                  : '-'}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                {new Date(agent.created_at).toLocaleDateString()}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          {/* セッション一覧 */}
+          <SessionListView
+            tagFilters={tagFilters}
+            onSessionsUpdate={handleSessionsUpdate}
+            creatingSessions={creatingSessions}
+            key={refreshKey}
+          />
 
           {/* 新しいセッション作成モーダル */}
-          {activeTab === 'conversations' && (
-            <NewSessionModal
-              isOpen={showNewSessionModal}
-              onClose={() => setShowNewSessionModal(false)}
-              onSuccess={handleNewSessionSuccess}
-              onSessionStart={handleSessionStart}
-              onSessionStatusUpdate={handleSessionStatusUpdate}
-              onSessionCompleted={handleSessionCompleted}
-            />
-          )}
+          <NewSessionModal
+            isOpen={showNewSessionModal}
+            onClose={() => setShowNewSessionModal(false)}
+            onSuccess={handleNewSessionSuccess}
+            onSessionStart={handleSessionStart}
+            onSessionStatusUpdate={handleSessionStatusUpdate}
+            onSessionCompleted={handleSessionCompleted}
+          />
         </div>
       </div>
     </main>
