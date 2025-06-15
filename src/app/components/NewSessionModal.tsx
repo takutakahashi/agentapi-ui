@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { agentAPI } from '../../lib/api'
 import type { AgentAPIProxyClient } from '../../lib/agentapi-proxy-client'
+import { RepositoryHistory } from '../../utils/repositoryHistory'
 
 interface NewSessionModalProps {
   isOpen: boolean
@@ -27,6 +28,8 @@ export default function NewSessionModal({
   const [error, setError] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState('')
   const [isMobile, setIsMobile] = useState(false)
+  const [repositorySuggestions, setRepositorySuggestions] = useState<string[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   useEffect(() => {
     const checkMobile = () => {
@@ -99,6 +102,11 @@ export default function NewSessionModal({
         })
         console.log('Initial message sent successfully')
         
+        // リポジトリ履歴に追加
+        if (repo) {
+          RepositoryHistory.addRepository(repo)
+        }
+        
         // 作成完了
         onSessionStatusUpdate(sessionId, 'completed')
         onSessionCompleted(sessionId)
@@ -158,11 +166,41 @@ export default function NewSessionModal({
     }
   }
 
+  const handleRepositoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setRepository(value)
+    
+    if (value.trim()) {
+      const suggestions = RepositoryHistory.searchRepositories(value)
+      setRepositorySuggestions(suggestions)
+      setShowSuggestions(suggestions.length > 0)
+    } else {
+      setShowSuggestions(false)
+    }
+  }
+
+  const handleRepositoryFocus = () => {
+    const suggestions = RepositoryHistory.getHistory().map(item => item.repository)
+    setRepositorySuggestions(suggestions)
+    setShowSuggestions(suggestions.length > 0)
+  }
+
+  const handleRepositoryBlur = () => {
+    // 少し遅延させてクリックイベントが発生するようにする
+    setTimeout(() => setShowSuggestions(false), 150)
+  }
+
+  const selectRepository = (repo: string) => {
+    setRepository(repo)
+    setShowSuggestions(false)
+  }
+
   const handleClose = () => {
     setInitialMessage('')
     setRepository('')
     setError(null)
     setStatusMessage('')
+    setShowSuggestions(false)
     onClose()
   }
 
@@ -200,7 +238,7 @@ export default function NewSessionModal({
             />
           </div>
 
-          <div>
+          <div className="relative">
             <label htmlFor="repository" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               対象リポジトリ
             </label>
@@ -208,11 +246,27 @@ export default function NewSessionModal({
               id="repository"
               type="text"
               value={repository}
-              onChange={(e) => setRepository(e.target.value)}
+              onChange={handleRepositoryChange}
+              onFocus={handleRepositoryFocus}
+              onBlur={handleRepositoryBlur}
               placeholder="例: owner/repository-name"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               disabled={isCreating}
             />
+            {showSuggestions && repositorySuggestions.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                {repositorySuggestions.map((suggestion, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => selectRepository(suggestion)}
+                    className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white first:rounded-t-md last:rounded-b-md"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {error && (

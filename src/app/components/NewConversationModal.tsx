@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { agentAPI } from '../../lib/api'
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { SessionFilter, getFilterValuesForSessionCreation } from '../../lib/filter-utils'
+import { RepositoryHistory } from '../../utils/repositoryHistory'
 
 interface NewConversationModalProps {
   isOpen: boolean
@@ -26,6 +27,8 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
   const [metadataVars, setMetadataVars] = useState<EnvironmentVariable[]>([{ key: '', value: '' }])
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [repositorySuggestions, setRepositorySuggestions] = useState<string[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
   
   // Initialize with current filter values
   const initializeFromFilters = useCallback(() => {
@@ -88,6 +91,34 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
     setMetadataVars(updated)
   }
 
+  const handleRepositoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setRepository(value)
+    
+    if (value.trim()) {
+      const suggestions = RepositoryHistory.searchRepositories(value)
+      setRepositorySuggestions(suggestions)
+      setShowSuggestions(suggestions.length > 0)
+    } else {
+      setShowSuggestions(false)
+    }
+  }
+
+  const handleRepositoryFocus = () => {
+    const suggestions = RepositoryHistory.getHistory().map(item => item.repository)
+    setRepositorySuggestions(suggestions)
+    setShowSuggestions(suggestions.length > 0)
+  }
+
+  const handleRepositoryBlur = () => {
+    setTimeout(() => setShowSuggestions(false), 150)
+  }
+
+  const selectRepository = (repo: string) => {
+    setRepository(repo)
+    setShowSuggestions(false)
+  }
+
   const resetForm = () => {
     setDescription('')
     setUserId('current-user')
@@ -95,6 +126,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
     setEnvVars([{ key: '', value: '' }])
     setMetadataVars([{ key: '', value: '' }])
     setError(null)
+    setShowSuggestions(false)
   }
 
   const handleClose = () => {
@@ -172,6 +204,11 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
         tags: sessionData.tags
       })
 
+      // リポジトリ履歴に追加
+      if (repository.trim()) {
+        RepositoryHistory.addRepository(repository.trim())
+      }
+
       onSuccess()
       handleClose()
     } catch (err) {
@@ -224,7 +261,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
           </div>
 
           {/* Repository Field - Moved to Basic Settings */}
-          <div>
+          <div className="relative">
             <label htmlFor="repository" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Repository
             </label>
@@ -232,11 +269,27 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
               type="text"
               id="repository"
               value={repository}
-              onChange={(e) => setRepository(e.target.value)}
+              onChange={handleRepositoryChange}
+              onFocus={handleRepositoryFocus}
+              onBlur={handleRepositoryBlur}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               placeholder="e.g., my-org/my-repo"
               disabled={isCreating}
             />
+            {showSuggestions && repositorySuggestions.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                {repositorySuggestions.map((suggestion, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => selectRepository(suggestion)}
+                    className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white first:rounded-t-md last:rounded-b-md"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
               Specify a repository context for this conversation session.
             </p>
