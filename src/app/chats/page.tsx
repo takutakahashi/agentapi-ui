@@ -107,7 +107,6 @@ export default function ChatsPage() {
 
           {/* フィルタトグルボタン (デスクトップ) */}
           <div className="hidden md:block mb-6">
-            <div className="hidden md:block mb-6">
               <button
                 onClick={() => setSidebarVisible(!sidebarVisible)}
                 className="inline-flex items-center px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
