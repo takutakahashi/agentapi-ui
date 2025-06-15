@@ -21,7 +21,7 @@ export default function FloatingNewSessionButton({ onClick }: FloatingNewSession
         transition-all duration-300 ease-in-out
         flex items-center justify-center
         ${isHovered ? 'scale-110 shadow-2xl' : 'scale-100'}
-        md:w-16 md:h-16
+        md:hidden
         focus:outline-none focus:ring-4 focus:ring-blue-300 focus:ring-opacity-50
         active:scale-95
       `}
