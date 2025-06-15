@@ -8,19 +8,10 @@ import {
   SessionMessageListParams,
   SendSessionMessageRequest,
   SessionEventData,
-  SessionEventsOptions,
-  Agent,
-  AgentListResponse,
-  AgentListParams
+  SessionEventsOptions
 } from '../types/agentapi';
 import { loadGlobalSettings, loadRepositorySettings } from '../types/settings';
 
-// Define local AgentStatus type
-interface AgentStatus {
-  status: 'stable' | 'running' | 'error';
-  last_activity?: string;
-  current_task?: string;
-}
 
 export interface AgentAPIProxyClientConfig {
   baseURL: string;
@@ -246,15 +237,15 @@ export class AgentAPIProxyClient {
     return result;
   }
 
-  async getSessionStatus(sessionId: string): Promise<AgentStatus> {
-    return this.makeRequest<AgentStatus>(`/${sessionId}/status`);
+  async getSessionStatus(sessionId: string): Promise<{status: string}> {
+    return this.makeRequest<{status: string}>(`/${sessionId}/status`);
   }
 
   // Session events using Server-Sent Events
   subscribeToSessionEvents(
     sessionId: string,
     onMessage: (message: SessionMessage) => void,
-    onStatus?: (status: AgentStatus) => void,
+    onStatus?: (status: {status: string}) => void,
     onError?: (error: Error) => void,
     options?: SessionEventsOptions
   ): EventSource {
@@ -280,7 +271,7 @@ export class AgentAPIProxyClient {
             break;
           case 'status':
             if (onStatus) {
-              onStatus(eventData.data as AgentStatus);
+              onStatus(eventData.data as {status: string});
             }
             break;
           case 'error':
@@ -341,34 +332,6 @@ export class AgentAPIProxyClient {
 
   // Session management utilities
 
-  // Agent operations
-
-  /**
-   * Get list of agents
-   */
-  async getAgents(params?: AgentListParams): Promise<AgentListResponse> {
-    const searchParams = new URLSearchParams();
-    
-    if (params?.page) searchParams.set('page', params.page.toString());
-    if (params?.limit) searchParams.set('limit', params.limit.toString());
-    if (params?.status) searchParams.set('status', params.status);
-    if (params?.name) searchParams.set('name', params.name);
-
-    const endpoint = `/agents${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
-    const result = await this.makeRequest<AgentListResponse>(endpoint);
-    
-    return {
-      ...result,
-      agents: result.agents || []
-    };
-  }
-
-  /**
-   * Get a specific agent by ID
-   */
-  async getAgent(agentId: string): Promise<Agent> {
-    return this.makeRequest<Agent>(`/agents/${agentId}`);
-  }
 
   /**
    * Health check for the proxy

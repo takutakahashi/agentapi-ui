@@ -5,27 +5,27 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'AgentAPI UI',
-  description: 'User interface for AgentAPI - AI agent conversation management',
+  title: 'Conversations UI',
+  description: 'User interface for conversation management',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'AgentAPI UI',
+    title: 'Conversations UI',
   },
   formatDetection: {
     telephone: false,
   },
   openGraph: {
     type: 'website',
-    siteName: 'AgentAPI UI',
-    title: 'AgentAPI UI',
-    description: 'User interface for AgentAPI - AI agent conversation management',
+    siteName: 'Conversations UI',
+    title: 'Conversations UI',
+    description: 'User interface for conversation management',
   },
   twitter: {
     card: 'summary',
-    title: 'AgentAPI UI',
-    description: 'User interface for AgentAPI - AI agent conversation management',
+    title: 'Conversations UI',
+    description: 'User interface for conversation management',
   },
 }
 

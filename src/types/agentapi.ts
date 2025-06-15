@@ -1,55 +1,4 @@
-// AgentAPI TypeScript types based on the API documentation
-
-// Define AgentStatus locally
-export interface AgentStatus {
-  status: 'stable' | 'running' | 'error';
-  last_activity?: string;
-  current_task?: string;
-}
-
-export interface Agent {
-  id: string;
-  name: string;
-  status: 'active' | 'inactive' | 'error';
-  created_at: string;
-  updated_at: string;
-  config: AgentConfig;
-  metrics?: AgentMetrics;
-}
-
-export interface AgentConfig {
-  type: string;
-  parameters: Record<string, unknown>;
-  timeout?: number;
-  retry_policy?: {
-    max_retries: number;
-    backoff_factor: number;
-  };
-}
-
-export interface CreateAgentRequest {
-  name: string;
-  config: AgentConfig;
-}
-
-export interface UpdateAgentRequest {
-  name?: string;
-  config?: Partial<AgentConfig>;
-}
-
-export interface AgentListResponse {
-  agents: Agent[];
-  total: number;
-  page: number;
-  limit: number;
-}
-
-export interface AgentListParams {
-  page?: number;
-  limit?: number;
-  status?: Agent['status'];
-  name?: string;
-}
+// API TypeScript types for conversations and sessions
 
 // Metrics types
 export interface SystemMetrics {
@@ -57,14 +6,6 @@ export interface SystemMetrics {
   memory_usage: number;
   disk_usage: number;
   uptime: number;
-}
-
-export interface AgentMetrics {
-  agent_id: string;
-  requests_processed: number;
-  success_rate: number;
-  average_response_time: number;
-  last_activity: string;
 }
 
 export interface RequestMetrics {
@@ -77,7 +18,6 @@ export interface RequestMetrics {
 export interface Metrics {
   timestamp: string;
   system: SystemMetrics;
-  agents: AgentMetrics[];
   requests: RequestMetrics;
 }
 
@@ -85,7 +25,6 @@ export interface MetricsHistoryParams {
   from: string;
   to: string;
   interval?: string;
-  agent_id?: string;
 }
 
 // Configuration types
@@ -100,7 +39,6 @@ export interface AuthConfig {
 }
 
 export interface LimitsConfig {
-  max_agents: number;
   request_rate: number;
 }
 
@@ -112,9 +50,8 @@ export interface SystemConfig {
 
 // WebSocket types
 export interface WebSocketMessage {
-  type: 'subscribe' | 'unsubscribe' | 'agent_update' | 'metrics_update';
-  channel?: 'agents' | 'metrics';
-  agent_id?: string;
+  type: 'subscribe' | 'unsubscribe' | 'metrics_update';
+  channel?: 'metrics';
   interval?: number;
   data?: unknown;
 }
@@ -138,7 +75,7 @@ export interface APIErrorResponse {
 }
 
 // API Client configuration
-export interface AgentAPIClientConfig {
+export interface ProxyClientConfig {
   baseURL: string;
   apiKey?: string;
   timeout?: number;
@@ -219,7 +156,7 @@ export interface SendSessionMessageRequest {
 // Session events types for Server-Sent Events
 export interface SessionEventData {
   type: 'message' | 'status' | 'error';
-  data: SessionMessage | AgentStatus | { error: string };
+  data: SessionMessage | { status: string } | { error: string };
   timestamp: string;
 }
 

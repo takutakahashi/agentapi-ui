@@ -1,7 +1,7 @@
 {
-  "name": "AgentAPI UI",
-  "short_name": "AgentAPI",
-  "description": "User interface for AgentAPI - AI agent conversation management",
+  "name": "Conversations UI",
+  "short_name": "Conversations",
+  "description": "User interface for conversation management",
   "theme_color": "#000000",
   "background_color": "#ffffff",
   "display": "standalone",
