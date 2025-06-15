@@ -64,7 +64,7 @@ export default function ChatsPage() {
         title="Conversations"
         showFilterButton={true}
         showSettingsButton={true}
-        onFilterButtonClick={() => setSidebarVisible(!sidebarVisible)}
+        onFilterToggle={() => setSidebarVisible(!sidebarVisible)}
       />
 
       <div className="flex">
