@@ -24,6 +24,7 @@ export default function ChatsPage() {
   const [tagFilters, setTagFilters] = useState<TagFilter>({})
   const [refreshKey, setRefreshKey] = useState(0)
   const [creatingSessions, setCreatingSessions] = useState<CreatingSession[]>([])
+  const [sidebarVisible, setSidebarVisible] = useState(false)
 
   const handleNewSessionSuccess = () => {
     setRefreshKey(prev => prev + 1)
@@ -61,8 +62,9 @@ export default function ChatsPage() {
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <TopBar
         title="Conversations"
-        showFilterButton={false}
+        showFilterButton={true}
         showSettingsButton={true}
+        onFilterButtonClick={() => setSidebarVisible(!sidebarVisible)}
       />
 
       <div className="flex">
@@ -70,6 +72,8 @@ export default function ChatsPage() {
         <TagFilterSidebar
           onFiltersChange={setTagFilters}
           currentFilters={tagFilters}
+          isVisible={sidebarVisible}
+          onToggleVisibility={() => setSidebarVisible(!sidebarVisible)}
         />
 
         {/* メインコンテンツ */}
