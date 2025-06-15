@@ -118,7 +118,6 @@ export default function ChatsPage() {
                 {sidebarVisible ? 'フィルタを隠す' : 'フィルタを表示'}
               </button>
             </div>
-          )}
 
           {/* アクティブフィルタの表示 */}
           {Object.keys(tagFilters).length > 0 && (

@@ -34,7 +34,6 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   const [sessionMessages, setSessionMessages] = useState<{ [sessionId: string]: string }>({})
   const [isMobile, setIsMobile] = useState(false)
   const [runningSessions, setRunningSessions] = useState<Set<string>>(new Set())
-  const [agents, setAgents] = useState<Agent[]>([])
   const [sessionAgentStatus, setSessionAgentStatus] = useState<{ [sessionId: string]: { status: string; lastActivity?: string } }>({})
 
   const fetchSessions = useCallback(async () => {
@@ -66,9 +65,6 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
         messageMap[result.sessionId] = result.message
       })
       setSessionMessages(messageMap)
-      
-      // エージェント情報を取得
-      await fetchAgents()
     } catch (err) {
       if (err instanceof AgentAPIProxyError) {
         setError(`Failed to load sessions: ${err.message}`)
@@ -92,9 +88,10 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   }, [])
 
   const fetchAgents = useCallback(async () => {
+    if (sessions.length === 0) return
+    
     try {
       const response = await agentAPIProxy.getAgents({ limit: 100 })
-      setAgents(response.agents)
       
       // セッションとエージェントを関連付けてステータスを更新
       const statusMap: { [sessionId: string]: { status: string; lastActivity?: string } } = {}
