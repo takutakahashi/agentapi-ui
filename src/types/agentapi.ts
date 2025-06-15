@@ -213,7 +213,7 @@ export interface SessionMessageListParams {
 
 export interface SendSessionMessageRequest {
   content: string;
-  type: 'user' | 'system';
+  type: 'user' | 'system' | 'raw';
 }
 
 // Session events types for Server-Sent Events

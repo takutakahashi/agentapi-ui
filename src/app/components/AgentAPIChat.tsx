@@ -224,10 +224,13 @@ export default function AgentAPIChat() {
     prevMessagesLengthRef.current = currentLength;
   }, [messages, shouldAutoScroll]);
 
-  const sendMessage = async () => {
-    if (!inputValue.trim() || isLoading || !isConnected) return;
+  const sendMessage = async (messageType: 'user' | 'raw' = 'user', content?: string) => {
+    const messageContent = content || inputValue.trim();
     
-    if (agentStatus?.status === 'running') {
+    if (!messageContent && messageType === 'user') return;
+    if (isLoading || !isConnected) return;
+    
+    if (agentStatus?.status === 'running' && messageType === 'user') {
       setError('Agent is currently running. Please wait for it to become stable.');
       return;
     }
@@ -239,28 +242,32 @@ export default function AgentAPIChat() {
       if (sessionId) {
         // Send message via session
         const sessionMessage = await agentAPI.sendSessionMessage(sessionId, {
-          content: inputValue.trim(),
-          type: 'user'
+          content: messageContent,
+          type: messageType
         });
 
-        // Convert to Message format and add to display
-        const convertedMessage: Message = {
-          id: convertSessionMessageId(sessionMessage.id, Date.now()), // Safe ID conversion
-          role: sessionMessage.role === 'assistant' ? 'agent' : (sessionMessage.role === 'system' ? 'agent' : sessionMessage.role as 'user' | 'agent'),
-          content: sessionMessage.content,
-          timestamp: sessionMessage.timestamp
-        };
+        // For user messages, convert to Message format and add to display
+        if (messageType === 'user') {
+          const convertedMessage: Message = {
+            id: convertSessionMessageId(sessionMessage.id, Date.now()), // Safe ID conversion
+            role: sessionMessage.role === 'assistant' ? 'agent' : (sessionMessage.role === 'system' ? 'agent' : sessionMessage.role as 'user' | 'agent'),
+            content: sessionMessage.content,
+            timestamp: sessionMessage.timestamp
+          };
 
-        setMessages(prev => [...prev, convertedMessage]);
+          setMessages(prev => [...prev, convertedMessage]);
+        }
       } else {
         setError('No session ID available. Cannot send message.');
         return;
       }
       
-      setInputValue('');
-      // メッセージ送信時は必ずスクロール
-      setShouldAutoScroll(true);
-      setTimeout(() => scrollToBottom(), 100);
+      if (messageType === 'user') {
+        setInputValue('');
+        // メッセージ送信時は必ずスクロール
+        setShouldAutoScroll(true);
+        setTimeout(() => scrollToBottom(), 100);
+      }
     } catch (err) {
       console.error('Failed to send message:', err);
       if (err instanceof AgentAPIProxyError) {
@@ -271,6 +278,11 @@ export default function AgentAPIChat() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const sendStopSignal = () => {
+    // Send ESC key (raw message)
+    sendMessage('raw', '\u001b');
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -316,6 +328,22 @@ export default function AgentAPIChat() {
                   {agentStatus.status === 'stable' ? 'Agent Available' : agentStatus.status === 'running' ? 'Agent Running' : agentStatus.status}
                 </span>
               </div>
+            )}
+
+            {/* Stop Button */}
+            {agentStatus?.status === 'running' && (
+              <button
+                onClick={sendStopSignal}
+                disabled={!isConnected || isLoading}
+                className="px-2 sm:px-3 py-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white text-xs sm:text-sm rounded-md transition-colors disabled:cursor-not-allowed flex items-center space-x-1"
+                title="Force Stop (ESC)"
+              >
+                <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10h6v4H9z" />
+                </svg>
+                <span className="hidden sm:inline">Stop</span>
+              </button>
             )}
             
             {/* Connection Status */}
@@ -476,7 +504,7 @@ export default function AgentAPIChat() {
                 Enter: send
               </div>
               <button
-                onClick={sendMessage}
+                onClick={() => sendMessage()}
                 disabled={!isConnected || isLoading || !inputValue.trim() || agentStatus?.status === 'running'}
                 className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-sm font-medium"
               >
