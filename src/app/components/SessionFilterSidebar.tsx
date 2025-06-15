@@ -119,18 +119,6 @@ export default function SessionFilterSidebar({
 
   return (
     <>
-      {/* Mobile toggle button */}
-      {onToggleVisibility && (
-        <button
-          onClick={onToggleVisibility}
-          className="md:hidden fixed top-20 left-4 z-20 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-2 shadow-lg"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.414A1 1 0 013 6.707V4z" />
-          </svg>
-        </button>
-      )}
-
       {/* Sidebar */}
       <div className={`
         fixed inset-y-0 left-0 z-10 w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out overflow-y-auto
