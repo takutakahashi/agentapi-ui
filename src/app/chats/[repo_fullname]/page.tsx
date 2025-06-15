@@ -35,7 +35,7 @@ export default function RepositoryChatsPage({ params }: RepositoryChatsPageProps
         </div>
       </TopBar>
 
-      <div className="px-4 md:px-6 lg:px-8 py-6 md:py-8">
+      <div className="px-4 md:px-6 lg:px-8 pt-6 md:pt-8 pb-6 md:pb-8">
         <Suspense fallback={<LoadingSpinner />}>
           <RepositoryConversationList repository={repoFullname} />
         </Suspense>

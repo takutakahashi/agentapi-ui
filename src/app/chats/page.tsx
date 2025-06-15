@@ -81,7 +81,7 @@ export default function ChatsPage() {
         />
 
         {/* メインコンテンツ */}
-        <div className="flex-1 px-4 md:px-6 lg:px-8 py-6 md:py-8">
+        <div className="flex-1 px-4 md:px-6 lg:px-8 pt-6 md:pt-8 pb-6 md:pb-8">
           {/* アクティブフィルタの表示 */}
           {Object.keys(tagFilters).length > 0 && (
             <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
