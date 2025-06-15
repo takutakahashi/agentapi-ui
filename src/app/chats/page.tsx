@@ -62,9 +62,6 @@ export default function ChatsPage() {
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <TopBar
         title="Conversations"
-        showFilterButton={true}
-        filterButtonText={sidebarVisible ? 'フィルタを隠す' : 'フィルタを表示'}
-        onFilterToggle={() => setSidebarVisible(!sidebarVisible)}
         showSettingsButton={true}
       />
 
