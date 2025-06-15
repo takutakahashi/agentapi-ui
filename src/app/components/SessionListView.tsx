@@ -462,21 +462,15 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                           </h3>
                           <div className="flex items-center gap-2">
                             <StatusBadge status={session.status} />
-                            {sessionAgentStatus[session.session_id] && (() => {
-                              const statusInfo = getAgentStatusDisplayInfo(sessionAgentStatus[session.session_id])
-                              return (
-                                <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${statusInfo.colorClass}`}>
-                                  <span className={`w-2 h-2 rounded-full mr-1.5 ${
-                                    sessionAgentStatus[session.session_id].status === 'running'
-                                      ? 'bg-yellow-500 animate-pulse'
-                                      : sessionAgentStatus[session.session_id].status === 'stable'
-                                      ? 'bg-green-500'
-                                      : 'bg-red-500'
-                                  }`} />
-                                  Agent: {statusInfo.text}
-                                </span>
-                              )
-                            })()}
+                            {sessionAgentStatus[session.session_id] && (
+                              <span className={`w-3 h-3 rounded-full ${
+                                sessionAgentStatus[session.session_id].status === 'running'
+                                  ? 'bg-yellow-500 animate-pulse'
+                                  : sessionAgentStatus[session.session_id].status === 'stable'
+                                  ? 'bg-green-500'
+                                  : 'bg-red-500'
+                              }`} title={`Agent: ${getAgentStatusDisplayInfo(sessionAgentStatus[session.session_id]).text}`} />
+                            )}
                           </div>
                         </div>
 
