@@ -52,7 +52,7 @@ export default function NewSessionModal({
       }
 
       // セッションを作成 (createSession -> start)
-      const session = await client.start('current-user', {
+      const session = await client.start({
         environment: repo ? {
           REPOSITORY: repo
         } : {},
