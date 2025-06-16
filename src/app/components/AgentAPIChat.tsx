@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { agentAPI } from '../../lib/api';
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client';
