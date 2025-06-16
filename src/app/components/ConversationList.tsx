@@ -209,7 +209,7 @@ export default function ConversationList() {
       // Get current filter values to use as default parameters for new session
       const { metadata, environment } = getFilterValuesForSessionCreation(sessionFilters)
       
-      await agentAPI.start('current-user', { // TODO: Get actual user ID
+      await agentAPI.start({
         ...metadata,
         description: quickStartMessage.trim(),
         environment: {

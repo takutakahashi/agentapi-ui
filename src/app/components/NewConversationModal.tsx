@@ -192,13 +192,12 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
 
       // Use unified API client with createSession -> start mapping
       const sessionData = {
-        user_id: userId.trim(),
         environment: Object.keys(environment).length > 0 ? environment : undefined,
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
         tags: Object.keys(tags).length > 0 ? tags : undefined
       }
       
-      await agentAPI.start!(userId.trim(), {
+      await agentAPI.start!({
         environment: sessionData.environment,
         metadata: sessionData.metadata,
         tags: sessionData.tags

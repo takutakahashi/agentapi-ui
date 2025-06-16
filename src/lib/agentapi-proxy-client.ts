@@ -146,16 +146,15 @@ export class AgentAPIProxyClient {
   // High-level operations based on agentapi-proxy
   
   /**
-   * Start a new session for a user
+   * Start a new session
    */
-  async start(userId: string, sessionData?: Partial<CreateSessionRequest> | Record<string, unknown>): Promise<Session> {
+  async start(sessionData?: Partial<CreateSessionRequest> | Record<string, unknown>): Promise<Session> {
     // Handle backward compatibility and new format
-    let data: CreateSessionRequest;
+    let data: Partial<CreateSessionRequest>;
     
     if (sessionData && (sessionData.environment || sessionData.tags || sessionData.metadata)) {
       // New format: sessionData contains environment, metadata, and/or tags
       data = {
-        user_id: userId,
         environment: sessionData.environment as Record<string, string> | undefined,
         metadata: sessionData.metadata as Record<string, unknown> | undefined || { source: 'agentapi-ui' },
         tags: sessionData.tags as Record<string, string> | undefined
@@ -163,7 +162,6 @@ export class AgentAPIProxyClient {
     } else {
       // Backward compatibility: sessionData is just metadata
       data = {
-        user_id: userId,
         metadata: (sessionData as Record<string, unknown>) || { source: 'agentapi-ui' }
       };
     }
@@ -326,8 +324,8 @@ export class AgentAPIProxyClient {
   /**
    * Start multiple sessions in parallel
    */
-  async startBatch(userIds: string[], sessionData?: Partial<CreateSessionRequest> | Record<string, unknown>): Promise<Session[]> {
-    const promises = userIds.map(userId => this.start(userId, sessionData));
+  async startBatch(count: number, sessionData?: Partial<CreateSessionRequest> | Record<string, unknown>): Promise<Session[]> {
+    const promises = Array.from({ length: count }, () => this.start(sessionData));
     return Promise.all(promises);
   }
 
