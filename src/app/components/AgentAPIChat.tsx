@@ -315,8 +315,8 @@ export default function AgentAPIChat() {
 
     try {
       await agentAPI.delete(sessionId);
-      // セッション削除後、セッション一覧ページにリダイレクト
-      router.push('/');
+      // セッション削除後、conversation画面にリダイレクト
+      router.push('/chats');
     } catch (err) {
       console.error('Failed to delete session:', err);
       if (err instanceof AgentAPIProxyError) {
