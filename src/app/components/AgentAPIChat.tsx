@@ -90,7 +90,9 @@ export default function AgentAPIChat() {
     return container.scrollHeight - container.scrollTop - container.clientHeight <= threshold;
   };
 
-  const handleScroll = () => {
+  const handleScroll = useCallback(() => {
+    if (!messagesContainerRef.current) return;
+    
     const isAtBottom = checkIfAtBottom();
     setShouldAutoScroll(isAtBottom);
     
@@ -98,7 +100,7 @@ export default function AgentAPIChat() {
     if (isAtBottom) {
       setHasNewMessages(false);
     }
-  };
+  }, []);
 
   // Initialize session-based or direct AgentAPI connection
   useEffect(() => {
@@ -321,7 +323,7 @@ export default function AgentAPIChat() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+    <div className="flex flex-col h-full bg-white dark:bg-gray-900" style={{ position: 'relative', minHeight: 0 }}>
       {/* Header */}
       <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
@@ -397,6 +399,11 @@ export default function AgentAPIChat() {
         ref={messagesContainerRef}
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto bg-white dark:bg-gray-900 mobile-scroll min-h-0 relative"
+        style={{ 
+          overscrollBehavior: 'contain',
+          WebkitOverflowScrolling: 'touch',
+          transform: 'translateZ(0)' // GPU acceleration
+        }}
       >
         {messages.length === 0 && isConnected && (
           <div className="text-center text-gray-500 dark:text-gray-400 py-12">
