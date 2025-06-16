@@ -60,6 +60,33 @@ function convertSessionMessageId(id: string | number, fallbackId: number): numbe
   return hashId > 0 ? hashId : fallbackId;
 }
 
+function formatTextWithLinks(text: string): JSX.Element {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  
+  const parts = text.split(urlRegex);
+  
+  return (
+    <>
+      {parts.map((part, index) => {
+        if (urlRegex.test(part)) {
+          return (
+            <a
+              key={index}
+              href={part}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
+            >
+              {part}
+            </a>
+          );
+        }
+        return part;
+      })}
+    </>
+  );
+}
+
 export default function AgentAPIChat() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -495,7 +522,9 @@ export default function AgentAPIChat() {
                     </span>
                   </div>
                   <div className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300">
-                    <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">{message.content}</div>
+                    <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">
+                      {formatTextWithLinks(message.content)}
+                    </div>
                   </div>
                 </div>
               </div>
