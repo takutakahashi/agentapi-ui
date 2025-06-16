@@ -61,6 +61,10 @@ function convertSessionMessageId(id: string | number, fallbackId: number): numbe
 }
 
 function formatTextWithLinks(text: string): JSX.Element {
+  if (!text || typeof text !== 'string') {
+    return <>{text || ''}</>;
+  }
+  
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   
   const parts = text.split(urlRegex);
