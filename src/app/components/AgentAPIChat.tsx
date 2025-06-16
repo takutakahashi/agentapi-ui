@@ -75,7 +75,7 @@ function formatTextWithLinks(text: string): JSX.Element {
               href={part}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline whitespace-nowrap"
             >
               {part}
             </a>
