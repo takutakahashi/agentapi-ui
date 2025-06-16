@@ -24,32 +24,51 @@ body {
       rgb(var(--background-end-rgb))
     )
     rgb(var(--background-start-rgb));
+  overflow-x: hidden;
+  position: relative;
 }
 
 /* Mobile viewport fixes */
 @supports (height: 100dvh) {
   .h-dvh {
     height: 100dvh;
+    min-height: 100dvh;
   }
 }
 
 @supports not (height: 100dvh) {
   .h-dvh {
     height: 100vh;
+    min-height: 100vh;
   }
+}
+
+/* Scroll fixes */
+.mobile-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  will-change: scroll-position;
 }
 
 /* Mobile-specific improvements */
 @media (max-width: 768px) {
-  /* Ensure proper mobile scrolling */
-  .mobile-scroll {
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
-  
   /* Adjust container padding for mobile */
   .container {
     padding-left: 1rem;
     padding-right: 1rem;
+  }
+  
+  /* Prevent zoom on input focus */
+  input[type="text"],
+  input[type="email"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="search"],
+  textarea,
+  select {
+    font-size: 16px;
   }
 }
