@@ -1,6 +1,9 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { ProfileManager } from '../../utils/profileManager'
+import { ProfileListItem } from '../../types/profile'
 
 interface TopBarProps {
   title: string
@@ -11,6 +14,7 @@ interface TopBarProps {
   showSettingsButton?: boolean
   showNewSessionButton?: boolean
   onNewSession?: () => void
+  showProfileSwitcher?: boolean
   children?: React.ReactNode
 }
 
@@ -23,9 +27,42 @@ export default function TopBar({
   showSettingsButton = true,
   showNewSessionButton = false,
   onNewSession,
+  showProfileSwitcher = false,
   children
 }: TopBarProps) {
   const router = useRouter()
+  const [profiles, setProfiles] = useState<ProfileListItem[]>([])
+  const [currentProfile, setCurrentProfile] = useState<ProfileListItem | null>(null)
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false)
+
+  useEffect(() => {
+    if (showProfileSwitcher) {
+      loadProfiles()
+    }
+  }, [showProfileSwitcher])
+
+  const loadProfiles = () => {
+    ProfileManager.migrateExistingSettings()
+    const profilesList = ProfileManager.getProfiles()
+    setProfiles(profilesList)
+    
+    const defaultProfile = ProfileManager.getDefaultProfile()
+    if (defaultProfile) {
+      const defaultProfileItem = profilesList.find(p => p.id === defaultProfile.id)
+      setCurrentProfile(defaultProfileItem || null)
+    } else if (profilesList.length > 0) {
+      setCurrentProfile(profilesList[0])
+    }
+  }
+
+  const handleProfileSwitch = (profileId: string) => {
+    ProfileManager.setDefaultProfile(profileId)
+    const selectedProfile = profiles.find(p => p.id === profileId)
+    setCurrentProfile(selectedProfile || null)
+    setShowProfileDropdown(false)
+    
+    window.dispatchEvent(new CustomEvent('profileChanged', { detail: { profileId } }))
+  }
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
@@ -45,6 +82,64 @@ export default function TopBar({
           
           {/* 右側のボタン群 */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* プロファイル切り替え */}
+            {showProfileSwitcher && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                  className="inline-flex items-center px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
+                >
+                  <span className="mr-2">{currentProfile?.icon || '⚙️'}</span>
+                  <span className="hidden sm:inline mr-1">{currentProfile?.name || 'Profile'}</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {showProfileDropdown && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg z-50">
+                    <div className="p-2">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 px-2">Switch Profile</div>
+                      {profiles.map((profile) => (
+                        <button
+                          key={profile.id}
+                          onClick={() => handleProfileSwitch(profile.id)}
+                          className={`w-full text-left px-3 py-2 rounded-md transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                            currentProfile?.id === profile.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                          }`}
+                        >
+                          <div className="flex items-center">
+                            <span className="mr-2">{profile.icon || '⚙️'}</span>
+                            <div className="flex-1">
+                              <div className="font-medium text-sm">{profile.name}</div>
+                              {profile.description && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400">{profile.description}</div>
+                              )}
+                            </div>
+                            {profile.isDefault && (
+                              <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-1 rounded">
+                                Default
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                      <hr className="my-2 border-gray-200 dark:border-gray-600" />
+                      <button
+                        onClick={() => {
+                          router.push('/profiles')
+                          setShowProfileDropdown(false)
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                      >
+                        Manage Profiles...
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* フィルタボタン */}
             {showFilterButton && onFilterToggle && (
               <button

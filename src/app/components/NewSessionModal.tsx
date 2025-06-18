@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { agentAPI } from '../../lib/api'
 import type { AgentAPIProxyClient } from '../../lib/agentapi-proxy-client'
 import { RepositoryHistory } from '../../utils/repositoryHistory'
+import { ProfileManager } from '../../utils/profileManager'
+import { ProfileListItem } from '../../types/profile'
 
 interface NewSessionModalProps {
   isOpen: boolean
@@ -24,6 +26,8 @@ export default function NewSessionModal({
 }: NewSessionModalProps) {
   const [initialMessage, setInitialMessage] = useState('')
   const [repository, setRepository] = useState('')
+  const [selectedProfileId, setSelectedProfileId] = useState<string>('')
+  const [profiles, setProfiles] = useState<ProfileListItem[]>([])
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState('')
@@ -39,6 +43,21 @@ export default function NewSessionModal({
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
+
+  useEffect(() => {
+    if (isOpen) {
+      ProfileManager.migrateExistingSettings()
+      const profilesList = ProfileManager.getProfiles()
+      setProfiles(profilesList)
+      
+      const defaultProfile = ProfileManager.getDefaultProfile()
+      if (defaultProfile) {
+        setSelectedProfileId(defaultProfile.id)
+      } else if (profilesList.length > 0) {
+        setSelectedProfileId(profilesList[0].id)
+      }
+    }
+  }, [isOpen])
 
   const createSessionInBackground = async (client: AgentAPIProxyClient, message: string, repo: string, sessionId: string) => {
     try {
@@ -103,8 +122,13 @@ export default function NewSessionModal({
         console.log('Initial message sent successfully')
         
         // リポジトリ履歴に追加
-        if (repo) {
-          RepositoryHistory.addRepository(repo)
+        if (repo && selectedProfileId) {
+          ProfileManager.addRepositoryToProfile(selectedProfileId, repo)
+        }
+        
+        // プロファイル使用記録更新
+        if (selectedProfileId) {
+          ProfileManager.markProfileUsed(selectedProfileId)
         }
         
         // 作成完了
@@ -171,7 +195,21 @@ export default function NewSessionModal({
     setRepository(value)
     
     if (value.trim()) {
-      const suggestions = RepositoryHistory.searchRepositories(value)
+      let suggestions: string[] = []
+      
+      if (selectedProfileId) {
+        const profile = ProfileManager.getProfile(selectedProfileId)
+        if (profile) {
+          suggestions = profile.repositoryHistory
+            .filter(item => item.repository.toLowerCase().includes(value.toLowerCase()))
+            .map(item => item.repository)
+        }
+      }
+      
+      if (suggestions.length === 0) {
+        suggestions = RepositoryHistory.searchRepositories(value)
+      }
+      
       setRepositorySuggestions(suggestions)
       setShowSuggestions(suggestions.length > 0)
     } else {
@@ -180,7 +218,19 @@ export default function NewSessionModal({
   }
 
   const handleRepositoryFocus = () => {
-    const suggestions = RepositoryHistory.getHistory().map(item => item.repository)
+    let suggestions: string[] = []
+    
+    if (selectedProfileId) {
+      const profile = ProfileManager.getProfile(selectedProfileId)
+      if (profile) {
+        suggestions = profile.repositoryHistory.map(item => item.repository)
+      }
+    }
+    
+    if (suggestions.length === 0) {
+      suggestions = RepositoryHistory.getHistory().map(item => item.repository)
+    }
+    
     setRepositorySuggestions(suggestions)
     setShowSuggestions(suggestions.length > 0)
   }
@@ -198,6 +248,7 @@ export default function NewSessionModal({
   const handleClose = () => {
     setInitialMessage('')
     setRepository('')
+    setSelectedProfileId('')
     setError(null)
     setStatusMessage('')
     setShowSuggestions(false)
@@ -222,6 +273,41 @@ export default function NewSessionModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="profile" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              プロファイル
+            </label>
+            <div className="flex gap-2">
+              <select
+                id="profile"
+                value={selectedProfileId}
+                onChange={(e) => setSelectedProfileId(e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                disabled={isCreating}
+              >
+                {profiles.length === 0 ? (
+                  <option value="">No profiles available</option>
+                ) : (
+                  profiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.icon || '⚙️'} {profile.name}
+                      {profile.isDefault ? ' (Default)' : ''}
+                    </option>
+                  ))
+                )}
+              </select>
+              <a
+                href="/profiles"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors"
+                title="Manage Profiles"
+              >
+                ⚙️
+              </a>
+            </div>
+          </div>
+
           <div>
             <label htmlFor="initialMessage" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               初期メッセージ *

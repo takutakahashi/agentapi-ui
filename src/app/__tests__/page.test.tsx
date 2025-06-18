@@ -21,7 +21,7 @@ describe('Home Page', () => {
     
     expect(screen.getByText('Conversations')).toBeInTheDocument()
     expect(screen.getByText('Metrics')).toBeInTheDocument()
-    expect(screen.getByText('Settings')).toBeInTheDocument()
+    expect(screen.getByText('Profiles')).toBeInTheDocument()
   })
 
   it('renders interface description', () => {
