@@ -138,7 +138,15 @@ export default function NewSessionModal({
         
         // リポジトリ履歴に追加
         if (repo && selectedProfileId) {
-          ProfileManager.addRepositoryToProfile(selectedProfileId, repo)
+          console.log('Adding repository to profile history:', { repo, selectedProfileId })
+          try {
+            ProfileManager.addRepositoryToProfile(selectedProfileId, repo)
+            console.log('Repository added to profile history successfully')
+          } catch (error) {
+            console.error('Failed to add repository to profile history:', error)
+          }
+        } else {
+          console.warn('Repository or selectedProfileId is missing:', { repo, selectedProfileId })
         }
         
         // プロファイル使用記録更新
@@ -296,7 +304,27 @@ export default function NewSessionModal({
               <select
                 id="profile"
                 value={selectedProfileId}
-                onChange={(e) => setSelectedProfileId(e.target.value)}
+                onChange={(e) => {
+                  const newProfileId = e.target.value;
+                  console.log('Profile changed:', { old: selectedProfileId, new: newProfileId });
+                  setSelectedProfileId(newProfileId);
+                  
+                  // プロファイル変更時にリポジトリサジェストを更新
+                  if (!repository.trim()) {
+                    let suggestions: string[] = [];
+                    if (newProfileId) {
+                      const profile = ProfileManager.getProfile(newProfileId);
+                      if (profile) {
+                        suggestions = profile.repositoryHistory.map(item => item.repository);
+                        console.log('Updated suggestions for new profile:', suggestions);
+                      }
+                    }
+                    if (suggestions.length === 0) {
+                      suggestions = RepositoryHistory.getHistory().map(item => item.repository);
+                    }
+                    setRepositorySuggestions(suggestions);
+                  }
+                }}
                 className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 disabled={isCreating}
               >

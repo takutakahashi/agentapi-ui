@@ -256,18 +256,25 @@ export class ProfileManager {
   }
 
   static addRepositoryToProfile(profileId: string, repository: string): void {
+    console.log('ProfileManager.addRepositoryToProfile called:', { profileId, repository });
+    
     const profile = this.getProfile(profileId);
     if (!profile) {
+      console.error('Profile not found:', profileId);
       return;
     }
+
+    console.log('Current profile repository history:', profile.repositoryHistory);
 
     const existingIndex = profile.repositoryHistory.findIndex(
       item => item.repository === repository
     );
 
     if (existingIndex !== -1) {
+      console.log('Updating existing repository in history');
       profile.repositoryHistory[existingIndex].lastUsed = new Date();
     } else {
+      console.log('Adding new repository to history');
       profile.repositoryHistory.unshift({
         repository,
         lastUsed: new Date(),
@@ -277,17 +284,26 @@ export class ProfileManager {
     profile.repositoryHistory.sort((a, b) => b.lastUsed.getTime() - a.lastUsed.getTime());
     profile.repositoryHistory = profile.repositoryHistory.slice(0, 10);
 
+    console.log('Updated profile repository history:', profile.repositoryHistory);
+
     this.saveProfile(profile);
     this.updateProfilesList();
+    
+    console.log('Repository added to profile history successfully');
   }
 
   private static saveProfile(profile: Profile): void {
     if (typeof window === 'undefined') {
+      console.warn('saveProfile: window is undefined, skipping save');
       return;
     }
 
     try {
-      localStorage.setItem(`${PROFILE_KEY_PREFIX}${profile.id}`, JSON.stringify(profile));
+      const key = `${PROFILE_KEY_PREFIX}${profile.id}`;
+      const serializedProfile = JSON.stringify(profile);
+      console.log('Saving profile to localStorage:', { key, profile });
+      localStorage.setItem(key, serializedProfile);
+      console.log('Profile saved successfully to localStorage');
     } catch (err) {
       console.error('Failed to save profile:', err);
       throw err;
