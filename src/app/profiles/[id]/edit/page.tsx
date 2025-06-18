@@ -105,7 +105,7 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading profile...</div>
+        <div className="text-lg text-gray-900 dark:text-white">Loading profile...</div>
       </div>
     );
   }
@@ -113,7 +113,7 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
   if (!profile) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Profile not found</div>
+        <div className="text-lg text-gray-900 dark:text-white">Profile not found</div>
       </div>
     );
   }
@@ -121,44 +121,44 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Edit Profile</h1>
-        <p className="text-gray-600">Update your profile configuration</p>
+        <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Edit Profile</h1>
+        <p className="text-gray-600 dark:text-gray-300">Update your profile configuration</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">Basic Information</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Basic Information</h2>
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Profile Name *
               </label>
               <input
                 type="text"
                 value={formData.name || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 placeholder="Enter profile name"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Description
               </label>
               <textarea
                 value={formData.description || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 placeholder="Enter profile description"
                 rows={3}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Icon
               </label>
               <div className="flex flex-wrap gap-2">
@@ -169,8 +169,8 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
                     onClick={() => setFormData(prev => ({ ...prev, icon: emoji }))}
                     className={`text-2xl p-2 rounded-md border-2 transition-colors ${
                       formData.icon === emoji
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                     }`}
                   >
                     {emoji}
@@ -187,19 +187,19 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
                 onChange={(e) => setFormData(prev => ({ ...prev, isDefault: e.target.checked }))}
                 className="mr-2"
               />
-              <label htmlFor="isDefault" className="text-sm text-gray-700">
+              <label htmlFor="isDefault" className="text-sm text-gray-700 dark:text-gray-300">
                 Set as default profile
               </label>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">AgentAPI Proxy Settings</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">AgentAPI Proxy Settings</h2>
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Endpoint URL *
               </label>
               <input
@@ -209,14 +209,14 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
                   ...prev,
                   agentApiProxy: { ...prev.agentApiProxy, endpoint: e.target.value }
                 }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 placeholder="http://localhost:8080"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 API Key
               </label>
               <input
@@ -226,13 +226,13 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
                   ...prev,
                   agentApiProxy: { ...prev.agentApiProxy, apiKey: e.target.value }
                 }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 placeholder="Enter API key"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Timeout (ms)
               </label>
               <input
@@ -242,7 +242,7 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
                   ...prev,
                   agentApiProxy: { ...prev.agentApiProxy, timeout: parseInt(e.target.value) }
                 }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 min="1000"
                 max="300000"
               />
@@ -259,16 +259,16 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
                 }))}
                 className="mr-2"
               />
-              <label htmlFor="enabled" className="text-sm text-gray-700">
+              <label htmlFor="enabled" className="text-sm text-gray-700 dark:text-gray-300">
                 Enable proxy
               </label>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Environment Variables</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Environment Variables</h2>
             <button
               type="button"
               onClick={addEnvironmentVariable}
@@ -286,21 +286,21 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
                   placeholder="Key"
                   value={env.key}
                   onChange={(e) => updateEnvironmentVariable(index, 'key', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 />
                 <input
                   type="text"
                   placeholder="Value"
                   value={env.value}
                   onChange={(e) => updateEnvironmentVariable(index, 'value', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 />
                 <input
                   type="text"
                   placeholder="Description (optional)"
                   value={env.description || ''}
                   onChange={(e) => updateEnvironmentVariable(index, 'description', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 />
                 <button
                   type="button"
@@ -312,21 +312,21 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
               </div>
             ))}
             {(formData.environmentVariables || []).length === 0 && (
-              <div className="text-gray-500 text-sm">No environment variables configured</div>
+              <div className="text-gray-500 dark:text-gray-400 text-sm">No environment variables configured</div>
             )}
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">Repository History</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Repository History</h2>
           <div className="space-y-2">
             {profile.repositoryHistory.length === 0 ? (
-              <div className="text-gray-500 text-sm">No repository history</div>
+              <div className="text-gray-500 dark:text-gray-400 text-sm">No repository history</div>
             ) : (
               profile.repositoryHistory.map((repo, index) => (
-                <div key={index} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded">
-                  <span className="font-mono text-sm">{repo.repository}</span>
-                  <span className="text-xs text-gray-500">
+                <div key={index} className="flex justify-between items-center py-2 px-3 bg-gray-50 dark:bg-gray-700 rounded">
+                  <span className="font-mono text-sm text-gray-900 dark:text-white">{repo.repository}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
                     {new Date(repo.lastUsed).toLocaleDateString()}
                   </span>
                 </div>
@@ -339,14 +339,14 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
           <button
             type="submit"
             disabled={saving}
-            className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white py-2 px-4 rounded-lg transition-colors"
+            className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 dark:disabled:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors"
           >
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
           <button
             type="button"
             onClick={handleCancel}
-            className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors"
+            className="flex-1 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white py-2 px-4 rounded-lg transition-colors"
           >
             Cancel
           </button>
