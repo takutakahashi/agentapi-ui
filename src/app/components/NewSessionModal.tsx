@@ -6,6 +6,7 @@ import type { AgentAPIProxyClient } from '../../lib/agentapi-proxy-client'
 import { RepositoryHistory } from '../../utils/repositoryHistory'
 import { ProfileManager } from '../../utils/profileManager'
 import { ProfileListItem } from '../../types/profile'
+import { InitialMessageCache } from '../../utils/initialMessageCache'
 
 interface NewSessionModalProps {
   isOpen: boolean
@@ -34,6 +35,8 @@ export default function NewSessionModal({
   const [isMobile, setIsMobile] = useState(false)
   const [repositorySuggestions, setRepositorySuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [cachedMessages, setCachedMessages] = useState<string[]>([])
+  const [showCachedMessages, setShowCachedMessages] = useState(false)
 
   useEffect(() => {
     const checkMobile = () => {
@@ -56,6 +59,10 @@ export default function NewSessionModal({
       } else if (profilesList.length > 0) {
         setSelectedProfileId(profilesList[0].id)
       }
+      
+      // キャッシュされたメッセージを読み込む
+      const cached = InitialMessageCache.getCachedMessages()
+      setCachedMessages(cached)
     }
   }, [isOpen])
 
@@ -183,6 +190,9 @@ export default function NewSessionModal({
       const currentMessage = initialMessage.trim()
       const currentRepository = repository.trim()
       
+      // 初期メッセージをキャッシュに追加
+      InitialMessageCache.addMessage(currentMessage)
+      
       // セッションIDを生成
       const sessionId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       
@@ -267,7 +277,24 @@ export default function NewSessionModal({
     setError(null)
     setStatusMessage('')
     setShowSuggestions(false)
+    setShowCachedMessages(false)
     onClose()
+  }
+  
+  const handleMessageFocus = () => {
+    if (cachedMessages.length > 0 && !initialMessage.trim()) {
+      setShowCachedMessages(true)
+    }
+  }
+  
+  const handleMessageBlur = () => {
+    // 少し遅延させてクリックイベントが発生するようにする
+    setTimeout(() => setShowCachedMessages(false), 150)
+  }
+  
+  const selectCachedMessage = (message: string) => {
+    setInitialMessage(message)
+    setShowCachedMessages(false)
   }
 
   return (
@@ -323,7 +350,7 @@ export default function NewSessionModal({
             </div>
           </div>
 
-          <div>
+          <div className="relative">
             <label htmlFor="initialMessage" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               初期メッセージ *
             </label>
@@ -331,12 +358,33 @@ export default function NewSessionModal({
               id="initialMessage"
               value={initialMessage}
               onChange={(e) => setInitialMessage(e.target.value)}
+              onFocus={handleMessageFocus}
+              onBlur={handleMessageBlur}
               placeholder="このセッションで何をしたいか説明してください..."
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white resize-y min-h-[120px] max-h-[300px] sm:min-h-[96px]"
               rows={isMobile ? 6 : 4}
               disabled={isCreating}
               required
             />
+            {showCachedMessages && cachedMessages.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                  最近使用したメッセージ
+                </div>
+                {cachedMessages.map((message, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => selectCachedMessage(message)}
+                    className="w-full text-left px-3 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                  >
+                    <div className="line-clamp-2 text-sm">
+                      {message}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="relative">
