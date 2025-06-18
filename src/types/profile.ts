@@ -6,6 +6,7 @@ export interface Profile {
   name: string;
   description?: string;
   icon?: string;
+  systemPrompt?: string;
   agentApiProxy: AgentApiProxySettings;
   repositoryHistory: RepositoryHistoryItem[];
   environmentVariables: EnvironmentVariable[];
@@ -28,6 +29,7 @@ export interface CreateProfileRequest {
   name: string;
   description?: string;
   icon?: string;
+  systemPrompt?: string;
   agentApiProxy: AgentApiProxySettings;
   environmentVariables: EnvironmentVariable[];
   isDefault?: boolean;
@@ -37,6 +39,7 @@ export interface UpdateProfileRequest {
   name?: string;
   description?: string;
   icon?: string;
+  systemPrompt?: string;
   agentApiProxy?: Partial<AgentApiProxySettings>;
   environmentVariables?: EnvironmentVariable[];
   isDefault?: boolean;

@@ -111,8 +111,31 @@ export default function NewSessionModal({
         await new Promise(resolve => setTimeout(resolve, retryInterval))
       }
 
-      // Agent Availableになったら初期メッセージを送信
+      // Agent Availableになったらメッセージを送信
       onSessionStatusUpdate(sessionId, 'sending-message')
+      
+      // 選択されたプロファイルからシステムプロンプトを取得
+      let profile = null
+      if (selectedProfileId) {
+        profile = ProfileManager.getProfile(selectedProfileId)
+      }
+      
+      // システムプロンプトが設定されている場合は最初に送信
+      if (profile?.systemPrompt?.trim()) {
+        console.log(`Sending system prompt to session ${session.session_id}`)
+        try {
+          await client.sendSessionMessage(session.session_id, {
+            content: profile.systemPrompt,
+            type: 'system'
+          })
+          console.log('System prompt sent successfully')
+        } catch (systemErr) {
+          console.warn('Failed to send system prompt:', systemErr)
+          // システムプロンプト送信に失敗してもセッション作成は続行
+        }
+      }
+      
+      // 初期メッセージを送信
       console.log(`Sending initial message to session ${session.session_id}:`, message)
       try {
         await client.sendSessionMessage(session.session_id, {

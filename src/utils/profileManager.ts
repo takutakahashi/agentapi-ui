@@ -50,6 +50,7 @@ export class ProfileManager {
       name: profileData.name,
       description: profileData.description,
       icon: profileData.icon,
+      systemPrompt: profileData.systemPrompt,
       agentApiProxy: profileData.agentApiProxy,
       repositoryHistory: [],
       environmentVariables: profileData.environmentVariables,
