@@ -120,29 +120,21 @@ export default function NewSessionModal({
         profile = ProfileManager.getProfile(selectedProfileId)
       }
       
-      // システムプロンプトが設定されている場合は最初に送信
+      // システムプロンプトと初期メッセージを結合
+      let combinedMessage = message
       if (profile?.systemPrompt?.trim()) {
-        console.log(`Sending system prompt to session ${session.session_id}`)
-        try {
-          await client.sendSessionMessage(session.session_id, {
-            content: profile.systemPrompt,
-            type: 'system'
-          })
-          console.log('System prompt sent successfully')
-        } catch (systemErr) {
-          console.warn('Failed to send system prompt:', systemErr)
-          // システムプロンプト送信に失敗してもセッション作成は続行
-        }
+        combinedMessage = `${profile.systemPrompt}\n\n---\n\n${message}`
+        console.log(`Combined system prompt with initial message for session ${session.session_id}`)
       }
       
-      // 初期メッセージを送信
-      console.log(`Sending initial message to session ${session.session_id}:`, message)
+      // 結合されたメッセージを送信
+      console.log(`Sending combined message to session ${session.session_id}:`, combinedMessage)
       try {
         await client.sendSessionMessage(session.session_id, {
-          content: message,
+          content: combinedMessage,
           type: 'user'
         })
-        console.log('Initial message sent successfully')
+        console.log('Combined message sent successfully')
         
         // リポジトリ履歴に追加
         if (repo && selectedProfileId) {
