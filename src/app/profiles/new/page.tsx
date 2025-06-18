@@ -112,6 +112,22 @@ export default function NewProfilePage() {
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                System Prompt
+              </label>
+              <textarea
+                value={formData.systemPrompt || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, systemPrompt: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="Enter system prompt that will be sent at the beginning of each session"
+                rows={4}
+              />
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                This prompt will be sent automatically when starting a new session with this profile.
+              </p>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Icon
               </label>
