@@ -128,7 +128,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     } catch (err) {
       console.warn('Failed to fetch session statuses:', err)
     }
-  }, [sessions])
+  }, [sessions, agentAPIProxy])
 
   const getAgentStatusDisplayInfo = (agentStatus: AgentStatus | undefined) => {
     if (!agentStatus) {
@@ -184,10 +184,132 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       
       if (newProfile) {
         setCurrentProfile(newProfile)
-        setAgentAPI(createAgentAPIProxyClientFromStorage(undefined, newProfile.id))
-        setAgentAPIProxy(createAgentAPIProxyClientFromStorage(undefined, newProfile.id))
-        // Refresh sessions with new profile settings
-        fetchSessions()
+        const newAgentAPI = createAgentAPIProxyClientFromStorage(undefined, newProfile.id)
+        const newAgentAPIProxy = createAgentAPIProxyClientFromStorage(undefined, newProfile.id)
+        setAgentAPI(newAgentAPI)
+        setAgentAPIProxy(newAgentAPIProxy)
+        
+        // Helper function to extract user message
+        const extractUserMessageLocal = (combinedMessage: string) => {
+          const separator = '\n\n---\n\n'
+          const separatorIndex = combinedMessage.indexOf(separator)
+          
+          if (separatorIndex !== -1) {
+            return combinedMessage.substring(separatorIndex + separator.length).trim()
+          }
+          
+          return combinedMessage
+        }
+
+        // Helper function to get mock sessions
+        const getMockSessionsLocal = (): Session[] => [
+          {
+            session_id: 'session-001',
+            user_id: 'user-alice',
+            status: 'active',
+            created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            updated_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+            environment: {
+              GITHUB_TOKEN: '***',
+              WORKSPACE_NAME: 'code-review-project'
+            },
+            metadata: {
+              description: 'コードレビューセッションでReactアーキテクチャについて議論し、最適化の提案を行っています。',
+              project_type: 'frontend',
+              technology: 'React',
+              repository: 'owner/react-project'
+            }
+          },
+          {
+            session_id: 'session-002',
+            user_id: 'user-bob',
+            status: 'active',
+            created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+            updated_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+            environment: {
+              GITHUB_TOKEN: '***',
+              WORKSPACE_NAME: 'api-integration-help'
+            },
+            metadata: {
+              description: 'REST API統合の支援を行っています',
+              project_type: 'backend',
+              technology: 'Node.js',
+              repository: 'owner/api-project'
+            }
+          },
+          {
+            session_id: 'session-003',
+            user_id: 'user-charlie',
+            status: 'error',
+            created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+            updated_at: new Date(Date.now() - 22 * 60 * 60 * 1000).toISOString(),
+            environment: {
+              GITHUB_TOKEN: '***',
+              WORKSPACE_NAME: 'database-design'
+            },
+            metadata: {
+              description: 'データベーススキーマ設計セッション',
+              project_type: 'database',
+              technology: 'PostgreSQL'
+            }
+          }
+        ]
+
+        // Directly call fetchSessions with the new API client
+        const fetchSessionsWithNewAPI = async () => {
+          try {
+            setLoading(true)
+            setError(null)
+
+            const response = await newAgentAPI.search!({ limit: 1000 })
+            const sessionList = response.sessions || []
+            setSessions(sessionList)
+
+            // 各セッションの初期メッセージを取得
+            const messagePromises = sessionList.map(async (session) => {
+              try {
+                const messages = await newAgentAPI.getSessionMessages!(session.session_id, { limit: 10 })
+                const userMessages = messages.messages.filter(msg => msg.role === 'user')
+                if (userMessages.length > 0) {
+                  // システムプロンプトを除去したユーザーメッセージのみを取得
+                  const userMessage = extractUserMessageLocal(userMessages[0].content)
+                  return { sessionId: session.session_id, message: userMessage }
+                }
+              } catch (err) {
+                console.warn(`Failed to fetch messages for session ${session.session_id}:`, err)
+              }
+              return { sessionId: session.session_id, message: String(session.metadata?.description || 'No description available') }
+            })
+
+            const messageResults = await Promise.all(messagePromises)
+            const messageMap: { [sessionId: string]: string } = {}
+            messageResults.forEach(result => {
+              messageMap[result.sessionId] = result.message
+            })
+            setSessionMessages(messageMap)
+          } catch (err) {
+            if (err instanceof AgentAPIProxyError) {
+              setError(`Failed to load sessions: ${err.message}`)
+            } else {
+              setError('An unexpected error occurred while loading sessions')
+            }
+            
+            // モックデータを使用
+            const mockSessions = getMockSessionsLocal()
+            setSessions(mockSessions)
+            
+            // モックセッションの初期メッセージを設定
+            const mockMessages: { [sessionId: string]: string } = {}
+            mockSessions.forEach(session => {
+              mockMessages[session.session_id] = String(session.metadata?.description || 'No description available')
+            })
+            setSessionMessages(mockMessages)
+          } finally {
+            setLoading(false)
+          }
+        }
+        
+        fetchSessionsWithNewAPI()
       }
     }
 
@@ -196,7 +318,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     return () => {
       window.removeEventListener('profileChanged', handleProfileChange as EventListener)
     }
-  }, [fetchSessions])
+  }, [])
 
   const getMockSessions = (): Session[] => [
     {
