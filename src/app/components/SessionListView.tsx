@@ -90,7 +90,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [agentAPI])
 
   const fetchSessionStatuses = useCallback(async () => {
     if (sessions.length === 0) return
