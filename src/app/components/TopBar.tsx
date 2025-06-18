@@ -38,6 +38,16 @@ export default function TopBar({
   useEffect(() => {
     if (showProfileSwitcher) {
       loadProfiles()
+      
+      // Listen for URL changes (back/forward navigation)
+      const handlePopState = () => {
+        loadProfiles()
+      }
+      
+      window.addEventListener('popstate', handlePopState)
+      return () => {
+        window.removeEventListener('popstate', handlePopState)
+      }
     }
   }, [showProfileSwitcher])
 
@@ -46,16 +56,18 @@ export default function TopBar({
     const profilesList = ProfileManager.getProfiles()
     setProfiles(profilesList)
     
-    const defaultProfile = ProfileManager.getDefaultProfile()
-    if (defaultProfile) {
-      const defaultProfileItem = profilesList.find(p => p.id === defaultProfile.id)
-      setCurrentProfile(defaultProfileItem || null)
+    // Check URL parameters first, then fall back to default profile
+    const currentProfileId = ProfileManager.getCurrentProfileId()
+    if (currentProfileId) {
+      const currentProfileItem = profilesList.find(p => p.id === currentProfileId)
+      setCurrentProfile(currentProfileItem || null)
     } else if (profilesList.length > 0) {
       setCurrentProfile(profilesList[0])
     }
   }
 
   const handleProfileSwitch = (profileId: string) => {
+    ProfileManager.setProfileInUrl(profileId)
     ProfileManager.setDefaultProfile(profileId)
     const selectedProfile = profiles.find(p => p.id === profileId)
     setCurrentProfile(selectedProfile || null)

@@ -426,7 +426,29 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
       }
     }
     
-    // If no profile settings found, fall back to default profile
+    // If no profile settings found, check for current profile (including URL parameters)
+    if (!settings) {
+      const currentProfileId = ProfileManager.getCurrentProfileId();
+      if (currentProfileId) {
+        const profile = ProfileManager.getProfile(currentProfileId);
+        if (profile) {
+          settings = {
+            agentApiProxy: profile.agentApiProxy,
+            environmentVariables: profile.environmentVariables
+          };
+          
+          // Mark profile as used
+          ProfileManager.markProfileUsed(currentProfileId);
+          
+          // Add repository to profile history if repoFullname is provided
+          if (repoFullname) {
+            ProfileManager.addRepositoryToProfile(currentProfileId, repoFullname);
+          }
+        }
+      }
+    }
+    
+    // If still no profile settings found, fall back to default profile
     if (!settings) {
       const defaultProfile = ProfileManager.getDefaultProfile();
       if (defaultProfile) {
