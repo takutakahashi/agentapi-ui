@@ -128,7 +128,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     } catch (err) {
       console.warn('Failed to fetch session statuses:', err)
     }
-  }, [sessions])
+  }, [sessions, agentAPIProxy])
 
   const getAgentStatusDisplayInfo = (agentStatus: AgentStatus | undefined) => {
     if (!agentStatus) {
@@ -184,10 +184,66 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       
       if (newProfile) {
         setCurrentProfile(newProfile)
-        setAgentAPI(createAgentAPIProxyClientFromStorage(undefined, newProfile.id))
-        setAgentAPIProxy(createAgentAPIProxyClientFromStorage(undefined, newProfile.id))
-        // Refresh sessions with new profile settings
-        fetchSessions()
+        const newAgentAPI = createAgentAPIProxyClientFromStorage(undefined, newProfile.id)
+        const newAgentAPIProxy = createAgentAPIProxyClientFromStorage(undefined, newProfile.id)
+        setAgentAPI(newAgentAPI)
+        setAgentAPIProxy(newAgentAPIProxy)
+        
+        // Directly call fetchSessions with the new API client
+        const fetchSessionsWithNewAPI = async () => {
+          try {
+            setLoading(true)
+            setError(null)
+
+            const response = await newAgentAPI.search!({ limit: 1000 })
+            const sessionList = response.sessions || []
+            setSessions(sessionList)
+
+            // 各セッションの初期メッセージを取得
+            const messagePromises = sessionList.map(async (session) => {
+              try {
+                const messages = await newAgentAPI.getSessionMessages!(session.session_id, { limit: 10 })
+                const userMessages = messages.messages.filter(msg => msg.role === 'user')
+                if (userMessages.length > 0) {
+                  // システムプロンプトを除去したユーザーメッセージのみを取得
+                  const userMessage = extractUserMessage(userMessages[0].content)
+                  return { sessionId: session.session_id, message: userMessage }
+                }
+              } catch (err) {
+                console.warn(`Failed to fetch messages for session ${session.session_id}:`, err)
+              }
+              return { sessionId: session.session_id, message: String(session.metadata?.description || 'No description available') }
+            })
+
+            const messageResults = await Promise.all(messagePromises)
+            const messageMap: { [sessionId: string]: string } = {}
+            messageResults.forEach(result => {
+              messageMap[result.sessionId] = result.message
+            })
+            setSessionMessages(messageMap)
+          } catch (err) {
+            if (err instanceof AgentAPIProxyError) {
+              setError(`Failed to load sessions: ${err.message}`)
+            } else {
+              setError('An unexpected error occurred while loading sessions')
+            }
+            
+            // モックデータを使用
+            const mockSessions = getMockSessions()
+            setSessions(mockSessions)
+            
+            // モックセッションの初期メッセージを設定
+            const mockMessages: { [sessionId: string]: string } = {}
+            mockSessions.forEach(session => {
+              mockMessages[session.session_id] = String(session.metadata?.description || 'No description available')
+            })
+            setSessionMessages(mockMessages)
+          } finally {
+            setLoading(false)
+          }
+        }
+        
+        fetchSessionsWithNewAPI()
       }
     }
 
@@ -196,7 +252,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     return () => {
       window.removeEventListener('profileChanged', handleProfileChange as EventListener)
     }
-  }, [fetchSessions])
+  }, [extractUserMessage, getMockSessions])
 
   const getMockSessions = (): Session[] => [
     {
