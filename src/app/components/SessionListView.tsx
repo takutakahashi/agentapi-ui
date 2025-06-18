@@ -56,7 +56,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
           const messages = await agentAPI.getSessionMessages!(session.session_id, { limit: 10 })
           const userMessages = messages.messages.filter(msg => msg.role === 'user')
           if (userMessages.length > 0) {
-            return { sessionId: session.session_id, message: userMessages[0].content }
+            // システムプロンプトを除去したユーザーメッセージのみを取得
+            const userMessage = extractUserMessage(userMessages[0].content)
+            return { sessionId: session.session_id, message: userMessage }
           }
         } catch (err) {
           console.warn(`Failed to fetch messages for session ${session.session_id}:`, err)
@@ -303,6 +305,20 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     } finally {
       setDeletingSession(null)
     }
+  }
+
+  const extractUserMessage = (combinedMessage: string) => {
+    // システムプロンプトと初期メッセージが結合されている場合（\n\n---\n\n で区切られている）
+    const separator = '\n\n---\n\n'
+    const separatorIndex = combinedMessage.indexOf(separator)
+    
+    if (separatorIndex !== -1) {
+      // セパレータが見つかった場合、セパレータより後の部分を返す
+      return combinedMessage.substring(separatorIndex + separator.length).trim()
+    }
+    
+    // セパレータが見つからない場合、元のメッセージをそのまま返す
+    return combinedMessage
   }
 
   const truncateText = (text: string, maxLength: number = 100) => {
