@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Session, AgentStatus } from '../../types/agentapi'
-import { agentAPI } from '../../lib/api'
-import { agentAPIProxy, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
+import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
+import { ProfileManager } from '../../utils/profileManager'
 import StatusBadge from './StatusBadge'
 
 interface TagFilter {
@@ -27,6 +27,12 @@ interface SessionListViewProps {
 
 export default function SessionListView({ tagFilters, onSessionsUpdate, creatingSessions }: SessionListViewProps) {
   const router = useRouter()
+  
+  // Get current profile and create profile-aware clients
+  const [currentProfile, setCurrentProfile] = useState(() => ProfileManager.getDefaultProfile())
+  const [agentAPI, setAgentAPI] = useState(() => createAgentAPIProxyClientFromStorage(undefined, currentProfile?.id))
+  const [agentAPIProxy, setAgentAPIProxy] = useState(() => createAgentAPIProxyClientFromStorage(undefined, currentProfile?.id))
+  
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -167,6 +173,28 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
+
+  // Listen for profile changes and recreate clients
+  useEffect(() => {
+    const handleProfileChange = (event: CustomEvent) => {
+      const newProfileId = event.detail.profileId
+      const newProfile = ProfileManager.getProfile(newProfileId)
+      
+      if (newProfile) {
+        setCurrentProfile(newProfile)
+        setAgentAPI(createAgentAPIProxyClientFromStorage(undefined, newProfile.id))
+        setAgentAPIProxy(createAgentAPIProxyClientFromStorage(undefined, newProfile.id))
+        // Refresh sessions with new profile settings
+        fetchSessions()
+      }
+    }
+
+    window.addEventListener('profileChanged', handleProfileChange as EventListener)
+    
+    return () => {
+      window.removeEventListener('profileChanged', handleProfileChange as EventListener)
+    }
+  }, [fetchSessions])
 
   const getMockSessions = (): Session[] => [
     {

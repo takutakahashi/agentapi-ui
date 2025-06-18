@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Session, SessionListParams } from '../../types/agentapi'
-import { agentAPI } from '../../lib/api'
-import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
+import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
+import { ProfileManager } from '../../utils/profileManager'
 import { 
   extractFilterGroups, 
   applySessionFilters, 
@@ -29,6 +29,10 @@ export default function ConversationList() {
   
   // Extract repository from query parameters
   const repositoryParam = searchParams.get('repository')
+  
+  // Get current profile and create profile-aware client
+  const [currentProfile, setCurrentProfile] = useState(() => ProfileManager.getDefaultProfile())
+  const [agentAPI, setAgentAPI] = useState(() => createAgentAPIProxyClientFromStorage(repositoryParam || undefined, currentProfile?.id))
   
   const [allSessions, setAllSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
@@ -261,6 +265,27 @@ export default function ConversationList() {
     const urlFilters = parseFiltersFromURL(searchParams)
     setSessionFilters(urlFilters)
   }, [searchParams])
+
+  // Listen for profile changes and recreate client
+  useEffect(() => {
+    const handleProfileChange = (event: CustomEvent) => {
+      const newProfileId = event.detail.profileId
+      const newProfile = ProfileManager.getProfile(newProfileId)
+      
+      if (newProfile) {
+        setCurrentProfile(newProfile)
+        setAgentAPI(createAgentAPIProxyClientFromStorage(repositoryParam || undefined, newProfile.id))
+        // Refresh sessions with new profile settings
+        fetchSessions()
+      }
+    }
+
+    window.addEventListener('profileChanged', handleProfileChange as EventListener)
+    
+    return () => {
+      window.removeEventListener('profileChanged', handleProfileChange as EventListener)
+    }
+  }, [repositoryParam, fetchSessions])
 
   if (loading && allSessions.length === 0) {
     return <LoadingSpinner />
