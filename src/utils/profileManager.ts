@@ -152,6 +152,16 @@ export class ProfileManager {
     }
 
     try {
+      // Check for profile in URL parameters first
+      const urlParams = new URLSearchParams(window.location.search);
+      const profileIdFromUrl = urlParams.get('profile');
+      if (profileIdFromUrl) {
+        const profile = this.getProfile(profileIdFromUrl);
+        if (profile) {
+          return profile;
+        }
+      }
+
       const defaultProfileId = localStorage.getItem(DEFAULT_PROFILE_KEY);
       if (defaultProfileId) {
         const profile = this.getProfile(defaultProfileId);
@@ -175,6 +185,46 @@ export class ProfileManager {
       console.error('Failed to get default profile:', err);
       return this.createDefaultProfile();
     }
+  }
+
+  static getCurrentProfileId(): string | null {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    // Check URL parameters first
+    const urlParams = new URLSearchParams(window.location.search);
+    const profileIdFromUrl = urlParams.get('profile');
+    if (profileIdFromUrl) {
+      const profile = this.getProfile(profileIdFromUrl);
+      if (profile) {
+        return profileIdFromUrl;
+      }
+    }
+
+    // Fall back to default profile
+    const defaultProfile = this.getDefaultProfile();
+    return defaultProfile?.id || null;
+  }
+
+  static setProfileInUrl(profileId: string): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('profile', profileId);
+    window.history.replaceState({}, '', url.toString());
+  }
+
+  static removeProfileFromUrl(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('profile');
+    window.history.replaceState({}, '', url.toString());
   }
 
   static markProfileUsed(profileId: string): void {
