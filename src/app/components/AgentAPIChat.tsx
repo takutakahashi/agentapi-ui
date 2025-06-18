@@ -6,6 +6,7 @@ import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-c
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client';
 import { SessionMessage, SessionMessageListResponse } from '../../types/agentapi';
 import { ProfileManager } from '../../utils/profileManager';
+import { useBackgroundAwareInterval } from '../hooks/usePageVisibility';
 
 // Define local types for message and agent status
 interface Message {
@@ -113,7 +114,6 @@ export default function AgentAPIChat() {
   const [isDeleting, setIsDeleting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const prevMessagesLengthRef = useRef(0);
 
   const scrollToBottom = () => {
@@ -213,56 +213,56 @@ export default function AgentAPIChat() {
     initializeChat();
   }, [sessionId]);
 
+  // Session-based polling for messages (1 second interval)
+  const pollMessages = useCallback(async () => {
+    if (!isConnected || !sessionId) return;
+    
+    try {
+      // Poll both messages and status
+      const [sessionMessagesResponse, sessionStatus] = await Promise.all([
+        agentAPI.getSessionMessages(sessionId, { limit: 100 }),
+        agentAPI.getSessionStatus(sessionId)
+      ]);
+      
+      // Validate and safely handle session messages response
+      if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
+        console.warn('Invalid session messages response structure during polling:', sessionMessagesResponse);
+      }
+      
+      // Convert SessionMessage to Message format for display with safe array handling
+      const messages = sessionMessagesResponse?.messages || [];
+      const convertedMessages: Message[] = messages.map((msg: SessionMessage, index: number) => ({
+        id: convertSessionMessageId(msg.id, Date.now() + index), // Safe ID conversion with unique fallback
+        role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'), // Convert roles to Message format
+        content: msg.content,
+        timestamp: msg.timestamp
+      }));
+      
+      setMessages(convertedMessages);
+      setAgentStatus(sessionStatus);
+    } catch (err) {
+      console.error('Failed to poll session data:', err);
+      if (err instanceof AgentAPIProxyError) {
+        setError(`Failed to update messages: ${err.message}`);
+      }
+    }
+  }, [isConnected, sessionId, agentAPI]);
+
+  // バックグラウンド対応の定期更新フック
+  const pollingControl = useBackgroundAwareInterval(pollMessages, 1000, true);
+
   // Setup real-time event listening
   useEffect(() => {
-    if (!isConnected || !sessionId) return;
-
-    // Session-based polling for messages (1 second interval)
-    const pollMessages = async () => {
-      try {
-        // Poll both messages and status
-        const [sessionMessagesResponse, sessionStatus] = await Promise.all([
-          agentAPI.getSessionMessages(sessionId, { limit: 100 }),
-          agentAPI.getSessionStatus(sessionId)
-        ]);
-        
-        // Validate and safely handle session messages response
-        if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
-          console.warn('Invalid session messages response structure during polling:', sessionMessagesResponse);
-        }
-        
-        // Convert SessionMessage to Message format for display with safe array handling
-        const messages = sessionMessagesResponse?.messages || [];
-        const convertedMessages: Message[] = messages.map((msg: SessionMessage, index: number) => ({
-          id: convertSessionMessageId(msg.id, Date.now() + index), // Safe ID conversion with unique fallback
-          role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'), // Convert roles to Message format
-          content: msg.content,
-          timestamp: msg.timestamp
-        }));
-        
-        setMessages(convertedMessages);
-        setAgentStatus(sessionStatus);
-      } catch (err) {
-        console.error('Failed to poll session data:', err);
-        if (err instanceof AgentAPIProxyError) {
-          setError(`Failed to update messages: ${err.message}`);
-        }
-      }
-    };
-
-    // Initial poll
-    pollMessages();
-
-    // Set up polling every 1 second
-    const pollInterval = setInterval(pollMessages, 1000);
-    pollingIntervalRef.current = pollInterval;
+    if (isConnected && sessionId) {
+      pollingControl.start();
+    } else {
+      pollingControl.stop();
+    }
 
     return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
+      pollingControl.stop();
     };
-  }, [isConnected, sessionId]);
+  }, [isConnected, sessionId, pollingControl]);
 
   // Handle new messages and auto-scroll
   useEffect(() => {
