@@ -14,10 +14,12 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@types/uuid": "^10.0.0",
     "next": "15.3.0",
     "next-pwa": "^5.6.0",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",

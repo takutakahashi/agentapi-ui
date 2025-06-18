@@ -64,6 +64,7 @@ export default function ChatsPage() {
         title="Conversations"
         showFilterButton={true}
         showSettingsButton={true}
+        showProfileSwitcher={true}
         onFilterToggle={() => setSidebarVisible(!sidebarVisible)}
       />
 
