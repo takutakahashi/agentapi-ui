@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { agentAPI } from '../../lib/api'
+import { createAgentAPIClient } from '../../lib/api'
 import type { AgentAPIProxyClient } from '../../lib/agentapi-proxy-client'
 import { RepositoryHistory } from '../../utils/repositoryHistory'
 import { ProfileManager } from '../../utils/profileManager'
@@ -179,7 +179,7 @@ export default function NewSessionModal({
       setError(null)
       setStatusMessage('セッションを作成中...')
 
-      const client = agentAPI
+      const client = createAgentAPIClient(undefined, selectedProfileId)
       const currentMessage = initialMessage.trim()
       const currentRepository = repository.trim()
       
