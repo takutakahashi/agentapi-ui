@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { agentAPI } from '../../lib/api';
+import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client';
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client';
 import { SessionMessage, SessionMessageListResponse } from '../../types/agentapi';
+import { ProfileManager } from '../../utils/profileManager';
 
 // Define local types for message and agent status
 interface Message {
@@ -96,6 +97,10 @@ export default function AgentAPIChat() {
   const router = useRouter();
   const sessionId = searchParams.get('session');
   
+  // Get current profile and create profile-aware client
+  const [currentProfile, setCurrentProfile] = useState(() => ProfileManager.getDefaultProfile());
+  const [agentAPI, setAgentAPI] = useState(() => createAgentAPIProxyClientFromStorage(undefined, currentProfile?.id));
+  
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -132,6 +137,25 @@ export default function AgentAPIChat() {
     if (isAtBottom) {
       setHasNewMessages(false);
     }
+  }, []);
+
+  // Listen for profile changes and recreate client
+  useEffect(() => {
+    const handleProfileChange = (event: CustomEvent) => {
+      const newProfileId = event.detail.profileId;
+      const newProfile = ProfileManager.getProfile(newProfileId);
+      
+      if (newProfile) {
+        setCurrentProfile(newProfile);
+        setAgentAPI(createAgentAPIProxyClientFromStorage(undefined, newProfile.id));
+      }
+    };
+
+    window.addEventListener('profileChanged', handleProfileChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('profileChanged', handleProfileChange as EventListener);
+    };
   }, []);
 
   // Initialize session-based or direct AgentAPI connection

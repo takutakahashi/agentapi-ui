@@ -120,5 +120,10 @@ export const chatApi = {
   },
 }
 
-// AgentAPI Proxy client
+// AgentAPI Proxy client factory
+export function createAgentAPIClient(repoFullname?: string, profileId?: string) {
+  return createAgentAPIProxyClientFromStorage(repoFullname, profileId)
+}
+
+// Default AgentAPI Proxy client for backward compatibility
 export const agentAPI = createAgentAPIProxyClientFromStorage()

@@ -14,6 +14,7 @@ import {
   AgentListParams
 } from '../types/agentapi';
 import { loadGlobalSettings, loadRepositorySettings } from '../types/settings';
+import { ProfileManager } from '../utils/profileManager';
 
 // Define local AgentStatus type
 interface AgentStatus {
@@ -389,7 +390,7 @@ export class AgentAPIProxyClient {
 }
 
 // Utility functions to get proxy settings from browser storage
-export function getAgentAPIProxyConfigFromStorage(repoFullname?: string): AgentAPIProxyClientConfig {
+export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profileId?: string): AgentAPIProxyClientConfig {
   // Check if we're in a browser environment
   if (typeof window === 'undefined') {
     // Server-side rendering or Node.js environment - use environment variables
@@ -406,12 +407,51 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string): AgentA
   let settings;
   
   try {
-    if (repoFullname) {
-      // Get repository-specific settings (which includes global settings as fallback)
-      settings = loadRepositorySettings(repoFullname);
-    } else {
-      // Get global settings
-      settings = loadGlobalSettings();
+    // First, try to get settings from profile if profileId is provided
+    if (profileId) {
+      const profile = ProfileManager.getProfile(profileId);
+      if (profile) {
+        settings = {
+          agentApiProxy: profile.agentApiProxy,
+          environmentVariables: profile.environmentVariables
+        };
+        
+        // Mark profile as used
+        ProfileManager.markProfileUsed(profileId);
+        
+        // Add repository to profile history if repoFullname is provided
+        if (repoFullname) {
+          ProfileManager.addRepositoryToProfile(profileId, repoFullname);
+        }
+      }
+    }
+    
+    // If no profile settings found, fall back to default profile
+    if (!settings) {
+      const defaultProfile = ProfileManager.getDefaultProfile();
+      if (defaultProfile) {
+        settings = {
+          agentApiProxy: defaultProfile.agentApiProxy,
+          environmentVariables: defaultProfile.environmentVariables
+        };
+        
+        // Mark default profile as used
+        ProfileManager.markProfileUsed(defaultProfile.id);
+        
+        // Add repository to default profile history if repoFullname is provided
+        if (repoFullname) {
+          ProfileManager.addRepositoryToProfile(defaultProfile.id, repoFullname);
+        }
+      }
+    }
+    
+    // If still no settings, fall back to repository/global settings
+    if (!settings) {
+      if (repoFullname) {
+        settings = loadRepositorySettings(repoFullname);
+      } else {
+        settings = loadGlobalSettings();
+      }
     }
     
     // Use proxy configuration
@@ -451,8 +491,8 @@ export function createAgentAPIProxyClient(config: AgentAPIProxyClientConfig): Ag
 }
 
 // Factory function to create client using stored settings
-export function createAgentAPIProxyClientFromStorage(repoFullname?: string): AgentAPIProxyClient {
-  const config = getAgentAPIProxyConfigFromStorage(repoFullname);
+export function createAgentAPIProxyClientFromStorage(repoFullname?: string, profileId?: string): AgentAPIProxyClient {
+  const config = getAgentAPIProxyConfigFromStorage(repoFullname, profileId);
   return new AgentAPIProxyClient(config);
 }
 
