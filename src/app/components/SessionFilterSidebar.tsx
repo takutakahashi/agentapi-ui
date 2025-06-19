@@ -122,7 +122,7 @@ export default function SessionFilterSidebar({
       {/* Sidebar */}
       <div className={`
         fixed inset-y-0 left-0 z-10 w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out overflow-y-auto
-        md:relative md:translate-x-0 md:inset-auto md:w-80 md:h-auto
+        md:relative md:translate-x-0 md:inset-auto md:w-80 md:h-screen
         ${isVisible ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="p-4">
