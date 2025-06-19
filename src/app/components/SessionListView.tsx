@@ -96,11 +96,14 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   }, [agentAPI])
 
   const fetchSessionStatuses = useCallback(async () => {
-    if (sessions.length === 0) return
+    if (sessions.length === 0 || !agentAPIProxy) return
     
     try {
+      // セッション数を制限してAPIコールを削減（最新5セッションのみ）
+      const limitedSessions = sessions.slice(0, 5)
+      
       // 各セッションのエージェント状態を並列で取得
-      const statusPromises = sessions.map(async (session) => {
+      const statusPromises = limitedSessions.map(async (session) => {
         try {
           const status = await agentAPIProxy.getSessionStatus(session.session_id)
           return { sessionId: session.session_id, status }
@@ -121,8 +124,18 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       const statusResults = await Promise.all(statusPromises)
       const statusMap: { [sessionId: string]: AgentStatus } = {}
       
+      // 制限されたセッションの結果を設定
       statusResults.forEach(result => {
         statusMap[result.sessionId] = result.status
+      })
+      
+      // 残りのセッションにはデフォルト値を設定（APIコールなし）
+      sessions.slice(5).forEach(session => {
+        statusMap[session.session_id] = {
+          status: session.status === 'active' ? 'stable' : 'error',
+          last_activity: session.updated_at,
+          current_task: undefined
+        } as AgentStatus
       })
       
       setSessionAgentStatus(statusMap)
@@ -158,7 +171,6 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   // エージェントステータスを定期的に更新
   useEffect(() => {
     if (sessions.length > 0) {
-      fetchSessionStatuses()
       statusPollingControl.start()
     } else {
       statusPollingControl.stop()
@@ -167,7 +179,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     return () => {
       statusPollingControl.stop()
     }
-  }, [sessions.length, fetchSessionStatuses, statusPollingControl])
+  }, [sessions.length])
 
 
   useEffect(() => {
@@ -187,12 +199,11 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       const newProfileId = event.detail.profileId
       const newProfile = ProfileManager.getProfile(newProfileId)
       
-      if (newProfile) {
+      if (newProfile && newProfile.id !== currentProfile?.id) {
         setCurrentProfile(newProfile)
-        const newAgentAPI = createAgentAPIProxyClientFromStorage(undefined, newProfile.id)
-        const newAgentAPIProxy = createAgentAPIProxyClientFromStorage(undefined, newProfile.id)
-        setAgentAPI(newAgentAPI)
-        setAgentAPIProxy(newAgentAPIProxy)
+        const newClient = createAgentAPIProxyClientFromStorage(undefined, newProfile.id)
+        setAgentAPI(newClient)
+        setAgentAPIProxy(newClient)
         
         // Helper function to extract user message
         const extractUserMessageLocal = (combinedMessage: string) => {
@@ -323,7 +334,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     return () => {
       window.removeEventListener('profileChanged', handleProfileChange as EventListener)
     }
-  }, [])
+  }, [currentProfile?.id])
 
   const getMockSessions = (): Session[] => [
     {
