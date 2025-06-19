@@ -123,7 +123,12 @@ export default function AgentAPIChat() {
             // Session-based connection: load messages from agentapi-proxy
             try {
               if (!agentAPIRef.current) return;
-              const sessionMessagesResponse = await agentAPIRef.current.getSessionMessages(sessionId, { limit: 100 });
+              
+              // Fetch both messages and initial status
+              const [sessionMessagesResponse, sessionStatus] = await Promise.all([
+                agentAPIRef.current.getSessionMessages(sessionId, { limit: 100 }),
+                agentAPIRef.current.getSessionStatus(sessionId)
+              ]);
               
               // Validate and safely handle session messages response
               if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
@@ -140,6 +145,7 @@ export default function AgentAPIChat() {
               }));
               
               setMessages(convertedMessages);
+              setAgentStatus(sessionStatus); // Set initial status
               setIsConnected(true);
               setError(null);
               return;
@@ -265,8 +271,8 @@ export default function AgentAPIChat() {
     }
   }, [isConnected, sessionId]); // agentAPIを依存配列から除去
 
-  // バックグラウンド対応の定期更新フック
-  const pollingControl = useBackgroundAwareInterval(pollMessages, 2000, true);
+  // バックグラウンド対応の定期更新フック (10秒間隔)
+  const pollingControl = useBackgroundAwareInterval(pollMessages, 10000, true);
   const pollingControlRef = useRef(pollingControl);
   pollingControlRef.current = pollingControl;
 
