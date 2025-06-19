@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 /**
  * Page Visibility API を使用してブラウザがバックグラウンドかどうかを追跡するカスタムフック
@@ -57,7 +57,7 @@ export function useBackgroundAwareInterval(
   const callbackRef = useRef(callback);
   callbackRef.current = callback;
 
-  const start = () => {
+  const start = useCallback(() => {
     if (intervalId) return; // 既に動作中の場合は何もしない
     
     if (immediate) {
@@ -67,20 +67,20 @@ export function useBackgroundAwareInterval(
     const id = setInterval(() => callbackRef.current(), delay);
     setIntervalId(id);
     setIsRunning(true);
-  };
+  }, [intervalId, immediate, delay]);
 
-  const stop = () => {
+  const stop = useCallback(() => {
     if (intervalId) {
       clearInterval(intervalId);
       setIntervalId(null);
       setIsRunning(false);
     }
-  };
+  }, [intervalId]);
 
-  const restart = () => {
+  const restart = useCallback(() => {
     stop();
     start();
-  };
+  }, [stop, start]);
 
   // ページの表示状態が変化したときの処理
   useEffect(() => {
@@ -92,7 +92,7 @@ export function useBackgroundAwareInterval(
       clearInterval(intervalId);
       setIntervalId(null);
     }
-  }, [isVisible]);
+  }, [isVisible, intervalId, isRunning, start]);
 
   // コンポーネントのアンマウント時にクリーンアップ
   useEffect(() => {

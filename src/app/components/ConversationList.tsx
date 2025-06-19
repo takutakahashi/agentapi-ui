@@ -87,7 +87,7 @@ export default function ConversationList() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [agentAPI])
 
   useEffect(() => {
     fetchSessions()

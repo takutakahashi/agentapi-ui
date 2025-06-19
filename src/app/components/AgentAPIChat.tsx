@@ -100,7 +100,75 @@ export default function AgentAPIChat() {
   
   // Get current profile and create profile-aware client
   const [currentProfile, setCurrentProfile] = useState(() => ProfileManager.getDefaultProfile());
-  const [agentAPI, setAgentAPI] = useState(() => createAgentAPIProxyClientFromStorage(undefined, currentProfile?.id));
+  const [agentAPI, setAgentAPI] = useState<ReturnType<typeof createAgentAPIProxyClientFromStorage> | null>(null);
+  const agentAPIRef = useRef<ReturnType<typeof createAgentAPIProxyClientFromStorage> | null>(null);
+  
+  // Initialize agentAPI only once after currentProfile is set
+  useEffect(() => {
+    if (currentProfile && !agentAPI) {
+      const client = createAgentAPIProxyClientFromStorage(undefined, currentProfile.id);
+      setAgentAPI(client);
+      agentAPIRef.current = client;
+    }
+  }, [currentProfile, agentAPI]);
+  
+  // Initialize chat when agentAPI is ready
+  useEffect(() => {
+    if (agentAPI && sessionId) {
+      const initializeChat = async () => {
+        try {
+          setError(null);
+          
+          if (sessionId) {
+            // Session-based connection: load messages from agentapi-proxy
+            try {
+              if (!agentAPIRef.current) return;
+              const sessionMessagesResponse = await agentAPIRef.current.getSessionMessages(sessionId, { limit: 100 });
+              
+              // Validate and safely handle session messages response
+              if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
+                console.warn('Invalid session messages response structure:', sessionMessagesResponse);
+              }
+              
+              // Convert SessionMessage to Message format for display with safe array handling
+              const messages = sessionMessagesResponse?.messages || [];
+              const convertedMessages: Message[] = messages.map((msg: SessionMessage, index: number) => ({
+                id: convertSessionMessageId(msg.id, Date.now() + index), // Safe ID conversion with unique fallback
+                role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'), // Convert roles to Message format
+                content: msg.content,
+                timestamp: msg.timestamp
+              }));
+              
+              setMessages(convertedMessages);
+              setIsConnected(true);
+              setError(null);
+              return;
+            } catch (err) {
+              console.error('Failed to load session messages:', err);
+              if (err instanceof AgentAPIProxyError) {
+                setError(`Failed to load session messages: ${err.message} (Session: ${sessionId})`);
+              } else {
+                setError(`Failed to connect to session ${sessionId}`);
+              }
+              return;
+            }
+          } else {
+            setError('No session ID provided. Please provide a session ID to connect.');
+            return;
+          }
+        } catch (err) {
+          console.error('Failed to initialize chat:', err);
+          if (err instanceof AgentAPIProxyError) {
+            setError(`Failed to connect: ${err.message}`);
+          } else {
+            setError('Failed to connect to AgentAPI Proxy');
+          }
+        }
+      };
+
+      initializeChat();
+    }
+  }, [sessionId, agentAPI]);
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -145,9 +213,11 @@ export default function AgentAPIChat() {
       const newProfileId = event.detail.profileId;
       const newProfile = ProfileManager.getProfile(newProfileId);
       
-      if (newProfile) {
+      if (newProfile && newProfile.id !== currentProfile?.id) {
         setCurrentProfile(newProfile);
-        setAgentAPI(createAgentAPIProxyClientFromStorage(undefined, newProfile.id));
+        const client = createAgentAPIProxyClientFromStorage(undefined, newProfile.id);
+        setAgentAPI(client);
+        agentAPIRef.current = client;
       }
     };
 
@@ -156,72 +226,18 @@ export default function AgentAPIChat() {
     return () => {
       window.removeEventListener('profileChanged', handleProfileChange as EventListener);
     };
-  }, []);
+  }, [currentProfile?.id]);
 
-  // Initialize session-based or direct AgentAPI connection
-  useEffect(() => {
-    const initializeChat = async () => {
-      try {
-        setError(null);
-        
-        if (sessionId) {
-          // Session-based connection: load messages from agentapi-proxy
-          try {
-            const sessionMessagesResponse = await agentAPI.getSessionMessages(sessionId, { limit: 100 });
-            
-            // Validate and safely handle session messages response
-            if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
-              console.warn('Invalid session messages response structure:', sessionMessagesResponse);
-            }
-            
-            // Convert SessionMessage to Message format for display with safe array handling
-            const messages = sessionMessagesResponse?.messages || [];
-            const convertedMessages: Message[] = messages.map((msg: SessionMessage, index: number) => ({
-              id: convertSessionMessageId(msg.id, Date.now() + index), // Safe ID conversion with unique fallback
-              role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'), // Convert roles to Message format
-              content: msg.content,
-              timestamp: msg.timestamp
-            }));
-            
-            setMessages(convertedMessages);
-            setIsConnected(true);
-            setError(null);
-            return;
-          } catch (err) {
-            console.error('Failed to load session messages:', err);
-            if (err instanceof AgentAPIProxyError) {
-              setError(`Failed to load session messages: ${err.message} (Session: ${sessionId})`);
-            } else {
-              setError(`Failed to connect to session ${sessionId}`);
-            }
-            return;
-          }
-        } else {
-          setError('No session ID provided. Please provide a session ID to connect.');
-          return;
-        }
-      } catch (err) {
-        console.error('Failed to initialize chat:', err);
-        if (err instanceof AgentAPIProxyError) {
-          setError(`Failed to connect: ${err.message}`);
-        } else {
-          setError('Failed to connect to AgentAPI Proxy');
-        }
-      }
-    };
-
-    initializeChat();
-  }, [sessionId, agentAPI]); // agentAPIの変更時も再初期化
 
   // Session-based polling for messages (2 second interval)
   const pollMessages = useCallback(async () => {
-    if (!isConnected || !sessionId || !agentAPI) return;
+    if (!isConnected || !sessionId || !agentAPIRef.current) return;
     
     try {
       // Poll both messages and status
       const [sessionMessagesResponse, sessionStatus] = await Promise.all([
-        agentAPI.getSessionMessages(sessionId, { limit: 100 }),
-        agentAPI.getSessionStatus(sessionId)
+        agentAPIRef.current.getSessionMessages(sessionId, { limit: 100 }),
+        agentAPIRef.current.getSessionStatus(sessionId)
       ]);
       
       // Validate and safely handle session messages response
@@ -263,7 +279,7 @@ export default function AgentAPIChat() {
     return () => {
       pollingControl.stop();
     };
-  }, [isConnected, sessionId]); // pollingControlを依存配列から除去
+  }, [isConnected, sessionId, pollingControl]);
 
   // Handle new messages and auto-scroll
   useEffect(() => {
@@ -301,7 +317,11 @@ export default function AgentAPIChat() {
     try {
       if (sessionId) {
         // Send message via session
-        const sessionMessage = await agentAPI.sendSessionMessage(sessionId, {
+        if (!agentAPIRef.current) {
+          setError('AgentAPI client not available');
+          return;
+        }
+        const sessionMessage = await agentAPIRef.current.sendSessionMessage(sessionId, {
           content: messageContent,
           type: messageType
         });
@@ -370,7 +390,11 @@ export default function AgentAPIChat() {
     setError(null);
 
     try {
-      await agentAPI.delete(sessionId);
+      if (!agentAPIRef.current) {
+        setError('AgentAPI client not available');
+        return;
+      }
+      await agentAPIRef.current.delete(sessionId);
       // セッション削除後、conversation画面にリダイレクト
       router.push('/chats');
     } catch (err) {

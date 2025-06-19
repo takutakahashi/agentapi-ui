@@ -416,8 +416,8 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
           environmentVariables: profile.environmentVariables
         };
         
-        // Mark profile as used
-        ProfileManager.markProfileUsed(profileId);
+        // Mark profile as used (debounced to prevent excessive calls)
+        // ProfileManager.markProfileUsed(profileId);
         
         // Add repository to profile history if repoFullname is provided
         if (repoFullname) {
@@ -437,8 +437,8 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
             environmentVariables: profile.environmentVariables
           };
           
-          // Mark profile as used
-          ProfileManager.markProfileUsed(currentProfileId);
+          // Mark profile as used (debounced to prevent excessive calls)
+          // ProfileManager.markProfileUsed(currentProfileId);
           
           // Add repository to profile history if repoFullname is provided
           if (repoFullname) {
@@ -457,8 +457,8 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
           environmentVariables: defaultProfile.environmentVariables
         };
         
-        // Mark default profile as used
-        ProfileManager.markProfileUsed(defaultProfile.id);
+        // Mark default profile as used (debounced to prevent excessive calls)
+        // ProfileManager.markProfileUsed(defaultProfile.id);
         
         // Add repository to default profile history if repoFullname is provided
         if (repoFullname) {
