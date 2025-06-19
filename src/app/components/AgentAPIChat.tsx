@@ -7,6 +7,8 @@ import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client';
 import { SessionMessage, SessionMessageListResponse } from '../../types/agentapi';
 import { ProfileManager } from '../../utils/profileManager';
 import { useBackgroundAwareInterval } from '../hooks/usePageVisibility';
+import { messageTemplateManager } from '../../utils/messageTemplateManager';
+import { MessageTemplate } from '../../types/messageTemplate';
 
 // Define local types for message and agent status
 interface Message {
@@ -180,6 +182,8 @@ export default function AgentAPIChat() {
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const [showControlPanel, setShowControlPanel] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
@@ -215,6 +219,7 @@ export default function AgentAPIChat() {
       
       if (newProfile && newProfile.id !== currentProfile?.id) {
         setCurrentProfile(newProfile);
+        loadTemplatesForProfile(newProfile.id);
         const client = createAgentAPIProxyClientFromStorage(undefined, newProfile.id);
         setAgentAPI(client);
         agentAPIRef.current = client;
@@ -228,6 +233,21 @@ export default function AgentAPIChat() {
     };
   }, [currentProfile?.id]);
 
+  useEffect(() => {
+    if (currentProfile) {
+      loadTemplatesForProfile(currentProfile.id);
+    }
+  }, [currentProfile]);
+
+  const loadTemplatesForProfile = async (profileId: string) => {
+    try {
+      const profileTemplates = await messageTemplateManager.getTemplatesForProfile(profileId);
+      setTemplates(profileTemplates);
+    } catch (error) {
+      console.error('Failed to load templates:', error);
+      setTemplates([]);
+    }
+  };
 
   // Session-based polling for messages (2 second interval)
   const pollMessages = useCallback(async () => {
@@ -698,11 +718,19 @@ export default function AgentAPIChat() {
               </svg>
             </div>
           </div>
-          <div className="flex-1">
+          <div className="flex-1 relative">
             <textarea
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
+              onFocus={() => {
+                if (templates.length > 0 && !inputValue.trim()) {
+                  setShowTemplates(true);
+                }
+              }}
+              onBlur={() => {
+                setTimeout(() => setShowTemplates(false), 150);
+              }}
               placeholder={
                 !isConnected 
                   ? "Connecting..." 
@@ -714,6 +742,29 @@ export default function AgentAPIChat() {
               rows={3}
               disabled={!isConnected || isLoading || agentStatus?.status === 'running'}
             />
+            {showTemplates && templates.length > 0 && (
+              <div className="absolute z-50 w-full bottom-full mb-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                  メッセージテンプレート
+                </div>
+                {templates.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => {
+                      setInputValue(template.content);
+                      setShowTemplates(false);
+                    }}
+                    className="w-full text-left px-3 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                  >
+                    <div className="font-medium text-sm">{template.name}</div>
+                    <div className="line-clamp-2 text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      {template.content}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex items-center justify-between mt-3">
               <div className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">
                 Press Enter to send, Shift+Enter for new line
