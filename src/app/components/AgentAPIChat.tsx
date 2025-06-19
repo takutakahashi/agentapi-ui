@@ -266,7 +266,7 @@ export default function AgentAPIChat() {
   }, [isConnected, sessionId]); // agentAPIを依存配列から除去
 
   // バックグラウンド対応の定期更新フック
-  const pollingControl = useBackgroundAwareInterval(pollMessages, 2000, true);
+  const pollingControl = useBackgroundAwareInterval(pollMessages, 1000, true);
   const pollingControlRef = useRef(pollingControl);
   pollingControlRef.current = pollingControl;
 
