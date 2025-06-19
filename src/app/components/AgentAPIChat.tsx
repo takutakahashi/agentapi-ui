@@ -100,7 +100,14 @@ export default function AgentAPIChat() {
   
   // Get current profile and create profile-aware client
   const [currentProfile, setCurrentProfile] = useState(() => ProfileManager.getDefaultProfile());
-  const [agentAPI, setAgentAPI] = useState(() => createAgentAPIProxyClientFromStorage(undefined, currentProfile?.id));
+  const [agentAPI, setAgentAPI] = useState<any>(null);
+  
+  // Initialize agentAPI only once after currentProfile is set
+  useEffect(() => {
+    if (currentProfile && !agentAPI) {
+      setAgentAPI(createAgentAPIProxyClientFromStorage(undefined, currentProfile.id));
+    }
+  }, [currentProfile, agentAPI]);
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -145,9 +152,9 @@ export default function AgentAPIChat() {
       const newProfileId = event.detail.profileId;
       const newProfile = ProfileManager.getProfile(newProfileId);
       
-      if (newProfile) {
+      if (newProfile && newProfile.id !== currentProfile?.id) {
         setCurrentProfile(newProfile);
-        setAgentAPI(createAgentAPIProxyClientFromStorage(undefined, newProfile.id));
+        // agentAPIは上記のuseEffectで自動的に更新される
       }
     };
 
@@ -156,7 +163,7 @@ export default function AgentAPIChat() {
     return () => {
       window.removeEventListener('profileChanged', handleProfileChange as EventListener);
     };
-  }, []);
+  }, [currentProfile?.id]);
 
   // Initialize session-based or direct AgentAPI connection
   useEffect(() => {
