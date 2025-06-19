@@ -179,7 +179,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     return () => {
       statusPollingControl.stop()
     }
-  }, [sessions.length])
+  }, [sessions.length, statusPollingControl])
 
 
   useEffect(() => {
@@ -277,14 +277,14 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
             setLoading(true)
             setError(null)
 
-            const response = await newAgentAPI.search!({ limit: 1000 })
+            const response = await newClient.search!({ limit: 1000 })
             const sessionList = response.sessions || []
             setSessions(sessionList)
 
             // 各セッションの初期メッセージを取得
             const messagePromises = sessionList.map(async (session) => {
               try {
-                const messages = await newAgentAPI.getSessionMessages!(session.session_id, { limit: 10 })
+                const messages = await newClient.getSessionMessages!(session.session_id, { limit: 10 })
                 const userMessages = messages.messages.filter(msg => msg.role === 'user')
                 if (userMessages.length > 0) {
                   // システムプロンプトを除去したユーザーメッセージのみを取得
