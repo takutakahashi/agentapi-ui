@@ -211,11 +211,11 @@ export default function AgentAPIChat() {
     };
 
     initializeChat();
-  }, [sessionId]);
+  }, [sessionId, agentAPI]); // agentAPIの変更時も再初期化
 
-  // Session-based polling for messages (1 second interval)
+  // Session-based polling for messages (2 second interval)
   const pollMessages = useCallback(async () => {
-    if (!isConnected || !sessionId) return;
+    if (!isConnected || !sessionId || !agentAPI) return;
     
     try {
       // Poll both messages and status
@@ -227,6 +227,7 @@ export default function AgentAPIChat() {
       // Validate and safely handle session messages response
       if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
         console.warn('Invalid session messages response structure during polling:', sessionMessagesResponse);
+        return;
       }
       
       // Convert SessionMessage to Message format for display with safe array handling
@@ -246,7 +247,7 @@ export default function AgentAPIChat() {
         setError(`Failed to update messages: ${err.message}`);
       }
     }
-  }, [isConnected, sessionId, agentAPI]);
+  }, [isConnected, sessionId]); // agentAPIを依存配列から除去
 
   // バックグラウンド対応の定期更新フック
   const pollingControl = useBackgroundAwareInterval(pollMessages, 2000, true);
@@ -262,7 +263,7 @@ export default function AgentAPIChat() {
     return () => {
       pollingControl.stop();
     };
-  }, [isConnected, sessionId, pollingControl]);
+  }, [isConnected, sessionId]); // pollingControlを依存配列から除去
 
   // Handle new messages and auto-scroll
   useEffect(() => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 /**
  * Page Visibility API を使用してブラウザがバックグラウンドかどうかを追跡するカスタムフック
@@ -52,15 +52,19 @@ export function useBackgroundAwareInterval(
   const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const isVisible = usePageVisibility();
+  
+  // useRefでcallbackの最新版を保持し、再レンダリングを防ぐ
+  const callbackRef = useRef(callback);
+  callbackRef.current = callback;
 
   const start = () => {
     if (intervalId) return; // 既に動作中の場合は何もしない
     
     if (immediate) {
-      callback();
+      callbackRef.current();
     }
     
-    const id = setInterval(callback, delay);
+    const id = setInterval(() => callbackRef.current(), delay);
     setIntervalId(id);
     setIsRunning(true);
   };
