@@ -73,6 +73,11 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
         messageMap[result.sessionId] = result.message
       })
       setSessionMessages(messageMap)
+      
+      // 初期表示時にすぐにエージェントステータスを取得
+      if (sessionList.length > 0) {
+        await fetchSessionStatusesInitial(sessionList)
+      }
     } catch (err) {
       if (err instanceof AgentAPIProxyError) {
         setError(`Failed to load sessions: ${err.message}`)
@@ -90,10 +95,64 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
         mockMessages[session.session_id] = String(session.metadata?.description || 'No description available')
       })
       setSessionMessages(mockMessages)
+      
+      // モックデータでもエージェントステータスを初期設定
+      if (mockSessions.length > 0) {
+        await fetchSessionStatusesInitial(mockSessions)
+      }
     } finally {
       setLoading(false)
     }
   }, [agentAPI])
+
+  const fetchSessionStatusesInitial = useCallback(async (sessionList: Session[]) => {
+    if (sessionList.length === 0 || !agentAPIProxy) return
+    
+    try {
+      // セッション数を制限してAPIコールを削減（最新5セッションのみ）
+      const limitedSessions = sessionList.slice(0, 5)
+      
+      // 各セッションのエージェント状態を並列で取得
+      const statusPromises = limitedSessions.map(async (session) => {
+        try {
+          const status = await agentAPIProxy.getSessionStatus(session.session_id)
+          return { sessionId: session.session_id, status }
+        } catch (err) {
+          console.warn(`Failed to fetch status for session ${session.session_id}:`, err)
+          // エラーの場合はセッションステータスからデフォルト値を推測
+          return {
+            sessionId: session.session_id,
+            status: {
+              status: session.status === 'active' ? 'stable' : 'error',
+              last_activity: session.updated_at,
+              current_task: undefined
+            } as AgentStatus
+          }
+        }
+      })
+      
+      const statusResults = await Promise.all(statusPromises)
+      const statusMap: { [sessionId: string]: AgentStatus } = {}
+      
+      // 制限されたセッションの結果を設定
+      statusResults.forEach(result => {
+        statusMap[result.sessionId] = result.status
+      })
+      
+      // 残りのセッションにはデフォルト値を設定（APIコールなし）
+      sessionList.slice(5).forEach(session => {
+        statusMap[session.session_id] = {
+          status: session.status === 'active' ? 'stable' : 'error',
+          last_activity: session.updated_at,
+          current_task: undefined
+        } as AgentStatus
+      })
+      
+      setSessionAgentStatus(statusMap)
+    } catch (err) {
+      console.warn('Failed to fetch initial session statuses:', err)
+    }
+  }, [agentAPIProxy])
 
   const fetchSessionStatuses = useCallback(async () => {
     if (sessions.length === 0 || !agentAPIProxy) return
@@ -271,6 +330,56 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
           }
         ]
 
+        // Helper function to fetch session statuses with specific client
+        const fetchSessionStatusesInitialWithClient = async (sessionList: Session[], client: any) => {
+          if (sessionList.length === 0 || !client) return
+          
+          try {
+            // セッション数を制限してAPIコールを削減（最新5セッションのみ）
+            const limitedSessions = sessionList.slice(0, 5)
+            
+            // 各セッションのエージェント状態を並列で取得
+            const statusPromises = limitedSessions.map(async (session) => {
+              try {
+                const status = await client.getSessionStatus(session.session_id)
+                return { sessionId: session.session_id, status }
+              } catch (err) {
+                console.warn(`Failed to fetch status for session ${session.session_id}:`, err)
+                // エラーの場合はセッションステータスからデフォルト値を推測
+                return {
+                  sessionId: session.session_id,
+                  status: {
+                    status: session.status === 'active' ? 'stable' : 'error',
+                    last_activity: session.updated_at,
+                    current_task: undefined
+                  } as AgentStatus
+                }
+              }
+            })
+            
+            const statusResults = await Promise.all(statusPromises)
+            const statusMap: { [sessionId: string]: AgentStatus } = {}
+            
+            // 制限されたセッションの結果を設定
+            statusResults.forEach(result => {
+              statusMap[result.sessionId] = result.status
+            })
+            
+            // 残りのセッションにはデフォルト値を設定（APIコールなし）
+            sessionList.slice(5).forEach(session => {
+              statusMap[session.session_id] = {
+                status: session.status === 'active' ? 'stable' : 'error',
+                last_activity: session.updated_at,
+                current_task: undefined
+              } as AgentStatus
+            })
+            
+            setSessionAgentStatus(statusMap)
+          } catch (err) {
+            console.warn('Failed to fetch initial session statuses with client:', err)
+          }
+        }
+
         // Directly call fetchSessions with the new API client
         const fetchSessionsWithNewAPI = async () => {
           try {
@@ -303,6 +412,11 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
               messageMap[result.sessionId] = result.message
             })
             setSessionMessages(messageMap)
+            
+            // 初期表示時にすぐにエージェントステータスを取得
+            if (sessionList.length > 0) {
+              await fetchSessionStatusesInitialWithClient(sessionList, newClient)
+            }
           } catch (err) {
             if (err instanceof AgentAPIProxyError) {
               setError(`Failed to load sessions: ${err.message}`)
@@ -320,6 +434,11 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
               mockMessages[session.session_id] = String(session.metadata?.description || 'No description available')
             })
             setSessionMessages(mockMessages)
+            
+            // モックデータでもエージェントステータスを初期設定
+            if (mockSessions.length > 0) {
+              await fetchSessionStatusesInitialWithClient(mockSessions, newClient)
+            }
           } finally {
             setLoading(false)
           }
