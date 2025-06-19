@@ -379,3 +379,5 @@ export class ProfileManager {
     });
   }
 }
+
+export const profileManager = ProfileManager;

@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { messageTemplateManager } from '../../../utils/messageTemplateManager';
-import { profileManager } from '../../../utils/profileManager';
+import { ProfileManager } from '../../../utils/profileManager';
 import { MessageTemplate, MessageTemplateInput } from '../../../types/messageTemplate';
 import { Profile } from '../../../types/profile';
 
-export default function TemplatesPage() {
+function TemplatesPageContent() {
   const searchParams = useSearchParams();
   const profileId = searchParams.get('profileId');
   const router = useRouter();
@@ -20,14 +20,10 @@ export default function TemplatesPage() {
     content: '',
   });
 
-  useEffect(() => {
-    loadProfileAndTemplates();
-  }, [profileId]);
-
-  const loadProfileAndTemplates = async () => {
+  const loadProfileAndTemplates = useCallback(async () => {
     if (!profileId) return;
     
-    const prof = profileManager.getProfile(profileId);
+    const prof = ProfileManager.getProfile(profileId);
     if (!prof) {
       router.push('/profiles');
       return;
@@ -36,7 +32,11 @@ export default function TemplatesPage() {
     setProfile(prof);
     const temps = await messageTemplateManager.getTemplatesForProfile(profileId);
     setTemplates(temps);
-  };
+  }, [profileId, router]);
+
+  useEffect(() => {
+    loadProfileAndTemplates();
+  }, [loadProfileAndTemplates]);
 
   const handleCreate = async () => {
     if (!profileId || !formData.name.trim() || !formData.content.trim()) return;
@@ -231,5 +231,13 @@ export default function TemplatesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function TemplatesPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <TemplatesPageContent />
+    </Suspense>
   );
 }

@@ -44,5 +44,6 @@ export interface UpdateProfileRequest {
   systemPrompt?: string;
   agentApiProxy?: Partial<AgentApiProxySettings>;
   environmentVariables?: EnvironmentVariable[];
+  messageTemplates?: MessageTemplate[];
   isDefault?: boolean;
 }

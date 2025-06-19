@@ -69,9 +69,11 @@ export default function NewSessionModal({
       setCachedMessages(cached)
       
       // プロファイル変更時にテンプレートを読み込む
-      loadTemplatesForProfile(selectedProfileId)
+      if (selectedProfileId) {
+        loadTemplatesForProfile(selectedProfileId);
+      }
     }
-  }, [isOpen])
+  }, [isOpen, selectedProfileId])
 
   useEffect(() => {
     if (selectedProfileId) {

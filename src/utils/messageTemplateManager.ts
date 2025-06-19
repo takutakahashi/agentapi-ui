@@ -1,5 +1,5 @@
 import { MessageTemplate, MessageTemplateInput } from '../types/messageTemplate';
-import { profileManager } from './profileManager';
+import { ProfileManager } from './profileManager';
 
 export class MessageTemplateManager {
   private static instance: MessageTemplateManager;
@@ -14,7 +14,7 @@ export class MessageTemplateManager {
   }
 
   async getTemplatesForProfile(profileId: string): Promise<MessageTemplate[]> {
-    const profile = await profileManager.getProfile(profileId);
+    const profile = ProfileManager.getProfile(profileId);
     if (!profile) {
       return [];
     }
@@ -22,7 +22,7 @@ export class MessageTemplateManager {
   }
 
   async createTemplate(profileId: string, input: MessageTemplateInput): Promise<MessageTemplate> {
-    const profile = await profileManager.getProfile(profileId);
+    const profile = ProfileManager.getProfile(profileId);
     if (!profile) {
       throw new Error('Profile not found');
     }
@@ -41,8 +41,7 @@ export class MessageTemplateManager {
     }
     profile.messageTemplates.push(newTemplate);
 
-    await profileManager.updateProfile(profileId, {
-      ...profile,
+    ProfileManager.updateProfile(profileId, {
       messageTemplates: profile.messageTemplates,
     });
 
@@ -50,7 +49,7 @@ export class MessageTemplateManager {
   }
 
   async updateTemplate(profileId: string, templateId: string, input: Partial<MessageTemplateInput>): Promise<MessageTemplate> {
-    const profile = await profileManager.getProfile(profileId);
+    const profile = ProfileManager.getProfile(profileId);
     if (!profile) {
       throw new Error('Profile not found');
     }
@@ -73,8 +72,7 @@ export class MessageTemplateManager {
 
     profile.messageTemplates[templateIndex] = updatedTemplate;
 
-    await profileManager.updateProfile(profileId, {
-      ...profile,
+    ProfileManager.updateProfile(profileId, {
       messageTemplates: profile.messageTemplates,
     });
 
@@ -82,7 +80,7 @@ export class MessageTemplateManager {
   }
 
   async deleteTemplate(profileId: string, templateId: string): Promise<void> {
-    const profile = await profileManager.getProfile(profileId);
+    const profile = ProfileManager.getProfile(profileId);
     if (!profile) {
       throw new Error('Profile not found');
     }
@@ -93,8 +91,7 @@ export class MessageTemplateManager {
 
     profile.messageTemplates = profile.messageTemplates.filter(t => t.id !== templateId);
 
-    await profileManager.updateProfile(profileId, {
-      ...profile,
+    ProfileManager.updateProfile(profileId, {
       messageTemplates: profile.messageTemplates,
     });
   }
