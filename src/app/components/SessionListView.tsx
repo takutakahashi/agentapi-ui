@@ -6,6 +6,7 @@ import { Session, AgentStatus } from '../../types/agentapi'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { ProfileManager } from '../../utils/profileManager'
 import StatusBadge from './StatusBadge'
+import { useBackgroundAwareInterval } from '../hooks/usePageVisibility'
 
 interface TagFilter {
   [key: string]: string[]
@@ -130,6 +131,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     }
   }, [sessions, agentAPIProxy])
 
+  // バックグラウンド対応の定期更新フック
+  const statusPollingControl = useBackgroundAwareInterval(fetchSessionStatuses, 10000, false)
+
   const getAgentStatusDisplayInfo = (agentStatus: AgentStatus | undefined) => {
     if (!agentStatus) {
       return { text: 'Unknown', colorClass: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200' }
@@ -155,14 +159,15 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   useEffect(() => {
     if (sessions.length > 0) {
       fetchSessionStatuses()
-      
-      const interval = setInterval(() => {
-        fetchSessionStatuses()
-      }, 10000) // 10秒ごとに更新
-      
-      return () => clearInterval(interval)
+      statusPollingControl.start()
+    } else {
+      statusPollingControl.stop()
     }
-  }, [sessions.length, fetchSessionStatuses])
+    
+    return () => {
+      statusPollingControl.stop()
+    }
+  }, [sessions.length, fetchSessionStatuses, statusPollingControl])
 
 
   useEffect(() => {
