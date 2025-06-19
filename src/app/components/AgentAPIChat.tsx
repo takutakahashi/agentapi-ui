@@ -267,19 +267,23 @@ export default function AgentAPIChat() {
 
   // バックグラウンド対応の定期更新フック
   const pollingControl = useBackgroundAwareInterval(pollMessages, 2000, true);
+  const pollingControlRef = useRef(pollingControl);
+  pollingControlRef.current = pollingControl;
 
   // Setup real-time event listening
   useEffect(() => {
+    const control = pollingControlRef.current;
+    
     if (isConnected && sessionId) {
-      pollingControl.start();
+      control.start();
     } else {
-      pollingControl.stop();
+      control.stop();
     }
 
     return () => {
-      pollingControl.stop();
+      control.stop();
     };
-  }, [isConnected, sessionId, pollingControl]);
+  }, [isConnected, sessionId]); // pollingControlを依存配列から除去
 
   // Handle new messages and auto-scroll
   useEffect(() => {
