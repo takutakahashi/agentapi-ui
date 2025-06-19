@@ -54,6 +54,7 @@ export class ProfileManager {
       agentApiProxy: profileData.agentApiProxy,
       repositoryHistory: [],
       environmentVariables: profileData.environmentVariables,
+      messageTemplates: [],
       isDefault: profileData.isDefault || false,
       created_at: now,
       updated_at: now,
@@ -378,3 +379,5 @@ export class ProfileManager {
     });
   }
 }
+
+export const profileManager = ProfileManager;

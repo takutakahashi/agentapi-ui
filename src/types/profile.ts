@@ -1,5 +1,6 @@
 import { AgentApiProxySettings, EnvironmentVariable } from './settings';
 import { RepositoryHistoryItem } from '../utils/repositoryHistory';
+import { MessageTemplate } from './messageTemplate';
 
 export interface Profile {
   id: string;
@@ -10,6 +11,7 @@ export interface Profile {
   agentApiProxy: AgentApiProxySettings;
   repositoryHistory: RepositoryHistoryItem[];
   environmentVariables: EnvironmentVariable[];
+  messageTemplates: MessageTemplate[];
   isDefault: boolean;
   created_at: string;
   updated_at: string;
@@ -42,5 +44,6 @@ export interface UpdateProfileRequest {
   systemPrompt?: string;
   agentApiProxy?: Partial<AgentApiProxySettings>;
   environmentVariables?: EnvironmentVariable[];
+  messageTemplates?: MessageTemplate[];
   isDefault?: boolean;
 }

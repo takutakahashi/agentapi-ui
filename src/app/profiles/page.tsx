@@ -117,6 +117,12 @@ export default function ProfilesPage() {
                 >
                   Edit
                 </Link>
+                <Link
+                  href={`/profiles/templates?profileId=${profile.id}`}
+                  className="flex-1 bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800 text-blue-700 dark:text-blue-200 px-3 py-2 rounded text-center text-sm transition-colors"
+                >
+                  Templates
+                </Link>
                 {!profile.isDefault && (
                   <button
                     onClick={() => handleSetDefault(profile.id)}

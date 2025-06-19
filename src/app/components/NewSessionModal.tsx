@@ -7,6 +7,8 @@ import { RepositoryHistory } from '../../utils/repositoryHistory'
 import { ProfileManager } from '../../utils/profileManager'
 import { ProfileListItem } from '../../types/profile'
 import { InitialMessageCache } from '../../utils/initialMessageCache'
+import { messageTemplateManager } from '../../utils/messageTemplateManager'
+import { MessageTemplate } from '../../types/messageTemplate'
 
 interface NewSessionModalProps {
   isOpen: boolean
@@ -37,6 +39,8 @@ export default function NewSessionModal({
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [cachedMessages, setCachedMessages] = useState<string[]>([])
   const [showCachedMessages, setShowCachedMessages] = useState(false)
+  const [templates, setTemplates] = useState<MessageTemplate[]>([])
+  const [showTemplates, setShowTemplates] = useState(false)
 
   useEffect(() => {
     const checkMobile = () => {
@@ -63,8 +67,34 @@ export default function NewSessionModal({
       // キャッシュされたメッセージを読み込む
       const cached = InitialMessageCache.getCachedMessages()
       setCachedMessages(cached)
+      
+      // プロファイル変更時にテンプレートを読み込む
+      if (selectedProfileId) {
+        loadTemplatesForProfile(selectedProfileId);
+      }
     }
-  }, [isOpen])
+  }, [isOpen, selectedProfileId])
+
+  useEffect(() => {
+    if (selectedProfileId) {
+      loadTemplatesForProfile(selectedProfileId)
+    }
+  }, [selectedProfileId])
+
+  const loadTemplatesForProfile = async (profileId: string) => {
+    if (!profileId) {
+      setTemplates([])
+      return
+    }
+    
+    try {
+      const profileTemplates = await messageTemplateManager.getTemplatesForProfile(profileId)
+      setTemplates(profileTemplates)
+    } catch (error) {
+      console.error('Failed to load templates:', error)
+      setTemplates([])
+    }
+  }
 
   const createSessionInBackground = async (client: AgentAPIProxyClient, message: string, repo: string, sessionId: string) => {
     try {
@@ -286,23 +316,34 @@ export default function NewSessionModal({
     setStatusMessage('')
     setShowSuggestions(false)
     setShowCachedMessages(false)
+    setShowTemplates(false)
     onClose()
   }
   
   const handleMessageFocus = () => {
-    if (cachedMessages.length > 0 && !initialMessage.trim()) {
+    if (templates.length > 0 && !initialMessage.trim()) {
+      setShowTemplates(true)
+    } else if (cachedMessages.length > 0 && !initialMessage.trim()) {
       setShowCachedMessages(true)
     }
   }
   
   const handleMessageBlur = () => {
     // 少し遅延させてクリックイベントが発生するようにする
-    setTimeout(() => setShowCachedMessages(false), 150)
+    setTimeout(() => {
+      setShowCachedMessages(false)
+      setShowTemplates(false)
+    }, 150)
   }
   
   const selectCachedMessage = (message: string) => {
     setInitialMessage(message)
     setShowCachedMessages(false)
+  }
+  
+  const selectTemplate = (template: MessageTemplate) => {
+    setInitialMessage(template.content)
+    setShowTemplates(false)
   }
 
   return (
@@ -394,7 +435,27 @@ export default function NewSessionModal({
               disabled={isCreating}
               required
             />
-            {showCachedMessages && cachedMessages.length > 0 && (
+            {showTemplates && templates.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                  メッセージテンプレート
+                </div>
+                {templates.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => selectTemplate(template)}
+                    className="w-full text-left px-3 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                  >
+                    <div className="font-medium text-sm">{template.name}</div>
+                    <div className="line-clamp-2 text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      {template.content}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {showCachedMessages && cachedMessages.length > 0 && !showTemplates && (
               <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
                 <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                   最近使用したメッセージ
