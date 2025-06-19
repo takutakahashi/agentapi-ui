@@ -249,7 +249,7 @@ export default function AgentAPIChat() {
   }, [isConnected, sessionId, agentAPI]);
 
   // バックグラウンド対応の定期更新フック
-  const pollingControl = useBackgroundAwareInterval(pollMessages, 1000, true);
+  const pollingControl = useBackgroundAwareInterval(pollMessages, 2000, true);
 
   // Setup real-time event listening
   useEffect(() => {
