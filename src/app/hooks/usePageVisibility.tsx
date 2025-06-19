@@ -49,7 +49,7 @@ export function useBackgroundAwareInterval(
   stop: () => void;
   restart: () => void;
 } {
-  const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
+  const intervalIdRef = useRef<NodeJS.Timeout | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const isVisible = usePageVisibility();
   
@@ -58,24 +58,24 @@ export function useBackgroundAwareInterval(
   callbackRef.current = callback;
 
   const start = useCallback(() => {
-    if (intervalId) return; // 既に動作中の場合は何もしない
+    if (intervalIdRef.current) return; // 既に動作中の場合は何もしない
     
     if (immediate) {
       callbackRef.current();
     }
     
     const id = setInterval(() => callbackRef.current(), delay);
-    setIntervalId(id);
+    intervalIdRef.current = id;
     setIsRunning(true);
-  }, [intervalId, immediate, delay]);
+  }, [immediate, delay]);
 
   const stop = useCallback(() => {
-    if (intervalId) {
-      clearInterval(intervalId);
-      setIntervalId(null);
+    if (intervalIdRef.current) {
+      clearInterval(intervalIdRef.current);
+      intervalIdRef.current = null;
       setIsRunning(false);
     }
-  }, [intervalId]);
+  }, []);
 
   const restart = useCallback(() => {
     stop();
@@ -84,24 +84,25 @@ export function useBackgroundAwareInterval(
 
   // ページの表示状態が変化したときの処理
   useEffect(() => {
-    if (isVisible && !intervalId && isRunning) {
+    if (isVisible && !intervalIdRef.current && isRunning) {
       // ページがフォアグラウンドに戻り、インターバルが停止していて実行中の状態の場合は再開
       start();
-    } else if (!isVisible && intervalId) {
+    } else if (!isVisible && intervalIdRef.current) {
       // ページがバックグラウンドになった場合はインターバルを停止
-      clearInterval(intervalId);
-      setIntervalId(null);
+      clearInterval(intervalIdRef.current);
+      intervalIdRef.current = null;
     }
-  }, [isVisible, intervalId, isRunning, start]);
+  }, [isVisible, isRunning, start]);
 
   // コンポーネントのアンマウント時にクリーンアップ
   useEffect(() => {
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
+      if (intervalIdRef.current) {
+        clearInterval(intervalIdRef.current);
+        intervalIdRef.current = null;
       }
     };
-  }, [intervalId]);
+  }, []);
 
   return { isRunning, start, stop, restart };
 }
