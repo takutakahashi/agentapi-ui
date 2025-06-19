@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Session, AgentStatus } from '../../types/agentapi'
-import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
+import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, AgentAPIProxyClient } from '../../lib/agentapi-proxy-client'
 import { ProfileManager } from '../../utils/profileManager'
 import StatusBadge from './StatusBadge'
 import { useBackgroundAwareInterval } from '../hooks/usePageVisibility'
@@ -41,6 +41,55 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   const [sessionMessages, setSessionMessages] = useState<{ [sessionId: string]: string }>({})
   const [isMobile, setIsMobile] = useState(false)
   const [sessionAgentStatus, setSessionAgentStatus] = useState<{ [sessionId: string]: AgentStatus }>({})
+
+  const fetchSessionStatusesInitial = useCallback(async (sessionList: Session[]) => {
+    if (sessionList.length === 0 || !agentAPIProxy) return
+    
+    try {
+      // セッション数を制限してAPIコールを削減（最新5セッションのみ）
+      const limitedSessions = sessionList.slice(0, 5)
+      
+      // 各セッションのエージェント状態を並列で取得
+      const statusPromises = limitedSessions.map(async (session) => {
+        try {
+          const status = await agentAPIProxy.getSessionStatus(session.session_id)
+          return { sessionId: session.session_id, status }
+        } catch (err) {
+          console.warn(`Failed to fetch status for session ${session.session_id}:`, err)
+          // エラーの場合はセッションステータスからデフォルト値を推測
+          return {
+            sessionId: session.session_id,
+            status: {
+              status: session.status === 'active' ? 'stable' : 'error',
+              last_activity: session.updated_at,
+              current_task: undefined
+            } as AgentStatus
+          }
+        }
+      })
+      
+      const statusResults = await Promise.all(statusPromises)
+      const statusMap: { [sessionId: string]: AgentStatus } = {}
+      
+      // 制限されたセッションの結果を設定
+      statusResults.forEach(result => {
+        statusMap[result.sessionId] = result.status
+      })
+      
+      // 残りのセッションにはデフォルト値を設定（APIコールなし）
+      sessionList.slice(5).forEach(session => {
+        statusMap[session.session_id] = {
+          status: session.status === 'active' ? 'stable' : 'error',
+          last_activity: session.updated_at,
+          current_task: undefined
+        } as AgentStatus
+      })
+      
+      setSessionAgentStatus(statusMap)
+    } catch (err) {
+      console.warn('Failed to fetch initial session statuses:', err)
+    }
+  }, [agentAPIProxy])
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -103,56 +152,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     } finally {
       setLoading(false)
     }
-  }, [agentAPI])
-
-  const fetchSessionStatusesInitial = useCallback(async (sessionList: Session[]) => {
-    if (sessionList.length === 0 || !agentAPIProxy) return
-    
-    try {
-      // セッション数を制限してAPIコールを削減（最新5セッションのみ）
-      const limitedSessions = sessionList.slice(0, 5)
-      
-      // 各セッションのエージェント状態を並列で取得
-      const statusPromises = limitedSessions.map(async (session) => {
-        try {
-          const status = await agentAPIProxy.getSessionStatus(session.session_id)
-          return { sessionId: session.session_id, status }
-        } catch (err) {
-          console.warn(`Failed to fetch status for session ${session.session_id}:`, err)
-          // エラーの場合はセッションステータスからデフォルト値を推測
-          return {
-            sessionId: session.session_id,
-            status: {
-              status: session.status === 'active' ? 'stable' : 'error',
-              last_activity: session.updated_at,
-              current_task: undefined
-            } as AgentStatus
-          }
-        }
-      })
-      
-      const statusResults = await Promise.all(statusPromises)
-      const statusMap: { [sessionId: string]: AgentStatus } = {}
-      
-      // 制限されたセッションの結果を設定
-      statusResults.forEach(result => {
-        statusMap[result.sessionId] = result.status
-      })
-      
-      // 残りのセッションにはデフォルト値を設定（APIコールなし）
-      sessionList.slice(5).forEach(session => {
-        statusMap[session.session_id] = {
-          status: session.status === 'active' ? 'stable' : 'error',
-          last_activity: session.updated_at,
-          current_task: undefined
-        } as AgentStatus
-      })
-      
-      setSessionAgentStatus(statusMap)
-    } catch (err) {
-      console.warn('Failed to fetch initial session statuses:', err)
-    }
-  }, [agentAPIProxy])
+  }, [agentAPI, fetchSessionStatusesInitial])
 
   const fetchSessionStatuses = useCallback(async () => {
     if (sessions.length === 0 || !agentAPIProxy) return
@@ -331,7 +331,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
         ]
 
         // Helper function to fetch session statuses with specific client
-        const fetchSessionStatusesInitialWithClient = async (sessionList: Session[], client: any) => {
+        const fetchSessionStatusesInitialWithClient = async (sessionList: Session[], client: AgentAPIProxyClient) => {
           if (sessionList.length === 0 || !client) return
           
           try {
