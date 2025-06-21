@@ -7,6 +7,8 @@ import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, AgentAPIProxy
 import { ProfileManager } from '../../utils/profileManager'
 import StatusBadge from './StatusBadge'
 import { useBackgroundAwareInterval } from '../hooks/usePageVisibility'
+import { formatRelativeTime } from '../../utils/timeUtils'
+import { truncateText } from '../../utils/textUtils'
 
 interface TagFilter {
   [key: string]: string[]
@@ -578,23 +580,6 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     return combinedMessage
   }
 
-  const truncateText = (text: string, maxLength: number = 100) => {
-    if (text.length <= maxLength) return text
-    return text.substring(0, maxLength) + '...'
-  }
-
-  const formatRelativeTime = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffMins = Math.floor(diffMs / (1000 * 60))
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-
-    if (diffMins < 60) return `${diffMins}分前`
-    if (diffHours < 24) return `${diffHours}時間前`
-    return `${diffDays}日前`
-  }
 
   const getStatusText = (status: CreatingSession['status']) => {
     switch (status) {
