@@ -1,26 +1,12 @@
 import { Chat } from '../../types/chat'
 import StatusBadge from './StatusBadge'
+import { formatDate } from '../../utils/timeUtils'
 
 interface ConversationCardProps {
   chat: Chat
 }
 
 export default function ConversationCard({ chat }: ConversationCardProps) {
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
-
-    if (diffInHours < 1) {
-      const diffInMinutes = Math.floor(diffInHours * 60)
-      return diffInMinutes < 1 ? 'Just now' : `${diffInMinutes}m ago`
-    } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)}h ago`
-    } else {
-      const diffInDays = Math.floor(diffInHours / 24)
-      return diffInDays === 1 ? '1 day ago' : `${diffInDays} days ago`
-    }
-  }
 
   const formatDuration = (seconds?: number) => {
     if (!seconds) return null

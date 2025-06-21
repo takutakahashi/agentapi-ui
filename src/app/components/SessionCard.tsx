@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Session } from '../../types/agentapi'
 import StatusBadge from './StatusBadge'
+import { formatRelativeTime } from '../../utils/timeUtils'
+import { truncateText } from '../../utils/textUtils'
 
 interface SessionCardProps {
   session: Session
@@ -25,23 +27,6 @@ export default function SessionCard({ session, onDelete, isDeleting }: SessionCa
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  const formatRelativeTime = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffMins = Math.floor(diffMs / (1000 * 60))
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-
-    if (diffMins < 60) return `${diffMins}分前`
-    if (diffHours < 24) return `${diffHours}時間前`
-    return `${diffDays}日前`
-  }
-
-  const truncateText = (text: string, maxLength: number = 80) => {
-    if (text.length <= maxLength) return text
-    return text.substring(0, maxLength) + '...'
-  }
 
   return (
     <div className="border-b border-gray-200 dark:border-gray-700 px-3 py-4 sm:px-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
