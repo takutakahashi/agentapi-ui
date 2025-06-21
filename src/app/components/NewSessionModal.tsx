@@ -506,7 +506,6 @@ export default function NewSessionModal({
                 ))}
               </div>
             )}
-            </div>
           </div>
 
           <div className="relative">
