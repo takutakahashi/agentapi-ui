@@ -9,6 +9,7 @@ import { ProfileManager } from '../../utils/profileManager';
 import { useBackgroundAwareInterval } from '../hooks/usePageVisibility';
 import { messageTemplateManager } from '../../utils/messageTemplateManager';
 import { MessageTemplate } from '../../types/messageTemplate';
+import { recentMessagesManager } from '../../utils/recentMessagesManager';
 
 // Define local types for message and agent status
 interface Message {
@@ -184,6 +185,8 @@ export default function AgentAPIChat() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [recentMessages, setRecentMessages] = useState<string[]>([]);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
@@ -236,6 +239,7 @@ export default function AgentAPIChat() {
   useEffect(() => {
     if (currentProfile) {
       loadTemplatesForProfile(currentProfile.id);
+      loadRecentMessages();
     }
   }, [currentProfile]);
 
@@ -246,6 +250,16 @@ export default function AgentAPIChat() {
     } catch (error) {
       console.error('Failed to load templates:', error);
       setTemplates([]);
+    }
+  };
+
+  const loadRecentMessages = async () => {
+    if (!currentProfile) return;
+    try {
+      const messages = await recentMessagesManager.getRecentMessages(currentProfile.id);
+      setRecentMessages(messages.map(msg => msg.content));
+    } catch (error) {
+      console.error('Failed to load recent messages:', error);
     }
   };
 
@@ -367,6 +381,12 @@ export default function AgentAPIChat() {
       }
       
       if (messageType === 'user') {
+        // 最近のメッセージに保存
+        if (currentProfile) {
+          await recentMessagesManager.saveMessage(currentProfile.id, messageContent);
+          await loadRecentMessages();
+        }
+        
         setInputValue('');
         // メッセージ送信時は必ずスクロール
         setShouldAutoScroll(true);
@@ -785,6 +805,18 @@ export default function AgentAPIChat() {
                   </svg>
                 </button>
                 
+                {/* Template Button */}
+                <button
+                  onClick={() => setShowTemplateModal(true)}
+                  disabled={!isConnected || isLoading}
+                  className="px-2 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white text-xs rounded-md transition-colors disabled:cursor-not-allowed flex items-center"
+                  title="テンプレートから選択"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </button>
+                
                 <button
                   onClick={() => sendMessage()}
                   disabled={!isConnected || isLoading || !inputValue.trim() || agentStatus?.status === 'running'}
@@ -797,6 +829,89 @@ export default function AgentAPIChat() {
           </div>
         </div>
       </div>
+
+      {/* Template Selection Modal */}
+      {showTemplateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">テンプレートから選択</h2>
+                <button
+                  onClick={() => setShowTemplateModal(false)}
+                  className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div className="overflow-y-auto max-h-[calc(80vh-8rem)]">
+              {/* Recent Messages Section */}
+              {recentMessages.length > 0 && (
+                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">最近のメッセージ</h3>
+                  <div className="space-y-2">
+                    {recentMessages.map((message, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          setInputValue(message);
+                          setShowTemplateModal(false);
+                        }}
+                        className="w-full text-left px-3 py-2 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-md transition-colors"
+                      >
+                        <div className="text-sm text-gray-900 dark:text-white line-clamp-2">
+                          {message}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Templates Section */}
+              <div className="px-6 py-4">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">テンプレート</h3>
+                {templates.length > 0 ? (
+                  <div className="space-y-2">
+                    {templates.map((template) => (
+                      <button
+                        key={template.id}
+                        onClick={() => {
+                          setInputValue(template.content);
+                          setShowTemplateModal(false);
+                        }}
+                        className="w-full text-left px-3 py-3 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-md transition-colors"
+                      >
+                        <div className="font-medium text-sm text-gray-900 dark:text-white">{template.name}</div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                          {template.content}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <p className="text-sm">テンプレートがありません</p>
+                    <button
+                      onClick={() => {
+                        setShowTemplateModal(false);
+                        router.push('/settings?tab=templates');
+                      }}
+                      className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      テンプレートを作成
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
