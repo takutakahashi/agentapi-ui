@@ -82,6 +82,18 @@ export default function NewSessionModal({
     if (selectedProfileId) {
       loadTemplatesForProfile(selectedProfileId)
       loadRecentMessages(selectedProfileId)
+      
+      // プロファイル変更時にリポジトリサジェストも更新
+      let suggestions: string[] = [];
+      const profile = ProfileManager.getProfile(selectedProfileId);
+      if (profile) {
+        suggestions = profile.repositoryHistory.map(item => item.repository);
+        console.log('Updated repository suggestions for profile:', selectedProfileId, suggestions);
+      }
+      if (suggestions.length === 0) {
+        suggestions = RepositoryHistory.getHistory().map(item => item.repository);
+      }
+      setRepositorySuggestions(suggestions);
     }
   }, [selectedProfileId])
 
@@ -133,7 +145,7 @@ export default function NewSessionModal({
       })
       console.log('Session created:', session)
 
-      // リポジトリ履歴に追加
+      // グローバルリポジトリ履歴に追加
       if (repo && repo.trim()) {
         RepositoryHistory.addRepository(repo.trim())
       }
@@ -192,18 +204,7 @@ export default function NewSessionModal({
         })
         console.log('Combined message sent successfully')
         
-        // リポジトリ履歴に追加
-        if (repo && selectedProfileId) {
-          console.log('Adding repository to profile history:', { repo, selectedProfileId })
-          try {
-            ProfileManager.addRepositoryToProfile(selectedProfileId, repo)
-            console.log('Repository added to profile history successfully')
-          } catch (error) {
-            console.error('Failed to add repository to profile history:', error)
-          }
-        } else {
-          console.warn('Repository or selectedProfileId is missing:', { repo, selectedProfileId })
-        }
+        // リポジトリ履歴への追加は既にモーダル内で実行済み
         
         // プロファイル使用記録更新
         if (selectedProfileId) {
@@ -253,6 +254,17 @@ export default function NewSessionModal({
       // 最近のメッセージに保存
       if (selectedProfileId) {
         await recentMessagesManager.saveMessage(selectedProfileId, currentMessage)
+      }
+      
+      // リポジトリ履歴にも事前に追加（モーダルが閉じる前に実行）
+      if (currentRepository && selectedProfileId) {
+        console.log('Adding repository to profile history before session creation:', { currentRepository, selectedProfileId })
+        try {
+          ProfileManager.addRepositoryToProfile(selectedProfileId, currentRepository)
+          console.log('Repository added to profile history successfully (pre-session)')
+        } catch (error) {
+          console.error('Failed to add repository to profile history (pre-session):', error)
+        }
       }
       
       // セッションIDを生成
@@ -396,22 +408,7 @@ export default function NewSessionModal({
                   const newProfileId = e.target.value;
                   console.log('Profile changed:', { old: selectedProfileId, new: newProfileId });
                   setSelectedProfileId(newProfileId);
-                  
-                  // プロファイル変更時にリポジトリサジェストを更新
-                  if (!repository.trim()) {
-                    let suggestions: string[] = [];
-                    if (newProfileId) {
-                      const profile = ProfileManager.getProfile(newProfileId);
-                      if (profile) {
-                        suggestions = profile.repositoryHistory.map(item => item.repository);
-                        console.log('Updated suggestions for new profile:', suggestions);
-                      }
-                    }
-                    if (suggestions.length === 0) {
-                      suggestions = RepositoryHistory.getHistory().map(item => item.repository);
-                    }
-                    setRepositorySuggestions(suggestions);
-                  }
+                  // useEffect でプロファイル変更時の処理を統一的に実行
                 }}
                 className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 disabled={isCreating}
