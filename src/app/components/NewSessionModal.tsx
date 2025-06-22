@@ -133,6 +133,11 @@ export default function NewSessionModal({
       })
       console.log('Session created:', session)
 
+      // リポジトリ履歴に追加
+      if (repo && repo.trim()) {
+        RepositoryHistory.addRepository(repo.trim())
+      }
+
       // セッション作成後、statusが "Agent Available" になるまで待機
       onSessionStatusUpdate(sessionId, 'waiting-agent')
       let retryCount = 0
