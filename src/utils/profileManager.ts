@@ -34,7 +34,17 @@ export class ProfileManager {
       if (!stored) {
         return null;
       }
-      return JSON.parse(stored);
+      const profile = JSON.parse(stored);
+      
+      // repositoryHistoryのlastUsedを文字列からDateオブジェクトに変換
+      if (profile.repositoryHistory) {
+        profile.repositoryHistory = profile.repositoryHistory.map((item: { repository: string; lastUsed: string | Date }) => ({
+          ...item,
+          lastUsed: new Date(item.lastUsed)
+        }));
+      }
+      
+      return profile;
     } catch (err) {
       console.error('Failed to load profile:', err);
       return null;
@@ -271,14 +281,17 @@ export class ProfileManager {
       item => item.repository === repository
     );
 
+    const now = new Date();
+    
     if (existingIndex !== -1) {
       console.log('Updating existing repository in history');
-      profile.repositoryHistory[existingIndex].lastUsed = new Date();
+      // 保存時は ISO 文字列として保存
+      profile.repositoryHistory[existingIndex].lastUsed = now;
     } else {
       console.log('Adding new repository to history');
       profile.repositoryHistory.unshift({
         repository,
-        lastUsed: new Date(),
+        lastUsed: now,
       });
     }
 
@@ -287,6 +300,7 @@ export class ProfileManager {
 
     console.log('Updated profile repository history:', profile.repositoryHistory);
 
+    // ProfileManagerの内部保存処理を呼び出すのではなく、直接localStorageに保存して整合性を保つ
     this.saveProfile(profile);
     this.updateProfilesList();
     
@@ -301,8 +315,18 @@ export class ProfileManager {
 
     try {
       const key = `${PROFILE_KEY_PREFIX}${profile.id}`;
-      const serializedProfile = JSON.stringify(profile);
-      console.log('Saving profile to localStorage:', { key, profile });
+      
+      // repositoryHistoryのDateオブジェクトをISO文字列に変換してから保存
+      const profileToSave = {
+        ...profile,
+        repositoryHistory: profile.repositoryHistory.map(item => ({
+          ...item,
+          lastUsed: item.lastUsed instanceof Date ? item.lastUsed.toISOString() : item.lastUsed
+        }))
+      };
+      
+      const serializedProfile = JSON.stringify(profileToSave);
+      console.log('Saving profile to localStorage:', { key, profile: profileToSave });
       localStorage.setItem(key, serializedProfile);
       console.log('Profile saved successfully to localStorage');
     } catch (err) {
