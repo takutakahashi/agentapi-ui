@@ -345,15 +345,11 @@ export default function NewSessionModal({
   }
   
   const handleMessageFocus = () => {
-    if (templates.length > 0 && !initialMessage.trim()) {
-      setShowTemplates(true)
-    } else if (cachedMessages.length > 0 && !initialMessage.trim()) {
-      setShowCachedMessages(true)
-    }
+    // フォーカス時の自動表示は削除
   }
   
   const handleMessageBlur = () => {
-    // 少し遅延させてクリックイベントが発生するようにする
+    // フォーカスアウト時のクリーンアップ
     setTimeout(() => {
       setShowCachedMessages(false)
       setShowTemplates(false)

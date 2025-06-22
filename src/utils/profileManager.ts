@@ -34,7 +34,17 @@ export class ProfileManager {
       if (!stored) {
         return null;
       }
-      return JSON.parse(stored);
+      const profile = JSON.parse(stored);
+      
+      // repositoryHistoryのlastUsedを文字列からDateオブジェクトに変換
+      if (profile.repositoryHistory) {
+        profile.repositoryHistory = profile.repositoryHistory.map((item: { repository: string; lastUsed: string | Date }) => ({
+          ...item,
+          lastUsed: new Date(item.lastUsed)
+        }));
+      }
+      
+      return profile;
     } catch (err) {
       console.error('Failed to load profile:', err);
       return null;
@@ -271,14 +281,15 @@ export class ProfileManager {
       item => item.repository === repository
     );
 
+    const now = new Date();
     if (existingIndex !== -1) {
       console.log('Updating existing repository in history');
-      profile.repositoryHistory[existingIndex].lastUsed = new Date();
+      profile.repositoryHistory[existingIndex].lastUsed = now;
     } else {
       console.log('Adding new repository to history');
       profile.repositoryHistory.unshift({
         repository,
-        lastUsed: new Date(),
+        lastUsed: now,
       });
     }
 
