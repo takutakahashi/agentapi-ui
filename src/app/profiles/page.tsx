@@ -104,7 +104,7 @@ export default function ProfilesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-dvh">
         <div className="text-lg text-gray-900 dark:text-white">Loading profiles...</div>
       </div>
     );

@@ -105,7 +105,7 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-dvh">
         <div className="text-lg text-gray-900 dark:text-white">Loading profile...</div>
       </div>
     );
@@ -113,7 +113,7 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
 
   if (!profile) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-dvh">
         <div className="text-lg text-gray-900 dark:text-white">Profile not found</div>
       </div>
     );
