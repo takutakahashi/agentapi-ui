@@ -390,6 +390,57 @@ export class ProfileManager {
     }
   }
 
+  static exportProfile(profileId: string): string | null {
+    const profile = this.getProfile(profileId);
+    if (!profile) {
+      return null;
+    }
+
+    const exportData = {
+      ...profile,
+      agentApiProxy: {
+        ...profile.agentApiProxy,
+        token: undefined
+      }
+    };
+    delete exportData.agentApiProxy.token;
+
+    return JSON.stringify(exportData, null, 2);
+  }
+
+  static importProfile(jsonData: string): Profile | null {
+    try {
+      const profileData = JSON.parse(jsonData);
+      
+      if (!profileData.name || !profileData.agentApiProxy) {
+        throw new Error('Invalid profile data');
+      }
+
+      const createRequest: CreateProfileRequest = {
+        name: profileData.name,
+        description: profileData.description,
+        icon: profileData.icon,
+        systemPrompt: profileData.systemPrompt,
+        agentApiProxy: profileData.agentApiProxy,
+        environmentVariables: profileData.environmentVariables || [],
+        isDefault: false
+      };
+
+      const newProfile = this.createProfile(createRequest);
+      
+      if (profileData.messageTemplates) {
+        this.updateProfile(newProfile.id, {
+          messageTemplates: profileData.messageTemplates
+        });
+      }
+
+      return this.getProfile(newProfile.id);
+    } catch (err) {
+      console.error('Failed to import profile:', err);
+      return null;
+    }
+  }
+
   private static createDefaultProfile(): Profile {
     const defaultSettings = getDefaultSettings();
     
