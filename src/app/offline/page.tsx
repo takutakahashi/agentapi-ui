@@ -2,7 +2,7 @@
 
 export default function Offline() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-dvh flex items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="max-w-md mx-auto text-center p-6">
         <div className="mb-4">
           <svg
