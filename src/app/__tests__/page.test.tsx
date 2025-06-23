@@ -20,7 +20,7 @@ describe('Home Page', () => {
     render(<Home />)
     
     expect(screen.getByText('Conversations')).toBeInTheDocument()
-    expect(screen.getByText('Metrics')).toBeInTheDocument()
+    expect(screen.getByText('Statistics')).toBeInTheDocument()
     expect(screen.getByText('Profiles')).toBeInTheDocument()
   })
 

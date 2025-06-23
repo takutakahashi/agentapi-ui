@@ -1,5 +1,6 @@
 import { Chat, ChatListResponse } from '../types/chat'
 import { loadGlobalSettings } from '../types/settings'
+import { StatisticsData } from '../types/statistics'
 import { createAgentAPIProxyClientFromStorage } from './agentapi-proxy-client'
 
 // Get API configuration from browser storage
@@ -123,6 +124,50 @@ export const chatApi = {
 // AgentAPI Proxy client factory
 export function createAgentAPIClient(repoFullname?: string, profileId?: string) {
   return createAgentAPIProxyClientFromStorage(repoFullname, profileId)
+}
+
+// Local API request for Next.js API routes
+async function localApiRequest<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const url = endpoint
+  
+  const defaultHeaders: HeadersInit = {
+    'Content-Type': 'application/json',
+  }
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...defaultHeaders,
+        ...options.headers,
+      },
+    })
+
+    if (!response.ok) {
+      throw new ApiError(
+        response.status,
+        `Local API request failed: ${response.status} ${response.statusText}`
+      )
+    }
+
+    const data = await response.json()
+    return data
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error
+    }
+    throw new ApiError(0, `Local API network error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+}
+
+// Statistics API
+export const statisticsApi = {
+  async getStatistics(): Promise<StatisticsData> {
+    return localApiRequest<StatisticsData>('/api/statistics')
+  },
 }
 
 // Default AgentAPI Proxy client for backward compatibility
