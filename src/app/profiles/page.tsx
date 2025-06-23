@@ -47,6 +47,61 @@ export default function ProfilesPage() {
     }
   };
 
+  const handleExportProfile = (profileId: string) => {
+    try {
+      const exportData = ProfileManager.exportProfile(profileId);
+      if (!exportData) {
+        alert('Failed to export profile');
+        return;
+      }
+
+      const profile = ProfileManager.getProfile(profileId);
+      const fileName = `profile-${profile?.name || 'unknown'}.json`;
+      
+      const blob = new Blob([exportData], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export profile:', error);
+      alert('Failed to export profile');
+    }
+  };
+
+  const handleImportProfile = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const jsonData = e.target?.result as string;
+          const importedProfile = ProfileManager.importProfile(jsonData);
+          if (importedProfile) {
+            loadProfiles();
+            alert(`Profile "${importedProfile.name}" imported successfully!`);
+          } else {
+            alert('Failed to import profile. Please check the file format.');
+          }
+        } catch (error) {
+          console.error('Failed to import profile:', error);
+          alert('Failed to import profile. Please check the file format.');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -59,12 +114,20 @@ export default function ProfilesPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Profiles</h1>
-        <Link
-          href="/profiles/new"
-          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
-        >
-          New Profile
-        </Link>
+        <div className="flex space-x-2">
+          <button
+            onClick={handleImportProfile}
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            Import Profile
+          </button>
+          <Link
+            href="/profiles/new"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            New Profile
+          </Link>
+        </div>
       </div>
 
       {profiles.length === 0 ? (
@@ -110,23 +173,29 @@ export default function ProfilesPage() {
                 )}
               </div>
 
-              <div className="flex space-x-2">
+              <div className="flex flex-wrap gap-2">
                 <Link
                   href={`/profiles/${profile.id}/edit`}
-                  className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-3 py-2 rounded text-center text-sm transition-colors"
+                  className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-3 py-2 rounded text-center text-sm transition-colors"
                 >
                   Edit
                 </Link>
                 <Link
                   href={`/profiles/templates?profileId=${profile.id}`}
-                  className="flex-1 bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800 text-blue-700 dark:text-blue-200 px-3 py-2 rounded text-center text-sm transition-colors"
+                  className="bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800 text-blue-700 dark:text-blue-200 px-3 py-2 rounded text-center text-sm transition-colors"
                 >
                   Templates
                 </Link>
+                <button
+                  onClick={() => handleExportProfile(profile.id)}
+                  className="bg-purple-100 dark:bg-purple-900 hover:bg-purple-200 dark:hover:bg-purple-800 text-purple-700 dark:text-purple-200 px-3 py-2 rounded text-sm transition-colors"
+                >
+                  Export
+                </button>
                 {!profile.isDefault && (
                   <button
                     onClick={() => handleSetDefault(profile.id)}
-                    className="flex-1 bg-green-100 dark:bg-green-900 hover:bg-green-200 dark:hover:bg-green-800 text-green-700 dark:text-green-200 px-3 py-2 rounded text-sm transition-colors"
+                    className="bg-green-100 dark:bg-green-900 hover:bg-green-200 dark:hover:bg-green-800 text-green-700 dark:text-green-200 px-3 py-2 rounded text-sm transition-colors"
                   >
                     Set Default
                   </button>
