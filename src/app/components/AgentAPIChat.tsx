@@ -744,9 +744,7 @@ export default function AgentAPIChat() {
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
               onFocus={() => {
-                if (templates.length > 0 && !inputValue.trim()) {
-                  setShowTemplates(true);
-                }
+                // テンプレートの自動表示を無効化
               }}
               onBlur={() => {
                 setTimeout(() => setShowTemplates(false), 150);
