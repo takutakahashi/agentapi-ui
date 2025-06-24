@@ -18,6 +18,8 @@ const COLOR_OPTIONS = [
   '#84CC16', // lime
   '#F97316', // orange
   '#6366F1', // indigo
+  '#6B7280', // gray
+  '#374151', // dark gray
 ];
 
 interface EditProfilePageProps {
