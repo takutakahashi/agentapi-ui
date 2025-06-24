@@ -33,7 +33,7 @@ export default function NewProfilePage() {
       description: '',
       icon: '⚙️',
       mainColor: COLOR_OPTIONS[0],
-      fixedRepository: '',
+      fixedRepositories: [],
       agentApiProxy: defaultSettings.agentApiProxy,
       environmentVariables: defaultSettings.environmentVariables,
       isDefault: false,
@@ -85,6 +85,29 @@ export default function NewProfilePage() {
       ...prev,
       environmentVariables: prev.environmentVariables.map((env, i) =>
         i === index ? { ...env, [field]: value } : env
+      )
+    }));
+  };
+
+  const addFixedRepository = () => {
+    setFormData(prev => ({
+      ...prev,
+      fixedRepositories: [...prev.fixedRepositories, '']
+    }));
+  };
+
+  const removeFixedRepository = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      fixedRepositories: prev.fixedRepositories.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateFixedRepository = (index: number, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      fixedRepositories: prev.fixedRepositories.map((repo, i) =>
+        i === index ? value : repo
       )
     }));
   };
@@ -145,18 +168,43 @@ export default function NewProfilePage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Fixed Repository
-              </label>
-              <input
-                type="text"
-                value={formData.fixedRepository || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, fixedRepository: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                placeholder="例: owner/repository-name"
-              />
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Fixed Repositories
+                </label>
+                <button
+                  type="button"
+                  onClick={addFixedRepository}
+                  className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition-colors"
+                >
+                  Add Repository
+                </button>
+              </div>
+              <div className="space-y-2">
+                {formData.fixedRepositories.map((repo, index) => (
+                  <div key={index} className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={repo}
+                      onChange={(e) => updateFixedRepository(index, e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      placeholder="例: owner/repository-name"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeFixedRepository(index)}
+                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded transition-colors"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                {formData.fixedRepositories.length === 0 && (
+                  <div className="text-gray-500 dark:text-gray-400 text-sm">No fixed repositories configured</div>
+                )}
+              </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                このプロファイルで使用する固定のリポジトリを指定します。指定すると、セッション作成時にこのリポジトリが自動的に設定されます。
+                このプロファイルで使用できるリポジトリを指定します。指定すると、セッション作成時にこれらのリポジトリから選択できます。
               </p>
             </div>
 

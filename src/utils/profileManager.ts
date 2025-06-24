@@ -44,6 +44,16 @@ export class ProfileManager {
         }));
       }
       
+      // fixedRepository から fixedRepositories への移行処理
+      if (profile.fixedRepository && !profile.fixedRepositories) {
+        profile.fixedRepositories = [profile.fixedRepository];
+        delete profile.fixedRepository;
+        // 移行後のプロファイルを保存
+        this.saveProfile(profile);
+      } else if (!profile.fixedRepositories) {
+        profile.fixedRepositories = [];
+      }
+      
       return profile;
     } catch (err) {
       console.error('Failed to load profile:', err);
@@ -62,7 +72,7 @@ export class ProfileManager {
       icon: profileData.icon,
       mainColor: profileData.mainColor,
       systemPrompt: profileData.systemPrompt,
-      fixedRepository: profileData.fixedRepository,
+      fixedRepositories: profileData.fixedRepositories || [],
       agentApiProxy: profileData.agentApiProxy,
       repositoryHistory: [],
       environmentVariables: profileData.environmentVariables,
@@ -262,6 +272,7 @@ export class ProfileManager {
       name: 'Default',
       description: 'Migrated from existing settings',
       icon: '⚙️',
+      fixedRepositories: [],
       agentApiProxy: globalSettings.agentApiProxy,
       environmentVariables: globalSettings.environmentVariables,
       isDefault: true,
@@ -423,6 +434,7 @@ export class ProfileManager {
         description: profileData.description,
         icon: profileData.icon,
         systemPrompt: profileData.systemPrompt,
+        fixedRepositories: profileData.fixedRepositories || [],
         agentApiProxy: profileData.agentApiProxy,
         environmentVariables: profileData.environmentVariables || [],
         isDefault: false
@@ -450,6 +462,7 @@ export class ProfileManager {
       name: 'Default',
       description: 'Default profile',
       icon: '⚙️',
+      fixedRepositories: [],
       agentApiProxy: defaultSettings.agentApiProxy,
       environmentVariables: defaultSettings.environmentVariables,
       isDefault: true,

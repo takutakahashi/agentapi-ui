@@ -37,7 +37,6 @@ export default function NewSessionModal({
   const [statusMessage, setStatusMessage] = useState('')
   const [isMobile, setIsMobile] = useState(false)
   const [repositorySuggestions, setRepositorySuggestions] = useState<string[]>([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
   const [cachedMessages, setCachedMessages] = useState<string[]>([])
   const [showCachedMessages, setShowCachedMessages] = useState(false)
   const [templates, setTemplates] = useState<MessageTemplate[]>([])
@@ -87,13 +86,18 @@ export default function NewSessionModal({
       let suggestions: string[] = [];
       const profile = ProfileManager.getProfile(selectedProfileId);
       if (profile) {
-        // 固定リポジトリが設定されている場合は自動設定
-        if (profile.fixedRepository) {
-          setRepository(profile.fixedRepository);
-          console.log('Auto-set fixed repository for profile:', selectedProfileId, profile.fixedRepository);
+        // 固定リポジトリリストが設定されている場合
+        if (profile.fixedRepositories && profile.fixedRepositories.length > 0) {
+          suggestions = profile.fixedRepositories;
+          // 最初のリポジトリを自動選択
+          if (!repository || !profile.fixedRepositories.includes(repository)) {
+            setRepository(profile.fixedRepositories[0]);
+            console.log('Auto-set first fixed repository for profile:', selectedProfileId, profile.fixedRepositories[0]);
+          }
+        } else {
+          // 固定リポジトリが設定されていない場合は履歴から
+          suggestions = profile.repositoryHistory.map(item => item.repository);
         }
-        
-        suggestions = profile.repositoryHistory.map(item => item.repository);
         console.log('Updated repository suggestions for profile:', selectedProfileId, suggestions);
       }
       if (suggestions.length === 0) {
@@ -101,7 +105,7 @@ export default function NewSessionModal({
       }
       setRepositorySuggestions(suggestions);
     }
-  }, [selectedProfileId])
+  }, [selectedProfileId, repository])
 
   const loadTemplatesForProfile = async (profileId: string) => {
     if (!profileId) {
@@ -295,59 +299,8 @@ export default function NewSessionModal({
     }
   }
 
-  const handleRepositoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setRepository(value)
-    
-    if (value.trim()) {
-      let suggestions: string[] = []
-      
-      if (selectedProfileId) {
-        const profile = ProfileManager.getProfile(selectedProfileId)
-        if (profile) {
-          suggestions = profile.repositoryHistory
-            .filter(item => item.repository.toLowerCase().includes(value.toLowerCase()))
-            .map(item => item.repository)
-        }
-      }
-      
-      if (suggestions.length === 0) {
-        suggestions = RepositoryHistory.searchRepositories(value)
-      }
-      
-      setRepositorySuggestions(suggestions)
-      setShowSuggestions(suggestions.length > 0)
-    } else {
-      setShowSuggestions(false)
-    }
-  }
-
-  const handleRepositoryFocus = () => {
-    let suggestions: string[] = []
-    
-    if (selectedProfileId) {
-      const profile = ProfileManager.getProfile(selectedProfileId)
-      if (profile) {
-        suggestions = profile.repositoryHistory.map(item => item.repository)
-      }
-    }
-    
-    if (suggestions.length === 0) {
-      suggestions = RepositoryHistory.getHistory().map(item => item.repository)
-    }
-    
-    setRepositorySuggestions(suggestions)
-    setShowSuggestions(suggestions.length > 0)
-  }
-
-  const handleRepositoryBlur = () => {
-    // 少し遅延させてクリックイベントが発生するようにする
-    setTimeout(() => setShowSuggestions(false), 150)
-  }
-
-  const selectRepository = (repo: string) => {
-    setRepository(repo)
-    setShowSuggestions(false)
+  const handleRepositoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setRepository(e.target.value)
   }
 
   const handleClose = () => {
@@ -356,7 +309,7 @@ export default function NewSessionModal({
     setSelectedProfileId('')
     setError(null)
     setStatusMessage('')
-    setShowSuggestions(false)
+    setRepositorySuggestions([])
     setShowCachedMessages(false)
     setShowTemplates(false)
     onClose()
@@ -512,34 +465,29 @@ export default function NewSessionModal({
             )}
           </div>
 
-          <div className="relative">
+          <div>
             <label htmlFor="repository" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               対象リポジトリ
             </label>
-            <input
+            <select
               id="repository"
-              type="text"
               value={repository}
               onChange={handleRepositoryChange}
-              onFocus={handleRepositoryFocus}
-              onBlur={handleRepositoryBlur}
-              placeholder="例: owner/repository-name"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              disabled={isCreating}
-            />
-            {showSuggestions && repositorySuggestions.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
-                {repositorySuggestions.map((suggestion, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => selectRepository(suggestion)}
-                    className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white first:rounded-t-md last:rounded-b-md"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
+              disabled={isCreating || repositorySuggestions.length === 0}
+              required
+            >
+              <option value="">リポジトリを選択してください</option>
+              {repositorySuggestions.map((suggestion, index) => (
+                <option key={index} value={suggestion}>
+                  {suggestion}
+                </option>
+              ))}
+            </select>
+            {repositorySuggestions.length === 0 && selectedProfileId && (
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                このプロファイルには利用可能なリポジトリが設定されていません。プロファイル設定で固定リポジトリを追加してください。
+              </p>
             )}
           </div>
 
