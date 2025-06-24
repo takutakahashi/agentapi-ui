@@ -97,6 +97,22 @@ body {
   background-color: var(--main-color-bg);
 }
 
+.bg-main-color-light {
+  background-color: var(--main-color-light);
+}
+
+.bg-main-color-dark {
+  background-color: var(--main-color-dark);
+}
+
+.border-l-main-color {
+  border-left-color: var(--main-color);
+}
+
+.border-main-color-dark {
+  border-color: var(--main-color-dark);
+}
+
 /* Profile color indicator */
 .profile-color-indicator {
   width: 12px;

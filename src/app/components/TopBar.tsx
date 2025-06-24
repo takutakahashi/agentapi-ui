@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ProfileManager } from '../../utils/profileManager'
 import { ProfileListItem } from '../../types/profile'
 import { useTheme } from '../../hooks/useTheme'
@@ -37,6 +37,32 @@ export default function TopBar({
   const [currentProfile, setCurrentProfile] = useState<ProfileListItem | null>(null)
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
 
+  const loadProfiles = useCallback(() => {
+    ProfileManager.migrateExistingSettings()
+    const profilesList = ProfileManager.getProfiles()
+    setProfiles(profilesList)
+    
+    // Check URL parameters first, then fall back to default profile
+    const currentProfileId = ProfileManager.getCurrentProfileId()
+    let selectedProfile: ProfileListItem | null = null
+    
+    if (currentProfileId) {
+      selectedProfile = profilesList.find(p => p.id === currentProfileId) || null
+    } else if (profilesList.length > 0) {
+      selectedProfile = profilesList[0]
+    }
+    
+    setCurrentProfile(selectedProfile)
+    
+    // Update theme when profile is loaded
+    if (selectedProfile) {
+      const fullProfile = ProfileManager.getProfile(selectedProfile.id)
+      if (fullProfile?.mainColor) {
+        setMainColor(fullProfile.mainColor)
+      }
+    }
+  }, [setMainColor])
+
   useEffect(() => {
     if (showProfileSwitcher) {
       loadProfiles()
@@ -51,22 +77,7 @@ export default function TopBar({
         window.removeEventListener('popstate', handlePopState)
       }
     }
-  }, [showProfileSwitcher])
-
-  const loadProfiles = () => {
-    ProfileManager.migrateExistingSettings()
-    const profilesList = ProfileManager.getProfiles()
-    setProfiles(profilesList)
-    
-    // Check URL parameters first, then fall back to default profile
-    const currentProfileId = ProfileManager.getCurrentProfileId()
-    if (currentProfileId) {
-      const currentProfileItem = profilesList.find(p => p.id === currentProfileId)
-      setCurrentProfile(currentProfileItem || null)
-    } else if (profilesList.length > 0) {
-      setCurrentProfile(profilesList[0])
-    }
-  }
+  }, [showProfileSwitcher, loadProfiles])
 
   const handleProfileSwitch = (profileId: string) => {
     ProfileManager.setProfileInUrl(profileId)
@@ -76,16 +87,21 @@ export default function TopBar({
     setShowProfileDropdown(false)
     
     // Update theme when profile switches
-    if (selectedProfile?.mainColor) {
-      setMainColor(selectedProfile.mainColor)
+    if (selectedProfile) {
+      const fullProfile = ProfileManager.getProfile(selectedProfile.id)
+      if (fullProfile?.mainColor) {
+        setMainColor(fullProfile.mainColor)
+      }
     }
     
     window.dispatchEvent(new CustomEvent('profileChanged', { detail: { profileId } }))
   }
 
   return (
-    <div className="sticky top-0 z-40 bg-gradient-to-r from-main-color-bg via-white to-white dark:from-main-color-bg dark:via-gray-800 dark:to-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 border-l-4 border-l-main-color">
-      <div className="px-4 md:px-6 lg:px-8 py-3 md:py-4">
+    <div className="sticky top-0 z-40 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 border-l-4 border-l-main-color relative">
+      {/* Subtle gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-r from-main-color-bg to-transparent opacity-50"></div>
+      <div className="relative px-4 md:px-6 lg:px-8 py-3 md:py-4">
         {/* ヘッダーセクション */}
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1">
