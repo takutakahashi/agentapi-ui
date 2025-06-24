@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client';
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client';
 import { SessionMessage, SessionMessageListResponse } from '../../types/agentapi';
@@ -236,13 +237,6 @@ export default function AgentAPIChat() {
     };
   }, [currentProfile?.id]);
 
-  useEffect(() => {
-    if (currentProfile) {
-      loadTemplatesForProfile(currentProfile.id);
-      loadRecentMessages();
-    }
-  }, [currentProfile]);
-
   const loadTemplatesForProfile = async (profileId: string) => {
     try {
       const profileTemplates = await messageTemplateManager.getTemplatesForProfile(profileId);
@@ -253,7 +247,7 @@ export default function AgentAPIChat() {
     }
   };
 
-  const loadRecentMessages = async () => {
+  const loadRecentMessages = useCallback(async () => {
     if (!currentProfile) return;
     try {
       const messages = await recentMessagesManager.getRecentMessages(currentProfile.id);
@@ -261,7 +255,14 @@ export default function AgentAPIChat() {
     } catch (error) {
       console.error('Failed to load recent messages:', error);
     }
-  };
+  }, [currentProfile]);
+
+  useEffect(() => {
+    if (currentProfile) {
+      loadTemplatesForProfile(currentProfile.id);
+      loadRecentMessages();
+    }
+  }, [currentProfile, loadRecentMessages]);
 
   // Session-based polling for messages (2 second interval)
   const pollMessages = useCallback(async () => {
@@ -477,15 +478,27 @@ export default function AgentAPIChat() {
       {/* Header */}
       <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
-              <span className="block sm:inline">AgentAPI Chat</span>
-              {sessionId && (
-                <span className="ml-0 sm:ml-2 text-sm font-normal text-gray-500 dark:text-gray-400 block sm:inline">
-                  #{sessionId.substring(0, 8)}
-                </span>
-              )}
-            </h2>
+          <div className="flex items-center space-x-4">
+            <Link
+              href="/chats"
+              className="flex items-center space-x-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+              title="Go to Conversations"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              <span className="hidden sm:inline">Conversations</span>
+            </Link>
+            <div>
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+                <span className="block sm:inline">AgentAPI Chat</span>
+                {sessionId && (
+                  <span className="ml-0 sm:ml-2 text-sm font-normal text-gray-500 dark:text-gray-400 block sm:inline">
+                    #{sessionId.substring(0, 8)}
+                  </span>
+                )}
+              </h2>
+            </div>
           </div>
           <div className="flex items-center space-x-2 sm:space-x-4">
             {/* Agent Status */}
