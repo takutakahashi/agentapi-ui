@@ -1,9 +1,10 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ProfileManager } from '../../utils/profileManager'
 import { ProfileListItem } from '../../types/profile'
+import { useTheme } from '../../hooks/useTheme'
 
 interface TopBarProps {
   title: string
@@ -31,9 +32,36 @@ export default function TopBar({
   children
 }: TopBarProps) {
   const router = useRouter()
+  const { setMainColor } = useTheme()
   const [profiles, setProfiles] = useState<ProfileListItem[]>([])
   const [currentProfile, setCurrentProfile] = useState<ProfileListItem | null>(null)
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
+
+  const loadProfiles = useCallback(() => {
+    ProfileManager.migrateExistingSettings()
+    const profilesList = ProfileManager.getProfiles()
+    setProfiles(profilesList)
+    
+    // Check URL parameters first, then fall back to default profile
+    const currentProfileId = ProfileManager.getCurrentProfileId()
+    let selectedProfile: ProfileListItem | null = null
+    
+    if (currentProfileId) {
+      selectedProfile = profilesList.find(p => p.id === currentProfileId) || null
+    } else if (profilesList.length > 0) {
+      selectedProfile = profilesList[0]
+    }
+    
+    setCurrentProfile(selectedProfile)
+    
+    // Update theme when profile is loaded
+    if (selectedProfile) {
+      const fullProfile = ProfileManager.getProfile(selectedProfile.id)
+      if (fullProfile?.mainColor) {
+        setMainColor(fullProfile.mainColor)
+      }
+    }
+  }, [setMainColor])
 
   useEffect(() => {
     if (showProfileSwitcher) {
@@ -49,22 +77,7 @@ export default function TopBar({
         window.removeEventListener('popstate', handlePopState)
       }
     }
-  }, [showProfileSwitcher])
-
-  const loadProfiles = () => {
-    ProfileManager.migrateExistingSettings()
-    const profilesList = ProfileManager.getProfiles()
-    setProfiles(profilesList)
-    
-    // Check URL parameters first, then fall back to default profile
-    const currentProfileId = ProfileManager.getCurrentProfileId()
-    if (currentProfileId) {
-      const currentProfileItem = profilesList.find(p => p.id === currentProfileId)
-      setCurrentProfile(currentProfileItem || null)
-    } else if (profilesList.length > 0) {
-      setCurrentProfile(profilesList[0])
-    }
-  }
+  }, [showProfileSwitcher, loadProfiles])
 
   const handleProfileSwitch = (profileId: string) => {
     ProfileManager.setProfileInUrl(profileId)
@@ -73,12 +86,20 @@ export default function TopBar({
     setCurrentProfile(selectedProfile || null)
     setShowProfileDropdown(false)
     
+    // Update theme when profile switches
+    if (selectedProfile) {
+      const fullProfile = ProfileManager.getProfile(selectedProfile.id)
+      if (fullProfile?.mainColor) {
+        setMainColor(fullProfile.mainColor)
+      }
+    }
+    
     window.dispatchEvent(new CustomEvent('profileChanged', { detail: { profileId } }))
   }
 
   return (
-    <div className="sticky top-0 z-40 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-      <div className="px-4 md:px-6 lg:px-8 py-3 md:py-4">
+    <div className="sticky top-0 z-40 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 relative">
+      <div className="relative px-4 md:px-6 lg:px-8 py-3 md:py-4">
         {/* ヘッダーセクション */}
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1">
@@ -99,7 +120,7 @@ export default function TopBar({
               <div className="relative">
                 <button
                   onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                  className="inline-flex items-center px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
+                  className="inline-flex items-center px-3 py-2 text-sm bg-main-color-bg text-main-color hover:bg-main-color hover:text-white rounded-md transition-colors border border-main-color"
                 >
                   <span className="mr-2">{currentProfile?.icon || '⚙️'}</span>
                   <span className="hidden sm:inline mr-1">{currentProfile?.name || 'Profile'}</span>
@@ -169,7 +190,7 @@ export default function TopBar({
             {showNewSessionButton && onNewSession && (
               <button
                 onClick={onNewSession}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="inline-flex items-center px-4 py-2 bg-main-color-dark hover:bg-main-color text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-main-color focus:ring-offset-2 shadow-sm"
               >
                 <svg className="w-4 h-4 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
