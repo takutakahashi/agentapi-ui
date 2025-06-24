@@ -87,6 +87,12 @@ export default function NewSessionModal({
       let suggestions: string[] = [];
       const profile = ProfileManager.getProfile(selectedProfileId);
       if (profile) {
+        // 固定リポジトリが設定されている場合は自動設定
+        if (profile.fixedRepository) {
+          setRepository(profile.fixedRepository);
+          console.log('Auto-set fixed repository for profile:', selectedProfileId, profile.fixedRepository);
+        }
+        
         suggestions = profile.repositoryHistory.map(item => item.repository);
         console.log('Updated repository suggestions for profile:', selectedProfileId, suggestions);
       }
