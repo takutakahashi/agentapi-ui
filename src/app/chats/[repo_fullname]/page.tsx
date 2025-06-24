@@ -28,7 +28,7 @@ export default function RepositoryChatsPage({ params }: RepositoryChatsPageProps
         showSettingsButton={true}
       >
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-main-color text-white">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/20 text-white backdrop-blur-sm">
             {displayName}
           </span>
         </div>
