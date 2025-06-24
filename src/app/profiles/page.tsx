@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react';
 import { ProfileManager } from '../../utils/profileManager';
 import { ProfileListItem } from '../../types/profile';
 import Link from 'next/link';
+import { useTheme } from '../../hooks/useTheme';
 
 export default function ProfilesPage() {
   const [profiles, setProfiles] = useState<ProfileListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const { updateThemeFromProfile } = useTheme();
 
   useEffect(() => {
     loadProfiles();
@@ -41,6 +43,8 @@ export default function ProfilesPage() {
     try {
       ProfileManager.setDefaultProfile(profileId);
       loadProfiles();
+      // Update theme to new default profile
+      updateThemeFromProfile(profileId);
     } catch (error) {
       console.error('Failed to set default profile:', error);
       alert('Failed to set default profile');
@@ -117,13 +121,13 @@ export default function ProfilesPage() {
         <div className="flex space-x-2">
           <button
             onClick={handleImportProfile}
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors focus:ring-2 focus:ring-green-500"
           >
             Import Profile
           </button>
           <Link
             href="/profiles/new"
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
+            className="bg-main-color hover:bg-main-color-dark text-white px-4 py-2 rounded-lg transition-colors focus:ring-2 focus:ring-main-color"
           >
             New Profile
           </Link>
@@ -135,7 +139,7 @@ export default function ProfilesPage() {
           <div className="text-gray-500 dark:text-gray-400 mb-4">No profiles found</div>
           <Link
             href="/profiles/new"
-            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg transition-colors"
+            className="bg-main-color hover:bg-main-color-dark text-white px-6 py-3 rounded-lg transition-colors focus:ring-2 focus:ring-main-color"
           >
             Create Your First Profile
           </Link>
@@ -146,12 +150,20 @@ export default function ProfilesPage() {
             <div
               key={profile.id}
               className={`bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border-2 ${
-                profile.isDefault ? 'border-blue-500' : 'border-gray-200 dark:border-gray-700'
+                profile.isDefault ? 'border-main-color' : 'border-gray-200 dark:border-gray-700'
               }`}
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <span className="text-2xl">{profile.icon || '⚙️'}</span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-2xl">{profile.icon || '⚙️'}</span>
+                    {profile.mainColor && (
+                      <div 
+                        className="profile-color-indicator"
+                        style={{ backgroundColor: profile.mainColor }}
+                      />
+                    )}
+                  </div>
                   <div>
                     <h3 className="font-semibold text-lg text-gray-900 dark:text-white">{profile.name}</h3>
                     {profile.description && (
@@ -160,7 +172,7 @@ export default function ProfilesPage() {
                   </div>
                 </div>
                 {profile.isDefault && (
-                  <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs px-2 py-1 rounded-full">
+                  <span className="bg-main-color-bg text-main-color text-xs px-2 py-1 rounded-full font-medium">
                     Default
                   </span>
                 )}
@@ -182,7 +194,7 @@ export default function ProfilesPage() {
                 </Link>
                 <Link
                   href={`/profiles/templates?profileId=${profile.id}`}
-                  className="bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800 text-blue-700 dark:text-blue-200 px-3 py-2 rounded text-center text-sm transition-colors"
+                  className="bg-main-color-bg hover:bg-main-color text-main-color hover:text-white px-3 py-2 rounded text-center text-sm transition-colors"
                 >
                   Templates
                 </Link>
@@ -195,7 +207,7 @@ export default function ProfilesPage() {
                 {!profile.isDefault && (
                   <button
                     onClick={() => handleSetDefault(profile.id)}
-                    className="bg-green-100 dark:bg-green-900 hover:bg-green-200 dark:hover:bg-green-800 text-green-700 dark:text-green-200 px-3 py-2 rounded text-sm transition-colors"
+                    className="bg-green-100 dark:bg-green-900 hover:bg-green-200 dark:hover:bg-green-800 text-green-700 dark:text-green-200 px-3 py-2 rounded text-sm transition-colors focus:ring-2 focus:ring-green-500"
                   >
                     Set Default
                   </button>

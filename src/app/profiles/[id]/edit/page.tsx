@@ -7,6 +7,19 @@ import { Profile, UpdateProfileRequest } from '../../../../types/profile';
 
 const EMOJI_OPTIONS = ['⚙️', '🔧', '💼', '🏠', '🏢', '🚀', '💻', '🔬', '🎯', '⭐', '🌟', '💡'];
 
+const COLOR_OPTIONS = [
+  '#3B82F6', // blue
+  '#EF4444', // red
+  '#10B981', // emerald
+  '#F59E0B', // amber
+  '#8B5CF6', // violet
+  '#EC4899', // pink
+  '#06B6D4', // cyan
+  '#84CC16', // lime
+  '#F97316', // orange
+  '#6366F1', // indigo
+];
+
 interface EditProfilePageProps {
   params: Promise<{ id: string }>;
 }
@@ -37,6 +50,7 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
         name: loadedProfile.name,
         description: loadedProfile.description,
         icon: loadedProfile.icon,
+        mainColor: loadedProfile.mainColor,
         systemPrompt: loadedProfile.systemPrompt,
         agentApiProxy: { ...loadedProfile.agentApiProxy },
         environmentVariables: [...loadedProfile.environmentVariables],
@@ -194,6 +208,31 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Main Color
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {COLOR_OPTIONS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, mainColor: color }))}
+                    className={`w-8 h-8 rounded-full border-2 transition-all ${
+                      formData.mainColor === color
+                        ? 'border-gray-800 dark:border-white scale-110'
+                        : 'border-gray-300 dark:border-gray-600 hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: color }}
+                    title={color}
+                  />
+                ))}
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                This color will be used as an accent throughout the UI when this profile is active.
+              </p>
             </div>
 
             <div className="flex items-center">

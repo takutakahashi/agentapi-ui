@@ -6,6 +6,14 @@
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
   --background-end-rgb: 255, 255, 255;
+  
+  /* Theme colors - dynamically updated by ThemeProvider */
+  --main-color: #3b82f6;
+  --main-color-rgb: 59, 130, 246;
+  --main-color-light: rgb(99, 170, 246);
+  --main-color-dark: rgb(19, 90, 206);
+  --main-color-ring: rgba(59, 130, 246, 0.5);
+  --main-color-bg: rgba(59, 130, 246, 0.1);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -50,6 +58,53 @@ body {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   will-change: scroll-position;
+}
+
+/* Theme-based utility classes */
+.bg-main-color {
+  background-color: var(--main-color);
+}
+
+.text-main-color {
+  color: var(--main-color);
+}
+
+.border-main-color {
+  border-color: var(--main-color);
+}
+
+.ring-main-color {
+  --tw-ring-color: var(--main-color-ring);
+}
+
+.focus\:ring-main-color:focus {
+  --tw-ring-color: var(--main-color-ring);
+}
+
+.hover\:bg-main-color:hover {
+  background-color: var(--main-color);
+}
+
+.hover\:bg-main-color-light:hover {
+  background-color: var(--main-color-light);
+}
+
+.hover\:bg-main-color-dark:hover {
+  background-color: var(--main-color-dark);
+}
+
+.bg-main-color-bg {
+  background-color: var(--main-color-bg);
+}
+
+/* Profile color indicator */
+.profile-color-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 /* Mobile-specific improvements */
