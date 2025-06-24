@@ -98,16 +98,16 @@ export default function TopBar({
   }
 
   return (
-    <div className="sticky top-0 z-40 bg-main-color shadow-lg relative">
+    <div className="sticky top-0 z-40 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 relative">
       <div className="relative px-4 md:px-6 lg:px-8 py-3 md:py-4">
         {/* ヘッダーセクション */}
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1">
-            <h1 className="text-xl sm:text-2xl font-bold text-white">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
               {title}
             </h1>
             {subtitle && (
-              <p className="text-white/90 mt-1">
+              <p className="text-gray-600 dark:text-gray-400 mt-1">
                 {subtitle}
               </p>
             )}
@@ -120,7 +120,7 @@ export default function TopBar({
               <div className="relative">
                 <button
                   onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                  className="inline-flex items-center px-3 py-2 text-sm bg-white/20 text-white hover:bg-white/30 rounded-md transition-colors backdrop-blur-sm border border-white/30"
+                  className="inline-flex items-center px-3 py-2 text-sm bg-main-color-bg text-main-color hover:bg-main-color hover:text-white rounded-md transition-colors border border-main-color"
                 >
                   <span className="mr-2">{currentProfile?.icon || '⚙️'}</span>
                   <span className="hidden sm:inline mr-1">{currentProfile?.name || 'Profile'}</span>
@@ -177,7 +177,7 @@ export default function TopBar({
             {showFilterButton && onFilterToggle && (
               <button
                 onClick={onFilterToggle}
-                className="inline-flex items-center px-3 py-2 text-sm bg-white/20 text-white hover:bg-white/30 rounded-md transition-colors backdrop-blur-sm border border-white/30"
+                className="inline-flex items-center px-3 py-2 text-sm bg-main-color-bg text-main-color hover:bg-main-color hover:text-white rounded-md transition-colors border border-main-color"
               >
                 <svg className="w-4 h-4 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.414A1 1 0 013 6.707V4z" />
@@ -190,7 +190,7 @@ export default function TopBar({
             {showNewSessionButton && onNewSession && (
               <button
                 onClick={onNewSession}
-                className="inline-flex items-center px-4 py-2 bg-white text-main-color hover:bg-white/90 font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-main-color shadow-sm"
+                className="inline-flex items-center px-4 py-2 bg-main-color hover:bg-main-color-dark text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-main-color focus:ring-offset-2 shadow-sm"
               >
                 <svg className="w-4 h-4 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -204,7 +204,7 @@ export default function TopBar({
             {showSettingsButton && (
               <button
                 onClick={() => router.push('/settings')}
-                className="p-2 text-white/70 hover:text-white hover:bg-white/20 rounded-md transition-colors"
+                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
                 title="設定"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
