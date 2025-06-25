@@ -9,6 +9,7 @@ export interface Profile {
   icon?: string;
   mainColor?: string;
   systemPrompt?: string;
+  fixedOrganizations: string[];
   agentApiProxy: AgentApiProxySettings;
   repositoryHistory: RepositoryHistoryItem[];
   environmentVariables: EnvironmentVariable[];
@@ -35,6 +36,7 @@ export interface CreateProfileRequest {
   icon?: string;
   mainColor?: string;
   systemPrompt?: string;
+  fixedOrganizations: string[];
   agentApiProxy: AgentApiProxySettings;
   environmentVariables: EnvironmentVariable[];
   isDefault?: boolean;
@@ -46,6 +48,7 @@ export interface UpdateProfileRequest {
   icon?: string;
   mainColor?: string;
   systemPrompt?: string;
+  fixedOrganizations?: string[];
   agentApiProxy?: Partial<AgentApiProxySettings>;
   environmentVariables?: EnvironmentVariable[];
   messageTemplates?: MessageTemplate[];

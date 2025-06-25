@@ -54,6 +54,7 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
         icon: loadedProfile.icon,
         mainColor: loadedProfile.mainColor,
         systemPrompt: loadedProfile.systemPrompt,
+        fixedOrganizations: loadedProfile.fixedOrganizations || [],
         agentApiProxy: { ...loadedProfile.agentApiProxy },
         environmentVariables: [...loadedProfile.environmentVariables],
         isDefault: loadedProfile.isDefault,
@@ -115,6 +116,29 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
       ...prev,
       environmentVariables: (prev.environmentVariables || []).map((env, i) =>
         i === index ? { ...env, [field]: value } : env
+      )
+    }));
+  };
+
+  const addFixedOrganization = () => {
+    setFormData(prev => ({
+      ...prev,
+      fixedOrganizations: [...(prev.fixedOrganizations || []), '']
+    }));
+  };
+
+  const removeFixedOrganization = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      fixedOrganizations: (prev.fixedOrganizations || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateFixedOrganization = (index: number, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      fixedOrganizations: (prev.fixedOrganizations || []).map((org, i) =>
+        i === index ? value : org
       )
     }));
   };
@@ -187,6 +211,47 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
               />
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 This prompt will be sent automatically when starting a new session with this profile.
+              </p>
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Fixed Organizations
+                </label>
+                <button
+                  type="button"
+                  onClick={addFixedOrganization}
+                  className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition-colors"
+                >
+                  Add Organization
+                </button>
+              </div>
+              <div className="space-y-2">
+                {(formData.fixedOrganizations || []).map((org, index) => (
+                  <div key={index} className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={org}
+                      onChange={(e) => updateFixedOrganization(index, e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      placeholder="例: owner"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeFixedOrganization(index)}
+                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded transition-colors"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                {(!formData.fixedOrganizations || formData.fixedOrganizations.length === 0) && (
+                  <div className="text-gray-500 dark:text-gray-400 text-sm">No fixed organizations configured</div>
+                )}
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                このプロファイルで使用できる組織を指定します。指定すると、セッション作成時にこれらの組織から選択し、リポジトリ名を自由に入力できます。
               </p>
             </div>
 
