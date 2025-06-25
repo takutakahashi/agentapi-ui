@@ -104,24 +104,32 @@ export default function AgentAPIChat() {
   
   // Get current profile and create profile-aware client
   const [currentProfile, setCurrentProfile] = useState(() => ProfileManager.getDefaultProfile());
-  const [agentAPI, setAgentAPI] = useState<ReturnType<typeof createAgentAPIProxyClientFromStorage> | null>(null);
-  const agentAPIRef = useRef<ReturnType<typeof createAgentAPIProxyClientFromStorage> | null>(null);
+  const [agentAPI, setAgentAPI] = useState<ReturnType<typeof createAgentAPIProxyClientFromStorage> | null>(() => {
+    // Initialize agentAPI immediately with default profile
+    const profile = ProfileManager.getDefaultProfile();
+    if (profile) {
+      return createAgentAPIProxyClientFromStorage(undefined, profile.id);
+    }
+    return null;
+  });
+  const agentAPIRef = useRef<ReturnType<typeof createAgentAPIProxyClientFromStorage> | null>(agentAPI);
   
-  // Initialize agentAPI only once after currentProfile is set
+  // Update agentAPI only when profile changes
   useEffect(() => {
-    if (currentProfile && !agentAPI) {
+    if (currentProfile && (!agentAPI || agentAPIRef.current === null)) {
       const client = createAgentAPIProxyClientFromStorage(undefined, currentProfile.id);
       setAgentAPI(client);
       agentAPIRef.current = client;
     }
   }, [currentProfile, agentAPI]);
   
-  // Initialize chat when agentAPI is ready
+  // Initialize chat when agentAPI is ready - optimized for faster loading
   useEffect(() => {
     if (agentAPI && sessionId) {
       const initializeChat = async () => {
         try {
           setError(null);
+          setIsConnected(true); // Set connected immediately for better UX
           
           if (sessionId) {
             // Session-based connection: load messages from agentapi-proxy
@@ -144,11 +152,11 @@ export default function AgentAPIChat() {
               }));
               
               setMessages(convertedMessages);
-              setIsConnected(true);
               setError(null);
               return;
             } catch (err) {
               console.error('Failed to load session messages:', err);
+              setIsConnected(false); // Only set disconnected on actual error
               if (err instanceof AgentAPIProxyError) {
                 setError(`Failed to load session messages: ${err.message} (Session: ${sessionId})`);
               } else {
@@ -158,10 +166,12 @@ export default function AgentAPIChat() {
             }
           } else {
             setError('No session ID provided. Please provide a session ID to connect.');
+            setIsConnected(false);
             return;
           }
         } catch (err) {
           console.error('Failed to initialize chat:', err);
+          setIsConnected(false);
           if (err instanceof AgentAPIProxyError) {
             setError(`Failed to connect: ${err.message}`);
           } else {
@@ -170,7 +180,9 @@ export default function AgentAPIChat() {
         }
       };
 
-      initializeChat();
+      // Use setTimeout to defer heavy initialization
+      const timeoutId = setTimeout(initializeChat, 0);
+      return () => clearTimeout(timeoutId);
     }
   }, [sessionId, agentAPI]);
   
@@ -237,7 +249,7 @@ export default function AgentAPIChat() {
     };
   }, [currentProfile?.id]);
 
-  const loadTemplatesForProfile = async (profileId: string) => {
+  const loadTemplatesForProfile = useCallback(async (profileId: string) => {
     try {
       const profileTemplates = await messageTemplateManager.getTemplatesForProfile(profileId);
       setTemplates(profileTemplates);
@@ -245,7 +257,7 @@ export default function AgentAPIChat() {
       console.error('Failed to load templates:', error);
       setTemplates([]);
     }
-  };
+  }, []);
 
   const loadRecentMessages = useCallback(async () => {
     if (!currentProfile) return;
@@ -259,12 +271,16 @@ export default function AgentAPIChat() {
 
   useEffect(() => {
     if (currentProfile) {
-      loadTemplatesForProfile(currentProfile.id);
-      loadRecentMessages();
+      // Defer template and recent message loading to improve initial render speed
+      const timeoutId = setTimeout(() => {
+        loadTemplatesForProfile(currentProfile.id);
+        loadRecentMessages();
+      }, 100);
+      return () => clearTimeout(timeoutId);
     }
-  }, [currentProfile, loadRecentMessages]);
+  }, [currentProfile, loadRecentMessages, loadTemplatesForProfile]);
 
-  // Session-based polling for messages (2 second interval)
+  // Session-based polling for messages (optimized interval)
   const pollMessages = useCallback(async () => {
     if (!isConnected || !sessionId || !agentAPIRef.current) return;
     
@@ -339,7 +355,7 @@ export default function AgentAPIChat() {
     prevMessagesLengthRef.current = currentLength;
   }, [messages, shouldAutoScroll]);
 
-  const sendMessage = async (messageType: 'user' | 'raw' = 'user', content?: string) => {
+  const sendMessage = useCallback(async (messageType: 'user' | 'raw' = 'user', content?: string) => {
     const messageContent = content || inputValue.trim();
     
     if (!messageContent && messageType === 'user') return;
@@ -403,7 +419,7 @@ export default function AgentAPIChat() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [inputValue, isLoading, isConnected, sessionId, agentStatus, currentProfile, loadRecentMessages]);
 
   const sendStopSignal = () => {
     // Send ESC key (raw message)
@@ -425,7 +441,7 @@ export default function AgentAPIChat() {
     sendMessage('raw', '\r');
   };
 
-  const deleteSession = async () => {
+  const deleteSession = useCallback(async () => {
     if (!sessionId) return;
     
     const confirmed = window.confirm('このセッションを削除しますか？この操作は元に戻せません。');
@@ -452,7 +468,7 @@ export default function AgentAPIChat() {
     } finally {
       setIsDeleting(false);
     }
-  };
+  }, [sessionId, router]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -461,9 +477,9 @@ export default function AgentAPIChat() {
     }
   };
 
-  const formatTimestamp = (timestamp: string) => {
+  const formatTimestamp = useCallback((timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString();
-  };
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
