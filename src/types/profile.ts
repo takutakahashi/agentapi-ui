@@ -1,5 +1,5 @@
 import { AgentApiProxySettings, EnvironmentVariable } from './settings';
-import { RepositoryHistoryItem } from '../utils/repositoryHistory';
+import { RepositoryHistoryItem } from '../utils/organizationHistory';
 import { MessageTemplate } from './messageTemplate';
 
 export interface Profile {

@@ -72,8 +72,8 @@ export default function NewSessionModal({
         setSelectedProfileId(profilesList[0].id)
       }
       
-      // キャッシュされたメッセージを読み込む
-      const cached = InitialMessageCache.getCachedMessages()
+      // プロファイル固有のキャッシュされたメッセージを読み込む
+      const cached = selectedProfileId ? InitialMessageCache.getCachedMessages(selectedProfileId) : []
       setCachedMessages(cached)
       
       // プロファイル変更時にテンプレートを読み込む
@@ -87,6 +87,10 @@ export default function NewSessionModal({
     if (selectedProfileId) {
       loadTemplatesForProfile(selectedProfileId)
       loadRecentMessages(selectedProfileId)
+      
+      // プロファイル固有のキャッシュされたメッセージを読み込む
+      const cached = InitialMessageCache.getCachedMessages(selectedProfileId)
+      setCachedMessages(cached)
       
       // プロファイル変更時に組織リストを更新
       const profile = ProfileManager.getProfile(selectedProfileId);
@@ -261,8 +265,10 @@ export default function NewSessionModal({
            : '')
         : freeFormRepository.trim()
       
-      // 初期メッセージをキャッシュに追加
-      InitialMessageCache.addMessage(currentMessage)
+      // プロファイル固有の初期メッセージをキャッシュに追加
+      if (selectedProfileId) {
+        InitialMessageCache.addMessage(currentMessage, selectedProfileId)
+      }
       
       // 最近のメッセージに保存
       if (selectedProfileId) {
