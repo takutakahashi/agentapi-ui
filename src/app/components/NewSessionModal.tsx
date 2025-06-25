@@ -31,6 +31,7 @@ export default function NewSessionModal({
   const [initialMessage, setInitialMessage] = useState('')
   const [selectedOrganization, setSelectedOrganization] = useState('')
   const [repositoryName, setRepositoryName] = useState('')
+  const [freeFormRepository, setFreeFormRepository] = useState('')
   const [selectedProfileId, setSelectedProfileId] = useState<string>('')
   const [profiles, setProfiles] = useState<ProfileListItem[]>([])
   const [isCreating, setIsCreating] = useState(false)
@@ -94,11 +95,9 @@ export default function NewSessionModal({
             console.log('Auto-set first fixed organization for profile:', selectedProfileId, profile.fixedOrganizations[0]);
           }
         } else {
-          // 固定組織が設定されていない場合は履歴から組織リストを生成
-          const orgs = [...new Set(profile.repositoryHistory
-            .map(item => item.repository.split('/')[0])
-            .filter(org => org))];
-          setAvailableOrganizations(orgs);
+          // 固定組織が設定されていない場合は空にする（自由記述モード）
+          setAvailableOrganizations([]);
+          setSelectedOrganization('');
         }
       }
     }
@@ -253,9 +252,12 @@ export default function NewSessionModal({
 
       const client = createAgentAPIClient(undefined, selectedProfileId)
       const currentMessage = initialMessage.trim()
-      const currentRepository = selectedOrganization && repositoryName.trim() 
-        ? `${selectedOrganization}/${repositoryName.trim()}`
-        : ''
+      // 組織が設定されている場合は組織/リポジトリ名、なければ自由記述
+      const currentRepository = availableOrganizations.length > 0
+        ? (selectedOrganization && repositoryName.trim() 
+           ? `${selectedOrganization}/${repositoryName.trim()}`
+           : '')
+        : freeFormRepository.trim()
       
       // 初期メッセージをキャッシュに追加
       InitialMessageCache.addMessage(currentMessage)
@@ -286,6 +288,7 @@ export default function NewSessionModal({
       setInitialMessage('')
       setSelectedOrganization('')
       setRepositoryName('')
+      setFreeFormRepository('')
       setStatusMessage('')
       setIsCreating(false)
       onClose()
@@ -307,10 +310,15 @@ export default function NewSessionModal({
     setRepositoryName(e.target.value)
   }
 
+  const handleFreeFormRepositoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFreeFormRepository(e.target.value)
+  }
+
   const handleClose = () => {
     setInitialMessage('')
     setSelectedOrganization('')
     setRepositoryName('')
+    setFreeFormRepository('')
     setSelectedProfileId('')
     setError(null)
     setStatusMessage('')
@@ -470,54 +478,70 @@ export default function NewSessionModal({
             )}
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="organization" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                組織
-              </label>
-              <select
-                id="organization"
-                value={selectedOrganization}
-                onChange={handleOrganizationChange}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                disabled={isCreating || availableOrganizations.length === 0}
-                required
-              >
-                <option value="">組織を選択してください</option>
-                {availableOrganizations.map((org, index) => (
-                  <option key={index} value={org}>
-                    {org}
-                  </option>
-                ))}
-              </select>
-              {availableOrganizations.length === 0 && selectedProfileId && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  このプロファイルには利用可能な組織が設定されていません。プロファイル設定で固定組織を追加してください。
-                </p>
-              )}
+          {availableOrganizations.length > 0 ? (
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="organization" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  組織
+                </label>
+                <select
+                  id="organization"
+                  value={selectedOrganization}
+                  onChange={handleOrganizationChange}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  disabled={isCreating}
+                  required
+                >
+                  <option value="">組織を選択してください</option>
+                  {availableOrganizations.map((org, index) => (
+                    <option key={index} value={org}>
+                      {org}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label htmlFor="repositoryName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  リポジトリ名
+                </label>
+                <input
+                  id="repositoryName"
+                  type="text"
+                  value={repositoryName}
+                  onChange={handleRepositoryNameChange}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="リポジトリ名を入力"
+                  disabled={isCreating || !selectedOrganization}
+                  required
+                />
+                {selectedOrganization && repositoryName && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    対象リポジトリ: <span className="font-mono">{selectedOrganization}/{repositoryName}</span>
+                  </p>
+                )}
+              </div>
             </div>
-            
+          ) : (
             <div>
-              <label htmlFor="repositoryName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                リポジトリ名
+              <label htmlFor="freeFormRepository" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                対象リポジトリ
               </label>
               <input
-                id="repositoryName"
+                id="freeFormRepository"
                 type="text"
-                value={repositoryName}
-                onChange={handleRepositoryNameChange}
+                value={freeFormRepository}
+                onChange={handleFreeFormRepositoryChange}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                placeholder="リポジトリ名を入力"
-                disabled={isCreating || !selectedOrganization}
+                placeholder="例: owner/repository-name"
+                disabled={isCreating}
                 required
               />
-              {selectedOrganization && repositoryName && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  対象リポジトリ: <span className="font-mono">{selectedOrganization}/{repositoryName}</span>
-                </p>
-              )}
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                このプロファイルには固定組織が設定されていないため、自由にリポジトリを指定できます。
+              </p>
             </div>
-          </div>
+          )}
 
           {error && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
@@ -541,7 +565,11 @@ export default function NewSessionModal({
             </button>
             <button
               type="submit"
-              disabled={!initialMessage.trim() || !selectedOrganization || !repositoryName.trim() || isCreating}
+              disabled={!initialMessage.trim() || isCreating || (
+                availableOrganizations.length > 0 
+                  ? (!selectedOrganization || !repositoryName.trim())
+                  : !freeFormRepository.trim()
+              )}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-md transition-colors"
             >
               {isCreating ? (
