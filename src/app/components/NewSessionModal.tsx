@@ -30,7 +30,7 @@ export default function NewSessionModal({
 }: NewSessionModalProps) {
   const [initialMessage, setInitialMessage] = useState('')
   const [selectedOrganization, setSelectedOrganization] = useState('')
-  const [repositoryName, setRepositoryName] = useState('')
+  const [repository, setRepository] = useState('')
   const [freeFormRepository, setFreeFormRepository] = useState('')
   const [selectedProfileId, setSelectedProfileId] = useState<string>('')
   const [profiles, setProfiles] = useState<ProfileListItem[]>([])
@@ -260,8 +260,8 @@ export default function NewSessionModal({
       const currentMessage = initialMessage.trim()
       // 組織が設定されている場合は組織/リポジトリ名、なければ自由記述
       const currentRepository = availableOrganizations.length > 0
-        ? (selectedOrganization && repositoryName.trim() 
-           ? `${selectedOrganization}/${repositoryName.trim()}`
+        ? (selectedOrganization && repository.trim() 
+           ? `${selectedOrganization}/${repository.trim()}`
            : '')
         : freeFormRepository.trim()
       
@@ -301,7 +301,7 @@ export default function NewSessionModal({
       // 入力値をクリアしてモーダルを閉じる
       setInitialMessage('')
       setSelectedOrganization('')
-      setRepositoryName('')
+      setRepository('')
       setFreeFormRepository('')
       setStatusMessage('')
       setIsCreating(false)
@@ -324,7 +324,7 @@ export default function NewSessionModal({
   const handleClose = () => {
     setInitialMessage('')
     setSelectedOrganization('')
-    setRepositoryName('')
+    setRepository('')
     setFreeFormRepository('')
     setSelectedProfileId('')
     setError(null)
@@ -358,9 +358,9 @@ export default function NewSessionModal({
   }
 
   // 組織ベースのリポジトリ入力ハンドラー
-  const handleRepositoryNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRepositoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
-    setRepositoryName(value)
+    setRepository(value)
     
     if (value.trim() && selectedOrganization && selectedProfileId) {
       // プロファイル固有の組織履歴から検索
@@ -379,7 +379,7 @@ export default function NewSessionModal({
     }
   }
 
-  const handleRepositoryNameFocus = () => {
+  const handleRepositoryFocus = () => {
     if (selectedOrganization && selectedProfileId) {
       // プロファイル固有の組織履歴を表示
       const orgHistory = OrganizationHistory.getOrganizationHistory(selectedProfileId, selectedOrganization)
@@ -394,12 +394,12 @@ export default function NewSessionModal({
     }
   }
 
-  const handleRepositoryNameBlur = () => {
+  const handleRepositoryBlur = () => {
     setTimeout(() => setShowRepositorySuggestions(false), 150)
   }
 
   const selectRepositorySuggestion = (suggestion: string) => {
-    setRepositoryName(suggestion)
+    setRepository(suggestion)
     setShowRepositorySuggestions(false)
   }
 
@@ -588,16 +588,16 @@ export default function NewSessionModal({
               </div>
               
               <div className="relative">
-                <label htmlFor="repositoryName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="repository" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   リポジトリ名
                 </label>
                 <input
-                  id="repositoryName"
+                  id="repository"
                   type="text"
-                  value={repositoryName}
-                  onChange={handleRepositoryNameChange}
-                  onFocus={handleRepositoryNameFocus}
-                  onBlur={handleRepositoryNameBlur}
+                  value={repository}
+                  onChange={handleRepositoryChange}
+                  onFocus={handleRepositoryFocus}
+                  onBlur={handleRepositoryBlur}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                   placeholder="リポジトリ名を入力"
                   disabled={isCreating || !selectedOrganization}
@@ -620,9 +620,9 @@ export default function NewSessionModal({
                   </div>
                 )}
                 
-                {selectedOrganization && repositoryName && (
+                {selectedOrganization && repository && (
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    対象リポジトリ: <span className="font-mono">{selectedOrganization}/{repositoryName}</span>
+                    対象リポジトリ: <span className="font-mono">{selectedOrganization}/{repository}</span>
                   </p>
                 )}
               </div>
@@ -691,7 +691,7 @@ export default function NewSessionModal({
               type="submit"
               disabled={!initialMessage.trim() || isCreating || (
                 availableOrganizations.length > 0 
-                  ? (!selectedOrganization || !repositoryName.trim())
+                  ? (!selectedOrganization || !repository.trim())
                   : !freeFormRepository.trim()
               )}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-md transition-colors"
