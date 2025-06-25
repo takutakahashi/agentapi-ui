@@ -66,13 +66,22 @@ function convertSessionMessageId(id: string | number, fallbackId: number): numbe
   return hashId > 0 ? hashId : fallbackId;
 }
 
+// PR URLを抽出する関数
+function extractPRUrls(text: string): string[] {
+  if (!text || typeof text !== 'string') return [];
+  
+  // GitHub PR URLのパターン（https://github.com/owner/repo/pull/number）
+  const prUrlRegex = /https?:\/\/github\.com\/[^\/\s]+\/[^\/\s]+\/pull\/\d+/g;
+  const matches = text.match(prUrlRegex);
+  return matches ? Array.from(new Set(matches)) : []; // 重複を除去
+}
+
 function formatTextWithLinks(text: string): JSX.Element {
   if (!text || typeof text !== 'string') {
     return <>{text || ''}</>;
   }
   
   const urlRegex = /(https?:\/\/[^\s]+)/g;
-  
   const parts = text.split(urlRegex);
   
   return (
@@ -200,6 +209,8 @@ export default function AgentAPIChat() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [recentMessages, setRecentMessages] = useState<string[]>([]);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showPRLinks, setShowPRLinks] = useState(false);
+  const [prLinks, setPRLinks] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
@@ -351,6 +362,16 @@ export default function AgentAPIChat() {
         setHasNewMessages(true);
       }
     }
+    
+    // PR URLを抽出してリストに追加
+    const allPRUrls = messages.reduce((urls: string[], message) => {
+      const prUrls = extractPRUrls(message.content);
+      return [...urls, ...prUrls];
+    }, []);
+    
+    // 重複を除去してステートを更新
+    const uniquePRUrls = Array.from(new Set(allPRUrls));
+    setPRLinks(uniquePRUrls);
     
     prevMessagesLengthRef.current = currentLength;
   }, [messages, shouldAutoScroll]);
@@ -570,6 +591,22 @@ export default function AgentAPIChat() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                 )}
+              </button>
+            )}
+
+            {/* PR Links Button */}
+            {prLinks.length > 0 && (
+              <button
+                onClick={() => setShowPRLinks(!showPRLinks)}
+                className="p-2 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-200 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-md transition-colors relative"
+                title={`プルリクエスト (${prLinks.length}個)`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+                <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {prLinks.length}
+                </span>
               </button>
             )}
 
@@ -935,6 +972,84 @@ export default function AgentAPIChat() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PR Links Modal */}
+      {showPRLinks && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  プルリクエスト一覧 ({prLinks.length}個)
+                </h2>
+                <button
+                  onClick={() => setShowPRLinks(false)}
+                  className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div className="overflow-y-auto max-h-[calc(80vh-8rem)] px-6 py-4">
+              {prLinks.length > 0 ? (
+                <div className="space-y-3">
+                  {prLinks.map((url, index) => {
+                    // URLからリポジトリ名とPR番号を抽出
+                    const urlMatch = url.match(/github\.com\/([^\/]+\/[^\/]+)\/pull\/(\d+)/);
+                    const repoName = urlMatch ? urlMatch[1] : '';
+                    const prNumber = urlMatch ? urlMatch[2] : '';
+                    
+                    return (
+                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm text-gray-900 dark:text-white truncate">
+                            {repoName}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            プルリクエスト #{prNumber}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2 ml-4">
+                          <button
+                            onClick={() => navigator.clipboard.writeText(url)}
+                            className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded"
+                            title="URLをコピー"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          </button>
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-md transition-colors"
+                          >
+                            開く
+                            <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <svg className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                  <p className="text-sm">プルリクエストのURLが見つかりませんでした</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
