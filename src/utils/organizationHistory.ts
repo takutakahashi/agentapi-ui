@@ -137,7 +137,7 @@ export class OrganizationHistory {
       const profile = JSON.parse(stored);
       if (!profile || !profile.repositoryHistory) return [];
       
-      let repositories = profile.repositoryHistory
+      let repositories: string[] = profile.repositoryHistory
         .map((item: {repository: string}) => item.repository)
         .filter((repo: string) => repo && repo.trim());
       
@@ -149,7 +149,7 @@ export class OrganizationHistory {
       }
       
       // 重複を削除して最新使用順でソート
-      const uniqueRepositories = [...new Set(repositories)];
+      const uniqueRepositories: string[] = [...new Set(repositories)];
       return uniqueRepositories.slice(0, MAX_HISTORY_SIZE);
     } catch {
       return [];
