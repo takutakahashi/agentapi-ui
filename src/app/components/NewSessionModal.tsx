@@ -10,6 +10,7 @@ import { InitialMessageCache } from '../../utils/initialMessageCache'
 import { messageTemplateManager } from '../../utils/messageTemplateManager'
 import { MessageTemplate } from '../../types/messageTemplate'
 import { recentMessagesManager } from '../../utils/recentMessagesManager'
+import { OrganizationHistory } from '../../utils/organizationHistory'
 
 interface NewSessionModalProps {
   isOpen: boolean
@@ -128,7 +129,7 @@ export default function NewSessionModal({
     }
   }
 
-  const createSessionInBackground = async (client: AgentAPIProxyClient, message: string, repo: string, sessionId: string) => {
+  const createSessionInBackground = async (client: AgentAPIProxyClient, message: string, repo: string, sessionId: string, organization?: string) => {
     try {
       console.log('Starting background session creation...')
       onSessionStatusUpdate(sessionId, 'creating')
@@ -154,6 +155,12 @@ export default function NewSessionModal({
       // グローバルリポジトリ履歴に追加
       if (repo && repo.trim()) {
         RepositoryHistory.addRepository(repo.trim())
+        
+        // 組織ごとの履歴にも追加
+        if (organization) {
+          OrganizationHistory.addRepositoryToOrganization(organization, repo.trim())
+          console.log('Repository added to organization history in background:', { organization, repository: repo })
+        }
       }
 
       // セッション作成後、statusが "Agent Available" になるまで待機
@@ -273,6 +280,12 @@ export default function NewSessionModal({
         try {
           ProfileManager.addRepositoryToProfile(selectedProfileId, currentRepository)
           console.log('Repository added to profile history successfully (pre-session)')
+          
+          // 組織ごとの履歴にも追加
+          if (selectedOrganization) {
+            OrganizationHistory.addRepositoryToOrganization(selectedOrganization, currentRepository)
+            console.log('Repository added to organization history:', { organization: selectedOrganization, repository: currentRepository })
+          }
         } catch (error) {
           console.error('Failed to add repository to profile history (pre-session):', error)
         }
@@ -294,7 +307,7 @@ export default function NewSessionModal({
       onClose()
       
       // バックグラウンドでセッション作成処理を続行
-      createSessionInBackground(client, currentMessage, currentRepository, sessionId)
+      createSessionInBackground(client, currentMessage, currentRepository, sessionId, selectedOrganization || undefined)
       
     } catch {
       setError('セッション開始に失敗しました')

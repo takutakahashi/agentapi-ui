@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProfileManager } from '../../../../utils/profileManager';
 import { Profile, UpdateProfileRequest } from '../../../../types/profile';
+import { OrganizationHistory, OrganizationRepositoryHistory } from '../../../../utils/organizationHistory';
 
 const EMOJI_OPTIONS = ['⚙️', '🔧', '💼', '🏠', '🏢', '🚀', '💻', '🔬', '🎯', '⭐', '🌟', '💡'];
 
@@ -33,6 +34,8 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [formData, setFormData] = useState<UpdateProfileRequest>({});
   const [paramId, setParamId] = useState<string>('');
+  const [organizationHistories, setOrganizationHistories] = useState<OrganizationRepositoryHistory[]>([]);
+  const [showOrganizationHistories, setShowOrganizationHistories] = useState(false);
 
   useEffect(() => {
     params.then(p => setParamId(p.id));
@@ -59,6 +62,14 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
         environmentVariables: [...loadedProfile.environmentVariables],
         isDefault: loadedProfile.isDefault,
       });
+      
+      // 組織ごとの履歴を読み込み
+      const orgHistories = OrganizationHistory.getAllOrganizationHistories();
+      // このプロファイルの固定組織に関連する履歴のみをフィルタ
+      const relevantHistories = orgHistories.filter(orgHistory =>
+        loadedProfile.fixedOrganizations.includes(orgHistory.organization)
+      );
+      setOrganizationHistories(relevantHistories);
     } catch (error) {
       console.error('Failed to load profile:', error);
       router.push('/profiles');
@@ -457,6 +468,71 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
             )}
           </div>
         </div>
+
+        {/* 組織ごとの履歴セクション */}
+        {profile.fixedOrganizations.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Organization Repository History</h2>
+              <button
+                type="button"
+                onClick={() => setShowOrganizationHistories(!showOrganizationHistories)}
+                className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
+              >
+                {showOrganizationHistories ? 'Hide' : 'Show'}
+              </button>
+            </div>
+            
+            {showOrganizationHistories && (
+              <div className="space-y-4">
+                {organizationHistories.length === 0 ? (
+                  <div className="text-gray-500 dark:text-gray-400 text-sm">
+                    No organization-specific repository history
+                  </div>
+                ) : (
+                  organizationHistories.map((orgHistory, orgIndex) => (
+                    <div key={orgIndex} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                      <h3 className="text-lg font-medium mb-3 text-gray-900 dark:text-white flex items-center">
+                        <span className="mr-2">🏢</span>
+                        {orgHistory.organization}
+                        <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
+                          ({orgHistory.repositories.length} repositories)
+                        </span>
+                      </h3>
+                      <div className="space-y-2">
+                        {orgHistory.repositories.map((repo, repoIndex) => (
+                          <div key={repoIndex} className="flex justify-between items-center py-2 px-3 bg-gray-50 dark:bg-gray-700 rounded">
+                            <span className="font-mono text-sm text-gray-900 dark:text-white">{repo.repository}</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {new Date(repo.lastUsed).toLocaleDateString()}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            OrganizationHistory.clearOrganizationHistory(orgHistory.organization);
+                            // 履歴を再読み込み
+                            const orgHistories = OrganizationHistory.getAllOrganizationHistories();
+                            const relevantHistories = orgHistories.filter(orgHistory =>
+                              profile.fixedOrganizations.includes(orgHistory.organization)
+                            );
+                            setOrganizationHistories(relevantHistories);
+                          }}
+                          className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 text-sm"
+                        >
+                          Clear {orgHistory.organization} history
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex space-x-4">
           <button
