@@ -63,8 +63,8 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
         isDefault: loadedProfile.isDefault,
       });
       
-      // 組織ごとの履歴を読み込み
-      const orgHistories = OrganizationHistory.getAllOrganizationHistories();
+      // プロファイル固有の組織履歴を読み込み
+      const orgHistories = OrganizationHistory.getAllOrganizationHistories(loadedProfile.id);
       // このプロファイルの固定組織に関連する履歴のみをフィルタ
       const relevantHistories = orgHistories.filter(orgHistory =>
         loadedProfile.fixedOrganizations.includes(orgHistory.organization)
@@ -513,9 +513,9 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
                         <button
                           type="button"
                           onClick={() => {
-                            OrganizationHistory.clearOrganizationHistory(orgHistory.organization);
+                            OrganizationHistory.clearOrganizationHistory(profile.id, orgHistory.organization);
                             // 履歴を再読み込み
-                            const orgHistories = OrganizationHistory.getAllOrganizationHistories();
+                            const orgHistories = OrganizationHistory.getAllOrganizationHistories(profile.id);
                             const relevantHistories = orgHistories.filter(orgHistory =>
                               profile.fixedOrganizations.includes(orgHistory.organization)
                             );

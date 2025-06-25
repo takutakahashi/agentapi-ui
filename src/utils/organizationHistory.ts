@@ -12,11 +12,16 @@ export interface RepositoryHistoryItem {
 }
 
 export class OrganizationHistory {
-  static getOrganizationHistory(organization: string): RepositoryHistoryItem[] {
-    if (!organization) return [];
+  // プロファイル固有のキーを生成
+  private static getProfileOrganizationKey(profileId: string, organization: string): string {
+    return `${ORGANIZATION_HISTORY_PREFIX}${profileId}-${organization}`;
+  }
+
+  static getOrganizationHistory(profileId: string, organization: string): RepositoryHistoryItem[] {
+    if (!profileId || !organization) return [];
     
     try {
-      const key = `${ORGANIZATION_HISTORY_PREFIX}${organization}`;
+      const key = this.getProfileOrganizationKey(profileId, organization);
       const stored = localStorage.getItem(key);
       if (!stored) return [];
       
@@ -30,10 +35,10 @@ export class OrganizationHistory {
     }
   }
 
-  static addRepositoryToOrganization(organization: string, repository: string): void {
-    if (!organization || !repository.trim()) return;
+  static addRepositoryToOrganization(profileId: string, organization: string, repository: string): void {
+    if (!profileId || !organization || !repository.trim()) return;
 
-    const history = this.getOrganizationHistory(organization);
+    const history = this.getOrganizationHistory(profileId, organization);
     const existing = history.findIndex(item => item.repository === repository);
     
     if (existing !== -1) {
@@ -50,22 +55,25 @@ export class OrganizationHistory {
     const trimmed = history.slice(0, MAX_HISTORY_SIZE);
     
     try {
-      const key = `${ORGANIZATION_HISTORY_PREFIX}${organization}`;
+      const key = this.getProfileOrganizationKey(profileId, organization);
       localStorage.setItem(key, JSON.stringify(trimmed));
     } catch {
       // ストレージエラーを無視
     }
   }
 
-  static getAllOrganizationHistories(): OrganizationRepositoryHistory[] {
+  static getAllOrganizationHistories(profileId: string): OrganizationRepositoryHistory[] {
+    if (!profileId) return [];
+    
     const histories: OrganizationRepositoryHistory[] = [];
+    const profilePrefix = `${ORGANIZATION_HISTORY_PREFIX}${profileId}-`;
     
     try {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith(ORGANIZATION_HISTORY_PREFIX)) {
-          const organization = key.substring(ORGANIZATION_HISTORY_PREFIX.length);
-          const repositories = this.getOrganizationHistory(organization);
+        if (key && key.startsWith(profilePrefix)) {
+          const organization = key.substring(profilePrefix.length);
+          const repositories = this.getOrganizationHistory(profileId, organization);
           if (repositories.length > 0) {
             histories.push({ organization, repositories });
           }
@@ -78,23 +86,26 @@ export class OrganizationHistory {
     return histories;
   }
 
-  static clearOrganizationHistory(organization: string): void {
-    if (!organization) return;
+  static clearOrganizationHistory(profileId: string, organization: string): void {
+    if (!profileId || !organization) return;
     
     try {
-      const key = `${ORGANIZATION_HISTORY_PREFIX}${organization}`;
+      const key = this.getProfileOrganizationKey(profileId, organization);
       localStorage.removeItem(key);
     } catch {
       // ストレージエラーを無視
     }
   }
 
-  static clearAllOrganizationHistories(): void {
+  static clearAllOrganizationHistories(profileId: string): void {
+    if (!profileId) return;
+    
     try {
+      const profilePrefix = `${ORGANIZATION_HISTORY_PREFIX}${profileId}-`;
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith(ORGANIZATION_HISTORY_PREFIX)) {
+        if (key && key.startsWith(profilePrefix)) {
           keysToRemove.push(key);
         }
       }
@@ -104,12 +115,44 @@ export class OrganizationHistory {
     }
   }
 
-  static searchOrganizationRepositories(organization: string, query: string): string[] {
-    const history = this.getOrganizationHistory(organization);
+  static searchOrganizationRepositories(profileId: string, organization: string, query: string): string[] {
+    const history = this.getOrganizationHistory(profileId, organization);
     const lowerQuery = query.toLowerCase();
     
     return history
       .filter(item => item.repository.toLowerCase().includes(lowerQuery))
       .map(item => item.repository);
+  }
+
+  // プロファイル内のリポジトリ履歴からサジェストを取得（グローバル履歴を使わない）
+  static getProfileRepositorySuggestions(profileId: string, query?: string): string[] {
+    if (!profileId) return [];
+    
+    try {
+      // プロファイルのリポジトリ履歴を直接 localStorage から取得
+      const profileKey = `agentapi-profile-${profileId}`;
+      const stored = localStorage.getItem(profileKey);
+      if (!stored) return [];
+      
+      const profile = JSON.parse(stored);
+      if (!profile || !profile.repositoryHistory) return [];
+      
+      let repositories = profile.repositoryHistory
+        .map((item: {repository: string}) => item.repository)
+        .filter((repo: string) => repo && repo.trim());
+      
+      if (query && query.trim()) {
+        const lowerQuery = query.toLowerCase();
+        repositories = repositories.filter((repo: string) => 
+          repo.toLowerCase().includes(lowerQuery)
+        );
+      }
+      
+      // 重複を削除して最新使用順でソート
+      const uniqueRepositories = [...new Set(repositories)];
+      return uniqueRepositories.slice(0, MAX_HISTORY_SIZE);
+    } catch {
+      return [];
+    }
   }
 }

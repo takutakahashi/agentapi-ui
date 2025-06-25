@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { createAgentAPIClient } from '../../lib/api'
 import type { AgentAPIProxyClient } from '../../lib/agentapi-proxy-client'
-import { RepositoryHistory } from '../../utils/repositoryHistory'
 import { ProfileManager } from '../../utils/profileManager'
 import { ProfileListItem } from '../../types/profile'
 import { InitialMessageCache } from '../../utils/initialMessageCache'
@@ -133,7 +132,7 @@ export default function NewSessionModal({
     }
   }
 
-  const createSessionInBackground = async (client: AgentAPIProxyClient, message: string, repo: string, sessionId: string, organization?: string) => {
+  const createSessionInBackground = async (client: AgentAPIProxyClient, message: string, repo: string, sessionId: string) => {
     try {
       console.log('Starting background session creation...')
       onSessionStatusUpdate(sessionId, 'creating')
@@ -156,16 +155,8 @@ export default function NewSessionModal({
       })
       console.log('Session created:', session)
 
-      // グローバルリポジトリ履歴に追加
-      if (repo && repo.trim()) {
-        RepositoryHistory.addRepository(repo.trim())
-        
-        // 組織ごとの履歴にも追加
-        if (organization) {
-          OrganizationHistory.addRepositoryToOrganization(organization, repo.trim())
-          console.log('Repository added to organization history in background:', { organization, repository: repo })
-        }
-      }
+      // リポジトリ履歴はセッション作成前に既に追加済み（プロファイル固有の履歴のみ使用）
+      console.log('Repository history already added to profile before session creation')
 
       // セッション作成後、statusが "Agent Available" になるまで待機
       onSessionStatusUpdate(sessionId, 'waiting-agent')
@@ -285,10 +276,10 @@ export default function NewSessionModal({
           ProfileManager.addRepositoryToProfile(selectedProfileId, currentRepository)
           console.log('Repository added to profile history successfully (pre-session)')
           
-          // 組織ごとの履歴にも追加
+          // プロファイル固有の組織履歴にも追加
           if (selectedOrganization) {
-            OrganizationHistory.addRepositoryToOrganization(selectedOrganization, currentRepository)
-            console.log('Repository added to organization history:', { organization: selectedOrganization, repository: currentRepository })
+            OrganizationHistory.addRepositoryToOrganization(selectedProfileId, selectedOrganization, currentRepository)
+            console.log('Repository added to profile organization history:', { profileId: selectedProfileId, organization: selectedOrganization, repository: currentRepository })
           }
         } catch (error) {
           console.error('Failed to add repository to profile history (pre-session):', error)
@@ -311,7 +302,7 @@ export default function NewSessionModal({
       onClose()
       
       // バックグラウンドでセッション作成処理を続行
-      createSessionInBackground(client, currentMessage, currentRepository, sessionId, selectedOrganization || undefined)
+      createSessionInBackground(client, currentMessage, currentRepository, sessionId)
       
     } catch {
       setError('セッション開始に失敗しました')
@@ -365,16 +356,16 @@ export default function NewSessionModal({
     const value = e.target.value
     setRepositoryName(value)
     
-    if (value.trim() && selectedOrganization) {
-      // 組織ごとの履歴から検索
-      const orgSuggestions = OrganizationHistory.searchOrganizationRepositories(selectedOrganization, value)
-      // グローバル履歴からも検索（組織/リポジトリ形式）
-      const globalSuggestions = RepositoryHistory.searchRepositories(`${selectedOrganization}/${value}`)
+    if (value.trim() && selectedOrganization && selectedProfileId) {
+      // プロファイル固有の組織履歴から検索
+      const orgSuggestions = OrganizationHistory.searchOrganizationRepositories(selectedProfileId, selectedOrganization, value)
+      // プロファイル固有の全体履歴からも検索（組織/リポジトリ形式）
+      const profileSuggestions = OrganizationHistory.getProfileRepositorySuggestions(selectedProfileId, `${selectedOrganization}/${value}`)
         .filter(repo => repo.startsWith(`${selectedOrganization}/`))
         .map(repo => repo.substring(selectedOrganization.length + 1))
       
       // 重複を除去してマージ
-      const allSuggestions = [...new Set([...orgSuggestions, ...globalSuggestions])]
+      const allSuggestions = [...new Set([...orgSuggestions, ...profileSuggestions])]
       setRepositorySuggestions(allSuggestions)
       setShowRepositorySuggestions(allSuggestions.length > 0)
     } else {
@@ -383,9 +374,9 @@ export default function NewSessionModal({
   }
 
   const handleRepositoryNameFocus = () => {
-    if (selectedOrganization) {
-      // 組織ごとの履歴を表示
-      const orgHistory = OrganizationHistory.getOrganizationHistory(selectedOrganization)
+    if (selectedOrganization && selectedProfileId) {
+      // プロファイル固有の組織履歴を表示
+      const orgHistory = OrganizationHistory.getOrganizationHistory(selectedProfileId, selectedOrganization)
       const suggestions = orgHistory.map(item => {
         // 組織名を除いたリポジトリ名のみを表示
         return item.repository.startsWith(`${selectedOrganization}/`) 
@@ -411,8 +402,9 @@ export default function NewSessionModal({
     const value = e.target.value
     setFreeFormRepository(value)
     
-    if (value.trim()) {
-      const suggestions = RepositoryHistory.searchRepositories(value)
+    if (value.trim() && selectedProfileId) {
+      // プロファイル固有の履歴から検索
+      const suggestions = OrganizationHistory.getProfileRepositorySuggestions(selectedProfileId, value)
       setFreeFormRepositorySuggestions(suggestions)
       setShowFreeFormRepositorySuggestions(suggestions.length > 0)
     } else {
@@ -421,10 +413,12 @@ export default function NewSessionModal({
   }
 
   const handleFreeFormRepositoryFocus = () => {
-    const history = RepositoryHistory.getHistory()
-    const suggestions = history.map(item => item.repository)
-    setFreeFormRepositorySuggestions(suggestions)
-    setShowFreeFormRepositorySuggestions(suggestions.length > 0)
+    if (selectedProfileId) {
+      // プロファイル固有の履歴を表示
+      const suggestions = OrganizationHistory.getProfileRepositorySuggestions(selectedProfileId)
+      setFreeFormRepositorySuggestions(suggestions)
+      setShowFreeFormRepositorySuggestions(suggestions.length > 0)
+    }
   }
 
   const handleFreeFormRepositoryBlur = () => {

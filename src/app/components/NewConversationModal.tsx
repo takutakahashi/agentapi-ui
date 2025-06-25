@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { agentAPI } from '../../lib/api'
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { SessionFilter, getFilterValuesForSessionCreation } from '../../lib/filter-utils'
-import { RepositoryHistory } from '../../utils/repositoryHistory'
 import { OrganizationHistory } from '../../utils/organizationHistory'
+import { ProfileManager } from '../../utils/profileManager'
 
 interface NewConversationModalProps {
   isOpen: boolean
@@ -30,6 +30,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
   const [error, setError] = useState<string | null>(null)
   const [repositorySuggestions, setRepositorySuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [currentProfileId, setCurrentProfileId] = useState<string>('')
   
   // Initialize with current filter values
   const initializeFromFilters = useCallback(() => {
@@ -96,8 +97,9 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
     const value = e.target.value
     setRepository(value)
     
-    if (value.trim()) {
-      const suggestions = RepositoryHistory.searchRepositories(value)
+    if (value.trim() && currentProfileId) {
+      // プロファイル固有の履歴から検索
+      const suggestions = OrganizationHistory.getProfileRepositorySuggestions(currentProfileId, value)
       setRepositorySuggestions(suggestions)
       setShowSuggestions(suggestions.length > 0)
     } else {
@@ -106,9 +108,12 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
   }
 
   const handleRepositoryFocus = () => {
-    const suggestions = RepositoryHistory.getHistory().map(item => item.repository)
-    setRepositorySuggestions(suggestions)
-    setShowSuggestions(suggestions.length > 0)
+    if (currentProfileId) {
+      // プロファイル固有の履歴を表示
+      const suggestions = OrganizationHistory.getProfileRepositorySuggestions(currentProfileId)
+      setRepositorySuggestions(suggestions)
+      setShowSuggestions(suggestions.length > 0)
+    }
   }
 
   const handleRepositoryBlur = () => {
@@ -141,6 +146,12 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
       initializeFromFilters()
       if (initialRepository) {
         setRepository(initialRepository)
+      }
+      
+      // 現在のプロファイルを取得
+      const defaultProfile = ProfileManager.getDefaultProfile()
+      if (defaultProfile) {
+        setCurrentProfileId(defaultProfile.id)
       }
     }
   }, [isOpen, currentFilters, initialRepository, initializeFromFilters])
@@ -204,17 +215,17 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
         tags: sessionData.tags
       })
 
-      // リポジトリ履歴に追加
-      if (repository.trim()) {
+      // プロファイル固有のリポジトリ履歴に追加
+      if (repository.trim() && currentProfileId) {
         const repoName = repository.trim()
-        RepositoryHistory.addRepository(repoName)
+        ProfileManager.addRepositoryToProfile(currentProfileId, repoName)
         
-        // 組織/リポジトリ形式の場合、組織履歴にも追加
+        // 組織/リポジトリ形式の場合、プロファイル固有の組織履歴にも追加
         if (repoName.includes('/')) {
           const [organization] = repoName.split('/', 2)
           if (organization) {
-            OrganizationHistory.addRepositoryToOrganization(organization, repoName)
-            console.log('Repository added to organization history from NewConversationModal:', { organization, repository: repoName })
+            OrganizationHistory.addRepositoryToOrganization(currentProfileId, organization, repoName)
+            console.log('Repository added to profile organization history from NewConversationModal:', { profileId: currentProfileId, organization, repository: repoName })
           }
         }
       }
