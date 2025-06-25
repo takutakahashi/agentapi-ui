@@ -32,7 +32,7 @@ export default function TopBar({
   children
 }: TopBarProps) {
   const router = useRouter()
-  const { setMainColor } = useTheme()
+  const { updateThemeFromProfile } = useTheme()
   const [profiles, setProfiles] = useState<ProfileListItem[]>([])
   const [currentProfile, setCurrentProfile] = useState<ProfileListItem | null>(null)
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
@@ -56,12 +56,9 @@ export default function TopBar({
     
     // Update theme when profile is loaded
     if (selectedProfile) {
-      const fullProfile = ProfileManager.getProfile(selectedProfile.id)
-      if (fullProfile?.mainColor) {
-        setMainColor(fullProfile.mainColor)
-      }
+      updateThemeFromProfile(selectedProfile.id)
     }
-  }, [setMainColor])
+  }, [updateThemeFromProfile])
 
   useEffect(() => {
     if (showProfileSwitcher) {
@@ -87,12 +84,7 @@ export default function TopBar({
     setShowProfileDropdown(false)
     
     // Update theme when profile switches
-    if (selectedProfile) {
-      const fullProfile = ProfileManager.getProfile(selectedProfile.id)
-      if (fullProfile?.mainColor) {
-        setMainColor(fullProfile.mainColor)
-      }
-    }
+    updateThemeFromProfile(profileId)
     
     window.dispatchEvent(new CustomEvent('profileChanged', { detail: { profileId } }))
   }
