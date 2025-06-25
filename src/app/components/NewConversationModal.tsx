@@ -5,6 +5,7 @@ import { agentAPI } from '../../lib/api'
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { SessionFilter, getFilterValuesForSessionCreation } from '../../lib/filter-utils'
 import { RepositoryHistory } from '../../utils/repositoryHistory'
+import { OrganizationHistory } from '../../utils/organizationHistory'
 
 interface NewConversationModalProps {
   isOpen: boolean
@@ -205,7 +206,17 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
 
       // リポジトリ履歴に追加
       if (repository.trim()) {
-        RepositoryHistory.addRepository(repository.trim())
+        const repoName = repository.trim()
+        RepositoryHistory.addRepository(repoName)
+        
+        // 組織/リポジトリ形式の場合、組織履歴にも追加
+        if (repoName.includes('/')) {
+          const [organization] = repoName.split('/', 2)
+          if (organization) {
+            OrganizationHistory.addRepositoryToOrganization(organization, repoName)
+            console.log('Repository added to organization history from NewConversationModal:', { organization, repository: repoName })
+          }
+        }
       }
 
       onSuccess()

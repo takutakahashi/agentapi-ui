@@ -46,6 +46,10 @@ export default function NewSessionModal({
   const [showTemplates, setShowTemplates] = useState(false)
   const [recentMessages, setRecentMessages] = useState<string[]>([])
   const [showTemplateModal, setShowTemplateModal] = useState(false)
+  const [repositorySuggestions, setRepositorySuggestions] = useState<string[]>([])
+  const [showRepositorySuggestions, setShowRepositorySuggestions] = useState(false)
+  const [freeFormRepositorySuggestions, setFreeFormRepositorySuggestions] = useState<string[]>([])
+  const [showFreeFormRepositorySuggestions, setShowFreeFormRepositorySuggestions] = useState(false)
 
   useEffect(() => {
     const checkMobile = () => {
@@ -319,13 +323,6 @@ export default function NewSessionModal({
     setSelectedOrganization(e.target.value)
   }
 
-  const handleRepositoryNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setRepositoryName(e.target.value)
-  }
-
-  const handleFreeFormRepositoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFreeFormRepository(e.target.value)
-  }
 
   const handleClose = () => {
     setInitialMessage('')
@@ -361,6 +358,82 @@ export default function NewSessionModal({
   const selectTemplate = (template: MessageTemplate) => {
     setInitialMessage(template.content)
     setShowTemplates(false)
+  }
+
+  // 組織ベースのリポジトリ入力ハンドラー
+  const handleRepositoryNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setRepositoryName(value)
+    
+    if (value.trim() && selectedOrganization) {
+      // 組織ごとの履歴から検索
+      const orgSuggestions = OrganizationHistory.searchOrganizationRepositories(selectedOrganization, value)
+      // グローバル履歴からも検索（組織/リポジトリ形式）
+      const globalSuggestions = RepositoryHistory.searchRepositories(`${selectedOrganization}/${value}`)
+        .filter(repo => repo.startsWith(`${selectedOrganization}/`))
+        .map(repo => repo.substring(selectedOrganization.length + 1))
+      
+      // 重複を除去してマージ
+      const allSuggestions = [...new Set([...orgSuggestions, ...globalSuggestions])]
+      setRepositorySuggestions(allSuggestions)
+      setShowRepositorySuggestions(allSuggestions.length > 0)
+    } else {
+      setShowRepositorySuggestions(false)
+    }
+  }
+
+  const handleRepositoryNameFocus = () => {
+    if (selectedOrganization) {
+      // 組織ごとの履歴を表示
+      const orgHistory = OrganizationHistory.getOrganizationHistory(selectedOrganization)
+      const suggestions = orgHistory.map(item => {
+        // 組織名を除いたリポジトリ名のみを表示
+        return item.repository.startsWith(`${selectedOrganization}/`) 
+          ? item.repository.substring(selectedOrganization.length + 1)
+          : item.repository
+      })
+      setRepositorySuggestions(suggestions)
+      setShowRepositorySuggestions(suggestions.length > 0)
+    }
+  }
+
+  const handleRepositoryNameBlur = () => {
+    setTimeout(() => setShowRepositorySuggestions(false), 150)
+  }
+
+  const selectRepositorySuggestion = (suggestion: string) => {
+    setRepositoryName(suggestion)
+    setShowRepositorySuggestions(false)
+  }
+
+  // 自由入力のリポジトリハンドラー
+  const handleFreeFormRepositoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setFreeFormRepository(value)
+    
+    if (value.trim()) {
+      const suggestions = RepositoryHistory.searchRepositories(value)
+      setFreeFormRepositorySuggestions(suggestions)
+      setShowFreeFormRepositorySuggestions(suggestions.length > 0)
+    } else {
+      setShowFreeFormRepositorySuggestions(false)
+    }
+  }
+
+  const handleFreeFormRepositoryFocus = () => {
+    const history = RepositoryHistory.getHistory()
+    const suggestions = history.map(item => item.repository)
+    setFreeFormRepositorySuggestions(suggestions)
+    setShowFreeFormRepositorySuggestions(suggestions.length > 0)
+  }
+
+  const handleFreeFormRepositoryBlur = () => {
+    setTimeout(() => setShowFreeFormRepositorySuggestions(false), 150)
+  }
+
+  const selectFreeFormRepositorySuggestion = (suggestion: string) => {
+    setFreeFormRepository(suggestion)
+    setShowFreeFormRepositorySuggestions(false)
   }
 
   return (
@@ -514,7 +587,7 @@ export default function NewSessionModal({
                 </select>
               </div>
               
-              <div>
+              <div className="relative">
                 <label htmlFor="repositoryName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   リポジトリ名
                 </label>
@@ -523,11 +596,30 @@ export default function NewSessionModal({
                   type="text"
                   value={repositoryName}
                   onChange={handleRepositoryNameChange}
+                  onFocus={handleRepositoryNameFocus}
+                  onBlur={handleRepositoryNameBlur}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                   placeholder="リポジトリ名を入力"
                   disabled={isCreating || !selectedOrganization}
                   required
                 />
+                
+                {/* サジェストドロップダウン */}
+                {showRepositorySuggestions && repositorySuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg z-50 mt-1 max-h-48 overflow-y-auto">
+                    {repositorySuggestions.map((suggestion, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => selectRepositorySuggestion(suggestion)}
+                        className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm border-b border-gray-200 dark:border-gray-600 last:border-b-0"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                
                 {selectedOrganization && repositoryName && (
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     対象リポジトリ: <span className="font-mono">{selectedOrganization}/{repositoryName}</span>
@@ -536,7 +628,7 @@ export default function NewSessionModal({
               </div>
             </div>
           ) : (
-            <div>
+            <div className="relative">
               <label htmlFor="freeFormRepository" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 対象リポジトリ
               </label>
@@ -545,11 +637,30 @@ export default function NewSessionModal({
                 type="text"
                 value={freeFormRepository}
                 onChange={handleFreeFormRepositoryChange}
+                onFocus={handleFreeFormRepositoryFocus}
+                onBlur={handleFreeFormRepositoryBlur}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 placeholder="例: owner/repository-name"
                 disabled={isCreating}
                 required
               />
+              
+              {/* サジェストドロップダウン */}
+              {showFreeFormRepositorySuggestions && freeFormRepositorySuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg z-50 mt-1 max-h-48 overflow-y-auto">
+                  {freeFormRepositorySuggestions.map((suggestion, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => selectFreeFormRepositorySuggestion(suggestion)}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm border-b border-gray-200 dark:border-gray-600 last:border-b-0"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
+              
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 このプロファイルには固定組織が設定されていないため、自由にリポジトリを指定できます。
               </p>
