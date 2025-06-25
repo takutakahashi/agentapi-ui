@@ -44,14 +44,25 @@ export class ProfileManager {
         }));
       }
       
-      // fixedRepository から fixedRepositories への移行処理
-      if (profile.fixedRepository && !profile.fixedRepositories) {
-        profile.fixedRepositories = [profile.fixedRepository];
+      // fixedRepository/fixedRepositories から fixedOrganizations への移行処理
+      if (profile.fixedRepository && !profile.fixedOrganizations) {
+        // 単一のfixedRepositoryからorgを抽出
+        const org = profile.fixedRepository.split('/')[0];
+        profile.fixedOrganizations = org ? [org] : [];
         delete profile.fixedRepository;
         // 移行後のプロファイルを保存
         this.saveProfile(profile);
-      } else if (!profile.fixedRepositories) {
-        profile.fixedRepositories = [];
+      } else if (profile.fixedRepositories && !profile.fixedOrganizations) {
+        // fixedRepositoriesからorgリストを抽出
+        const orgs = [...new Set(profile.fixedRepositories
+          .map((repo: string) => repo.split('/')[0])
+          .filter((org: string) => org))];
+        profile.fixedOrganizations = orgs;
+        delete profile.fixedRepositories;
+        // 移行後のプロファイルを保存
+        this.saveProfile(profile);
+      } else if (!profile.fixedOrganizations) {
+        profile.fixedOrganizations = [];
       }
       
       return profile;
@@ -72,7 +83,7 @@ export class ProfileManager {
       icon: profileData.icon,
       mainColor: profileData.mainColor,
       systemPrompt: profileData.systemPrompt,
-      fixedRepositories: profileData.fixedRepositories || [],
+      fixedOrganizations: profileData.fixedOrganizations || [],
       agentApiProxy: profileData.agentApiProxy,
       repositoryHistory: [],
       environmentVariables: profileData.environmentVariables,
@@ -272,7 +283,7 @@ export class ProfileManager {
       name: 'Default',
       description: 'Migrated from existing settings',
       icon: '⚙️',
-      fixedRepositories: [],
+      fixedOrganizations: [],
       agentApiProxy: globalSettings.agentApiProxy,
       environmentVariables: globalSettings.environmentVariables,
       isDefault: true,
@@ -434,7 +445,7 @@ export class ProfileManager {
         description: profileData.description,
         icon: profileData.icon,
         systemPrompt: profileData.systemPrompt,
-        fixedRepositories: profileData.fixedRepositories || [],
+        fixedOrganizations: profileData.fixedOrganizations || [],
         agentApiProxy: profileData.agentApiProxy,
         environmentVariables: profileData.environmentVariables || [],
         isDefault: false
@@ -462,7 +473,7 @@ export class ProfileManager {
       name: 'Default',
       description: 'Default profile',
       icon: '⚙️',
-      fixedRepositories: [],
+      fixedOrganizations: [],
       agentApiProxy: defaultSettings.agentApiProxy,
       environmentVariables: defaultSettings.environmentVariables,
       isDefault: true,

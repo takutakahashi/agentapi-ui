@@ -29,14 +29,15 @@ export default function NewSessionModal({
   onSessionCompleted 
 }: NewSessionModalProps) {
   const [initialMessage, setInitialMessage] = useState('')
-  const [repository, setRepository] = useState('')
+  const [selectedOrganization, setSelectedOrganization] = useState('')
+  const [repositoryName, setRepositoryName] = useState('')
   const [selectedProfileId, setSelectedProfileId] = useState<string>('')
   const [profiles, setProfiles] = useState<ProfileListItem[]>([])
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState('')
   const [isMobile, setIsMobile] = useState(false)
-  const [repositorySuggestions, setRepositorySuggestions] = useState<string[]>([])
+  const [availableOrganizations, setAvailableOrganizations] = useState<string[]>([])
   const [cachedMessages, setCachedMessages] = useState<string[]>([])
   const [showCachedMessages, setShowCachedMessages] = useState(false)
   const [templates, setTemplates] = useState<MessageTemplate[]>([])
@@ -82,30 +83,26 @@ export default function NewSessionModal({
       loadTemplatesForProfile(selectedProfileId)
       loadRecentMessages(selectedProfileId)
       
-      // プロファイル変更時にリポジトリサジェストも更新
-      let suggestions: string[] = [];
+      // プロファイル変更時に組織リストを更新
       const profile = ProfileManager.getProfile(selectedProfileId);
       if (profile) {
-        // 固定リポジトリリストが設定されている場合
-        if (profile.fixedRepositories && profile.fixedRepositories.length > 0) {
-          suggestions = profile.fixedRepositories;
-          // 最初のリポジトリを自動選択
-          if (!repository || !profile.fixedRepositories.includes(repository)) {
-            setRepository(profile.fixedRepositories[0]);
-            console.log('Auto-set first fixed repository for profile:', selectedProfileId, profile.fixedRepositories[0]);
+        if (profile.fixedOrganizations && profile.fixedOrganizations.length > 0) {
+          setAvailableOrganizations(profile.fixedOrganizations);
+          // 最初の組織を自動選択
+          if (!selectedOrganization || !profile.fixedOrganizations.includes(selectedOrganization)) {
+            setSelectedOrganization(profile.fixedOrganizations[0]);
+            console.log('Auto-set first fixed organization for profile:', selectedProfileId, profile.fixedOrganizations[0]);
           }
         } else {
-          // 固定リポジトリが設定されていない場合は履歴から
-          suggestions = profile.repositoryHistory.map(item => item.repository);
+          // 固定組織が設定されていない場合は履歴から組織リストを生成
+          const orgs = [...new Set(profile.repositoryHistory
+            .map(item => item.repository.split('/')[0])
+            .filter(org => org))];
+          setAvailableOrganizations(orgs);
         }
-        console.log('Updated repository suggestions for profile:', selectedProfileId, suggestions);
       }
-      if (suggestions.length === 0) {
-        suggestions = RepositoryHistory.getHistory().map(item => item.repository);
-      }
-      setRepositorySuggestions(suggestions);
     }
-  }, [selectedProfileId, repository])
+  }, [selectedProfileId, selectedOrganization])
 
   const loadTemplatesForProfile = async (profileId: string) => {
     if (!profileId) {
@@ -256,7 +253,9 @@ export default function NewSessionModal({
 
       const client = createAgentAPIClient(undefined, selectedProfileId)
       const currentMessage = initialMessage.trim()
-      const currentRepository = repository.trim()
+      const currentRepository = selectedOrganization && repositoryName.trim() 
+        ? `${selectedOrganization}/${repositoryName.trim()}`
+        : ''
       
       // 初期メッセージをキャッシュに追加
       InitialMessageCache.addMessage(currentMessage)
@@ -285,7 +284,8 @@ export default function NewSessionModal({
       
       // 入力値をクリアしてモーダルを閉じる
       setInitialMessage('')
-      setRepository('')
+      setSelectedOrganization('')
+      setRepositoryName('')
       setStatusMessage('')
       setIsCreating(false)
       onClose()
@@ -299,17 +299,22 @@ export default function NewSessionModal({
     }
   }
 
-  const handleRepositoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setRepository(e.target.value)
+  const handleOrganizationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedOrganization(e.target.value)
+  }
+
+  const handleRepositoryNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setRepositoryName(e.target.value)
   }
 
   const handleClose = () => {
     setInitialMessage('')
-    setRepository('')
+    setSelectedOrganization('')
+    setRepositoryName('')
     setSelectedProfileId('')
     setError(null)
     setStatusMessage('')
-    setRepositorySuggestions([])
+    setAvailableOrganizations([])
     setShowCachedMessages(false)
     setShowTemplates(false)
     onClose()
@@ -465,30 +470,53 @@ export default function NewSessionModal({
             )}
           </div>
 
-          <div>
-            <label htmlFor="repository" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              対象リポジトリ
-            </label>
-            <select
-              id="repository"
-              value={repository}
-              onChange={handleRepositoryChange}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              disabled={isCreating || repositorySuggestions.length === 0}
-              required
-            >
-              <option value="">リポジトリを選択してください</option>
-              {repositorySuggestions.map((suggestion, index) => (
-                <option key={index} value={suggestion}>
-                  {suggestion}
-                </option>
-              ))}
-            </select>
-            {repositorySuggestions.length === 0 && selectedProfileId && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                このプロファイルには利用可能なリポジトリが設定されていません。プロファイル設定で固定リポジトリを追加してください。
-              </p>
-            )}
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="organization" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                組織
+              </label>
+              <select
+                id="organization"
+                value={selectedOrganization}
+                onChange={handleOrganizationChange}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                disabled={isCreating || availableOrganizations.length === 0}
+                required
+              >
+                <option value="">組織を選択してください</option>
+                {availableOrganizations.map((org, index) => (
+                  <option key={index} value={org}>
+                    {org}
+                  </option>
+                ))}
+              </select>
+              {availableOrganizations.length === 0 && selectedProfileId && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  このプロファイルには利用可能な組織が設定されていません。プロファイル設定で固定組織を追加してください。
+                </p>
+              )}
+            </div>
+            
+            <div>
+              <label htmlFor="repositoryName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                リポジトリ名
+              </label>
+              <input
+                id="repositoryName"
+                type="text"
+                value={repositoryName}
+                onChange={handleRepositoryNameChange}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="リポジトリ名を入力"
+                disabled={isCreating || !selectedOrganization}
+                required
+              />
+              {selectedOrganization && repositoryName && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  対象リポジトリ: <span className="font-mono">{selectedOrganization}/{repositoryName}</span>
+                </p>
+              )}
+            </div>
           </div>
 
           {error && (
@@ -513,7 +541,7 @@ export default function NewSessionModal({
             </button>
             <button
               type="submit"
-              disabled={!initialMessage.trim() || isCreating}
+              disabled={!initialMessage.trim() || !selectedOrganization || !repositoryName.trim() || isCreating}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-md transition-colors"
             >
               {isCreating ? (

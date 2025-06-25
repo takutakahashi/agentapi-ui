@@ -54,7 +54,7 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
         icon: loadedProfile.icon,
         mainColor: loadedProfile.mainColor,
         systemPrompt: loadedProfile.systemPrompt,
-        fixedRepositories: loadedProfile.fixedRepositories || [],
+        fixedOrganizations: loadedProfile.fixedOrganizations || [],
         agentApiProxy: { ...loadedProfile.agentApiProxy },
         environmentVariables: [...loadedProfile.environmentVariables],
         isDefault: loadedProfile.isDefault,
@@ -120,25 +120,25 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
     }));
   };
 
-  const addFixedRepository = () => {
+  const addFixedOrganization = () => {
     setFormData(prev => ({
       ...prev,
-      fixedRepositories: [...(prev.fixedRepositories || []), '']
+      fixedOrganizations: [...(prev.fixedOrganizations || []), '']
     }));
   };
 
-  const removeFixedRepository = (index: number) => {
+  const removeFixedOrganization = (index: number) => {
     setFormData(prev => ({
       ...prev,
-      fixedRepositories: (prev.fixedRepositories || []).filter((_, i) => i !== index)
+      fixedOrganizations: (prev.fixedOrganizations || []).filter((_, i) => i !== index)
     }));
   };
 
-  const updateFixedRepository = (index: number, value: string) => {
+  const updateFixedOrganization = (index: number, value: string) => {
     setFormData(prev => ({
       ...prev,
-      fixedRepositories: (prev.fixedRepositories || []).map((repo, i) =>
-        i === index ? value : repo
+      fixedOrganizations: (prev.fixedOrganizations || []).map((org, i) =>
+        i === index ? value : org
       )
     }));
   };
@@ -217,41 +217,41 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Fixed Repositories
+                  Fixed Organizations
                 </label>
                 <button
                   type="button"
-                  onClick={addFixedRepository}
+                  onClick={addFixedOrganization}
                   className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition-colors"
                 >
-                  Add Repository
+                  Add Organization
                 </button>
               </div>
               <div className="space-y-2">
-                {(formData.fixedRepositories || []).map((repo, index) => (
+                {(formData.fixedOrganizations || []).map((org, index) => (
                   <div key={index} className="flex gap-2 items-center">
                     <input
                       type="text"
-                      value={repo}
-                      onChange={(e) => updateFixedRepository(index, e.target.value)}
+                      value={org}
+                      onChange={(e) => updateFixedOrganization(index, e.target.value)}
                       className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                      placeholder="例: owner/repository-name"
+                      placeholder="例: owner"
                     />
                     <button
                       type="button"
-                      onClick={() => removeFixedRepository(index)}
+                      onClick={() => removeFixedOrganization(index)}
                       className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded transition-colors"
                     >
                       ×
                     </button>
                   </div>
                 ))}
-                {(!formData.fixedRepositories || formData.fixedRepositories.length === 0) && (
-                  <div className="text-gray-500 dark:text-gray-400 text-sm">No fixed repositories configured</div>
+                {(!formData.fixedOrganizations || formData.fixedOrganizations.length === 0) && (
+                  <div className="text-gray-500 dark:text-gray-400 text-sm">No fixed organizations configured</div>
                 )}
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                このプロファイルで使用できるリポジトリを指定します。指定すると、セッション作成時にこれらのリポジトリから選択できます。
+                このプロファイルで使用できる組織を指定します。指定すると、セッション作成時にこれらの組織から選択し、リポジトリ名を自由に入力できます。
               </p>
             </div>
 
