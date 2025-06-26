@@ -13,33 +13,32 @@ export interface EnvironmentVariable {
 
 export interface RepositorySettings {
   repoFullname: string
-  agentApiProxy: AgentApiProxySettings
   environmentVariables: EnvironmentVariable[]
   created_at: string
   updated_at: string
 }
 
 export interface GlobalSettings {
-  agentApiProxy: AgentApiProxySettings
   environmentVariables: EnvironmentVariable[]
   created_at: string
   updated_at: string
 }
 
 export interface SettingsFormData {
-  agentApiProxy: AgentApiProxySettings
   environmentVariables: EnvironmentVariable[]
 }
 
 // Default settings
 export const getDefaultSettings = (): SettingsFormData => ({
-  agentApiProxy: {
-    endpoint: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
-    enabled: true,
-    timeout: 30000,
-    apiKey: ''
-  },
   environmentVariables: []
+})
+
+// Default proxy settings for profiles
+export const getDefaultProxySettings = (): AgentApiProxySettings => ({
+  endpoint: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
+  enabled: true,
+  timeout: 30000,
+  apiKey: ''
 })
 
 // Global settings utilities
@@ -121,12 +120,6 @@ export const saveRepositorySettings = (repoFullname: string, settings: SettingsF
 // Safely merge partial settings with defaults to ensure all properties exist
 const mergeWithDefaults = (partialSettings: Partial<SettingsFormData> | null | undefined, defaultSettings: SettingsFormData): SettingsFormData => {
   return {
-    agentApiProxy: {
-      endpoint: partialSettings?.agentApiProxy?.endpoint ?? defaultSettings.agentApiProxy.endpoint,
-      enabled: partialSettings?.agentApiProxy?.enabled ?? defaultSettings.agentApiProxy.enabled,
-      timeout: partialSettings?.agentApiProxy?.timeout ?? defaultSettings.agentApiProxy.timeout,
-      apiKey: partialSettings?.agentApiProxy?.apiKey ?? defaultSettings.agentApiProxy.apiKey
-    },
     environmentVariables: Array.isArray(partialSettings?.environmentVariables) 
       ? partialSettings.environmentVariables 
       : defaultSettings.environmentVariables
@@ -136,10 +129,6 @@ const mergeWithDefaults = (partialSettings: Partial<SettingsFormData> | null | u
 // Merge settings with hierarchy: global settings as base, repo settings as overrides
 const mergeSettings = (globalSettings: SettingsFormData, repoSettings: SettingsFormData): SettingsFormData => {
   return {
-    agentApiProxy: {
-      ...globalSettings.agentApiProxy,
-      ...(repoSettings.agentApiProxy || {})
-    },
     environmentVariables: [
       ...(globalSettings.environmentVariables || []),
       ...(repoSettings.environmentVariables || []).filter(repoVar => 

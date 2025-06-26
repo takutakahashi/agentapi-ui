@@ -13,7 +13,7 @@ import {
   AgentListResponse,
   AgentListParams
 } from '../types/agentapi';
-import { loadGlobalSettings, loadRepositorySettings } from '../types/settings';
+import { loadGlobalSettings, getDefaultProxySettings } from '../types/settings';
 import { ProfileManager } from '../utils/profileManager';
 
 // Define local AgentStatus type
@@ -467,13 +467,14 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
       }
     }
     
-    // If still no settings, fall back to repository/global settings
+    // If still no settings, fall back to default proxy settings
     if (!settings) {
-      if (repoFullname) {
-        settings = loadRepositorySettings(repoFullname);
-      } else {
-        settings = loadGlobalSettings();
-      }
+      const defaultProxySettings = getDefaultProxySettings();
+      const globalSettings = loadGlobalSettings();
+      settings = {
+        agentApiProxy: defaultProxySettings,
+        environmentVariables: globalSettings.environmentVariables
+      };
     }
     
     // Use proxy configuration
