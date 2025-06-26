@@ -101,6 +101,38 @@ function extractPRUrls(text: string): string[] {
   return result;
 }
 
+function extractClaudeLoginUrls(text: string): string[] {
+  if (!text || typeof text !== 'string') return [];
+  
+  // Claude Code OAuth URLのパターン
+  // https://claude.ai/oauth/authorize?code=true&client_id=...&...
+  const claudeLoginRegex = /https?:\/\/claude\.ai\/oauth\/authorize\?[^\s]+/g;
+  const matches = text.match(claudeLoginRegex);
+  
+  // URLが改行で分割されている可能性があるため、改行を除去して再検索
+  const textWithoutBreaks = text.replace(/\s+/g, '');
+  const matchesWithoutBreaks = textWithoutBreaks.match(claudeLoginRegex);
+  
+  // 両方の結果をマージ
+  const allMatches = [...(matches || []), ...(matchesWithoutBreaks || [])];
+  
+  // 有効なClaude OAuth URLかを検証
+  const validClaudeUrls = allMatches.filter(url => {
+    const cleanUrl = url.replace(/\s+/g, '');
+    return cleanUrl.includes('client_id=') && cleanUrl.includes('response_type=code');
+  });
+  
+  const result = Array.from(new Set(validClaudeUrls.map(url => url.replace(/\s+/g, '')))); // 重複を除去し、改行を除去
+  
+  // デバッグ用ログ
+  if (text.includes('claude.ai/oauth')) {
+    console.log('Claude ログインURL検索対象:', text);
+    console.log('検出されたClaude ログインURL:', result);
+  }
+  
+  return result;
+}
+
 function formatTextWithLinks(text: string): JSX.Element {
   if (!text || typeof text !== 'string') {
     return <>{text || ''}</>;
@@ -236,6 +268,8 @@ export default function AgentAPIChat() {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showPRLinks, setShowPRLinks] = useState(false);
   const [prLinks, setPRLinks] = useState<string[]>([]);
+  const [showClaudeLogins, setShowClaudeLogins] = useState(false);
+  const [claudeLoginUrls, setClaudeLoginUrls] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
@@ -397,6 +431,16 @@ export default function AgentAPIChat() {
     // 重複を除去してステートを更新
     const uniquePRUrls = Array.from(new Set(allPRUrls));
     setPRLinks(uniquePRUrls);
+    
+    // Claude ログインURLを抽出してリストに追加
+    const allClaudeLoginUrls = messages.reduce((urls: string[], message) => {
+      const claudeUrls = extractClaudeLoginUrls(message.content);
+      return [...urls, ...claudeUrls];
+    }, []);
+    
+    // 重複を除去してステートを更新
+    const uniqueClaudeUrls = Array.from(new Set(allClaudeLoginUrls));
+    setClaudeLoginUrls(uniqueClaudeUrls);
     
     prevMessagesLengthRef.current = currentLength;
   }, [messages, shouldAutoScroll]);
@@ -631,6 +675,22 @@ export default function AgentAPIChat() {
               {prLinks.length > 0 && (
                 <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                   {prLinks.length}
+                </span>
+              )}
+            </button>
+
+            {/* Claude Login Button */}
+            <button
+              onClick={() => setShowClaudeLogins(!showClaudeLogins)}
+              className="p-2 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors relative"
+              title={`Claude ログイン (${claudeLoginUrls.length}個)`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              {claudeLoginUrls.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {claudeLoginUrls.length}
                 </span>
               )}
             </button>
@@ -1085,6 +1145,80 @@ export default function AgentAPIChat() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                   </svg>
                   <p className="text-sm">プルリクエストのURLが見つかりませんでした</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Claude Login URLs Modal */}
+      {showClaudeLogins && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Claude ログインURL一覧 ({claudeLoginUrls.length}個)
+                </h2>
+                <button
+                  onClick={() => setShowClaudeLogins(false)}
+                  className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div className="overflow-y-auto max-h-[calc(80vh-8rem)] px-6 py-4">
+              {claudeLoginUrls.length > 0 ? (
+                <div className="space-y-3">
+                  {claudeLoginUrls.map((url, index) => {
+                    // URLからclient_idを抽出
+                    const urlParams = new URLSearchParams(url.split('?')[1] || '');
+                    const clientId = urlParams.get('client_id') || '';
+                    const state = urlParams.get('state') || '';
+                    const shortClientId = clientId.substring(0, 8);
+                    const shortState = state.substring(0, 8);
+                    
+                    return (
+                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+                        <div className="flex-1 min-w-0 mr-3">
+                          <div className="flex items-center">
+                            <svg className="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">
+                              Claude OAuth認証
+                            </span>
+                          </div>
+                          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Client ID: {shortClientId}... | State: {shortState}...
+                          </div>
+                        </div>
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
+                        >
+                          <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          ログイン
+                        </a>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <svg className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-sm">Claude ログインURLが見つかりませんでした</p>
                 </div>
               )}
             </div>
