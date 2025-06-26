@@ -686,37 +686,37 @@ export default function AgentAPIChat() {
               </button>
             )}
 
-            {/* PR Links Button */}
-            <button
-              onClick={() => setShowPRLinks(!showPRLinks)}
-              className="p-2 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-200 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-md transition-colors relative"
-              title={`プルリクエスト (${prLinks.length}個)`}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-              </svg>
-              {prLinks.length > 0 && (
+            {/* PR Links Button - 必要なときだけ表示 */}
+            {prLinks.length > 0 && (
+              <button
+                onClick={() => setShowPRLinks(!showPRLinks)}
+                className="p-2 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-200 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-md transition-colors relative"
+                title={`プルリクエスト (${prLinks.length}個)`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
                 <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                   {prLinks.length}
                 </span>
-              )}
-            </button>
+              </button>
+            )}
 
-            {/* Claude Login Button */}
-            <button
-              onClick={() => setShowClaudeLogins(!showClaudeLogins)}
-              className="p-2 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors relative"
-              title={`Claude ログイン (${claudeLoginUrls.length}個)`}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              {claudeLoginUrls.length > 0 && (
+            {/* Claude Login Button - 必要なときだけ表示 */}
+            {claudeLoginUrls.length > 0 && (
+              <button
+                onClick={() => setShowClaudeLogins(!showClaudeLogins)}
+                className="p-2 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors relative"
+                title={`Claude ログイン (${claudeLoginUrls.length}個)`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
                 <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                   {claudeLoginUrls.length}
                 </span>
-              )}
-            </button>
+              </button>
+            )}
 
             {/* Settings Navigation Button */}
             <button
