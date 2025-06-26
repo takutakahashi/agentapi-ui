@@ -279,58 +279,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
         }
 
         // Helper function to get mock sessions
-        const getMockSessionsLocal = (): Session[] => [
-          {
-            session_id: 'session-001',
-            user_id: 'user-alice',
-            status: 'active',
-            created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-            updated_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-            environment: {
-              GITHUB_TOKEN: '***',
-              WORKSPACE_NAME: 'code-review-project'
-            },
-            metadata: {
-              description: 'コードレビューセッションでReactアーキテクチャについて議論し、最適化の提案を行っています。',
-              project_type: 'frontend',
-              technology: 'React',
-              repository: 'owner/react-project'
-            }
-          },
-          {
-            session_id: 'session-002',
-            user_id: 'user-bob',
-            status: 'active',
-            created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-            updated_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-            environment: {
-              GITHUB_TOKEN: '***',
-              WORKSPACE_NAME: 'api-integration-help'
-            },
-            metadata: {
-              description: 'REST API統合の支援を行っています',
-              project_type: 'backend',
-              technology: 'Node.js',
-              repository: 'owner/api-project'
-            }
-          },
-          {
-            session_id: 'session-003',
-            user_id: 'user-charlie',
-            status: 'error',
-            created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-            updated_at: new Date(Date.now() - 22 * 60 * 60 * 1000).toISOString(),
-            environment: {
-              GITHUB_TOKEN: '***',
-              WORKSPACE_NAME: 'database-design'
-            },
-            metadata: {
-              description: 'データベーススキーマ設計セッション',
-              project_type: 'database',
-              technology: 'PostgreSQL'
-            }
-          }
-        ]
+        const getMockSessionsLocal = (): Session[] => []
 
         // Helper function to fetch session statuses with specific client
         const fetchSessionStatusesInitialWithClient = async (sessionList: Session[], client: AgentAPIProxyClient) => {
