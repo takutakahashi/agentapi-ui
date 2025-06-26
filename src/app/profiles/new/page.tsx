@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProfileManager } from '../../../utils/profileManager';
 import { CreateProfileRequest } from '../../../types/profile';
-import { getDefaultSettings } from '../../../types/settings';
+import { getDefaultSettings, getDefaultProxySettings } from '../../../types/settings';
 
 const EMOJI_OPTIONS = ['⚙️', '🔧', '💼', '🏠', '🏢', '🚀', '💻', '🔬', '🎯', '⭐', '🌟', '💡'];
 
@@ -28,13 +28,14 @@ export default function NewProfilePage() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<CreateProfileRequest>(() => {
     const defaultSettings = getDefaultSettings();
+    const defaultProxySettings = getDefaultProxySettings();
     return {
       name: '',
       description: '',
       icon: '⚙️',
       mainColor: COLOR_OPTIONS[0],
       fixedOrganizations: [],
-      agentApiProxy: defaultSettings.agentApiProxy,
+      agentApiProxy: defaultProxySettings,
       environmentVariables: defaultSettings.environmentVariables,
       isDefault: false,
     };

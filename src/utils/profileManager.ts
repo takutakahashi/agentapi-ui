@@ -1,5 +1,5 @@
 import { Profile, ProfileListItem, CreateProfileRequest, UpdateProfileRequest } from '../types/profile';
-import { loadGlobalSettings, getDefaultSettings } from '../types/settings';
+import { loadGlobalSettings, getDefaultSettings, getDefaultProxySettings } from '../types/settings';
 import { v4 as uuidv4 } from 'uuid';
 
 const PROFILES_LIST_KEY = 'agentapi-profiles-list';
@@ -278,13 +278,14 @@ export class ProfileManager {
     }
 
     const globalSettings = loadGlobalSettings();
+    const defaultProxySettings = getDefaultProxySettings();
     
     this.createProfile({
       name: 'Default',
       description: 'Migrated from existing settings',
       icon: '⚙️',
       fixedOrganizations: [],
-      agentApiProxy: globalSettings.agentApiProxy,
+      agentApiProxy: defaultProxySettings,
       environmentVariables: globalSettings.environmentVariables,
       isDefault: true,
     });
@@ -468,13 +469,14 @@ export class ProfileManager {
 
   private static createDefaultProfile(): Profile {
     const defaultSettings = getDefaultSettings();
+    const defaultProxySettings = getDefaultProxySettings();
     
     return this.createProfile({
       name: 'Default',
       description: 'Default profile',
       icon: '⚙️',
       fixedOrganizations: [],
-      agentApiProxy: defaultSettings.agentApiProxy,
+      agentApiProxy: defaultProxySettings,
       environmentVariables: defaultSettings.environmentVariables,
       isDefault: true,
     });

@@ -1,5 +1,6 @@
 import { Chat, ChatListResponse } from '../types/chat'
-import { loadGlobalSettings } from '../types/settings'
+import { getDefaultProxySettings } from '../types/settings'
+import { ProfileManager } from '../utils/profileManager'
 import { StatisticsData } from '../types/statistics'
 import { createAgentAPIProxyClientFromStorage } from './agentapi-proxy-client'
 
@@ -15,10 +16,20 @@ function getAPIConfig(): { baseURL: string; apiKey?: string } {
   }
   
   try {
-    const settings = loadGlobalSettings();
+    // Try to get proxy settings from current profile
+    const currentProfile = ProfileManager.getDefaultProfile();
+    if (currentProfile) {
+      return {
+        baseURL: currentProfile.agentApiProxy.endpoint || process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
+        apiKey: currentProfile.agentApiProxy.apiKey || process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
+      };
+    }
+    
+    // Fall back to default proxy settings
+    const defaultProxySettings = getDefaultProxySettings();
     return {
-      baseURL: settings.agentApiProxy.endpoint || process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
-      apiKey: settings.agentApiProxy.apiKey || process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
+      baseURL: defaultProxySettings.endpoint || process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
+      apiKey: defaultProxySettings.apiKey || process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
     };
   } catch (error) {
     console.warn('Failed to load settings from storage for chat API, using environment variables:', error);

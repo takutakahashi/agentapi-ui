@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { SettingsFormData, loadGlobalSettings, saveGlobalSettings } from '../../types/settings'
-import type { AgentApiProxySettings, EnvironmentVariable } from '../../types/settings'
+import type { EnvironmentVariable } from '../../types/settings'
 
 export default function GlobalSettingsPage() {
   const [settings, setSettings] = useState<SettingsFormData>(loadGlobalSettings())
@@ -41,15 +41,6 @@ export default function GlobalSettingsPage() {
     }
   }
 
-  const updateAgentApiProxySetting = (key: keyof AgentApiProxySettings, value: string | number | boolean) => {
-    setSettings(prev => ({
-      ...prev,
-      agentApiProxy: {
-        ...prev.agentApiProxy,
-        [key]: value
-      }
-    }))
-  }
 
   const addEnvironmentVariable = () => {
     setSettings(prev => ({
@@ -86,88 +77,19 @@ export default function GlobalSettingsPage() {
             Global Settings
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-1">
-            Configure AgentAPI Proxy settings and environment variables
+            Configure global environment variables
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-500">
-            These settings will be used as defaults for all repositories. Individual repository settings can override these values.
+            These settings will be used as defaults for all repositories and profiles. Individual repository settings can override these values.
           </p>
         </div>
 
         <div className="space-y-8">
-          {/* AgentAPI Proxy Configuration */}
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              AgentAPI Proxy Configuration
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Configure the AgentAPI proxy for session management and routing. When enabled, sessions will be managed through the proxy.
-            </p>
-            
-            <div className="space-y-4">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="proxy-enabled"
-                  checked={settings.agentApiProxy.enabled}
-                  onChange={(e) => updateAgentApiProxySetting('enabled', e.target.checked)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label htmlFor="proxy-enabled" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                  Enable AgentAPI Proxy
-                </label>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Proxy Endpoint
-                </label>
-                <input
-                  type="url"
-                  value={settings.agentApiProxy.endpoint}
-                  onChange={(e) => updateAgentApiProxySetting('endpoint', e.target.value)}
-                  placeholder="http://localhost:8080"
-                  disabled={!settings.agentApiProxy.enabled}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  API Key
-                </label>
-                <input
-                  type="password"
-                  value={settings.agentApiProxy.apiKey}
-                  onChange={(e) => updateAgentApiProxySetting('apiKey', e.target.value)}
-                  placeholder="Enter your API key"
-                  disabled={!settings.agentApiProxy.enabled}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Request Timeout (ms)
-                </label>
-                <input
-                  type="number"
-                  value={settings.agentApiProxy.timeout}
-                  onChange={(e) => updateAgentApiProxySetting('timeout', parseInt(e.target.value) || 30000)}
-                  min="1000"
-                  max="300000"
-                  disabled={!settings.agentApiProxy.enabled}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
-                />
-              </div>
-
-            </div>
-          </div>
-
           {/* Environment Variables */}
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Default Environment Variables
+                Global Environment Variables
               </h2>
               <button
                 onClick={addEnvironmentVariable}
