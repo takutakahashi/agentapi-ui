@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { ProfileManager } from '../../utils/profileManager'
 import { ProfileListItem } from '../../types/profile'
 import { useTheme } from '../../hooks/useTheme'
+import EditProfileModal from './EditProfileModal'
 
 interface TopBarProps {
   title: string
@@ -36,6 +37,8 @@ export default function TopBar({
   const [profiles, setProfiles] = useState<ProfileListItem[]>([])
   const [currentProfile, setCurrentProfile] = useState<ProfileListItem | null>(null)
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [selectedProfileId, setSelectedProfileId] = useState<string>('')
 
   const loadProfiles = useCallback(() => {
     ProfileManager.migrateExistingSettings()
@@ -89,6 +92,21 @@ export default function TopBar({
     window.dispatchEvent(new CustomEvent('profileChanged', { detail: { profileId } }))
   }
 
+  const handleEditProfile = (profileId: string) => {
+    setSelectedProfileId(profileId)
+    setEditModalOpen(true)
+    setShowProfileDropdown(false)
+  }
+
+  const handleCloseEditModal = () => {
+    setEditModalOpen(false)
+    setSelectedProfileId('')
+  }
+
+  const handleProfileUpdated = () => {
+    loadProfiles()
+  }
+
   return (
     <div className="sticky top-0 z-40 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 relative">
       <div className="relative px-4 md:px-6 lg:px-8 py-3 md:py-4">
@@ -122,7 +140,7 @@ export default function TopBar({
                 </button>
                 
                 {showProfileDropdown && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg z-50">
+                  <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg z-50">
                     <div className="p-2">
                       <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 px-2">Switch Profile</div>
                       {profiles.map((profile) => (
@@ -150,6 +168,17 @@ export default function TopBar({
                         </button>
                       ))}
                       <hr className="my-2 border-gray-200 dark:border-gray-600" />
+                      {currentProfile && (
+                        <button
+                          onClick={() => {
+                            handleEditProfile(currentProfile.id)
+                            setShowProfileDropdown(false)
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
+                        >
+                          Edit Current Profile
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           router.push('/profiles')
@@ -211,6 +240,13 @@ export default function TopBar({
         {/* 追加コンテンツ */}
         {children && <div className="mt-3">{children}</div>}
       </div>
+
+      <EditProfileModal
+        isOpen={editModalOpen}
+        onClose={handleCloseEditModal}
+        profileId={selectedProfileId}
+        onProfileUpdated={handleProfileUpdated}
+      />
     </div>
   )
 }
