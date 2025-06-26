@@ -70,13 +70,30 @@ function convertSessionMessageId(id: string | number, fallbackId: number): numbe
 function extractPRUrls(text: string): string[] {
   if (!text || typeof text !== 'string') return [];
   
-  // GitHub PR URLのパターン（https://github.com/owner/repo/pull/number）
-  const prUrlRegex = /https?:\/\/github\.com\/[^\/\s]+\/[^\/\s]+\/pull\/\d+/g;
+  // GitHub/GitHub Enterprise PR URLのパターン
+  // 1. GitHub.com: https://github.com/owner/repo/pull/number
+  // 2. GitHub Enterprise: https://ghe.example.com/owner/repo/pull/number
+  // GitHub Enterpriseは任意のドメインで動作するため、より汎用的なパターンを使用
+  const prUrlRegex = /https?:\/\/[^\/\s]+\/[^\/\s]+\/[^\/\s]+\/pull\/\d+/g;
   const matches = text.match(prUrlRegex);
-  const result = matches ? Array.from(new Set(matches)) : []; // 重複を除去
+  
+  // URLがGitHub形式のPR URLかを検証
+  const validPRUrls = matches ? matches.filter(url => {
+    // URLのパスが /owner/repo/pull/number の形式であることを確認
+    const urlParts = url.split('/');
+    const hasPullPath = urlParts.length >= 7 && urlParts[urlParts.length - 2] === 'pull';
+    
+    // pull以降が数値であることを確認
+    const prNumber = urlParts[urlParts.length - 1];
+    const hasValidPRNumber = /^\d+$/.test(prNumber);
+    
+    return hasPullPath && hasValidPRNumber;
+  }) : [];
+  
+  const result = Array.from(new Set(validPRUrls)); // 重複を除去
   
   // デバッグ用ログ
-  if (text.includes('github.com') && text.includes('pull')) {
+  if (text.includes('pull')) {
     console.log('PR URL検索対象:', text);
     console.log('検出されたPR URL:', result);
   }
@@ -1009,10 +1026,19 @@ export default function AgentAPIChat() {
               {prLinks.length > 0 ? (
                 <div className="space-y-3">
                   {prLinks.map((url, index) => {
-                    // URLからリポジトリ名とPR番号を抽出
-                    const urlMatch = url.match(/github\.com\/([^\/]+\/[^\/]+)\/pull\/(\d+)/);
-                    const repoName = urlMatch ? urlMatch[1] : '';
-                    const prNumber = urlMatch ? urlMatch[2] : '';
+                    // URLからドメイン、リポジトリ名、PR番号を抽出
+                    const urlParts = url.split('/');
+                    const domain = urlParts[2]; // ドメイン名
+                    const prNumber = urlParts[urlParts.length - 1];
+                    
+                    // リポジトリ名を取得（owner/repo形式）
+                    const ownerIndex = urlParts.findIndex(part => part === 'pull') - 2;
+                    const owner = urlParts[ownerIndex] || '';
+                    const repo = urlParts[ownerIndex + 1] || '';
+                    const repoName = owner && repo ? `${owner}/${repo}` : '';
+                    
+                    // GitHub.com以外の場合はドメイン名も表示
+                    const isGitHubCom = domain === 'github.com';
                     
                     return (
                       <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
@@ -1021,6 +1047,9 @@ export default function AgentAPIChat() {
                             {repoName}
                           </div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {!isGitHubCom && (
+                              <span className="text-purple-600 dark:text-purple-400">{domain} • </span>
+                            )}
                             プルリクエスト #{prNumber}
                           </div>
                         </div>
