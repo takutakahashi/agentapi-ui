@@ -5,10 +5,13 @@ import { ProfileManager } from '../../utils/profileManager';
 import { ProfileListItem } from '../../types/profile';
 import Link from 'next/link';
 import { useTheme } from '../../hooks/useTheme';
+import EditProfileModal from '../components/EditProfileModal';
 
 export default function ProfilesPage() {
   const [profiles, setProfiles] = useState<ProfileListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedProfileId, setSelectedProfileId] = useState<string>('');
   const { updateThemeFromProfile } = useTheme();
 
   useEffect(() => {
@@ -106,6 +109,20 @@ export default function ProfilesPage() {
     input.click();
   };
 
+  const handleEditProfile = (profileId: string) => {
+    setSelectedProfileId(profileId);
+    setEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setEditModalOpen(false);
+    setSelectedProfileId('');
+  };
+
+  const handleProfileUpdated = () => {
+    loadProfiles();
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-dvh">
@@ -186,12 +203,12 @@ export default function ProfilesPage() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Link
-                  href={`/profiles/${profile.id}/edit`}
+                <button
+                  onClick={() => handleEditProfile(profile.id)}
                   className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-3 py-2 rounded text-center text-sm transition-colors"
                 >
-                  Edit
-                </Link>
+                  編集
+                </button>
                 <Link
                   href={`/profiles/templates?profileId=${profile.id}`}
                   className="bg-main-color-bg hover:bg-main-color text-main-color hover:text-white px-3 py-2 rounded text-center text-sm transition-colors"
@@ -224,6 +241,13 @@ export default function ProfilesPage() {
           ))}
         </div>
       )}
+
+      <EditProfileModal
+        isOpen={editModalOpen}
+        onClose={handleCloseEditModal}
+        profileId={selectedProfileId}
+        onProfileUpdated={handleProfileUpdated}
+      />
     </div>
   );
 }
