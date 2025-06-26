@@ -10,6 +10,7 @@ import { messageTemplateManager } from '../../utils/messageTemplateManager'
 import { MessageTemplate } from '../../types/messageTemplate'
 import { recentMessagesManager } from '../../utils/recentMessagesManager'
 import { OrganizationHistory } from '../../utils/organizationHistory'
+import EditProfileModal from './EditProfileModal'
 
 interface NewSessionModalProps {
   isOpen: boolean
@@ -41,6 +42,8 @@ export default function NewSessionModal({
   const [availableOrganizations, setAvailableOrganizations] = useState<string[]>([])
   const [cachedMessages, setCachedMessages] = useState<string[]>([])
   const [showCachedMessages, setShowCachedMessages] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editProfileId, setEditProfileId] = useState<string>('')
   const [templates, setTemplates] = useState<MessageTemplate[]>([])
   const [showTemplates, setShowTemplates] = useState(false)
   const [recentMessages, setRecentMessages] = useState<string[]>([])
@@ -436,6 +439,20 @@ export default function NewSessionModal({
     setShowFreeFormRepositorySuggestions(false)
   }
 
+  const handleEditProfile = (profileId: string) => {
+    setEditProfileId(profileId)
+    setEditModalOpen(true)
+  }
+
+  const handleCloseEditModal = () => {
+    setEditModalOpen(false)
+    setEditProfileId('')
+  }
+
+  const handleProfileUpdated = () => {
+    loadProfiles()
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-lg mx-4">
@@ -482,15 +499,15 @@ export default function NewSessionModal({
                   ))
                 )}
               </select>
-              <a
-                href="/profiles"
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => handleEditProfile(selectedProfileId)}
                 className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors"
-                title="Manage Profiles"
+                title="プロファイルを編集"
+                disabled={!selectedProfileId}
               >
                 ⚙️
-              </a>
+              </button>
             </div>
           </div>
 
@@ -793,6 +810,13 @@ export default function NewSessionModal({
           </div>
         </div>
       )}
+
+      <EditProfileModal
+        isOpen={editModalOpen}
+        onClose={handleCloseEditModal}
+        profileId={editProfileId}
+        onProfileUpdated={handleProfileUpdated}
+      />
     </div>
   )
 }

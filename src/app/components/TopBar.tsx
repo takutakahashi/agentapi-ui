@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { ProfileManager } from '../../utils/profileManager'
 import { ProfileListItem } from '../../types/profile'
 import { useTheme } from '../../hooks/useTheme'
+import EditProfileModal from './EditProfileModal'
 
 interface TopBarProps {
   title: string
@@ -36,6 +37,8 @@ export default function TopBar({
   const [profiles, setProfiles] = useState<ProfileListItem[]>([])
   const [currentProfile, setCurrentProfile] = useState<ProfileListItem | null>(null)
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [selectedProfileId, setSelectedProfileId] = useState<string>('')
 
   const loadProfiles = useCallback(() => {
     ProfileManager.migrateExistingSettings()
@@ -89,6 +92,21 @@ export default function TopBar({
     window.dispatchEvent(new CustomEvent('profileChanged', { detail: { profileId } }))
   }
 
+  const handleEditProfile = (profileId: string) => {
+    setSelectedProfileId(profileId)
+    setEditModalOpen(true)
+    setShowProfileDropdown(false)
+  }
+
+  const handleCloseEditModal = () => {
+    setEditModalOpen(false)
+    setSelectedProfileId('')
+  }
+
+  const handleProfileUpdated = () => {
+    loadProfiles()
+  }
+
   return (
     <div className="sticky top-0 z-40 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 relative">
       <div className="relative px-4 md:px-6 lg:px-8 py-3 md:py-4">
@@ -126,28 +144,36 @@ export default function TopBar({
                     <div className="p-2">
                       <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 px-2">Switch Profile</div>
                       {profiles.map((profile) => (
-                        <button
-                          key={profile.id}
-                          onClick={() => handleProfileSwitch(profile.id)}
-                          className={`w-full text-left px-3 py-2 rounded-md transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                            currentProfile?.id === profile.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                          }`}
-                        >
-                          <div className="flex items-center">
-                            <span className="mr-2">{profile.icon || '⚙️'}</span>
-                            <div className="flex-1">
-                              <div className="font-medium text-sm">{profile.name}</div>
-                              {profile.description && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400">{profile.description}</div>
+                        <div key={profile.id} className="flex items-center group">
+                          <button
+                            onClick={() => handleProfileSwitch(profile.id)}
+                            className={`flex-1 text-left px-3 py-2 rounded-md transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                              currentProfile?.id === profile.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                            }`}
+                          >
+                            <div className="flex items-center">
+                              <span className="mr-2">{profile.icon || '⚙️'}</span>
+                              <div className="flex-1">
+                                <div className="font-medium text-sm">{profile.name}</div>
+                                {profile.description && (
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">{profile.description}</div>
+                                )}
+                              </div>
+                              {profile.isDefault && (
+                                <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-1 rounded">
+                                  Default
+                                </span>
                               )}
                             </div>
-                            {profile.isDefault && (
-                              <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-1 rounded">
-                                Default
-                              </span>
-                            )}
-                          </div>
-                        </button>
+                          </button>
+                          <button
+                            onClick={() => handleEditProfile(profile.id)}
+                            className="opacity-0 group-hover:opacity-100 ml-1 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-all"
+                            title="プロファイルを編集"
+                          >
+                            ✏️
+                          </button>
+                        </div>
                       ))}
                       <hr className="my-2 border-gray-200 dark:border-gray-600" />
                       <button
@@ -211,6 +237,13 @@ export default function TopBar({
         {/* 追加コンテンツ */}
         {children && <div className="mt-3">{children}</div>}
       </div>
+
+      <EditProfileModal
+        isOpen={editModalOpen}
+        onClose={handleCloseEditModal}
+        profileId={selectedProfileId}
+        onProfileUpdated={handleProfileUpdated}
+      />
     </div>
   )
 }
