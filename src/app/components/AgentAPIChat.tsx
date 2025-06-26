@@ -11,8 +11,6 @@ import { useBackgroundAwareInterval } from '../hooks/usePageVisibility';
 import { messageTemplateManager } from '../../utils/messageTemplateManager';
 import { MessageTemplate } from '../../types/messageTemplate';
 import { recentMessagesManager } from '../../utils/recentMessagesManager';
-import { messageQueue } from '@/lib/messageQueue';
-import MessageQueueStatus from './MessageQueueStatus';
 
 // Define local types for message and agent status
 interface Message {
@@ -188,8 +186,6 @@ export default function AgentAPIChat() {
       const client = createAgentAPIProxyClientFromStorage(undefined, currentProfile.id);
       setAgentAPI(client);
       agentAPIRef.current = client;
-      // Set client to message queue
-      messageQueue.setAgentAPIClient(client);
     }
   }, [currentProfile, agentAPI]);
   
@@ -258,6 +254,7 @@ export default function AgentAPIChat() {
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -452,51 +449,67 @@ export default function AgentAPIChat() {
     const messageContent = content || inputValue.trim();
     
     if (!messageContent && messageType === 'user') return;
-    if (!isConnected) return;
+    if (isLoading || !isConnected) return;
     
     if (agentStatus?.status === 'running' && messageType === 'user') {
       setError('Agent is currently running. Please wait for it to become stable.');
       return;
     }
 
+    setIsLoading(true);
     setError(null);
 
     try {
       if (sessionId) {
-        // Add message to queue for background processing
-        messageQueue.addMessage(sessionId, messageContent);
-        
-        // For user messages, immediately add to display (optimistic UI)
+        // Send message via session
+        if (!agentAPIRef.current) {
+          setError('AgentAPI client not available');
+          return;
+        }
+        const sessionMessage = await agentAPIRef.current.sendSessionMessage(sessionId, {
+          content: messageContent,
+          type: messageType
+        });
+
+        // For user messages, convert to Message format and add to display
         if (messageType === 'user') {
-          const optimisticMessage: Message = {
-            id: Date.now(), // Temporary ID
-            role: 'user',
-            content: messageContent,
-            timestamp: new Date().toISOString()
+          const convertedMessage: Message = {
+            id: convertSessionMessageId(sessionMessage.id, Date.now()), // Safe ID conversion
+            role: sessionMessage.role === 'assistant' ? 'agent' : (sessionMessage.role === 'system' ? 'agent' : sessionMessage.role as 'user' | 'agent'),
+            content: sessionMessage.content,
+            timestamp: sessionMessage.timestamp
           };
-          
-          setMessages(prev => [...prev, optimisticMessage]);
-          
-          // Save to recent messages
-          if (currentProfile) {
-            await recentMessagesManager.saveMessage(currentProfile.id, messageContent);
-            await loadRecentMessages();
-          }
-          
-          setInputValue('');
-          // メッセージ送信時は必ずスクロール
-          setShouldAutoScroll(true);
-          setTimeout(() => scrollToBottom(), 100);
+
+          setMessages(prev => [...prev, convertedMessage]);
         }
       } else {
         setError('No session ID available. Cannot send message.');
         return;
       }
+      
+      if (messageType === 'user') {
+        // 最近のメッセージに保存
+        if (currentProfile) {
+          await recentMessagesManager.saveMessage(currentProfile.id, messageContent);
+          await loadRecentMessages();
+        }
+        
+        setInputValue('');
+        // メッセージ送信時は必ずスクロール
+        setShouldAutoScroll(true);
+        setTimeout(() => scrollToBottom(), 100);
+      }
     } catch (err) {
-      console.error('Failed to queue message:', err);
-      setError('Failed to queue message for sending');
+      console.error('Failed to send message:', err);
+      if (err instanceof AgentAPIProxyError) {
+        setError(`Failed to send message: ${err.message} (Session: ${sessionId})`);
+      } else {
+        setError('Failed to send message');
+      }
+    } finally {
+      setIsLoading(false);
     }
-  }, [inputValue, isConnected, sessionId, agentStatus, currentProfile, loadRecentMessages]);
+  }, [inputValue, isLoading, isConnected, sessionId, agentStatus, currentProfile, loadRecentMessages]);
 
   const sendStopSignal = () => {
     // Send ESC key (raw message)
@@ -609,7 +622,7 @@ export default function AgentAPIChat() {
             {agentStatus?.status === 'running' && (
               <button
                 onClick={sendStopSignal}
-                disabled={!isConnected}
+                disabled={!isConnected || isLoading}
                 className="px-2 sm:px-3 py-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white text-xs sm:text-sm rounded-md transition-colors disabled:cursor-not-allowed flex items-center space-x-1"
                 title="Force Stop (ESC)"
               >
@@ -700,9 +713,6 @@ export default function AgentAPIChat() {
             {error}
           </div>
         )}
-        
-        {/* Message Queue Status */}
-        <MessageQueueStatus className="mt-4" />
         
       </div>
 
@@ -819,7 +829,7 @@ export default function AgentAPIChat() {
               {/* Arrow Up Button */}
               <button
                 onClick={sendArrowUp}
-                disabled={!isConnected}
+                disabled={!isConnected || isLoading}
                 className="px-2 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white text-xs rounded-md transition-colors disabled:cursor-not-allowed flex items-center space-x-1"
                 title="Send Up Arrow Key"
               >
@@ -832,7 +842,7 @@ export default function AgentAPIChat() {
               {/* Arrow Down Button */}
               <button
                 onClick={sendArrowDown}
-                disabled={!isConnected}
+                disabled={!isConnected || isLoading}
                 className="px-2 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white text-xs rounded-md transition-colors disabled:cursor-not-allowed flex items-center space-x-1"
                 title="Send Down Arrow Key"
               >
@@ -845,7 +855,7 @@ export default function AgentAPIChat() {
               {/* Enter Button */}
               <button
                 onClick={sendEnterKey}
-                disabled={!isConnected}
+                disabled={!isConnected || isLoading}
                 className="px-2 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white text-xs rounded-md transition-colors disabled:cursor-not-allowed flex items-center space-x-1"
                 title="Send Enter Key"
               >
@@ -858,7 +868,7 @@ export default function AgentAPIChat() {
               {/* ESC Button (existing functionality) */}
               <button
                 onClick={sendStopSignal}
-                disabled={!isConnected}
+                disabled={!isConnected || isLoading}
                 className="px-2 py-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white text-xs rounded-md transition-colors disabled:cursor-not-allowed flex items-center space-x-1"
                 title="Send ESC Key (Force Stop)"
               >
@@ -899,7 +909,7 @@ export default function AgentAPIChat() {
               }
               className="w-full resize-none border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px]"
               rows={3}
-              disabled={!isConnected || agentStatus?.status === 'running'}
+              disabled={!isConnected || isLoading || agentStatus?.status === 'running'}
             />
             {showTemplates && templates.length > 0 && (
               <div className="absolute z-50 w-full bottom-full mb-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
@@ -947,7 +957,7 @@ export default function AgentAPIChat() {
                 {/* Template Button */}
                 <button
                   onClick={() => setShowTemplateModal(true)}
-                  disabled={!isConnected}
+                  disabled={!isConnected || isLoading}
                   className="px-2 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white text-xs rounded-md transition-colors disabled:cursor-not-allowed flex items-center"
                   title="テンプレートから選択"
                 >
@@ -958,10 +968,10 @@ export default function AgentAPIChat() {
                 
                 <button
                   onClick={() => sendMessage()}
-                  disabled={!isConnected || !inputValue.trim() || agentStatus?.status === 'running'}
+                  disabled={!isConnected || isLoading || !inputValue.trim() || agentStatus?.status === 'running'}
                   className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-sm font-medium"
                 >
-                  Comment
+                  {isLoading ? 'Sending...' : 'Comment'}
                 </button>
               </div>
             </div>
