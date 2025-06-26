@@ -73,7 +73,15 @@ function extractPRUrls(text: string): string[] {
   // GitHub PR URLのパターン（https://github.com/owner/repo/pull/number）
   const prUrlRegex = /https?:\/\/github\.com\/[^\/\s]+\/[^\/\s]+\/pull\/\d+/g;
   const matches = text.match(prUrlRegex);
-  return matches ? Array.from(new Set(matches)) : []; // 重複を除去
+  const result = matches ? Array.from(new Set(matches)) : []; // 重複を除去
+  
+  // デバッグ用ログ
+  if (text.includes('github.com') && text.includes('pull')) {
+    console.log('PR URL検索対象:', text);
+    console.log('検出されたPR URL:', result);
+  }
+  
+  return result;
 }
 
 function formatTextWithLinks(text: string): JSX.Element {
@@ -595,20 +603,20 @@ export default function AgentAPIChat() {
             )}
 
             {/* PR Links Button */}
-            {prLinks.length > 0 && (
-              <button
-                onClick={() => setShowPRLinks(!showPRLinks)}
-                className="p-2 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-200 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-md transition-colors relative"
-                title={`プルリクエスト (${prLinks.length}個)`}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                </svg>
+            <button
+              onClick={() => setShowPRLinks(!showPRLinks)}
+              className="p-2 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-200 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-md transition-colors relative"
+              title={`プルリクエスト (${prLinks.length}個)`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+              {prLinks.length > 0 && (
                 <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                   {prLinks.length}
                 </span>
-              </button>
-            )}
+              )}
+            </button>
 
             {/* Settings Navigation Button */}
             <button
