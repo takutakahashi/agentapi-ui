@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ProfileManager } from '../../utils/profileManager';
 import { Profile, UpdateProfileRequest } from '../../types/profile';
 import { OrganizationHistory, OrganizationRepositoryHistory } from '../../utils/organizationHistory';
@@ -37,13 +37,7 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
   const [organizationHistories, setOrganizationHistories] = useState<OrganizationRepositoryHistory[]>([]);
   const [showOrganizationHistories, setShowOrganizationHistories] = useState(false);
 
-  useEffect(() => {
-    if (isOpen && profileId) {
-      loadProfile();
-    }
-  }, [isOpen, profileId]);
-
-  const loadProfile = () => {
+  const loadProfile = useCallback(() => {
     setLoading(true);
     try {
       const loadedProfile = ProfileManager.getProfile(profileId);
@@ -77,7 +71,13 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
     } finally {
       setLoading(false);
     }
-  };
+  }, [profileId, onClose]);
+
+  useEffect(() => {
+    if (isOpen && profileId) {
+      loadProfile();
+    }
+  }, [isOpen, profileId, loadProfile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

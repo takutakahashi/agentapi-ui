@@ -450,7 +450,10 @@ export default function NewSessionModal({
   }
 
   const handleProfileUpdated = () => {
-    loadProfiles()
+    // プロファイルリストを再読み込み
+    ProfileManager.migrateExistingSettings()
+    const profilesList = ProfileManager.getProfiles()
+    setProfiles(profilesList)
   }
 
   return (
