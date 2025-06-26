@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ProfileManager } from '../../utils/profileManager';
 import { Profile, UpdateProfileRequest } from '../../types/profile';
 import { OrganizationHistory, OrganizationRepositoryHistory } from '../../utils/organizationHistory';
@@ -36,6 +36,8 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
   const [formData, setFormData] = useState<UpdateProfileRequest>({});
   const [organizationHistories, setOrganizationHistories] = useState<OrganizationRepositoryHistory[]>([]);
   const [showOrganizationHistories, setShowOrganizationHistories] = useState(false);
+  const envScrollRef = useRef<HTMLDivElement>(null);
+  const orgScrollRef = useRef<HTMLDivElement>(null);
 
   const loadProfile = useCallback(() => {
     setLoading(true);
@@ -107,6 +109,12 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
         { key: '', value: '', description: '' }
       ]
     }));
+    // 新しい環境変数を追加した後、スクロールを最下部に
+    setTimeout(() => {
+      if (envScrollRef.current) {
+        envScrollRef.current.scrollTop = envScrollRef.current.scrollHeight;
+      }
+    }, 100);
   };
 
   const removeEnvironmentVariable = (index: number) => {
@@ -130,6 +138,12 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
       ...prev,
       fixedOrganizations: [...(prev.fixedOrganizations || []), '']
     }));
+    // 新しい組織を追加した後、スクロールを最下部に
+    setTimeout(() => {
+      if (orgScrollRef.current) {
+        orgScrollRef.current.scrollTop = orgScrollRef.current.scrollHeight;
+      }
+    }, 100);
   };
 
   const removeFixedOrganization = (index: number) => {
@@ -242,7 +256,7 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
                         組織を追加
                       </button>
                     </div>
-                    <div className="space-y-2">
+                    <div ref={orgScrollRef} className="max-h-48 overflow-y-auto space-y-2 pr-2">
                       {(formData.fixedOrganizations || []).map((org, index) => (
                         <div key={index} className="flex gap-2 items-center">
                           <input
@@ -255,7 +269,7 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
                           <button
                             type="button"
                             onClick={() => removeFixedOrganization(index)}
-                            className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded transition-colors"
+                            className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded transition-colors flex-shrink-0"
                           >
                             ×
                           </button>
@@ -416,7 +430,7 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
                   </button>
                 </div>
                 
-                <div className="space-y-3">
+                <div ref={envScrollRef} className="max-h-64 overflow-y-auto space-y-3 pr-2">
                   {(formData.environmentVariables || []).map((env, index) => (
                     <div key={index} className="flex gap-2 items-start">
                       <input
@@ -443,7 +457,7 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
                       <button
                         type="button"
                         onClick={() => removeEnvironmentVariable(index)}
-                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded transition-colors"
+                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded transition-colors flex-shrink-0"
                       >
                         ×
                       </button>

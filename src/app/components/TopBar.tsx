@@ -127,62 +127,57 @@ export default function TopBar({
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* プロファイル切り替え */}
             {showProfileSwitcher && (
-              <div className="relative flex items-center gap-1">
-                <button
-                  onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                  className="inline-flex items-center px-3 py-2 text-sm bg-main-color-bg text-main-color hover:bg-main-color hover:text-white rounded-md transition-colors border border-main-color"
-                >
-                  <span className="mr-2">{currentProfile?.icon || '⚙️'}</span>
-                  <span className="hidden sm:inline mr-1">{currentProfile?.name || 'Profile'}</span>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {/* モバイル用の編集ボタン（現在のプロファイル用） */}
-                <button
-                  onClick={() => currentProfile && handleEditProfile(currentProfile.id)}
-                  className="sm:hidden p-2 text-main-color hover:bg-main-color-bg rounded-md transition-colors"
-                  title="現在のプロファイルを編集"
-                  disabled={!currentProfile}
-                >
-                  ✏️
-                </button>
+              <div className="relative">
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                    className="inline-flex items-center px-3 py-2 text-sm bg-main-color-bg text-main-color hover:bg-main-color hover:text-white rounded-md transition-colors border border-main-color"
+                  >
+                    <span className="mr-2">{currentProfile?.icon || '⚙️'}</span>
+                    <span className="hidden sm:inline mr-1">{currentProfile?.name || 'Profile'}</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {/* 編集ボタン */}
+                  {currentProfile && (
+                    <button
+                      onClick={() => handleEditProfile(currentProfile.id)}
+                      className="p-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors"
+                      title="プロファイルを編集"
+                    >
+                      ✏️
+                    </button>
+                  )}
+                </div>
                 
                 {showProfileDropdown && (
                   <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg z-50">
                     <div className="p-2">
                       <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 px-2">Switch Profile</div>
                       {profiles.map((profile) => (
-                        <div key={profile.id} className="flex items-center group">
-                          <button
-                            onClick={() => handleProfileSwitch(profile.id)}
-                            className={`flex-1 text-left px-3 py-2 rounded-md transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                              currentProfile?.id === profile.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                            }`}
-                          >
-                            <div className="flex items-center">
-                              <span className="mr-2">{profile.icon || '⚙️'}</span>
-                              <div className="flex-1">
-                                <div className="font-medium text-sm">{profile.name}</div>
-                                {profile.description && (
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">{profile.description}</div>
-                                )}
-                              </div>
-                              {profile.isDefault && (
-                                <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-1 rounded">
-                                  Default
-                                </span>
+                        <button
+                          key={profile.id}
+                          onClick={() => handleProfileSwitch(profile.id)}
+                          className={`w-full text-left px-3 py-2 rounded-md transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                            currentProfile?.id === profile.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                          }`}
+                        >
+                          <div className="flex items-center">
+                            <span className="mr-2">{profile.icon || '⚙️'}</span>
+                            <div className="flex-1">
+                              <div className="font-medium text-sm">{profile.name}</div>
+                              {profile.description && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400">{profile.description}</div>
                               )}
                             </div>
-                          </button>
-                          <button
-                            onClick={() => handleEditProfile(profile.id)}
-                            className="ml-1 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
-                            title="プロファイルを編集"
-                          >
-                            ✏️
-                          </button>
-                        </div>
+                            {profile.isDefault && (
+                              <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-1 rounded">
+                                Default
+                              </span>
+                            )}
+                          </div>
+                        </button>
                       ))}
                       <hr className="my-2 border-gray-200 dark:border-gray-600" />
                       <button
