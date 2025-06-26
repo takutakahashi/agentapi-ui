@@ -505,11 +505,11 @@ export default function NewSessionModal({
               <button
                 type="button"
                 onClick={() => handleEditProfile(selectedProfileId)}
-                className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors"
+                className="px-3 py-2 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
                 title="プロファイルを編集"
                 disabled={!selectedProfileId}
               >
-                ⚙️
+                Edit
               </button>
             </div>
           </div>

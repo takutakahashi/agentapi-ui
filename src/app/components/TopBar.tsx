@@ -128,28 +128,16 @@ export default function TopBar({
             {/* プロファイル切り替え */}
             {showProfileSwitcher && (
               <div className="relative">
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                    className="inline-flex items-center px-3 py-2 text-sm bg-main-color-bg text-main-color hover:bg-main-color hover:text-white rounded-md transition-colors border border-main-color"
-                  >
-                    <span className="mr-2">{currentProfile?.icon || '⚙️'}</span>
-                    <span className="hidden sm:inline mr-1">{currentProfile?.name || 'Profile'}</span>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {/* 編集ボタン */}
-                  {currentProfile && (
-                    <button
-                      onClick={() => handleEditProfile(currentProfile.id)}
-                      className="p-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors"
-                      title="プロファイルを編集"
-                    >
-                      ✏️
-                    </button>
-                  )}
-                </div>
+                <button
+                  onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                  className="inline-flex items-center px-3 py-2 text-sm bg-main-color-bg text-main-color hover:bg-main-color hover:text-white rounded-md transition-colors border border-main-color"
+                >
+                  <span className="mr-2">{currentProfile?.icon || '⚙️'}</span>
+                  <span className="hidden sm:inline mr-1">{currentProfile?.name || 'Profile'}</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
                 
                 {showProfileDropdown && (
                   <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg z-50">
@@ -180,6 +168,17 @@ export default function TopBar({
                         </button>
                       ))}
                       <hr className="my-2 border-gray-200 dark:border-gray-600" />
+                      {currentProfile && (
+                        <button
+                          onClick={() => {
+                            handleEditProfile(currentProfile.id)
+                            setShowProfileDropdown(false)
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
+                        >
+                          Edit Current Profile
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           router.push('/profiles')
