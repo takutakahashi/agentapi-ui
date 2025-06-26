@@ -33,6 +33,23 @@ export default function TagFilterSidebar({
     fetchTags()
   }, [])
 
+  // ESCキーでサイドバーを閉じる
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isVisible && onToggleVisibility) {
+        onToggleVisibility()
+      }
+    }
+
+    if (isVisible) {
+      document.addEventListener('keydown', handleKeyDown)
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isVisible, onToggleVisibility])
+
   const fetchTags = async () => {
     try {
       setLoading(true)
