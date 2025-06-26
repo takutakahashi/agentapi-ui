@@ -127,7 +127,7 @@ export default function TopBar({
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* プロファイル切り替え */}
             {showProfileSwitcher && (
-              <div className="relative">
+              <div className="relative flex items-center gap-1">
                 <button
                   onClick={() => setShowProfileDropdown(!showProfileDropdown)}
                   className="inline-flex items-center px-3 py-2 text-sm bg-main-color-bg text-main-color hover:bg-main-color hover:text-white rounded-md transition-colors border border-main-color"
@@ -138,9 +138,18 @@ export default function TopBar({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
+                {/* モバイル用の編集ボタン（現在のプロファイル用） */}
+                <button
+                  onClick={() => currentProfile && handleEditProfile(currentProfile.id)}
+                  className="sm:hidden p-2 text-main-color hover:bg-main-color-bg rounded-md transition-colors"
+                  title="現在のプロファイルを編集"
+                  disabled={!currentProfile}
+                >
+                  ✏️
+                </button>
                 
                 {showProfileDropdown && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg z-50">
+                  <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg z-50">
                     <div className="p-2">
                       <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 px-2">Switch Profile</div>
                       {profiles.map((profile) => (
@@ -168,7 +177,7 @@ export default function TopBar({
                           </button>
                           <button
                             onClick={() => handleEditProfile(profile.id)}
-                            className="opacity-0 group-hover:opacity-100 ml-1 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-all"
+                            className="ml-1 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
                             title="プロファイルを編集"
                           >
                             ✏️

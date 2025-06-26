@@ -157,21 +157,21 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={handleBackgroundClick}>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 md:p-6" onClick={handleBackgroundClick}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto md:max-h-[85vh]">
+        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 md:px-6 md:py-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">プロファイルを編集</h2>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">プロファイルを編集</h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl"
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl p-2 -m-2"
             >
               ×
             </button>
           </div>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="text-lg text-gray-900 dark:text-white">プロファイルを読み込み中...</div>
