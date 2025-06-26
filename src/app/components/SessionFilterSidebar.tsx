@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FilterGroup, SessionFilter } from '../../lib/filter-utils'
 
 interface SessionFilterSidebarProps {
@@ -19,6 +19,23 @@ export default function SessionFilterSidebar({
   onToggleVisibility
 }: SessionFilterSidebarProps) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+
+  // ESCキーでサイドバーを閉じる
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isVisible && onToggleVisibility) {
+        onToggleVisibility()
+      }
+    }
+
+    if (isVisible) {
+      document.addEventListener('keydown', handleKeyDown)
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isVisible, onToggleVisibility])
 
   const toggleGroup = (groupKey: string) => {
     const newExpanded = new Set(expandedGroups)

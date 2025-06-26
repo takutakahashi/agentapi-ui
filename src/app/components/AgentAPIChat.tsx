@@ -297,6 +297,29 @@ export default function AgentAPIChat() {
     }
   }, []);
 
+  // ESCキーでモーダルを閉じる
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (showTemplateModal) {
+          setShowTemplateModal(false)
+        } else if (showPRLinks) {
+          setShowPRLinks(false)
+        } else if (showClaudeLogins) {
+          setShowClaudeLogins(false)
+        }
+      }
+    }
+
+    if (showTemplateModal || showPRLinks || showClaudeLogins) {
+      document.addEventListener('keydown', handleKeyDown)
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [showTemplateModal, showPRLinks, showClaudeLogins]);
+
   // Listen for profile changes and recreate client
   useEffect(() => {
     const handleProfileChange = (event: CustomEvent) => {
@@ -981,7 +1004,14 @@ export default function AgentAPIChat() {
 
       {/* Template Selection Modal */}
       {showTemplateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowTemplateModal(false)
+            }
+          }}
+        >
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
@@ -1064,7 +1094,14 @@ export default function AgentAPIChat() {
 
       {/* PR Links Modal */}
       {showPRLinks && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowPRLinks(false)
+            }
+          }}
+        >
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
@@ -1154,7 +1191,14 @@ export default function AgentAPIChat() {
 
       {/* Claude Login URLs Modal */}
       {showClaudeLogins && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowClaudeLogins(false)
+            }
+          }}
+        >
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
