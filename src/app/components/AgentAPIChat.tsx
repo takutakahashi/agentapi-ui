@@ -620,7 +620,7 @@ export default function AgentAPIChat() {
             </Link>
             <div>
               <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
-                <span className="block sm:inline">AgentAPI Chat</span>
+                <span className="block sm:inline">Chat</span>
                 {sessionId && (
                   <span className="ml-0 sm:ml-2 text-sm font-normal text-gray-500 dark:text-gray-400 block sm:inline">
                     #{sessionId.substring(0, 8)}
