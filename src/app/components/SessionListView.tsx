@@ -729,7 +729,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                         
                         {session.metadata?.pr_url ? (
                           <a
-                            href={String(session.metadata.pr_url)}
+                            href={String(session.metadata.pr_url).replace(/\s+/g, '')}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center justify-center px-3 py-2 sm:px-3 sm:py-1.5 border border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-700 text-purple-700 dark:text-purple-300 text-sm font-medium rounded-md transition-colors min-h-[44px] sm:min-h-0"
