@@ -52,6 +52,7 @@ export default function NewSessionModal({
   const [showRepositorySuggestions, setShowRepositorySuggestions] = useState(false)
   const [freeFormRepositorySuggestions, setFreeFormRepositorySuggestions] = useState<string[]>([])
   const [showFreeFormRepositorySuggestions, setShowFreeFormRepositorySuggestions] = useState(false)
+  const [sessionMode, setSessionMode] = useState<'repository' | 'chat'>('repository')
 
   useEffect(() => {
     const checkMobile = () => {
@@ -275,6 +276,18 @@ export default function NewSessionModal({
       return
     }
 
+    // チャットモードの場合はリポジトリの必須チェックをスキップ
+    if (sessionMode === 'repository') {
+      const hasRepository = availableOrganizations.length > 0
+        ? (selectedOrganization && repository.trim())
+        : freeFormRepository.trim()
+      
+      if (!hasRepository) {
+        setError('リポジトリを指定してください')
+        return
+      }
+    }
+
     try {
       setIsCreating(true)
       setError(null)
@@ -282,12 +295,14 @@ export default function NewSessionModal({
 
       const client = createAgentAPIClient(undefined, selectedProfileId)
       const currentMessage = initialMessage.trim()
-      // 組織が設定されている場合は組織/リポジトリ名、なければ自由記述
-      const currentRepository = availableOrganizations.length > 0
-        ? (selectedOrganization && repository.trim() 
-           ? `${selectedOrganization}/${repository.trim()}`
-           : '')
-        : freeFormRepository.trim()
+      // チャットモードの場合はリポジトリを空にする
+      const currentRepository = sessionMode === 'chat' ? '' : (
+        availableOrganizations.length > 0
+          ? (selectedOrganization && repository.trim() 
+             ? `${selectedOrganization}/${repository.trim()}`
+             : '')
+          : freeFormRepository.trim()
+      )
       
       // プロファイル固有の初期メッセージをキャッシュに追加
       if (selectedProfileId) {
@@ -300,7 +315,8 @@ export default function NewSessionModal({
       }
       
       // リポジトリ履歴にも事前に追加（モーダルが閉じる前に実行）
-      if (currentRepository && selectedProfileId) {
+      // チャットモードの場合はリポジトリ履歴には追加しない
+      if (currentRepository && selectedProfileId && sessionMode === 'repository') {
         console.log('Adding repository to profile history before session creation:', { currentRepository, selectedProfileId })
         try {
           ProfileManager.addRepositoryToProfile(selectedProfileId, currentRepository)
@@ -351,6 +367,7 @@ export default function NewSessionModal({
     setRepository('')
     setFreeFormRepository('')
     setSelectedProfileId('')
+    setSessionMode('repository')
     setError(null)
     setStatusMessage('')
     setAvailableOrganizations([])
@@ -542,6 +559,48 @@ export default function NewSessionModal({
             </div>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              セッションタイプ
+            </label>
+            <div className="flex space-x-4">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="sessionMode"
+                  value="repository"
+                  checked={sessionMode === 'repository'}
+                  onChange={(e) => setSessionMode(e.target.value as 'repository' | 'chat')}
+                  className="mr-2 text-blue-600"
+                  disabled={isCreating}
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  リポジトリ連携
+                </span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="sessionMode"
+                  value="chat"
+                  checked={sessionMode === 'chat'}
+                  onChange={(e) => setSessionMode(e.target.value as 'repository' | 'chat')}
+                  className="mr-2 text-blue-600"
+                  disabled={isCreating}
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  チャットモード
+                </span>
+              </label>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {sessionMode === 'repository' 
+                ? 'リポジトリに接続してコード作業を行います'
+                : 'リポジトリに接続せず、一般的なチャットを行います'
+              }
+            </p>
+          </div>
+
           <div className="relative">
             <label htmlFor="initialMessage" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               初期メッセージ *
@@ -612,7 +671,7 @@ export default function NewSessionModal({
             )}
           </div>
 
-          {availableOrganizations.length > 0 ? (
+          {sessionMode === 'repository' && availableOrganizations.length > 0 ? (
             <div className="space-y-4">
               <div>
                 <label htmlFor="organization" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -675,7 +734,7 @@ export default function NewSessionModal({
                 )}
               </div>
             </div>
-          ) : (
+          ) : sessionMode === 'repository' ? (
             <div className="relative">
               <label htmlFor="freeFormRepository" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 対象リポジトリ
@@ -713,7 +772,7 @@ export default function NewSessionModal({
                 このプロファイルには固定組織が設定されていないため、自由にリポジトリを指定できます。
               </p>
             </div>
-          )}
+          ) : null}
 
           {error && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
@@ -738,9 +797,11 @@ export default function NewSessionModal({
             <button
               type="submit"
               disabled={!initialMessage.trim() || isCreating || (
-                availableOrganizations.length > 0 
-                  ? (!selectedOrganization || !repository.trim())
-                  : !freeFormRepository.trim()
+                sessionMode === 'repository' && (
+                  availableOrganizations.length > 0 
+                    ? (!selectedOrganization || !repository.trim())
+                    : !freeFormRepository.trim()
+                )
               )}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-md transition-colors"
             >
