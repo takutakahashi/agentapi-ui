@@ -30,17 +30,15 @@ export class GitHubAuthService {
       
       // Update profile with auth info if authenticated
       if (authInfo.authenticated && authInfo.type === 'github' && authInfo.user) {
-        const profile = ProfileManager.getProfile(profileId);
-        if (profile) {
-          profile.githubAuth = {
+        ProfileManager.updateProfile(profileId, {
+          githubAuth: {
             enabled: true,
             user: authInfo.user,
             scopes: authInfo.scopes || [],
             organizations: authInfo.organizations || [],
             repositories: authInfo.repositories || []
-          };
-          ProfileManager.updateProfile(profile);
-        }
+          }
+        });
       }
       
       return authInfo;
@@ -79,11 +77,9 @@ export class GitHubAuthService {
   }
 
   async disconnect(profileId: string): Promise<void> {
-    const profile = ProfileManager.getProfile(profileId);
-    if (profile) {
-      profile.githubAuth = undefined;
-      ProfileManager.updateProfile(profile);
-    }
+    ProfileManager.updateProfile(profileId, {
+      githubAuth: undefined
+    });
   }
 
   isTokenExpired(tokenExpiresAt?: string): boolean {

@@ -73,4 +73,5 @@ export interface UpdateProfileRequest {
   environmentVariables?: EnvironmentVariable[];
   messageTemplates?: MessageTemplate[];
   isDefault?: boolean;
+  githubAuth?: GitHubAuthSettings;
 }
