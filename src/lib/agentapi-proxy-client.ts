@@ -382,6 +382,37 @@ export class AgentAPIProxyClient {
   }
 
   /**
+   * Get authentication info for the current session
+   */
+  async getAuthInfo(): Promise<{ type: 'github' | 'none'; authenticated: boolean; user?: any }> {
+    try {
+      return await this.makeRequest<{ type: 'github' | 'none'; authenticated: boolean; user?: any }>('/auth/info');
+    } catch (error) {
+      // If the endpoint doesn't exist or returns an error, assume no auth
+      if (this.debug) {
+        console.log('[AgentAPIProxy] Auth info not available:', error);
+      }
+      return { type: 'none', authenticated: false };
+    }
+  }
+
+  /**
+   * Get GitHub OAuth URL for authentication
+   */
+  async getGitHubAuthUrl(profileId: string): Promise<string> {
+    try {
+      const response = await this.makeRequest<{ authUrl: string }>('/auth/github/url', {
+        method: 'POST',
+        body: JSON.stringify({ profileId })
+      });
+      return response.authUrl;
+    } catch (error) {
+      console.error('[AgentAPIProxy] Failed to get GitHub auth URL:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Set debug mode
    */
   setDebug(debug: boolean): void {
