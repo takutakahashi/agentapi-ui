@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Profile } from '../../types/profile';
+import React, { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
+import { Profile, GitHubUser } from '../../types/profile';
 import { githubAuthService } from '../../services/githubAuthService';
 
 interface GitHubAuthSettingsProps {
@@ -9,16 +10,18 @@ interface GitHubAuthSettingsProps {
   onProfileUpdated?: () => void;
 }
 
+interface AuthStatus {
+  type: 'github' | 'none';
+  authenticated: boolean;
+  user?: GitHubUser;
+}
+
 export const GitHubAuthSettings: React.FC<GitHubAuthSettingsProps> = ({ profile, onProfileUpdated }) => {
   const [isConnecting, setIsConnecting] = useState(false);
-  const [authStatus, setAuthStatus] = useState<{ type: 'github' | 'none'; authenticated: boolean; user?: any }>({ type: 'none', authenticated: false });
+  const [authStatus, setAuthStatus] = useState<AuthStatus>({ type: 'none', authenticated: false });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    checkAuthStatus();
-  }, [profile.id]);
-
-  const checkAuthStatus = async () => {
+  const checkAuthStatus = useCallback(async () => {
     setLoading(true);
     try {
       const status = await githubAuthService.checkAuthStatus(profile.id);
@@ -28,7 +31,11 @@ export const GitHubAuthSettings: React.FC<GitHubAuthSettingsProps> = ({ profile,
     } finally {
       setLoading(false);
     }
-  };
+  }, [profile.id]);
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, [checkAuthStatus]);
 
   const handleConnect = async () => {
     setIsConnecting(true);
@@ -92,9 +99,11 @@ export const GitHubAuthSettings: React.FC<GitHubAuthSettingsProps> = ({ profile,
             <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
               <div className="flex items-center space-x-3">
                 {authStatus.user.avatarUrl && (
-                  <img 
+                  <Image
                     src={authStatus.user.avatarUrl} 
                     alt={authStatus.user.login}
+                    width={40}
+                    height={40}
                     className="w-10 h-10 rounded-full"
                   />
                 )}

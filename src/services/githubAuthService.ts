@@ -2,6 +2,15 @@ import { ProfileManager } from '../utils/profileManager';
 import { createAgentAPIProxyClientFromStorage } from '../lib/agentapi-proxy-client';
 import { GitHubUser } from '../types/profile';
 
+interface AuthInfoResponse {
+  type: 'github' | 'none';
+  authenticated: boolean;
+  user?: GitHubUser;
+  scopes?: string[];
+  organizations?: string[];
+  repositories?: string[];
+}
+
 export class GitHubAuthService {
   private static instance: GitHubAuthService;
 
@@ -17,7 +26,7 @@ export class GitHubAuthService {
   async checkAuthStatus(profileId: string): Promise<{ type: 'github' | 'none'; authenticated: boolean; user?: GitHubUser }> {
     try {
       const client = createAgentAPIProxyClientFromStorage(undefined, profileId);
-      const authInfo = await client.getAuthInfo();
+      const authInfo: AuthInfoResponse = await client.getAuthInfo();
       
       // Update profile with auth info if authenticated
       if (authInfo.authenticated && authInfo.type === 'github' && authInfo.user) {
@@ -26,9 +35,9 @@ export class GitHubAuthService {
           profile.githubAuth = {
             enabled: true,
             user: authInfo.user,
-            scopes: (authInfo as any).scopes || [],
-            organizations: (authInfo as any).organizations || [],
-            repositories: (authInfo as any).repositories || []
+            scopes: authInfo.scopes || [],
+            organizations: authInfo.organizations || [],
+            repositories: authInfo.repositories || []
           };
           ProfileManager.updateProfile(profile);
         }

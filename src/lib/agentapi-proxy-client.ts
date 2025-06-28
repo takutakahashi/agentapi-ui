@@ -15,6 +15,7 @@ import {
 } from '../types/agentapi';
 import { loadGlobalSettings, getDefaultProxySettings } from '../types/settings';
 import { ProfileManager } from '../utils/profileManager';
+import { GitHubUser } from '../types/profile';
 
 // Define local AgentStatus type
 interface AgentStatus {
@@ -384,13 +385,13 @@ export class AgentAPIProxyClient {
   /**
    * Get authentication info for the current session
    */
-  async getAuthInfo(): Promise<{ type: 'github' | 'none'; authenticated: boolean; user?: any }> {
+  async getAuthInfo(): Promise<{ type: 'github' | 'none'; authenticated: boolean; user?: GitHubUser }> {
     try {
-      return await this.makeRequest<{ type: 'github' | 'none'; authenticated: boolean; user?: any }>('/auth/info');
+      return await this.makeRequest<{ type: 'github' | 'none'; authenticated: boolean; user?: GitHubUser }>('/auth/info');
     } catch (error) {
-      // If the endpoint doesn't exist or returns an error, assume no auth
+      // If the endpoint doesn't exist (404) or returns an error, assume no auth (older agentapi-proxy)
       if (this.debug) {
-        console.log('[AgentAPIProxy] Auth info not available:', error);
+        console.log('[AgentAPIProxy] Auth info not available (likely older proxy version):', error);
       }
       return { type: 'none', authenticated: false };
     }
