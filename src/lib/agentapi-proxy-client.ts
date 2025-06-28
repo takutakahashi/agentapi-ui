@@ -15,6 +15,7 @@ import {
 } from '../types/agentapi';
 import { loadGlobalSettings, getDefaultProxySettings } from '../types/settings';
 import { ProfileManager } from '../utils/profileManager';
+import { GitHubUser } from '../types/profile';
 
 // Define local AgentStatus type
 interface AgentStatus {
@@ -378,6 +379,37 @@ export class AgentAPIProxyClient {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Get authentication info for the current session
+   */
+  async getAuthInfo(): Promise<{ type: 'github' | 'none'; authenticated: boolean; user?: GitHubUser }> {
+    try {
+      return await this.makeRequest<{ type: 'github' | 'none'; authenticated: boolean; user?: GitHubUser }>('/auth/info');
+    } catch (error) {
+      // If the endpoint doesn't exist (404) or returns an error, assume no auth (older agentapi-proxy)
+      if (this.debug) {
+        console.log('[AgentAPIProxy] Auth info not available (likely older proxy version):', error);
+      }
+      return { type: 'none', authenticated: false };
+    }
+  }
+
+  /**
+   * Get GitHub OAuth URL for authentication
+   */
+  async getGitHubAuthUrl(profileId: string): Promise<string> {
+    try {
+      const response = await this.makeRequest<{ authUrl: string }>('/auth/github/url', {
+        method: 'POST',
+        body: JSON.stringify({ profileId })
+      });
+      return response.authUrl;
+    } catch (error) {
+      console.error('[AgentAPIProxy] Failed to get GitHub auth URL:', error);
+      throw error;
     }
   }
 

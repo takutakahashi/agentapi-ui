@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ProfileManager } from '../../utils/profileManager';
 import { Profile, UpdateProfileRequest } from '../../types/profile';
 import { OrganizationHistory, OrganizationRepositoryHistory } from '../../utils/organizationHistory';
+import { GitHubAuthSettings } from '../../components/profiles/GitHubAuthSettings';
 
 const EMOJI_OPTIONS = ['⚙️', '🔧', '💼', '🏠', '🏢', '🚀', '💻', '🔬', '🎯', '⭐', '🌟', '💡'];
 
@@ -551,6 +552,10 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
                   )}
                 </div>
               )}
+
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
+                <GitHubAuthSettings profile={profile} onProfileUpdated={loadProfile} />
+              </div>
 
               <div className="flex space-x-4 pt-4">
                 <button

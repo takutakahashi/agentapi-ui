@@ -17,6 +17,26 @@ export interface Profile {
   isDefault: boolean;
   created_at: string;
   updated_at: string;
+  githubAuth?: GitHubAuthSettings;
+}
+
+export interface GitHubAuthSettings {
+  enabled: boolean;
+  accessToken?: string;
+  refreshToken?: string;
+  tokenExpiresAt?: string;
+  user?: GitHubUser;
+  scopes: string[];
+  organizations?: string[];
+  repositories?: string[];
+}
+
+export interface GitHubUser {
+  id: number;
+  login: string;
+  name?: string;
+  email?: string;
+  avatarUrl?: string;
 }
 
 export interface ProfileListItem {
@@ -53,4 +73,5 @@ export interface UpdateProfileRequest {
   environmentVariables?: EnvironmentVariable[];
   messageTemplates?: MessageTemplate[];
   isDefault?: boolean;
+  githubAuth?: GitHubAuthSettings;
 }
