@@ -60,7 +60,7 @@ async function apiRequest<T>(
 
   // Add API key header if API key is available
   if (config.apiKey) {
-    defaultHeaders['X-API-Key'] = config.apiKey
+    defaultHeaders['Authorization'] = `Bearer ${config.apiKey}`
   }
 
   try {
