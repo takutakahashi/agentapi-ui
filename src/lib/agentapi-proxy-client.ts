@@ -84,11 +84,114 @@ export class AgentAPIProxyClient {
       'Accept': 'application/json, application/problem+json',
     };
 
-    // Add API Key header if available
+    // Try Bearer token first, then fallback to X-API-Key
     if (this.apiKey) {
-      defaultHeaders['Authorization'] = `Bearer ${this.apiKey}`;
+      // First attempt with Bearer token
+      const bearerHeaders = { ...defaultHeaders, 'Authorization': `Bearer ${this.apiKey}` };
+      const bearerRequestOptions: RequestInit = {
+        ...options,
+        headers: {
+          ...bearerHeaders,
+          ...options.headers,
+        },
+      };
+
+      if (this.debug) {
+        console.log(`[AgentAPIProxy] ${options.method || 'GET'} ${url} (Bearer token)`, {
+          headers: bearerRequestOptions.headers,
+          body: options.body,
+          attempt,
+        });
+      }
+
+      try {
+        const response = await fetch(url, bearerRequestOptions);
+
+        if (!response.ok) {
+          // If Bearer token fails with 401/403, try X-API-Key fallback
+          if (response.status === 401 || response.status === 403) {
+            const fallbackHeaders = { ...defaultHeaders, 'X-API-Key': this.apiKey };
+            const fallbackRequestOptions: RequestInit = {
+              ...options,
+              headers: {
+                ...fallbackHeaders,
+                ...options.headers,
+              },
+            };
+
+            if (this.debug) {
+              console.log(`[AgentAPIProxy] ${options.method || 'GET'} ${url} (X-API-Key fallback)`, {
+                headers: fallbackRequestOptions.headers,
+                body: options.body,
+                attempt,
+              });
+            }
+
+            const fallbackResponse = await fetch(url, fallbackRequestOptions);
+
+            if (!fallbackResponse.ok) {
+              const errorData = await fallbackResponse.json().catch(() => ({
+                error: {
+                  code: 'UNKNOWN_ERROR',
+                  message: `HTTP ${fallbackResponse.status}: ${fallbackResponse.statusText}`,
+                  timestamp: new Date().toISOString(),
+                }
+              }));
+
+              throw new AgentAPIProxyError(
+                fallbackResponse.status,
+                errorData.error?.code || 'UNKNOWN_ERROR',
+                errorData.error?.message || `HTTP ${fallbackResponse.status}`,
+                errorData.error?.details
+              );
+            }
+
+            const fallbackData = await fallbackResponse.json();
+            
+            if (this.debug) {
+              console.log(`[AgentAPIProxy] Response (fallback):`, { data: fallbackData });
+            }
+
+            return fallbackData;
+          }
+
+          const errorData = await response.json().catch(() => ({
+            error: {
+              code: 'UNKNOWN_ERROR',
+              message: `HTTP ${response.status}: ${response.statusText}`,
+              timestamp: new Date().toISOString(),
+            }
+          }));
+
+          throw new AgentAPIProxyError(
+            response.status,
+            errorData.error?.code || 'UNKNOWN_ERROR',
+            errorData.error?.message || `HTTP ${response.status}`,
+            errorData.error?.details
+          );
+        }
+
+        const data = await response.json();
+        
+        if (this.debug) {
+          console.log(`[AgentAPIProxy] Response:`, { data });
+        }
+
+        return data;
+      } catch (error) {
+        if (error instanceof AgentAPIProxyError) {
+          throw error;
+        }
+
+        throw new AgentAPIProxyError(
+          0,
+          'NETWORK_ERROR',
+          error instanceof Error ? error.message : 'Unknown network error'
+        );
+      }
     }
 
+    // No API key case
     const requestOptions: RequestInit = {
       ...options,
       headers: {
@@ -98,7 +201,7 @@ export class AgentAPIProxyClient {
     };
 
     if (this.debug) {
-      console.log(`[AgentAPIProxy] ${options.method || 'GET'} ${url}`, {
+      console.log(`[AgentAPIProxy] ${options.method || 'GET'} ${url} (no auth)`, {
         headers: requestOptions.headers,
         body: options.body,
         attempt,
