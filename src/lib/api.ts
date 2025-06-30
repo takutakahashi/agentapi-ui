@@ -58,11 +58,61 @@ async function apiRequest<T>(
     'Content-Type': 'application/json',
   }
 
-  // Add API key header if API key is available
+  // Try Bearer token first, then fallback to X-API-Key
   if (config.apiKey) {
-    defaultHeaders['Authorization'] = `Bearer ${config.apiKey}`
+    // First attempt with Bearer token
+    const bearerHeaders = { ...defaultHeaders, 'Authorization': `Bearer ${config.apiKey}` }
+    
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          ...bearerHeaders,
+          ...options.headers,
+        },
+      })
+
+      if (!response.ok) {
+        // If Bearer token fails with 401/403, try X-API-Key fallback
+        if (response.status === 401 || response.status === 403) {
+          const fallbackHeaders = { ...defaultHeaders, 'X-API-Key': config.apiKey }
+          
+          const fallbackResponse = await fetch(url, {
+            ...options,
+            headers: {
+              ...fallbackHeaders,
+              ...options.headers,
+            },
+          })
+
+          if (!fallbackResponse.ok) {
+            throw new ApiError(
+              fallbackResponse.status,
+              `API request failed: ${fallbackResponse.status} ${fallbackResponse.statusText}`
+            )
+          }
+
+          const fallbackData = await fallbackResponse.json()
+          return fallbackData
+        }
+        
+        throw new ApiError(
+          response.status,
+          `API request failed: ${response.status} ${response.statusText}`
+        )
+      }
+
+      const data = await response.json()
+      return data
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error
+      }
+      throw new ApiError(0, `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
+  // No API key case
   try {
     const response = await fetch(url, {
       ...options,
