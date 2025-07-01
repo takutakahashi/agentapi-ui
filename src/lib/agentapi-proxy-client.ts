@@ -15,7 +15,7 @@ import {
 } from '../types/agentapi';
 import { loadGlobalSettings, getDefaultProxySettings } from '../types/settings';
 import { ProfileManager } from '../utils/profileManager';
-import { GitHubUser } from '../types/profile';
+import { GitHubUser, MCPServerConfig } from '../types/profile';
 
 // Define local AgentStatus type
 interface AgentStatus {
@@ -31,6 +31,7 @@ export interface AgentAPIProxyClientConfig {
   maxSessions?: number;
   sessionTimeout?: number;
   debug?: boolean;
+  profileId?: string;
 }
 
 export class AgentAPIProxyError extends Error {
@@ -55,6 +56,7 @@ export class AgentAPIProxyClient {
   private maxSessions: number;
   private sessionTimeout: number;
   private debug: boolean;
+  private profileId?: string;
   constructor(config: AgentAPIProxyClientConfig) {
     this.baseURL = config.baseURL.replace(/\/$/, ''); // Remove trailing slash
     this.apiKey = config.apiKey;
@@ -62,6 +64,7 @@ export class AgentAPIProxyClient {
     this.maxSessions = config.maxSessions || 10;
     this.sessionTimeout = config.sessionTimeout || 300000; // 5 minutes
     this.debug = config.debug || false;
+    this.profileId = config.profileId;
 
     if (this.debug) {
       console.log('[AgentAPIProxy] Initialized with config:', {
@@ -269,6 +272,29 @@ export class AgentAPIProxyClient {
       data = {
         metadata: (sessionData as Record<string, unknown>) || { source: 'agentapi-ui' }
       };
+    }
+
+    // Collect MCP server configurations and add to tags
+    try {
+      const mcpConfigs = collectMCPConfigurations(this.profileId);
+      if (mcpConfigs.length > 0) {
+        // Ensure tags object exists
+        if (!data.tags) {
+          data.tags = {};
+        }
+        
+        // Encode MCP configurations as base64 JSON and add to tags
+        const mcpConfigsJson = JSON.stringify(mcpConfigs);
+        const mcpConfigsBase64 = Buffer.from(mcpConfigsJson, 'utf-8').toString('base64');
+        data.tags['claude.mcp_configs'] = mcpConfigsBase64;
+        
+        if (this.debug) {
+          console.log(`[AgentAPIProxy] Added ${mcpConfigs.length} MCP server configurations to session`);
+        }
+      }
+    } catch (error) {
+      console.error('[AgentAPIProxy] Failed to collect MCP configurations:', error);
+      // Continue with session creation even if MCP config collection fails
     }
 
     const session = await this.makeRequest<Session>('/start', {
@@ -524,6 +550,78 @@ export class AgentAPIProxyClient {
   }
 }
 
+// Utility function to collect MCP server configurations
+function collectMCPConfigurations(profileId?: string): MCPServerConfig[] {
+  const mcpConfigs: MCPServerConfig[] = [];
+  
+  try {
+    // Get global MCP configurations
+    const globalSettings = loadGlobalSettings();
+    if (globalSettings.mcpServers) {
+      mcpConfigs.push(...globalSettings.mcpServers.filter(server => server.enabled));
+    }
+    
+    // Get profile-specific MCP configurations (overrides global)
+    if (profileId) {
+      const profile = ProfileManager.getProfile(profileId);
+      if (profile && profile.mcpServers) {
+        const profileMcpConfigs = profile.mcpServers.filter(server => server.enabled);
+        
+        // Merge profile configs with global ones, profile takes precedence
+        for (const profileConfig of profileMcpConfigs) {
+          const existingIndex = mcpConfigs.findIndex(config => config.id === profileConfig.id);
+          if (existingIndex >= 0) {
+            mcpConfigs[existingIndex] = profileConfig;
+          } else {
+            mcpConfigs.push(profileConfig);
+          }
+        }
+      }
+    }
+    
+    // If no profile specified, try to get current profile
+    if (!profileId) {
+      const currentProfileId = ProfileManager.getCurrentProfileId();
+      if (currentProfileId) {
+        const profile = ProfileManager.getProfile(currentProfileId);
+        if (profile && profile.mcpServers) {
+          const profileMcpConfigs = profile.mcpServers.filter(server => server.enabled);
+          
+          for (const profileConfig of profileMcpConfigs) {
+            const existingIndex = mcpConfigs.findIndex(config => config.id === profileConfig.id);
+            if (existingIndex >= 0) {
+              mcpConfigs[existingIndex] = profileConfig;
+            } else {
+              mcpConfigs.push(profileConfig);
+            }
+          }
+        }
+      }
+    }
+    
+    // If still no profile, try default profile
+    if (!profileId) {
+      const defaultProfile = ProfileManager.getDefaultProfile();
+      if (defaultProfile && defaultProfile.mcpServers) {
+        const defaultMcpConfigs = defaultProfile.mcpServers.filter(server => server.enabled);
+        
+        for (const defaultConfig of defaultMcpConfigs) {
+          const existingIndex = mcpConfigs.findIndex(config => config.id === defaultConfig.id);
+          if (existingIndex >= 0) {
+            mcpConfigs[existingIndex] = defaultConfig;
+          } else {
+            mcpConfigs.push(defaultConfig);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error collecting MCP configurations:', error);
+  }
+  
+  return mcpConfigs;
+}
+
 // Utility functions to get proxy settings from browser storage
 export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profileId?: string): AgentAPIProxyClientConfig {
   // Check if we're in a browser environment
@@ -536,6 +634,7 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
       maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),
       sessionTimeout: parseInt(process.env.AGENTAPI_PROXY_SESSION_TIMEOUT || '300000'),
       debug: process.env.NODE_ENV === 'development',
+      profileId,
     };
   }
   
@@ -628,6 +727,7 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
       maxSessions: 10,
       sessionTimeout: 300000, // 5 minutes
       debug: process.env.NODE_ENV === 'development',
+      profileId,
     };
   } catch (error) {
     console.warn('Failed to load proxy settings from storage, using environment variables:', error);
@@ -639,6 +739,7 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
       maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),
       sessionTimeout: parseInt(process.env.AGENTAPI_PROXY_SESSION_TIMEOUT || '300000'),
       debug: process.env.NODE_ENV === 'development',
+      profileId,
     };
   }
 }

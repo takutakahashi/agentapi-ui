@@ -2,6 +2,18 @@ import { AgentApiProxySettings, EnvironmentVariable } from './settings';
 import { RepositoryHistoryItem } from '../utils/organizationHistory';
 import { MessageTemplate } from './messageTemplate';
 
+export interface MCPServerConfig {
+  id: string;
+  name: string;
+  endpoint: string;
+  enabled: boolean;
+  transport: 'stdio' | 'sse' | 'websocket';
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  timeout?: number;
+}
+
 export interface Profile {
   id: string;
   name: string;
@@ -18,6 +30,7 @@ export interface Profile {
   created_at: string;
   updated_at: string;
   githubAuth?: GitHubAuthSettings;
+  mcpServers?: MCPServerConfig[];
 }
 
 export interface GitHubAuthSettings {
@@ -74,4 +87,5 @@ export interface UpdateProfileRequest {
   messageTemplates?: MessageTemplate[];
   isDefault?: boolean;
   githubAuth?: GitHubAuthSettings;
+  mcpServers?: MCPServerConfig[];
 }
