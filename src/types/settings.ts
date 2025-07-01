@@ -1,3 +1,5 @@
+import { MCPServerConfig } from './profile';
+
 export interface AgentApiProxySettings {
   endpoint: string
   enabled: boolean
@@ -20,17 +22,20 @@ export interface RepositorySettings {
 
 export interface GlobalSettings {
   environmentVariables: EnvironmentVariable[]
+  mcpServers: MCPServerConfig[]
   created_at: string
   updated_at: string
 }
 
 export interface SettingsFormData {
   environmentVariables: EnvironmentVariable[]
+  mcpServers: MCPServerConfig[]
 }
 
 // Default settings
 export const getDefaultSettings = (): SettingsFormData => ({
-  environmentVariables: []
+  environmentVariables: [],
+  mcpServers: []
 })
 
 // Default proxy settings for profiles
@@ -122,7 +127,10 @@ const mergeWithDefaults = (partialSettings: Partial<SettingsFormData> | null | u
   return {
     environmentVariables: Array.isArray(partialSettings?.environmentVariables) 
       ? partialSettings.environmentVariables 
-      : defaultSettings.environmentVariables
+      : defaultSettings.environmentVariables,
+    mcpServers: Array.isArray(partialSettings?.mcpServers)
+      ? partialSettings.mcpServers
+      : defaultSettings.mcpServers
   }
 }
 
@@ -133,6 +141,12 @@ const mergeSettings = (globalSettings: SettingsFormData, repoSettings: SettingsF
       ...(globalSettings.environmentVariables || []),
       ...(repoSettings.environmentVariables || []).filter(repoVar => 
         !(globalSettings.environmentVariables || []).some(globalVar => globalVar.key === repoVar.key)
+      )
+    ],
+    mcpServers: [
+      ...(globalSettings.mcpServers || []),
+      ...(repoSettings.mcpServers || []).filter(repoServer => 
+        !(globalSettings.mcpServers || []).some(globalServer => globalServer.id === repoServer.id)
       )
     ]
   }

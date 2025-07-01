@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ProfileManager } from '../../../../utils/profileManager';
 import { Profile, UpdateProfileRequest } from '../../../../types/profile';
 import { OrganizationHistory, OrganizationRepositoryHistory } from '../../../../utils/organizationHistory';
+import MCPServerSettings from '../../../../components/MCPServerSettings';
 
 const EMOJI_OPTIONS = ['⚙️', '🔧', '💼', '🏠', '🏢', '🚀', '💻', '🔬', '🎯', '⭐', '🌟', '💡'];
 
@@ -449,6 +450,15 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
               <div className="text-gray-500 dark:text-gray-400 text-sm">No environment variables configured</div>
             )}
           </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <MCPServerSettings
+            mcpServers={formData.mcpServers || []}
+            onChange={(mcpServers) => setFormData(prev => ({ ...prev, mcpServers }))}
+            title="MCP Servers"
+            description="Configure Model Context Protocol servers for this profile. These will be automatically set up when starting sessions with this profile."
+          />
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
