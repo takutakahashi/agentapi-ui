@@ -417,10 +417,10 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       }
     }
 
-    window.addEventListener('profileChanged', handleProfileChange as EventListener)
+    window.addEventListener('profileChanged', handleProfileChange as unknown as EventListener)
     
     return () => {
-      window.removeEventListener('profileChanged', handleProfileChange as EventListener)
+      window.removeEventListener('profileChanged', handleProfileChange as unknown as EventListener)
     }
   }, [currentProfile?.id])
 

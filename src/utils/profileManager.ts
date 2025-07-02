@@ -230,7 +230,7 @@ export class ProfileManager {
     const urlParams = new URLSearchParams(window.location.search);
     const profileIdFromUrl = urlParams.get('profile');
     if (profileIdFromUrl) {
-      const profile = this.getProfile(profileIdFromUrl);
+      const profile = await this.getProfile(profileIdFromUrl);
       if (profile) {
         return profileIdFromUrl;
       }
@@ -294,7 +294,7 @@ export class ProfileManager {
   static async addRepositoryToProfile(profileId: string, repository: string): Promise<void> {
     console.log('ProfileManager.addRepositoryToProfile called:', { profileId, repository });
     
-    const profile = this.getProfile(profileId);
+    const profile = await this.getProfile(profileId);
     if (!profile) {
       console.error('Profile not found:', profileId);
       return;
@@ -416,7 +416,7 @@ export class ProfileManager {
   }
 
   static async exportProfile(profileId: string): Promise<string | null> {
-    const profile = this.getProfile(profileId);
+    const profile = await this.getProfile(profileId);
     if (!profile) {
       return null;
     }

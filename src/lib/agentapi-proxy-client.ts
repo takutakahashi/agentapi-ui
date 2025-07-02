@@ -13,7 +13,7 @@ import {
   AgentListResponse,
   AgentListParams
 } from '../types/agentapi';
-import { loadGlobalSettings, getDefaultProxySettings } from '../types/settings';
+import { loadGlobalSettings, getDefaultProxySettings, EnvironmentVariable } from '../types/settings';
 import { ProfileManager } from '../utils/profileManager';
 import { GitHubUser, MCPServerConfig } from '../types/profile';
 
@@ -277,10 +277,10 @@ export class AgentAPIProxyClient {
     // Collect profile environment variables if profile is specified
     if (this.profileId) {
       try {
-        const profile = ProfileManager.getProfile(this.profileId);
+        const profile = await ProfileManager.getProfile(this.profileId);
         if (profile && profile.environmentVariables) {
           const profileEnvironment: Record<string, string> = {};
-          profile.environmentVariables.forEach(envVar => {
+          profile.environmentVariables.forEach((envVar: EnvironmentVariable) => {
             if (envVar.key && envVar.value) {
               profileEnvironment[envVar.key] = envVar.value;
             }
@@ -307,7 +307,7 @@ export class AgentAPIProxyClient {
 
     // Collect MCP server configurations and add to tags
     try {
-      const mcpConfigs = collectMCPConfigurations(this.profileId);
+      const mcpConfigs = await collectMCPConfigurations(this.profileId);
       if (mcpConfigs.length > 0) {
         // Ensure tags object exists
         if (!data.tags) {
@@ -582,21 +582,21 @@ export class AgentAPIProxyClient {
 }
 
 // Utility function to collect MCP server configurations
-function collectMCPConfigurations(profileId?: string): MCPServerConfig[] {
+async function collectMCPConfigurations(profileId?: string): Promise<MCPServerConfig[]> {
   const mcpConfigs: MCPServerConfig[] = [];
   
   try {
     // Get global MCP configurations
     const globalSettings = loadGlobalSettings();
     if (globalSettings.mcpServers) {
-      mcpConfigs.push(...globalSettings.mcpServers.filter(server => server.enabled));
+      mcpConfigs.push(...globalSettings.mcpServers.filter((server: MCPServerConfig) => server.enabled));
     }
     
     // Get profile-specific MCP configurations (overrides global)
     if (profileId) {
-      const profile = ProfileManager.getProfile(profileId);
+      const profile = await ProfileManager.getProfile(profileId);
       if (profile && profile.mcpServers) {
-        const profileMcpConfigs = profile.mcpServers.filter(server => server.enabled);
+        const profileMcpConfigs = profile.mcpServers.filter((server: MCPServerConfig) => server.enabled);
         
         // Merge profile configs with global ones, profile takes precedence
         for (const profileConfig of profileMcpConfigs) {
@@ -612,11 +612,11 @@ function collectMCPConfigurations(profileId?: string): MCPServerConfig[] {
     
     // If no profile specified, try to get current profile
     if (!profileId) {
-      const currentProfileId = ProfileManager.getCurrentProfileId();
+      const currentProfileId = await ProfileManager.getCurrentProfileId();
       if (currentProfileId) {
-        const profile = ProfileManager.getProfile(currentProfileId);
+        const profile = await ProfileManager.getProfile(currentProfileId);
         if (profile && profile.mcpServers) {
-          const profileMcpConfigs = profile.mcpServers.filter(server => server.enabled);
+          const profileMcpConfigs = profile.mcpServers.filter((server: MCPServerConfig) => server.enabled);
           
           for (const profileConfig of profileMcpConfigs) {
             const existingIndex = mcpConfigs.findIndex(config => config.id === profileConfig.id);
@@ -632,9 +632,9 @@ function collectMCPConfigurations(profileId?: string): MCPServerConfig[] {
     
     // If still no profile, try default profile
     if (!profileId) {
-      const defaultProfile = ProfileManager.getDefaultProfile();
+      const defaultProfile = await ProfileManager.getDefaultProfile();
       if (defaultProfile && defaultProfile.mcpServers) {
-        const defaultMcpConfigs = defaultProfile.mcpServers.filter(server => server.enabled);
+        const defaultMcpConfigs = defaultProfile.mcpServers.filter((server: MCPServerConfig) => server.enabled);
         
         for (const defaultConfig of defaultMcpConfigs) {
           const existingIndex = mcpConfigs.findIndex(config => config.id === defaultConfig.id);
@@ -653,8 +653,38 @@ function collectMCPConfigurations(profileId?: string): MCPServerConfig[] {
   return mcpConfigs;
 }
 
+// Synchronous version for backward compatibility
+export function getAgentAPIProxyConfigFromStorageSync(repoFullname?: string, profileId?: string): AgentAPIProxyClientConfig {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined') {
+    // Server-side rendering or Node.js environment - use environment variables
+    return {
+      baseURL: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
+      apiKey: process.env.AGENTAPI_API_KEY,
+      timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
+      maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),
+      sessionTimeout: parseInt(process.env.AGENTAPI_PROXY_SESSION_TIMEOUT || '300000'),
+      debug: process.env.NODE_ENV === 'development',
+      profileId,
+    };
+  }
+  
+  // Use fallback for profiles that require sync access
+  const proxySettings = getDefaultProxySettings();
+  
+  return {
+    baseURL: proxySettings.endpoint,
+    apiKey: proxySettings.apiKey,
+    timeout: proxySettings.timeout,
+    maxSessions: 10,
+    sessionTimeout: 300000,
+    debug: false,
+    profileId,
+  };
+}
+
 // Utility functions to get proxy settings from browser storage
-export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profileId?: string): AgentAPIProxyClientConfig {
+export async function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profileId?: string): Promise<AgentAPIProxyClientConfig> {
   // Check if we're in a browser environment
   if (typeof window === 'undefined') {
     // Server-side rendering or Node.js environment - use environment variables
@@ -674,7 +704,7 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
   try {
     // First, try to get settings from profile if profileId is provided
     if (profileId) {
-      const profile = ProfileManager.getProfile(profileId);
+      const profile = await ProfileManager.getProfile(profileId);
       if (profile) {
         settings = {
           agentApiProxy: profile.agentApiProxy,
@@ -740,9 +770,17 @@ export function createAgentAPIProxyClient(config: AgentAPIProxyClientConfig): Ag
 
 // Factory function to create client using stored settings
 export function createAgentAPIProxyClientFromStorage(repoFullname?: string, profileId?: string): AgentAPIProxyClient {
-  const config = getAgentAPIProxyConfigFromStorage(repoFullname, profileId);
+  // Use a synchronous version for compatibility
+  const config = getAgentAPIProxyConfigFromStorageSync(repoFullname, profileId);
+  return new AgentAPIProxyClient(config);
+}
+
+// Async version for cases where profile loading is needed
+export async function createAgentAPIProxyClientFromStorageAsync(repoFullname?: string, profileId?: string): Promise<AgentAPIProxyClient> {
+  const config = await getAgentAPIProxyConfigFromStorage(repoFullname, profileId);
   return new AgentAPIProxyClient(config);
 }
 
 // Default proxy client instance for convenience (uses global settings from storage)
+// Note: This will be a Promise now - use await when calling
 export const agentAPIProxy = createAgentAPIProxyClientFromStorage();

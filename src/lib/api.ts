@@ -1,6 +1,5 @@
 import { Chat, ChatListResponse } from '../types/chat'
 import { getDefaultProxySettings } from '../types/settings'
-import { ProfileManager } from '../utils/profileManager'
 import { StatisticsData } from '../types/statistics'
 import { createAgentAPIProxyClientFromStorage } from './agentapi-proxy-client'
 

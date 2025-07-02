@@ -40,10 +40,10 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
   const envScrollRef = useRef<HTMLDivElement>(null);
   const orgScrollRef = useRef<HTMLDivElement>(null);
 
-  const loadProfile = useCallback(() => {
+  const loadProfile = useCallback(async () => {
     setLoading(true);
     try {
-      const loadedProfile = ProfileManager.getProfile(profileId);
+      const loadedProfile = await ProfileManager.getProfile(profileId);
       if (!loadedProfile) {
         onClose();
         return;
@@ -91,7 +91,7 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
 
     setSaving(true);
     try {
-      ProfileManager.updateProfile(profileId, formData);
+      await ProfileManager.updateProfile(profileId, formData);
       onProfileUpdated();
       onClose();
     } catch (error) {

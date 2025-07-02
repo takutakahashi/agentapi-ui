@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client';
+import { createAgentAPIProxyClientFromStorageAsync } from '../../lib/agentapi-proxy-client';
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client';
 import { SessionMessage, SessionMessageListResponse } from '../../types/agentapi';
 import { ProfileManager } from '../../utils/profileManager';
+import { Profile } from '../../types/profile';
 import { useBackgroundAwareInterval } from '../hooks/usePageVisibility';
 import { messageTemplateManager } from '../../utils/messageTemplateManager';
 import { MessageTemplate } from '../../types/messageTemplate';
@@ -169,24 +170,40 @@ export default function AgentAPIChat() {
   const sessionId = searchParams.get('session');
   
   // Get current profile and create profile-aware client
-  const [currentProfile, setCurrentProfile] = useState(() => ProfileManager.getDefaultProfile());
-  const [agentAPI, setAgentAPI] = useState<ReturnType<typeof createAgentAPIProxyClientFromStorage> | null>(() => {
-    // Initialize agentAPI immediately with default profile
-    const profile = ProfileManager.getDefaultProfile();
-    if (profile) {
-      return createAgentAPIProxyClientFromStorage(undefined, profile.id);
-    }
-    return null;
-  });
-  const agentAPIRef = useRef<ReturnType<typeof createAgentAPIProxyClientFromStorage> | null>(agentAPI);
+  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
+  const [agentAPI, setAgentAPI] = useState<Awaited<ReturnType<typeof createAgentAPIProxyClientFromStorageAsync>> | null>(null);
+  const agentAPIRef = useRef<Awaited<ReturnType<typeof createAgentAPIProxyClientFromStorageAsync>> | null>(null);
+  
+  // Initialize profile and agentAPI
+  useEffect(() => {
+    const initializeProfile = async () => {
+      try {
+        const profile = await ProfileManager.getDefaultProfile();
+        if (profile) {
+          setCurrentProfile(profile);
+          const client = await createAgentAPIProxyClientFromStorageAsync(undefined, profile.id);
+          setAgentAPI(client);
+          agentAPIRef.current = client;
+        }
+      } catch (error) {
+        console.error('Failed to initialize profile:', error);
+      }
+    };
+    
+    initializeProfile();
+  }, []);
   
   // Update agentAPI only when profile changes
   useEffect(() => {
-    if (currentProfile && (!agentAPI || agentAPIRef.current === null)) {
-      const client = createAgentAPIProxyClientFromStorage(undefined, currentProfile.id);
-      setAgentAPI(client);
-      agentAPIRef.current = client;
-    }
+    const updateClient = async () => {
+      if (currentProfile && (!agentAPI || agentAPIRef.current === null)) {
+        const client = await createAgentAPIProxyClientFromStorageAsync(undefined, currentProfile.id);
+        setAgentAPI(client);
+        agentAPIRef.current = client;
+      }
+    };
+    
+    updateClient();
   }, [currentProfile, agentAPI]);
   
   // Initialize chat when agentAPI is ready - optimized for faster loading
@@ -322,23 +339,27 @@ export default function AgentAPIChat() {
 
   // Listen for profile changes and recreate client
   useEffect(() => {
-    const handleProfileChange = (event: CustomEvent) => {
-      const newProfileId = event.detail.profileId;
-      const newProfile = ProfileManager.getProfile(newProfileId);
-      
-      if (newProfile && newProfile.id !== currentProfile?.id) {
-        setCurrentProfile(newProfile);
-        loadTemplatesForProfile(newProfile.id);
-        const client = createAgentAPIProxyClientFromStorage(undefined, newProfile.id);
-        setAgentAPI(client);
-        agentAPIRef.current = client;
+    const handleProfileChange = async (event: CustomEvent) => {
+      try {
+        const newProfileId = event.detail.profileId;
+        const newProfile = await ProfileManager.getProfile(newProfileId);
+        
+        if (newProfile && newProfile.id !== currentProfile?.id) {
+          setCurrentProfile(newProfile);
+          loadTemplatesForProfile(newProfile.id);
+          const client = await createAgentAPIProxyClientFromStorageAsync(undefined, newProfile.id);
+          setAgentAPI(client);
+          agentAPIRef.current = client;
+        }
+      } catch (error) {
+        console.error('Failed to handle profile change:', error);
       }
     };
 
-    window.addEventListener('profileChanged', handleProfileChange as EventListener);
+    window.addEventListener('profileChanged', handleProfileChange as unknown as EventListener);
     
     return () => {
-      window.removeEventListener('profileChanged', handleProfileChange as EventListener);
+      window.removeEventListener('profileChanged', handleProfileChange as unknown as EventListener);
     };
   }, [currentProfile?.id]);
 

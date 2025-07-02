@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Session, SessionListParams } from '../../types/agentapi'
-import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
+import { createAgentAPIProxyClientFromStorageAsync, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { ProfileManager } from '../../utils/profileManager'
+import { Profile } from '../../types/profile'
 import { 
   extractFilterGroups, 
   applySessionFilters, 
@@ -31,8 +32,8 @@ export default function ConversationList() {
   const repositoryParam = searchParams.get('repository')
   
   // Get current profile and create profile-aware client
-  const [currentProfile, setCurrentProfile] = useState(() => ProfileManager.getDefaultProfile())
-  const [agentAPI, setAgentAPI] = useState(() => createAgentAPIProxyClientFromStorage(repositoryParam || undefined, currentProfile?.id))
+  const [, setCurrentProfile] = useState<Profile | null>(null)
+  const [agentAPI, setAgentAPI] = useState<Awaited<ReturnType<typeof createAgentAPIProxyClientFromStorageAsync>> | null>(null)
   
   const [allSessions, setAllSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
@@ -63,6 +64,10 @@ export default function ConversationList() {
   const totalPages = Math.ceil(filteredSessions.length / pageState.limit)
 
   const fetchSessions = useCallback(async () => {
+    if (!agentAPI) {
+      return
+    }
+    
     try {
       setLoading(true)
       setError(null)
@@ -127,6 +132,8 @@ export default function ConversationList() {
       // Get current filter values to use as default parameters for new session
       const { metadata, environment } = getFilterValuesForSessionCreation(sessionFilters)
       
+      if (!agentAPI) return
+      
       await agentAPI.start({
         ...metadata,
         description: quickStartMessage.trim(),
@@ -158,6 +165,7 @@ export default function ConversationList() {
 
   const deleteSession = async (sessionId: string) => {
     if (!confirm('このセッションを削除してもよろしいですか？')) return
+    if (!agentAPI) return
 
     try {
       setDeletingSession(sessionId)
@@ -180,24 +188,47 @@ export default function ConversationList() {
     setSessionFilters(urlFilters)
   }, [searchParams])
 
+  // Initialize profile
+  useEffect(() => {
+    const initializeProfile = async () => {
+      try {
+        const profile = await ProfileManager.getDefaultProfile()
+        if (profile) {
+          setCurrentProfile(profile)
+          const client = await createAgentAPIProxyClientFromStorageAsync(repositoryParam || undefined, profile.id)
+          setAgentAPI(client)
+        }
+      } catch (error) {
+        console.error('Failed to initialize profile:', error)
+      }
+    }
+    
+    initializeProfile()
+  }, [repositoryParam])
+
   // Listen for profile changes and recreate client
   useEffect(() => {
-    const handleProfileChange = (event: CustomEvent) => {
-      const newProfileId = event.detail.profileId
-      const newProfile = ProfileManager.getProfile(newProfileId)
-      
-      if (newProfile) {
-        setCurrentProfile(newProfile)
-        setAgentAPI(createAgentAPIProxyClientFromStorage(repositoryParam || undefined, newProfile.id))
-        // Refresh sessions with new profile settings
-        fetchSessions()
+    const handleProfileChange = async (event: CustomEvent) => {
+      try {
+        const newProfileId = event.detail.profileId
+        const newProfile = await ProfileManager.getProfile(newProfileId)
+        
+        if (newProfile) {
+          setCurrentProfile(newProfile)
+          const client = await createAgentAPIProxyClientFromStorageAsync(repositoryParam || undefined, newProfile.id)
+          setAgentAPI(client)
+          // Refresh sessions with new profile settings
+          fetchSessions()
+        }
+      } catch (error) {
+        console.error('Failed to handle profile change:', error)
       }
     }
 
-    window.addEventListener('profileChanged', handleProfileChange as EventListener)
+    window.addEventListener('profileChanged', handleProfileChange as unknown as EventListener)
     
     return () => {
-      window.removeEventListener('profileChanged', handleProfileChange as EventListener)
+      window.removeEventListener('profileChanged', handleProfileChange as unknown as EventListener)
     }
   }, [repositoryParam, fetchSessions])
 

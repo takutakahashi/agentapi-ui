@@ -23,7 +23,7 @@ function TemplatesPageContent() {
   const loadProfileAndTemplates = useCallback(async () => {
     if (!profileId) return;
     
-    const prof = ProfileManager.getProfile(profileId);
+    const prof = await ProfileManager.getProfile(profileId);
     if (!prof) {
       router.push('/profiles');
       return;

@@ -510,10 +510,10 @@ export default function NewSessionModal({
     setEditProfileId('')
   }
 
-  const handleProfileUpdated = () => {
+  const handleProfileUpdated = async () => {
     // プロファイルリストを再読み込み
-    ProfileManager.migrateExistingSettings()
-    const profilesList = ProfileManager.getProfiles()
+    await ProfileManager.migrateExistingSettings()
+    const profilesList = await ProfileManager.getProfiles()
     setProfiles(profilesList)
   }
 

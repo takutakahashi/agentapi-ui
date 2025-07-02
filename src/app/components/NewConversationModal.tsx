@@ -142,38 +142,41 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
   
   // Initialize form when modal opens
   useEffect(() => {
-    if (isOpen) {
-      initializeFromFilters()
-      if (initialRepository) {
-        setRepository(initialRepository)
-      }
-      
-      // 現在のプロファイルを取得（現在のプロファイル -> デフォルトプロファイルの順）
-      let currentProfile = null
-      const currentProfileId = ProfileManager.getCurrentProfileId()
-      if (currentProfileId) {
-        currentProfile = ProfileManager.getProfile(currentProfileId)
-        setCurrentProfileId(currentProfileId)
-      } else {
-        currentProfile = ProfileManager.getDefaultProfile()
-        if (currentProfile) {
-          setCurrentProfileId(currentProfile.id)
+    const initializeModal = async () => {
+      if (isOpen) {
+        initializeFromFilters()
+        if (initialRepository) {
+          setRepository(initialRepository)
         }
-      }
-      
-      if (currentProfile) {
-        // Profile の環境変数をフォームに反映（フィルターからの値が優先）
-        if (envVars.length === 1 && !envVars[0].key && !envVars[0].value) {
-          const profileEnvVars = currentProfile.environmentVariables || []
-          if (profileEnvVars.length > 0) {
-            setEnvVars(profileEnvVars.map(envVar => ({ 
-              key: envVar.key || '', 
-              value: envVar.value || '' 
-            })))
+        
+        // 現在のプロファイルを取得（現在のプロファイル -> デフォルトプロファイルの順）
+        let currentProfile = null
+        const currentProfileId = await ProfileManager.getCurrentProfileId()
+        if (currentProfileId) {
+          currentProfile = await ProfileManager.getProfile(currentProfileId)
+          setCurrentProfileId(currentProfileId)
+        } else {
+          currentProfile = await ProfileManager.getDefaultProfile()
+          if (currentProfile) {
+            setCurrentProfileId(currentProfile.id)
+          }
+        }
+        
+        if (currentProfile) {
+          // Profile の環境変数をフォームに反映（フィルターからの値が優先）
+          if (envVars.length === 1 && !envVars[0].key && !envVars[0].value) {
+            const profileEnvVars = currentProfile.environmentVariables || []
+            if (profileEnvVars.length > 0) {
+              setEnvVars(profileEnvVars.map(envVar => ({ 
+                key: envVar.key || '', 
+                value: envVar.value || '' 
+              })))
+            }
           }
         }
       }
     }
+    initializeModal()
   }, [isOpen, currentFilters, initialRepository, initializeFromFilters])
 
   // ESCキーでモーダルを閉じる

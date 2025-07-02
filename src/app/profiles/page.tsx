@@ -19,9 +19,9 @@ export default function ProfilesPage() {
     ProfileManager.migrateExistingSettings();
   }, []);
 
-  const loadProfiles = () => {
+  const loadProfiles = async () => {
     try {
-      const profilesList = ProfileManager.getProfiles();
+      const profilesList = await ProfileManager.getProfiles();
       setProfiles(profilesList);
     } catch (error) {
       console.error('Failed to load profiles:', error);
@@ -33,8 +33,8 @@ export default function ProfilesPage() {
   const handleDeleteProfile = async (profileId: string) => {
     if (confirm('Are you sure you want to delete this profile?')) {
       try {
-        ProfileManager.deleteProfile(profileId);
-        loadProfiles();
+        await ProfileManager.deleteProfile(profileId);
+        await loadProfiles();
       } catch (error) {
         console.error('Failed to delete profile:', error);
         alert('Failed to delete profile');
@@ -42,10 +42,10 @@ export default function ProfilesPage() {
     }
   };
 
-  const handleSetDefault = (profileId: string) => {
+  const handleSetDefault = async (profileId: string) => {
     try {
-      ProfileManager.setDefaultProfile(profileId);
-      loadProfiles();
+      await ProfileManager.setDefaultProfile(profileId);
+      await loadProfiles();
       // Update theme to new default profile
       updateThemeFromProfile(profileId);
     } catch (error) {
@@ -54,15 +54,15 @@ export default function ProfilesPage() {
     }
   };
 
-  const handleExportProfile = (profileId: string) => {
+  const handleExportProfile = async (profileId: string) => {
     try {
-      const exportData = ProfileManager.exportProfile(profileId);
+      const exportData = await ProfileManager.exportProfile(profileId);
       if (!exportData) {
         alert('Failed to export profile');
         return;
       }
 
-      const profile = ProfileManager.getProfile(profileId);
+      const profile = await ProfileManager.getProfile(profileId);
       const fileName = `profile-${profile?.name || 'unknown'}.json`;
       
       const blob = new Blob([exportData], { type: 'application/json' });
@@ -89,12 +89,12 @@ export default function ProfilesPage() {
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
           const jsonData = e.target?.result as string;
-          const importedProfile = ProfileManager.importProfile(jsonData);
+          const importedProfile = await ProfileManager.importProfile(jsonData);
           if (importedProfile) {
-            loadProfiles();
+            await loadProfiles();
             alert(`Profile "${importedProfile.name}" imported successfully!`);
           } else {
             alert('Failed to import profile. Please check the file format.');
