@@ -6,11 +6,25 @@
  * ブラウザコンソールでの手動テストが必要です
  */
 
-import { encrypt, decrypt, encryptSensitiveFields, decryptSensitiveFields, shouldEncryptField } from '../crypto';
+import { describe, it, expect } from 'vitest';
+import { shouldEncryptField } from '../crypto';
 
-// ブラウザ環境でのみテストを実行
+// Node.js環境でのBasicテスト
+describe('Crypto Utils', () => {
+  it('should identify encrypted fields correctly', () => {
+    expect(shouldEncryptField('agentApiProxy.apiKey')).toBe(true);
+    expect(shouldEncryptField('githubAuth.accessToken')).toBe(true);
+    expect(shouldEncryptField('environmentVariables.0.value')).toBe(true);
+    expect(shouldEncryptField('name')).toBe(false);
+    expect(shouldEncryptField('agentApiProxy.endpoint')).toBe(false);
+  });
+});
+
+// ブラウザ環境でのみ実行される完全なテスト
 if (typeof window !== 'undefined' && typeof window.crypto !== 'undefined') {
-  console.log('🔐 Testing Web Crypto API encryption...');
+  // Browser-only imports
+  import('../crypto').then(({ encrypt, decrypt, encryptSensitiveFields, decryptSensitiveFields }) => {
+    console.log('🔐 Testing Web Crypto API encryption...');
 
   // 基本的な暗号化・復号化テスト
   async function testBasicEncryption() {
@@ -125,10 +139,11 @@ if (typeof window !== 'undefined' && typeof window.crypto !== 'undefined') {
     console.log('🎉 All crypto tests completed!');
   }
 
-  // テスト実行（ブラウザコンソールで手動実行用）
-  (window as unknown as Record<string, unknown>).runCryptoTests = runAllTests;
-  
-  console.log('To run tests, execute: runCryptoTests()');
+    // テスト実行（ブラウザコンソールで手動実行用）
+    (window as unknown as Record<string, unknown>).runCryptoTests = runAllTests;
+    
+    console.log('To run tests, execute: runCryptoTests()');
+  });
 } else {
   console.log('⚠️ Crypto tests skipped - requires browser environment');
 }
