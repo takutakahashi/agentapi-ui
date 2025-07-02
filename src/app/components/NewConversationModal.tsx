@@ -165,8 +165,22 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
         // Profile の環境変数をフォームに反映（フィルターからの値が優先）
         if (envVars.length === 1 && !envVars[0].key && !envVars[0].value) {
           const profileEnvVars = currentProfile.environmentVariables || []
-          if (profileEnvVars.length > 0) {
-            setEnvVars(profileEnvVars.map(envVar => ({ 
+          
+          // GITHUB_TOKEN として API キーを使用する設定が有効な場合、環境変数に追加
+          const envVarsToSet = [...profileEnvVars]
+          if (currentProfile.agentApiProxy?.useAsGithubToken && currentProfile.agentApiProxy?.apiKey) {
+            // 既存の GITHUB_TOKEN がない場合のみ追加
+            if (!envVarsToSet.some(env => env.key === 'GITHUB_TOKEN')) {
+              envVarsToSet.push({
+                key: 'GITHUB_TOKEN',
+                value: currentProfile.agentApiProxy.apiKey,
+                description: 'AgentAPI キーを GITHUB_TOKEN として使用'
+              })
+            }
+          }
+          
+          if (envVarsToSet.length > 0) {
+            setEnvVars(envVarsToSet.map(envVar => ({ 
               key: envVar.key || '', 
               value: envVar.value || '' 
             })))

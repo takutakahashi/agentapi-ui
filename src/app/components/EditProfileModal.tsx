@@ -382,6 +382,25 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
                       placeholder="API キーを入力"
                     />
+                    <div className="mt-2">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={formData.agentApiProxy?.useAsGithubToken || false}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            agentApiProxy: { ...prev.agentApiProxy, useAsGithubToken: e.target.checked }
+                          }))}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          このキーを GITHUB_TOKEN として使用する
+                        </span>
+                      </label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
+                        チェックすると、セッション開始時に GITHUB_TOKEN 環境変数として設定されます
+                      </p>
+                    </div>
                   </div>
 
                   <div>
