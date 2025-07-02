@@ -1,4 +1,5 @@
-// @ts-nocheck - Legacy file, replaced by secureAgentApiProxyClient.ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// Legacy file, replaced by secureAgentApiProxyClient.ts
 import {
   Session,
   SessionListParams,
