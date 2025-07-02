@@ -274,6 +274,37 @@ export class AgentAPIProxyClient {
       };
     }
 
+    // Collect profile environment variables if profile is specified
+    if (this.profileId) {
+      try {
+        const profile = ProfileManager.getProfile(this.profileId);
+        if (profile && profile.environmentVariables) {
+          const profileEnvironment: Record<string, string> = {};
+          profile.environmentVariables.forEach(envVar => {
+            if (envVar.key && envVar.value) {
+              profileEnvironment[envVar.key] = envVar.value;
+            }
+          });
+          
+          if (Object.keys(profileEnvironment).length > 0) {
+            // Merge profile environment variables with session-specific ones
+            // Session-specific environment variables take precedence
+            data.environment = {
+              ...profileEnvironment,
+              ...(data.environment || {})
+            };
+            
+            if (this.debug) {
+              console.log(`[AgentAPIProxy] Merged ${Object.keys(profileEnvironment).length} environment variables from profile ${this.profileId}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[AgentAPIProxy] Failed to collect profile environment variables:', error);
+        // Continue with session creation even if profile env collection fails
+      }
+    }
+
     // Collect MCP server configurations and add to tags
     try {
       const mcpConfigs = collectMCPConfigurations(this.profileId);
