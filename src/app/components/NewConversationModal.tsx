@@ -148,10 +148,30 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
         setRepository(initialRepository)
       }
       
-      // 現在のプロファイルを取得
-      const defaultProfile = ProfileManager.getDefaultProfile()
-      if (defaultProfile) {
-        setCurrentProfileId(defaultProfile.id)
+      // 現在のプロファイルを取得（現在のプロファイル -> デフォルトプロファイルの順）
+      let currentProfile = null
+      const currentProfileId = ProfileManager.getCurrentProfileId()
+      if (currentProfileId) {
+        currentProfile = ProfileManager.getProfile(currentProfileId)
+        setCurrentProfileId(currentProfileId)
+      } else {
+        currentProfile = ProfileManager.getDefaultProfile()
+        if (currentProfile) {
+          setCurrentProfileId(currentProfile.id)
+        }
+      }
+      
+      if (currentProfile) {
+        // Profile の環境変数をフォームに反映（フィルターからの値が優先）
+        if (envVars.length === 1 && !envVars[0].key && !envVars[0].value) {
+          const profileEnvVars = currentProfile.environmentVariables || []
+          if (profileEnvVars.length > 0) {
+            setEnvVars(profileEnvVars.map(envVar => ({ 
+              key: envVar.key || '', 
+              value: envVar.value || '' 
+            })))
+          }
+        }
       }
     }
   }, [isOpen, currentFilters, initialRepository, initializeFromFilters])

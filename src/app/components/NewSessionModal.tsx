@@ -172,11 +172,28 @@ export default function NewSessionModal({
         tags.repository = repo
       }
 
+      // Profile の環境変数を取得
+      const selectedProfile = selectedProfileId ? ProfileManager.getProfile(selectedProfileId) : null
+      const profileEnvironmentVariables = selectedProfile?.environmentVariables || []
+      
+      // 環境変数オブジェクトを構築
+      const environment: Record<string, string> = {}
+      
+      // Profile の環境変数を追加
+      profileEnvironmentVariables.forEach(envVar => {
+        if (envVar.key && envVar.value) {
+          environment[envVar.key] = envVar.value
+        }
+      })
+      
+      // リポジトリ情報を環境変数に追加（既存の値を上書きしない）
+      if (repo && !environment.REPOSITORY) {
+        environment.REPOSITORY = repo
+      }
+
       // セッションを作成 (createSession -> start)
       const session = await client.start({
-        environment: repo ? {
-          REPOSITORY: repo
-        } : {},
+        environment,
         metadata: {
           description: message
         },
@@ -220,15 +237,15 @@ export default function NewSessionModal({
       onSessionStatusUpdate(sessionId, 'sending-message')
       
       // 選択されたプロファイルからシステムプロンプトを取得
-      let profile = null
+      let systemPromptProfile = null
       if (selectedProfileId) {
-        profile = ProfileManager.getProfile(selectedProfileId)
+        systemPromptProfile = ProfileManager.getProfile(selectedProfileId)
       }
       
       // システムプロンプトと初期メッセージを結合
       let combinedMessage = message
-      if (profile?.systemPrompt?.trim()) {
-        combinedMessage = `${profile.systemPrompt}\n\n---\n\n${message}`
+      if (systemPromptProfile?.systemPrompt?.trim()) {
+        combinedMessage = `${systemPromptProfile.systemPrompt}\n\n---\n\n${message}`
         console.log(`Combined system prompt with initial message for session ${session.session_id}`)
       }
       
