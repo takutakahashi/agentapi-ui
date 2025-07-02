@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '../contexts/ThemeContext'
 import { Analytics } from '@vercel/analytics/react'
+import { SecureMigrationProvider } from '../hooks/useSecureMigration'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -49,10 +50,12 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
       </head>
       <body className={inter.className}>
-        <ThemeProvider>
-          {children}
-          <Analytics />
-        </ThemeProvider>
+        <SecureMigrationProvider>
+          <ThemeProvider>
+            {children}
+            <Analytics />
+          </ThemeProvider>
+        </SecureMigrationProvider>
       </body>
     </html>
   )
