@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ProfileManager } from '../../../../utils/profileManager';
+import { SecureProfileManager } from '../../../../utils/secureProfileManager';
 import { Profile, UpdateProfileRequest } from '../../../../types/profile';
 import { OrganizationHistory, OrganizationRepositoryHistory } from '../../../../utils/organizationHistory';
 import MCPServerSettings from '../../../../components/MCPServerSettings';
@@ -42,11 +42,11 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
     params.then(p => setParamId(p.id));
   }, [params]);
 
-  const loadProfile = useCallback(() => {
+  const loadProfile = useCallback(async () => {
     if (!paramId) return;
     
     try {
-      const loadedProfile = ProfileManager.getProfile(paramId);
+      const loadedProfile = await SecureProfileManager.getProfile(paramId);
       if (!loadedProfile) {
         router.push('/profiles');
         return;
@@ -92,7 +92,7 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
 
     setSaving(true);
     try {
-      ProfileManager.updateProfile(paramId, formData);
+      await SecureProfileManager.updateProfile(paramId, formData);
       router.push('/profiles');
     } catch (error) {
       console.error('Failed to update profile:', error);

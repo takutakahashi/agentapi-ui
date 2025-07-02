@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ProfileManager } from '../../../utils/profileManager';
+import { SecureProfileManager } from '../../../utils/secureProfileManager';
 import { CreateProfileRequest } from '../../../types/profile';
 import { getDefaultSettings, getDefaultProxySettings } from '../../../types/settings';
 
@@ -50,7 +50,7 @@ export default function NewProfilePage() {
 
     setLoading(true);
     try {
-      ProfileManager.createProfile(formData);
+      await SecureProfileManager.createProfile(formData);
       router.push('/profiles');
     } catch (error) {
       console.error('Failed to create profile:', error);

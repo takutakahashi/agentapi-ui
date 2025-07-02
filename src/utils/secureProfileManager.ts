@@ -292,6 +292,42 @@ export class SecureProfileManager {
   }
 
   /**
+   * プロファイルをインポート（暗号化対応）
+   */
+  static async importProfile(jsonData: string): Promise<Profile | null> {
+    try {
+      const profileData = JSON.parse(jsonData);
+      
+      if (!profileData.name || !profileData.id) {
+        throw new Error('Invalid profile data');
+      }
+
+      // Generate new ID to avoid conflicts
+      const newId = uuidv4();
+      const now = new Date().toISOString();
+
+      const profile: Profile = {
+        ...profileData,
+        id: newId,
+        isDefault: false, // Never import as default
+        created_at: now,
+        updated_at: now,
+        repositoryHistory: profileData.repositoryHistory || [],
+        messageTemplates: profileData.messageTemplates || [],
+        environmentVariables: profileData.environmentVariables || [],
+      };
+
+      await this.saveProfile(profile);
+      this.updateProfilesList();
+
+      return profile;
+    } catch (err) {
+      console.error('Failed to import profile:', err);
+      return null;
+    }
+  }
+
+  /**
    * 既存プロファイルのマイグレーション
    */
   static async migrateExistingProfiles(): Promise<void> {

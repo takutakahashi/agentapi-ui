@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ProfileManager } from '../../utils/profileManager';
+import { SecureProfileManager } from '../../utils/secureProfileManager';
 import { ProfileListItem } from '../../types/profile';
 import Link from 'next/link';
 import { useTheme } from '../../hooks/useTheme';
@@ -16,12 +16,12 @@ export default function ProfilesPage() {
 
   useEffect(() => {
     loadProfiles();
-    ProfileManager.migrateExistingSettings();
+    // Migration is handled by SecureMigrationProvider in layout
   }, []);
 
   const loadProfiles = () => {
     try {
-      const profilesList = ProfileManager.getProfiles();
+      const profilesList = SecureProfileManager.getProfiles();
       setProfiles(profilesList);
     } catch (error) {
       console.error('Failed to load profiles:', error);
@@ -33,7 +33,7 @@ export default function ProfilesPage() {
   const handleDeleteProfile = async (profileId: string) => {
     if (confirm('Are you sure you want to delete this profile?')) {
       try {
-        ProfileManager.deleteProfile(profileId);
+        await SecureProfileManager.deleteProfile(profileId);
         loadProfiles();
       } catch (error) {
         console.error('Failed to delete profile:', error);
@@ -44,7 +44,7 @@ export default function ProfilesPage() {
 
   const handleSetDefault = (profileId: string) => {
     try {
-      ProfileManager.setDefaultProfile(profileId);
+      SecureProfileManager.setDefaultProfile(profileId);
       loadProfiles();
       // Update theme to new default profile
       updateThemeFromProfile(profileId);
@@ -54,15 +54,15 @@ export default function ProfilesPage() {
     }
   };
 
-  const handleExportProfile = (profileId: string) => {
+  const handleExportProfile = async (profileId: string) => {
     try {
-      const exportData = ProfileManager.exportProfile(profileId);
+      const exportData = await SecureProfileManager.exportProfile(profileId);
       if (!exportData) {
         alert('Failed to export profile');
         return;
       }
 
-      const profile = ProfileManager.getProfile(profileId);
+      const profile = await SecureProfileManager.getProfile(profileId);
       const fileName = `profile-${profile?.name || 'unknown'}.json`;
       
       const blob = new Blob([exportData], { type: 'application/json' });
@@ -89,10 +89,10 @@ export default function ProfilesPage() {
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
           const jsonData = e.target?.result as string;
-          const importedProfile = ProfileManager.importProfile(jsonData);
+          const importedProfile = await SecureProfileManager.importProfile(jsonData);
           if (importedProfile) {
             loadProfiles();
             alert(`Profile "${importedProfile.name}" imported successfully!`);

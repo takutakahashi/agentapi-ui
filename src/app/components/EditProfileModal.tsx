@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ProfileManager } from '../../utils/profileManager';
+import { SecureProfileManager } from '../../utils/secureProfileManager';
 import { Profile, UpdateProfileRequest } from '../../types/profile';
 import { OrganizationHistory, OrganizationRepositoryHistory } from '../../utils/organizationHistory';
 import { GitHubAuthSettings } from '../../components/profiles/GitHubAuthSettings';
@@ -40,10 +40,10 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
   const envScrollRef = useRef<HTMLDivElement>(null);
   const orgScrollRef = useRef<HTMLDivElement>(null);
 
-  const loadProfile = useCallback(() => {
+  const loadProfile = useCallback(async () => {
     setLoading(true);
     try {
-      const loadedProfile = ProfileManager.getProfile(profileId);
+      const loadedProfile = await SecureProfileManager.getProfile(profileId);
       if (!loadedProfile) {
         onClose();
         return;
@@ -91,7 +91,7 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
 
     setSaving(true);
     try {
-      ProfileManager.updateProfile(profileId, formData);
+      await SecureProfileManager.updateProfile(profileId, formData);
       onProfileUpdated();
       onClose();
     } catch (error) {
