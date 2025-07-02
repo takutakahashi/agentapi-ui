@@ -118,21 +118,30 @@ export default function NewSessionModal({
       setCachedMessages(cached)
       
       // プロファイル変更時に組織リストを更新
-      const profile = ProfileManager.getProfile(selectedProfileId);
-      if (profile) {
-        if (profile.fixedOrganizations && profile.fixedOrganizations.length > 0) {
-          setAvailableOrganizations(profile.fixedOrganizations);
-          // 最初の組織を自動選択
-          if (!selectedOrganization || !profile.fixedOrganizations.includes(selectedOrganization)) {
-            setSelectedOrganization(profile.fixedOrganizations[0]);
-            console.log('Auto-set first fixed organization for profile:', selectedProfileId, profile.fixedOrganizations[0]);
+      const loadProfileAsync = async () => {
+        try {
+          const profile = await ProfileManager.getProfile(selectedProfileId);
+          if (profile) {
+            if (profile.fixedOrganizations && profile.fixedOrganizations.length > 0) {
+              setAvailableOrganizations(profile.fixedOrganizations);
+              // 最初の組織を自動選択
+              if (!selectedOrganization || !profile.fixedOrganizations.includes(selectedOrganization)) {
+                setSelectedOrganization(profile.fixedOrganizations[0]);
+                console.log('Auto-set first fixed organization for profile:', selectedProfileId, profile.fixedOrganizations[0]);
+              }
+            } else {
+              // 固定組織が設定されていない場合は空にする（自由記述モード）
+              setAvailableOrganizations([]);
+              setSelectedOrganization('');
+            }
           }
-        } else {
-          // 固定組織が設定されていない場合は空にする（自由記述モード）
+        } catch (error) {
+          console.error('Failed to load profile for organization update:', error);
           setAvailableOrganizations([]);
           setSelectedOrganization('');
         }
-      }
+      };
+      loadProfileAsync()
     }
   }, [selectedProfileId, selectedOrganization])
 
@@ -173,7 +182,7 @@ export default function NewSessionModal({
       }
 
       // Profile の環境変数を取得
-      const selectedProfile = selectedProfileId ? ProfileManager.getProfile(selectedProfileId) : null
+      const selectedProfile = selectedProfileId ? await ProfileManager.getProfile(selectedProfileId) : null
       const profileEnvironmentVariables = selectedProfile?.environmentVariables || []
       
       // 環境変数オブジェクトを構築
@@ -239,7 +248,7 @@ export default function NewSessionModal({
       // 選択されたプロファイルからシステムプロンプトを取得
       let systemPromptProfile = null
       if (selectedProfileId) {
-        systemPromptProfile = ProfileManager.getProfile(selectedProfileId)
+        systemPromptProfile = await ProfileManager.getProfile(selectedProfileId)
       }
       
       // システムプロンプトと初期メッセージを結合
@@ -336,7 +345,7 @@ export default function NewSessionModal({
       if (currentRepository && selectedProfileId && sessionMode === 'repository') {
         console.log('Adding repository to profile history before session creation:', { currentRepository, selectedProfileId })
         try {
-          ProfileManager.addRepositoryToProfile(selectedProfileId, currentRepository)
+          await ProfileManager.addRepositoryToProfile(selectedProfileId, currentRepository)
           console.log('Repository added to profile history successfully (pre-session)')
           
           // プロファイル固有の組織履歴にも追加
@@ -504,11 +513,15 @@ export default function NewSessionModal({
     setEditProfileId('')
   }
 
-  const handleProfileUpdated = () => {
+  const handleProfileUpdated = async () => {
     // プロファイルリストを再読み込み
-    ProfileManager.migrateExistingSettings()
-    const profilesList = ProfileManager.getProfiles()
-    setProfiles(profilesList)
+    try {
+      await ProfileManager.migrateExistingSettings()
+      const profilesList = ProfileManager.getProfiles()
+      setProfiles(profilesList)
+    } catch (error) {
+      console.error('Failed to update profiles after edit:', error)
+    }
   }
 
   return (

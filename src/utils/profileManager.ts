@@ -1,6 +1,8 @@
 import { Profile, ProfileListItem, CreateProfileRequest, UpdateProfileRequest } from '../types/profile';
 import { loadGlobalSettings, getDefaultSettings, getDefaultProxySettings } from '../types/settings';
 import { v4 as uuidv4 } from 'uuid';
+import { CryptoStorage } from './cryptoStorage';
+import { MasterPasswordManager } from './masterPasswordManager';
 
 const PROFILES_LIST_KEY = 'agentapi-profiles-list';
 const PROFILE_KEY_PREFIX = 'agentapi-profile-';
@@ -24,7 +26,7 @@ export class ProfileManager {
     }
   }
 
-  static getProfile(profileId: string): Profile | null {
+  static async getProfile(profileId: string): Promise<Profile | null> {
     if (typeof window === 'undefined') {
       return null;
     }
@@ -34,7 +36,19 @@ export class ProfileManager {
       if (!stored) {
         return null;
       }
-      const profile = JSON.parse(stored);
+      
+      let profileData: string;
+      if (await CryptoStorage.isEncryptionEnabled() && CryptoStorage.isEncryptedData(stored)) {
+        const password = MasterPasswordManager.getCurrentPassword();
+        if (!password) {
+          throw new Error('Profile is encrypted but master password is not available');
+        }
+        profileData = await CryptoStorage.decrypt(stored, password);
+      } else {
+        profileData = stored;
+      }
+      
+      const profile = JSON.parse(profileData);
       
       // repositoryHistoryのlastUsedを文字列からDateオブジェクトに変換
       if (profile.repositoryHistory) {
@@ -51,7 +65,7 @@ export class ProfileManager {
         profile.fixedOrganizations = org ? [org] : [];
         delete profile.fixedRepository;
         // 移行後のプロファイルを保存
-        this.saveProfile(profile);
+        await this.saveProfile(profile);
       } else if (profile.fixedRepositories && !profile.fixedOrganizations) {
         // fixedRepositoriesからorgリストを抽出
         const orgs = [...new Set(profile.fixedRepositories
@@ -60,7 +74,7 @@ export class ProfileManager {
         profile.fixedOrganizations = orgs;
         delete profile.fixedRepositories;
         // 移行後のプロファイルを保存
-        this.saveProfile(profile);
+        await this.saveProfile(profile);
       } else if (!profile.fixedOrganizations) {
         profile.fixedOrganizations = [];
       }
@@ -72,7 +86,7 @@ export class ProfileManager {
     }
   }
 
-  static createProfile(profileData: CreateProfileRequest): Profile {
+  static async createProfile(profileData: CreateProfileRequest): Promise<Profile> {
     const id = uuidv4();
     const now = new Date().toISOString();
     
@@ -93,18 +107,18 @@ export class ProfileManager {
       updated_at: now,
     };
 
-    this.saveProfile(profile);
-    this.updateProfilesList();
+    await this.saveProfile(profile);
+    await this.updateProfilesList();
 
     if (profile.isDefault) {
-      this.setDefaultProfile(profile.id);
+      await this.setDefaultProfile(profile.id);
     }
 
     return profile;
   }
 
-  static updateProfile(profileId: string, updates: UpdateProfileRequest): Profile | null {
-    const existingProfile = this.getProfile(profileId);
+  static async updateProfile(profileId: string, updates: UpdateProfileRequest): Promise<Profile | null> {
+    const existingProfile = await this.getProfile(profileId);
     if (!existingProfile) {
       throw new Error('Profile not found');
     }
@@ -118,23 +132,23 @@ export class ProfileManager {
       updated_at: new Date().toISOString(),
     };
 
-    this.saveProfile(updatedProfile);
-    this.updateProfilesList();
+    await this.saveProfile(updatedProfile);
+    await this.updateProfilesList();
 
     if (updates.isDefault) {
-      this.setDefaultProfile(profileId);
+      await this.setDefaultProfile(profileId);
     }
 
     return updatedProfile;
   }
 
-  static deleteProfile(profileId: string): boolean {
+  static async deleteProfile(profileId: string): Promise<boolean> {
     if (typeof window === 'undefined') {
       return false;
     }
 
     try {
-      const profile = this.getProfile(profileId);
+      const profile = await this.getProfile(profileId);
       if (!profile) {
         return false;
       }
@@ -145,11 +159,11 @@ export class ProfileManager {
         localStorage.removeItem(DEFAULT_PROFILE_KEY);
         const remainingProfiles = this.getProfiles().filter(p => p.id !== profileId);
         if (remainingProfiles.length > 0) {
-          this.setDefaultProfile(remainingProfiles[0].id);
+          await this.setDefaultProfile(remainingProfiles[0].id);
         }
       }
 
-      this.updateProfilesList();
+      await this.updateProfilesList();
       return true;
     } catch (err) {
       console.error('Failed to delete profile:', err);
@@ -157,19 +171,19 @@ export class ProfileManager {
     }
   }
 
-  static setDefaultProfile(profileId: string): void {
+  static async setDefaultProfile(profileId: string): Promise<void> {
     if (typeof window === 'undefined') {
       return;
     }
 
     const profiles = this.getProfiles();
-    profiles.forEach(profile => {
-      const fullProfile = this.getProfile(profile.id);
+    for (const profile of profiles) {
+      const fullProfile = await this.getProfile(profile.id);
       if (fullProfile) {
         fullProfile.isDefault = profile.id === profileId;
-        this.saveProfile(fullProfile);
+        await this.saveProfile(fullProfile);
       }
-    });
+    }
 
     try {
       localStorage.setItem(DEFAULT_PROFILE_KEY, profileId);
@@ -177,10 +191,10 @@ export class ProfileManager {
       console.error('Failed to set default profile:', err);
     }
 
-    this.updateProfilesList();
+    await this.updateProfilesList();
   }
 
-  static getDefaultProfile(): Profile | null {
+  static async getDefaultProfile(): Promise<Profile | null> {
     if (typeof window === 'undefined') {
       return null;
     }
@@ -190,7 +204,7 @@ export class ProfileManager {
       const urlParams = new URLSearchParams(window.location.search);
       const profileIdFromUrl = urlParams.get('profile');
       if (profileIdFromUrl) {
-        const profile = this.getProfile(profileIdFromUrl);
+        const profile = await this.getProfile(profileIdFromUrl);
         if (profile) {
           return profile;
         }
@@ -198,7 +212,7 @@ export class ProfileManager {
 
       const defaultProfileId = localStorage.getItem(DEFAULT_PROFILE_KEY);
       if (defaultProfileId) {
-        const profile = this.getProfile(defaultProfileId);
+        const profile = await this.getProfile(defaultProfileId);
         if (profile) {
           return profile;
         }
@@ -207,21 +221,21 @@ export class ProfileManager {
       const profiles = this.getProfiles();
       const defaultProfile = profiles.find(p => p.isDefault);
       if (defaultProfile) {
-        return this.getProfile(defaultProfile.id);
+        return await this.getProfile(defaultProfile.id);
       }
 
       if (profiles.length > 0) {
-        return this.getProfile(profiles[0].id);
+        return await this.getProfile(profiles[0].id);
       }
 
-      return this.createDefaultProfile();
+      return await this.createDefaultProfile();
     } catch (err) {
       console.error('Failed to get default profile:', err);
-      return this.createDefaultProfile();
+      return await this.createDefaultProfile();
     }
   }
 
-  static getCurrentProfileId(): string | null {
+  static async getCurrentProfileId(): Promise<string | null> {
     if (typeof window === 'undefined') {
       return null;
     }
@@ -230,14 +244,14 @@ export class ProfileManager {
     const urlParams = new URLSearchParams(window.location.search);
     const profileIdFromUrl = urlParams.get('profile');
     if (profileIdFromUrl) {
-      const profile = this.getProfile(profileIdFromUrl);
+      const profile = await this.getProfile(profileIdFromUrl);
       if (profile) {
         return profileIdFromUrl;
       }
     }
 
     // Fall back to default profile
-    const defaultProfile = this.getDefaultProfile();
+    const defaultProfile = await this.getDefaultProfile();
     return defaultProfile?.id || null;
   }
 
@@ -271,7 +285,7 @@ export class ProfileManager {
     }
   }
 
-  static migrateExistingSettings(): void {
+  static async migrateExistingSettings(): Promise<void> {
     const profiles = this.getProfiles();
     if (profiles.length > 0) {
       return;
@@ -280,7 +294,7 @@ export class ProfileManager {
     const globalSettings = loadGlobalSettings();
     const defaultProxySettings = getDefaultProxySettings();
     
-    this.createProfile({
+    await this.createProfile({
       name: 'Default',
       description: 'Migrated from existing settings',
       icon: '⚙️',
@@ -291,10 +305,10 @@ export class ProfileManager {
     });
   }
 
-  static addRepositoryToProfile(profileId: string, repository: string): void {
+  static async addRepositoryToProfile(profileId: string, repository: string): Promise<void> {
     console.log('ProfileManager.addRepositoryToProfile called:', { profileId, repository });
     
-    const profile = this.getProfile(profileId);
+    const profile = await this.getProfile(profileId);
     if (!profile) {
       console.error('Profile not found:', profileId);
       return;
@@ -326,13 +340,13 @@ export class ProfileManager {
     console.log('Updated profile repository history:', profile.repositoryHistory);
 
     // ProfileManagerの内部保存処理を呼び出すのではなく、直接localStorageに保存して整合性を保つ
-    this.saveProfile(profile);
-    this.updateProfilesList();
+    await this.saveProfile(profile);
+    await this.updateProfilesList();
     
     console.log('Repository added to profile history successfully');
   }
 
-  private static saveProfile(profile: Profile): void {
+  private static async saveProfile(profile: Profile): Promise<void> {
     if (typeof window === 'undefined') {
       console.warn('saveProfile: window is undefined, skipping save');
       return;
@@ -350,9 +364,19 @@ export class ProfileManager {
         }))
       };
       
-      const serializedProfile = JSON.stringify(profileToSave);
-      console.log('Saving profile to localStorage:', { key, profile: profileToSave });
-      localStorage.setItem(key, serializedProfile);
+      let dataToStore: string;
+      if (await CryptoStorage.isEncryptionEnabled()) {
+        const password = MasterPasswordManager.getCurrentPassword();
+        if (!password) {
+          throw new Error('Encryption is enabled but master password is not available');
+        }
+        dataToStore = await CryptoStorage.encrypt(JSON.stringify(profileToSave), password);
+      } else {
+        dataToStore = JSON.stringify(profileToSave);
+      }
+      
+      console.log('Saving profile to localStorage:', { key, encrypted: await CryptoStorage.isEncryptionEnabled() });
+      localStorage.setItem(key, dataToStore);
       console.log('Profile saved successfully to localStorage');
     } catch (err) {
       console.error('Failed to save profile:', err);
@@ -360,7 +384,7 @@ export class ProfileManager {
     }
   }
 
-  private static updateProfilesList(): void {
+  private static async updateProfilesList(): Promise<void> {
     if (typeof window === 'undefined') {
       return;
     }
@@ -415,8 +439,8 @@ export class ProfileManager {
     }
   }
 
-  static exportProfile(profileId: string): string | null {
-    const profile = this.getProfile(profileId);
+  static async exportProfile(profileId: string): Promise<string | null> {
+    const profile = await this.getProfile(profileId);
     if (!profile) {
       return null;
     }
@@ -433,7 +457,7 @@ export class ProfileManager {
     return JSON.stringify(exportData, null, 2);
   }
 
-  static importProfile(jsonData: string): Profile | null {
+  static async importProfile(jsonData: string): Promise<Profile | null> {
     try {
       const profileData = JSON.parse(jsonData);
       
@@ -452,26 +476,26 @@ export class ProfileManager {
         isDefault: false
       };
 
-      const newProfile = this.createProfile(createRequest);
+      const newProfile = await this.createProfile(createRequest);
       
       if (profileData.messageTemplates) {
-        this.updateProfile(newProfile.id, {
+        await this.updateProfile(newProfile.id, {
           messageTemplates: profileData.messageTemplates
         });
       }
 
-      return this.getProfile(newProfile.id);
+      return await this.getProfile(newProfile.id);
     } catch (err) {
       console.error('Failed to import profile:', err);
       return null;
     }
   }
 
-  private static createDefaultProfile(): Profile {
+  private static async createDefaultProfile(): Promise<Profile> {
     const defaultSettings = getDefaultSettings();
     const defaultProxySettings = getDefaultProxySettings();
     
-    return this.createProfile({
+    return await this.createProfile({
       name: 'Default',
       description: 'Default profile',
       icon: '⚙️',
