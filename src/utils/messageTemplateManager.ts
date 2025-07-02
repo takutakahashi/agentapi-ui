@@ -14,7 +14,7 @@ export class MessageTemplateManager {
   }
 
   async getTemplatesForProfile(profileId: string): Promise<MessageTemplate[]> {
-    const profile = ProfileManager.getProfile(profileId);
+    const profile = await ProfileManager.getProfile(profileId);
     if (!profile) {
       return [];
     }
@@ -22,7 +22,7 @@ export class MessageTemplateManager {
   }
 
   async createTemplate(profileId: string, input: MessageTemplateInput): Promise<MessageTemplate> {
-    const profile = ProfileManager.getProfile(profileId);
+    const profile = await ProfileManager.getProfile(profileId);
     if (!profile) {
       throw new Error('Profile not found');
     }
@@ -41,7 +41,7 @@ export class MessageTemplateManager {
     }
     profile.messageTemplates.push(newTemplate);
 
-    ProfileManager.updateProfile(profileId, {
+    await ProfileManager.updateProfile(profileId, {
       messageTemplates: profile.messageTemplates,
     });
 
@@ -49,7 +49,7 @@ export class MessageTemplateManager {
   }
 
   async updateTemplate(profileId: string, templateId: string, input: Partial<MessageTemplateInput>): Promise<MessageTemplate> {
-    const profile = ProfileManager.getProfile(profileId);
+    const profile = await ProfileManager.getProfile(profileId);
     if (!profile) {
       throw new Error('Profile not found');
     }
@@ -72,7 +72,7 @@ export class MessageTemplateManager {
 
     profile.messageTemplates[templateIndex] = updatedTemplate;
 
-    ProfileManager.updateProfile(profileId, {
+    await ProfileManager.updateProfile(profileId, {
       messageTemplates: profile.messageTemplates,
     });
 
@@ -80,7 +80,7 @@ export class MessageTemplateManager {
   }
 
   async deleteTemplate(profileId: string, templateId: string): Promise<void> {
-    const profile = ProfileManager.getProfile(profileId);
+    const profile = await ProfileManager.getProfile(profileId);
     if (!profile) {
       throw new Error('Profile not found');
     }
@@ -91,7 +91,7 @@ export class MessageTemplateManager {
 
     profile.messageTemplates = profile.messageTemplates.filter(t => t.id !== templateId);
 
-    ProfileManager.updateProfile(profileId, {
+    await ProfileManager.updateProfile(profileId, {
       messageTemplates: profile.messageTemplates,
     });
   }

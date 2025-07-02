@@ -684,53 +684,11 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
         // Mark profile as used (debounced to prevent excessive calls)
         // ProfileManager.markProfileUsed(profileId);
         
-        // Add repository to profile history if repoFullname is provided
-        if (repoFullname) {
-          ProfileManager.addRepositoryToProfile(profileId, repoFullname);
-        }
+        // Note: addRepositoryToProfile is now async and should be called from components
       }
     }
     
-    // If no profile settings found, check for current profile (including URL parameters)
-    if (!settings) {
-      const currentProfileId = ProfileManager.getCurrentProfileId();
-      if (currentProfileId) {
-        const profile = ProfileManager.getProfile(currentProfileId);
-        if (profile) {
-          settings = {
-            agentApiProxy: profile.agentApiProxy,
-            environmentVariables: profile.environmentVariables
-          };
-          
-          // Mark profile as used (debounced to prevent excessive calls)
-          // ProfileManager.markProfileUsed(currentProfileId);
-          
-          // Add repository to profile history if repoFullname is provided
-          if (repoFullname) {
-            ProfileManager.addRepositoryToProfile(currentProfileId, repoFullname);
-          }
-        }
-      }
-    }
-    
-    // If still no profile settings found, fall back to default profile
-    if (!settings) {
-      const defaultProfile = ProfileManager.getDefaultProfile();
-      if (defaultProfile) {
-        settings = {
-          agentApiProxy: defaultProfile.agentApiProxy,
-          environmentVariables: defaultProfile.environmentVariables
-        };
-        
-        // Mark default profile as used (debounced to prevent excessive calls)
-        // ProfileManager.markProfileUsed(defaultProfile.id);
-        
-        // Add repository to default profile history if repoFullname is provided
-        if (repoFullname) {
-          ProfileManager.addRepositoryToProfile(defaultProfile.id, repoFullname);
-        }
-      }
-    }
+    // Note: ProfileManager async methods removed - profiles should be loaded explicitly in components
     
     // If still no settings, fall back to default proxy settings
     if (!settings) {

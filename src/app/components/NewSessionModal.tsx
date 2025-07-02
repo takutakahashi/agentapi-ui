@@ -85,17 +85,18 @@ export default function NewSessionModal({
   }, [isOpen, showTemplateModal])
 
   useEffect(() => {
-    if (isOpen) {
-      ProfileManager.migrateExistingSettings()
-      const profilesList = ProfileManager.getProfiles()
-      setProfiles(profilesList)
-      
-      const defaultProfile = ProfileManager.getDefaultProfile()
-      if (defaultProfile) {
-        setSelectedProfileId(defaultProfile.id)
-      } else if (profilesList.length > 0) {
-        setSelectedProfileId(profilesList[0].id)
-      }
+    const loadProfiles = async () => {
+      if (isOpen) {
+        await ProfileManager.migrateExistingSettings()
+        const profilesList = await ProfileManager.getProfiles()
+        setProfiles(profilesList)
+        
+        const defaultProfile = await ProfileManager.getDefaultProfile()
+        if (defaultProfile) {
+          setSelectedProfileId(defaultProfile.id)
+        } else if (profilesList.length > 0) {
+          setSelectedProfileId(profilesList[0].id)
+        }
       
       // プロファイル固有のキャッシュされたメッセージを読み込む
       const cached = selectedProfileId ? InitialMessageCache.getCachedMessages(selectedProfileId) : []
@@ -104,8 +105,10 @@ export default function NewSessionModal({
       // プロファイル変更時にテンプレートを読み込む
       if (selectedProfileId) {
         loadTemplatesForProfile(selectedProfileId);
+        }
       }
     }
+    loadProfiles()
   }, [isOpen, selectedProfileId])
 
   useEffect(() => {
@@ -118,8 +121,9 @@ export default function NewSessionModal({
       setCachedMessages(cached)
       
       // プロファイル変更時に組織リストを更新
-      const profile = ProfileManager.getProfile(selectedProfileId);
-      if (profile) {
+      const loadProfile = async () => {
+        const profile = await ProfileManager.getProfile(selectedProfileId);
+        if (profile) {
         if (profile.fixedOrganizations && profile.fixedOrganizations.length > 0) {
           setAvailableOrganizations(profile.fixedOrganizations);
           // 最初の組織を自動選択
@@ -131,8 +135,10 @@ export default function NewSessionModal({
           // 固定組織が設定されていない場合は空にする（自由記述モード）
           setAvailableOrganizations([]);
           setSelectedOrganization('');
+          }
         }
       }
+      loadProfile()
     }
   }, [selectedProfileId, selectedOrganization])
 
@@ -173,7 +179,7 @@ export default function NewSessionModal({
       }
 
       // Profile の環境変数を取得
-      const selectedProfile = selectedProfileId ? ProfileManager.getProfile(selectedProfileId) : null
+      const selectedProfile = selectedProfileId ? await ProfileManager.getProfile(selectedProfileId) : null
       const profileEnvironmentVariables = selectedProfile?.environmentVariables || []
       
       // 環境変数オブジェクトを構築
@@ -239,7 +245,7 @@ export default function NewSessionModal({
       // 選択されたプロファイルからシステムプロンプトを取得
       let systemPromptProfile = null
       if (selectedProfileId) {
-        systemPromptProfile = ProfileManager.getProfile(selectedProfileId)
+        systemPromptProfile = await ProfileManager.getProfile(selectedProfileId)
       }
       
       // システムプロンプトと初期メッセージを結合
@@ -262,7 +268,7 @@ export default function NewSessionModal({
         
         // プロファイル使用記録更新
         if (selectedProfileId) {
-          ProfileManager.markProfileUsed(selectedProfileId)
+          await ProfileManager.markProfileUsed(selectedProfileId)
         }
         
         // 作成完了
@@ -336,7 +342,7 @@ export default function NewSessionModal({
       if (currentRepository && selectedProfileId && sessionMode === 'repository') {
         console.log('Adding repository to profile history before session creation:', { currentRepository, selectedProfileId })
         try {
-          ProfileManager.addRepositoryToProfile(selectedProfileId, currentRepository)
+          await ProfileManager.addRepositoryToProfile(selectedProfileId, currentRepository)
           console.log('Repository added to profile history successfully (pre-session)')
           
           // プロファイル固有の組織履歴にも追加

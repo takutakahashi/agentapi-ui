@@ -32,9 +32,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   const router = useRouter()
   
   // Get current profile and create profile-aware clients
-  const [currentProfile, setCurrentProfile] = useState(() => ProfileManager.getDefaultProfile())
-  const [agentAPI, setAgentAPI] = useState(() => createAgentAPIProxyClientFromStorage(undefined, currentProfile?.id))
-  const [agentAPIProxy, setAgentAPIProxy] = useState(() => createAgentAPIProxyClientFromStorage(undefined, currentProfile?.id))
+  const [currentProfile, setCurrentProfile] = useState<Awaited<ReturnType<typeof ProfileManager.getDefaultProfile>>>(null)
+  const [agentAPI, setAgentAPI] = useState<AgentAPIProxyClient | null>(null)
+  const [agentAPIProxy, setAgentAPIProxy] = useState<AgentAPIProxyClient | null>(null)
   
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
@@ -94,6 +94,8 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   }, [agentAPIProxy])
 
   const fetchSessions = useCallback(async () => {
+    if (!agentAPI) return
+    
     try {
       setLoading(true)
       setError(null)
@@ -225,9 +227,25 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     }
   }
 
+  // Initialize profile and clients
   useEffect(() => {
-    fetchSessions()
-  }, [fetchSessions])
+    const initializeProfile = async () => {
+      const profile = await ProfileManager.getDefaultProfile()
+      setCurrentProfile(profile)
+      if (profile) {
+        const client = createAgentAPIProxyClientFromStorage(undefined, profile.id)
+        setAgentAPI(client)
+        setAgentAPIProxy(client)
+      }
+    }
+    initializeProfile()
+  }, [])
+
+  useEffect(() => {
+    if (agentAPI) {
+      fetchSessions()
+    }
+  }, [fetchSessions, agentAPI])
 
   // エージェントステータスを定期的に更新
   useEffect(() => {
@@ -256,9 +274,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
 
   // Listen for profile changes and recreate clients
   useEffect(() => {
-    const handleProfileChange = (event: CustomEvent) => {
+    const handleProfileChange = async (event: CustomEvent) => {
       const newProfileId = event.detail.profileId
-      const newProfile = ProfileManager.getProfile(newProfileId)
+      const newProfile = await ProfileManager.getProfile(newProfileId)
       
       if (newProfile && newProfile.id !== currentProfile?.id) {
         setCurrentProfile(newProfile)
@@ -447,6 +465,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
 
   const deleteSession = async (sessionId: string) => {
     if (!confirm('このセッションを削除してもよろしいですか？')) return
+    if (!agentAPI) return
 
     try {
       setDeletingSession(sessionId)

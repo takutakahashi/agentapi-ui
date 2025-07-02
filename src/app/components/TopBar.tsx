@@ -40,13 +40,13 @@ export default function TopBar({
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [selectedProfileId, setSelectedProfileId] = useState<string>('')
 
-  const loadProfiles = useCallback(() => {
-    ProfileManager.migrateExistingSettings()
-    const profilesList = ProfileManager.getProfiles()
+  const loadProfiles = useCallback(async () => {
+    await ProfileManager.migrateExistingSettings()
+    const profilesList = await ProfileManager.getProfiles()
     setProfiles(profilesList)
     
     // Check URL parameters first, then fall back to default profile
-    const currentProfileId = ProfileManager.getCurrentProfileId()
+    const currentProfileId = await ProfileManager.getCurrentProfileId()
     let selectedProfile: ProfileListItem | null = null
     
     if (currentProfileId) {
@@ -79,9 +79,9 @@ export default function TopBar({
     }
   }, [showProfileSwitcher, loadProfiles])
 
-  const handleProfileSwitch = (profileId: string) => {
-    ProfileManager.setProfileInUrl(profileId)
-    ProfileManager.setDefaultProfile(profileId)
+  const handleProfileSwitch = async (profileId: string) => {
+    await ProfileManager.setProfileInUrl(profileId)
+    await ProfileManager.setDefaultProfile(profileId)
     const selectedProfile = profiles.find(p => p.id === profileId)
     setCurrentProfile(selectedProfile || null)
     setShowProfileDropdown(false)
