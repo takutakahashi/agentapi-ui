@@ -24,11 +24,11 @@ export class SecureProfileManager {
       const secureStored = localStorage.getItem(`${SECURE_PROFILE_KEY_PREFIX}${profileId}`);
       if (secureStored) {
         const encryptedProfile = JSON.parse(secureStored);
-        const decryptedProfile = await decryptSensitiveFields(encryptedProfile);
+        const decryptedProfile = await decryptSensitiveFields(encryptedProfile) as Profile;
         
         // repositoryHistoryのlastUsedを文字列からDateオブジェクトに変換
         if (decryptedProfile.repositoryHistory) {
-          decryptedProfile.repositoryHistory = decryptedProfile.repositoryHistory.map((item: any) => ({
+          decryptedProfile.repositoryHistory = decryptedProfile.repositoryHistory.map((item: { repository: string; lastUsed: string | Date }) => ({
             ...item,
             lastUsed: new Date(item.lastUsed)
           }));
@@ -369,7 +369,7 @@ export class SecureProfileManager {
       for (const key of keys) {
         // 暗号化されたプロファイルを優先的に探す
         if (key.startsWith(SECURE_PROFILE_KEY_PREFIX)) {
-          const profileId = key.replace(SECURE_PROFILE_KEY_PREFIX, '');
+          // const profileId = key.replace(SECURE_PROFILE_KEY_PREFIX, '');
           // 非同期関数内では同期的にプロファイルリストを更新できないため、
           // プロファイルの基本情報のみを取得
           try {

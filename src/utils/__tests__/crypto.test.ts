@@ -67,10 +67,11 @@ if (typeof window !== 'undefined' && typeof window.crypto !== 'undefined') {
       console.log('✅ Sensitive fields decryption successful:', decrypted);
       
       // 機密フィールドが正しく復号化されているかチェック
+      const decryptedProfile = decrypted as typeof testProfile;
       if (
-        decrypted.agentApiProxy.apiKey === testProfile.agentApiProxy.apiKey &&
-        decrypted.githubAuth.accessToken === testProfile.githubAuth.accessToken &&
-        decrypted.environmentVariables[1].value === testProfile.environmentVariables[1].value
+        decryptedProfile.agentApiProxy.apiKey === testProfile.agentApiProxy.apiKey &&
+        decryptedProfile.githubAuth.accessToken === testProfile.githubAuth.accessToken &&
+        decryptedProfile.environmentVariables[1].value === testProfile.environmentVariables[1].value
       ) {
         console.log('✅ Sensitive fields encryption test PASSED');
       } else {
@@ -125,7 +126,7 @@ if (typeof window !== 'undefined' && typeof window.crypto !== 'undefined') {
   }
 
   // テスト実行（ブラウザコンソールで手動実行用）
-  (window as any).runCryptoTests = runAllTests;
+  (window as unknown as Record<string, unknown>).runCryptoTests = runAllTests;
   
   console.log('To run tests, execute: runCryptoTests()');
 } else {

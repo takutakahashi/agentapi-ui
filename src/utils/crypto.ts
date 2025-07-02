@@ -17,7 +17,7 @@ async function getMasterKey(): Promise<CryptoKey> {
   const store = tx.objectStore('keys');
   const request = store.get('master');
   
-  const existingKey = await new Promise<any>((resolve, reject) => {
+  const existingKey = await new Promise<{ keyData?: Uint8Array }>((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
@@ -264,7 +264,7 @@ export function shouldEncryptField(fieldPath: string): boolean {
 /**
  * オブジェクト内の機密フィールドを暗号化
  */
-export async function encryptSensitiveFields(obj: any, path: string = ''): Promise<any> {
+export async function encryptSensitiveFields(obj: unknown, path: string = ''): Promise<unknown> {
   if (obj === null || obj === undefined) {
     return obj;
   }
@@ -276,8 +276,8 @@ export async function encryptSensitiveFields(obj: any, path: string = ''): Promi
   }
 
   if (typeof obj === 'object') {
-    const result: any = {};
-    for (const [key, value] of Object.entries(obj)) {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
       const currentPath = path ? `${path}.${key}` : key;
       
       if (typeof value === 'string' && shouldEncryptField(currentPath)) {
@@ -286,7 +286,7 @@ export async function encryptSensitiveFields(obj: any, path: string = ''): Promi
         result[key] = {
           _encrypted: true,
           ...encrypted
-        };
+        } as unknown;
       } else {
         result[key] = await encryptSensitiveFields(value, currentPath);
       }
@@ -300,7 +300,7 @@ export async function encryptSensitiveFields(obj: any, path: string = ''): Promi
 /**
  * オブジェクト内の暗号化されたフィールドを復号化
  */
-export async function decryptSensitiveFields(obj: any): Promise<any> {
+export async function decryptSensitiveFields(obj: unknown): Promise<unknown> {
   if (obj === null || obj === undefined) {
     return obj;
   }
@@ -310,13 +310,14 @@ export async function decryptSensitiveFields(obj: any): Promise<any> {
   }
 
   if (typeof obj === 'object') {
+    const objRecord = obj as Record<string, unknown>;
     // 暗号化されたフィールドかチェック
-    if (obj._encrypted === true && obj.encrypted && obj.iv && obj.salt) {
+    if (objRecord._encrypted === true && objRecord.encrypted && objRecord.iv && objRecord.salt) {
       try {
         return await decrypt({
-          encrypted: obj.encrypted,
-          iv: obj.iv,
-          salt: obj.salt
+          encrypted: objRecord.encrypted as string,
+          iv: objRecord.iv as string,
+          salt: objRecord.salt as string
         });
       } catch (error) {
         console.error('Failed to decrypt field:', error);
@@ -325,8 +326,8 @@ export async function decryptSensitiveFields(obj: any): Promise<any> {
     }
 
     // 通常のオブジェクトの場合は再帰的に処理
-    const result: any = {};
-    for (const [key, value] of Object.entries(obj)) {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(objRecord)) {
       result[key] = await decryptSensitiveFields(value);
     }
     return result;

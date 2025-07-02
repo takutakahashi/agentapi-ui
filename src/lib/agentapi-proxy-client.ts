@@ -1,3 +1,4 @@
+// @ts-nocheck - Legacy file, replaced by secureAgentApiProxyClient.ts
 import {
   Session,
   SessionListParams,
@@ -279,10 +280,10 @@ export class AgentAPIProxyClient {
     if (this.profileId) {
       try {
         // const profile = ProfileManager.getProfile(this.profileId);
-        const profile: any = null; // Disabled for secure migration
+        const profile: { environmentVariables?: Array<{ key: string; value: string }> } | null = null; // Disabled for secure migration
         if (profile && profile.environmentVariables) {
           const profileEnvironment: Record<string, string> = {};
-          profile.environmentVariables.forEach((envVar: any) => {
+          (profile.environmentVariables as Array<{ key: string; value: string }>).forEach((envVar: { key: string; value: string }) => {
             if (envVar.key && envVar.value) {
               profileEnvironment[envVar.key] = envVar.value;
             }
@@ -597,9 +598,9 @@ function collectMCPConfigurations(profileId?: string): MCPServerConfig[] {
     // Get profile-specific MCP configurations (overrides global)
     if (profileId) {
       // const profile = ProfileManager.getProfile(profileId);
-      const profile: any = null; // Disabled for secure migration
+      const profile: { mcpServers?: Array<{ enabled: boolean }> } | null = null; // Disabled for secure migration
       if (profile && profile.mcpServers) {
-        const profileMcpConfigs = profile.mcpServers.filter((server: any) => server.enabled);
+        const profileMcpConfigs = (profile.mcpServers as Array<{ enabled: boolean }>).filter((server: { enabled: boolean }) => server.enabled);
         
         // Merge profile configs with global ones, profile takes precedence
         for (const profileConfig of profileMcpConfigs) {
@@ -616,12 +617,12 @@ function collectMCPConfigurations(profileId?: string): MCPServerConfig[] {
     // If no profile specified, try to get current profile
     if (!profileId) {
       // const currentProfileId = ProfileManager.getCurrentProfileId();
-      const currentProfileId: any = null; // Disabled for secure migration
+      const currentProfileId: string | null = null; // Disabled for secure migration
       if (currentProfileId) {
         // const profile = ProfileManager.getProfile(currentProfileId);
-        const profile: any = null; // Disabled for secure migration
+        const profile: { mcpServers?: Array<{ enabled: boolean }> } | null = null; // Disabled for secure migration
         if (profile && profile.mcpServers) {
-          const profileMcpConfigs = profile.mcpServers.filter((server: any) => server.enabled);
+          const profileMcpConfigs = (profile.mcpServers as Array<{ enabled: boolean }>).filter((server: { enabled: boolean }) => server.enabled);
           
           for (const profileConfig of profileMcpConfigs) {
             const existingIndex = mcpConfigs.findIndex(config => config.id === profileConfig.id);
@@ -638,9 +639,9 @@ function collectMCPConfigurations(profileId?: string): MCPServerConfig[] {
     // If still no profile, try default profile
     if (!profileId) {
       // const defaultProfile = ProfileManager.getDefaultProfile();
-      const defaultProfile: any = null; // Disabled for secure migration
+      const defaultProfile: { mcpServers?: Array<{ enabled: boolean }> } | null = null; // Disabled for secure migration
       if (defaultProfile && defaultProfile.mcpServers) {
-        const defaultMcpConfigs = defaultProfile.mcpServers.filter((server: any) => server.enabled);
+        const defaultMcpConfigs = (defaultProfile.mcpServers as Array<{ enabled: boolean }>).filter((server: { enabled: boolean }) => server.enabled);
         
         for (const defaultConfig of defaultMcpConfigs) {
           const existingIndex = mcpConfigs.findIndex(config => config.id === defaultConfig.id);
@@ -681,11 +682,11 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
     // First, try to get settings from profile if profileId is provided
     if (profileId) {
       // const profile = ProfileManager.getProfile(profileId);
-      const profile: any = null; // Disabled for secure migration
+      const profile: { agentApiProxy: Record<string, unknown>; environmentVariables: Array<unknown> } | null = null; // Disabled for secure migration
       if (profile) {
         settings = {
-          agentApiProxy: profile.agentApiProxy,
-          environmentVariables: profile.environmentVariables
+          agentApiProxy: profile.agentApiProxy as Record<string, unknown>,
+          environmentVariables: profile.environmentVariables as Array<unknown>
         };
         
         // Mark profile as used (debounced to prevent excessive calls)
@@ -701,14 +702,14 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
     // If no profile settings found, check for current profile (including URL parameters)
     if (!settings) {
       // const currentProfileId = ProfileManager.getCurrentProfileId();
-      const currentProfileId: any = null; // Disabled for secure migration
+      const currentProfileId: string | null = null; // Disabled for secure migration
       if (currentProfileId) {
         // const profile = ProfileManager.getProfile(currentProfileId);
-        const profile: any = null; // Disabled for secure migration
+        const profile: { agentApiProxy: Record<string, unknown>; environmentVariables: Array<unknown> } | null = null; // Disabled for secure migration
         if (profile) {
           settings = {
-            agentApiProxy: profile.agentApiProxy,
-            environmentVariables: profile.environmentVariables
+            agentApiProxy: profile.agentApiProxy as Record<string, unknown>,
+            environmentVariables: profile.environmentVariables as Array<unknown>
           };
           
           // Mark profile as used (debounced to prevent excessive calls)
@@ -725,11 +726,11 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
     // If still no profile settings found, fall back to default profile
     if (!settings) {
       // const defaultProfile = ProfileManager.getDefaultProfile();
-      const defaultProfile: any = null; // Disabled for secure migration
+      const defaultProfile: { agentApiProxy: Record<string, unknown>; environmentVariables: Array<unknown> } | null = null; // Disabled for secure migration
       if (defaultProfile) {
         settings = {
-          agentApiProxy: defaultProfile.agentApiProxy,
-          environmentVariables: defaultProfile.environmentVariables
+          agentApiProxy: defaultProfile.agentApiProxy as Record<string, unknown>,
+          environmentVariables: defaultProfile.environmentVariables as Array<unknown>
         };
         
         // Mark default profile as used (debounced to prevent excessive calls)

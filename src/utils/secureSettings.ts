@@ -1,4 +1,4 @@
-import { GlobalSettings, SettingsFormData } from '../types/settings';
+import { SettingsFormData } from '../types/settings';
 import { encryptSensitiveFields, decryptSensitiveFields } from './crypto';
 
 const SECURE_GLOBAL_SETTINGS_KEY = 'agentapi-secure-global-settings';
@@ -47,7 +47,7 @@ export class SecureSettings {
       const secureStored = localStorage.getItem(SECURE_GLOBAL_SETTINGS_KEY);
       if (secureStored) {
         const encryptedSettings = JSON.parse(secureStored);
-        const decryptedSettings = await decryptSensitiveFields(encryptedSettings);
+        const decryptedSettings = await decryptSensitiveFields(encryptedSettings) as SettingsFormData & { environmentVariables: unknown[]; mcpServers: unknown[] };
         return {
           environmentVariables: decryptedSettings.environmentVariables || [],
           mcpServers: decryptedSettings.mcpServers || [],
@@ -116,7 +116,7 @@ export class SecureSettings {
       const secureStored = localStorage.getItem(key);
       if (secureStored) {
         const encryptedSettings = JSON.parse(secureStored);
-        const decryptedSettings = await decryptSensitiveFields(encryptedSettings);
+        const decryptedSettings = await decryptSensitiveFields(encryptedSettings) as SettingsFormData & { environmentVariables: unknown[]; mcpServers: unknown[] };
         const repoSettings = {
           environmentVariables: decryptedSettings.environmentVariables || [],
           mcpServers: decryptedSettings.mcpServers || [],

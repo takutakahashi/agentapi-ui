@@ -16,7 +16,7 @@ import {
 import { getDefaultProxySettings } from '../types/settings';
 import { SecureProfileManager } from '../utils/secureProfileManager';
 import { SecureSettings } from '../utils/secureSettings';
-import { GitHubUser, MCPServerConfig } from '../types/profile';
+import { MCPServerConfig } from '../types/profile';
 
 // Define local AgentStatus type
 interface AgentStatus {
@@ -80,8 +80,7 @@ export class SecureAgentAPIProxyClient {
 
   private async makeRequest<T>(
     endpoint: string,
-    options: RequestInit = {},
-    attempt = 1
+    options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     
@@ -134,7 +133,7 @@ export class SecureAgentAPIProxyClient {
 
               if (!fallbackResponse.ok) {
                 const errorText = await fallbackResponse.text();
-                let errorDetails: any = {};
+                let errorDetails: Record<string, unknown> = {};
                 
                 try {
                   errorDetails = JSON.parse(errorText);
@@ -144,8 +143,8 @@ export class SecureAgentAPIProxyClient {
 
                 throw new AgentAPIProxyError(
                   fallbackResponse.status,
-                  errorDetails.code || `HTTP_${fallbackResponse.status}`,
-                  errorDetails.message || `Request failed: ${fallbackResponse.status} ${fallbackResponse.statusText}`,
+                  (errorDetails.code as string) || `HTTP_${fallbackResponse.status}`,
+                  (errorDetails.message as string) || `Request failed: ${fallbackResponse.status} ${fallbackResponse.statusText}`,
                   errorDetails
                 );
               }
@@ -166,7 +165,7 @@ export class SecureAgentAPIProxyClient {
           }
 
           const errorText = await response.text();
-          let errorDetails: any = {};
+          let errorDetails: Record<string, unknown> = {};
           
           try {
             errorDetails = JSON.parse(errorText);
@@ -176,8 +175,8 @@ export class SecureAgentAPIProxyClient {
 
           throw new AgentAPIProxyError(
             response.status,
-            errorDetails.code || `HTTP_${response.status}`,
-            errorDetails.message || `Request failed: ${response.status} ${response.statusText}`,
+            (errorDetails.code as string) || `HTTP_${response.status}`,
+            (errorDetails.message as string) || `Request failed: ${response.status} ${response.statusText}`,
             errorDetails
           );
         }
@@ -215,7 +214,7 @@ export class SecureAgentAPIProxyClient {
 
       if (!response.ok) {
         const errorText = await response.text();
-        let errorDetails: any = {};
+        let errorDetails: Record<string, unknown> = {};
         
         try {
           errorDetails = JSON.parse(errorText);
@@ -225,8 +224,8 @@ export class SecureAgentAPIProxyClient {
 
         throw new AgentAPIProxyError(
           response.status,
-          errorDetails.code || `HTTP_${response.status}`,
-          errorDetails.message || `Request failed: ${response.status} ${response.statusText}`,
+          (errorDetails.code as string) || `HTTP_${response.status}`,
+          (errorDetails.message as string) || `Request failed: ${response.status} ${response.statusText}`,
           errorDetails
         );
       }
@@ -310,8 +309,9 @@ export class SecureAgentAPIProxyClient {
     return this.makeRequest<Agent>(`/agents/${id}`);
   }
 
-  // Session events (Server-Sent Events)
-  async *streamSessionEvents(sessionId: string, options?: SessionEventsOptions): AsyncIterableIterator<SessionEventData> {
+  // Session events (Server-Sent Events)  
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async *streamSessionEvents(sessionId: string, _options?: SessionEventsOptions): AsyncIterableIterator<SessionEventData> {
     const searchParams = new URLSearchParams();
     // Note: SessionEventsOptions doesn't have lastEventId in the type definition
     // This would need to be added to the type if required
@@ -381,6 +381,7 @@ export class SecureAgentAPIProxyClient {
 }
 
 // Utility function to collect MCP configurations from settings and profiles
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function collectMCPConfigurations(repoFullname?: string, profileId?: string): Promise<MCPServerConfig[]> {
   const mcpConfigs: MCPServerConfig[] = [];
   
