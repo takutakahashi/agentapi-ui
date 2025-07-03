@@ -5,6 +5,8 @@ import { ProfileManager } from '../../utils/profileManager';
 import { Profile, UpdateProfileRequest } from '../../types/profile';
 import { OrganizationHistory, OrganizationRepositoryHistory } from '../../utils/organizationHistory';
 import { GitHubAuthSettings } from '../../components/profiles/GitHubAuthSettings';
+import { AppError, ErrorType, ErrorSeverity, ErrorRecoveryType } from '../../types/errors';
+import { errorLogger } from '../../utils/errorLogger';
 
 const EMOJI_OPTIONS = ['⚙️', '🔧', '💼', '🏠', '🏢', '🚀', '💻', '🔬', '🎯', '⭐', '🌟', '💡'];
 
@@ -33,6 +35,7 @@ interface EditProfileModalProps {
 export default function EditProfileModal({ isOpen, onClose, profileId, onProfileUpdated }: EditProfileModalProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [, setError] = useState<AppError | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [formData, setFormData] = useState<UpdateProfileRequest>({});
   const [organizationHistories, setOrganizationHistories] = useState<OrganizationRepositoryHistory[]>([]);
@@ -42,12 +45,16 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
+    setError(null);
+    
     try {
       const loadedProfile = await ProfileManager.getProfile(profileId);
       if (!loadedProfile) {
+        errorLogger.warn(`Profile not found in EditProfileModal: ${profileId}`);
         onClose();
         return;
       }
+      
       setProfile(loadedProfile);
       setFormData({
         name: loadedProfile.name,
@@ -68,9 +75,18 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
         loadedProfile.fixedOrganizations.includes(orgHistory.organization)
       );
       setOrganizationHistories(relevantHistories);
-    } catch (error) {
-      console.error('Failed to load profile:', error);
-      onClose();
+      
+      errorLogger.info(`Profile loaded successfully in EditProfileModal: ${loadedProfile.name}`);
+    } catch (err) {
+      const appError = err instanceof AppError ? err : new AppError(
+        ErrorType.UNKNOWN_ERROR,
+        String(err),
+        'プロファイルの読み込みに失敗しました。',
+        ErrorSeverity.MEDIUM,
+        ErrorRecoveryType.RETRY
+      );
+      setError(appError);
+      errorLogger.logError(appError);
     } finally {
       setLoading(false);
     }
@@ -84,19 +100,31 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!formData.name?.trim()) {
       alert('Profile name is required');
       return;
     }
 
     setSaving(true);
+    setError(null);
+    
     try {
       await ProfileManager.updateProfile(profileId, formData);
       onProfileUpdated();
       onClose();
-    } catch (error) {
-      console.error('Failed to update profile:', error);
-      alert('Failed to update profile');
+      errorLogger.info(`Profile updated successfully: ${formData.name}`);
+    } catch (err) {
+      const appError = err instanceof AppError ? err : new AppError(
+        ErrorType.PROFILE_UPDATE_FAILED,
+        String(err),
+        'プロファイルの更新に失敗しました。',
+        ErrorSeverity.MEDIUM,
+        ErrorRecoveryType.RETRY
+      );
+      setError(appError);
+      errorLogger.logError(appError);
+      alert(appError.userMessage);
     } finally {
       setSaving(false);
     }

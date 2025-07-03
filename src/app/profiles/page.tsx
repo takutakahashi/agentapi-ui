@@ -6,10 +6,13 @@ import { ProfileListItem } from '../../types/profile';
 import Link from 'next/link';
 import { useTheme } from '../../hooks/useTheme';
 import EditProfileModal from '../components/EditProfileModal';
+import { AppError, ErrorRecoveryType, ErrorType, ErrorSeverity } from '../../types/errors';
+import { errorLogger } from '../../utils/errorLogger';
 
 export default function ProfilesPage() {
   const [profiles, setProfiles] = useState<ProfileListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<AppError | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
   const { updateThemeFromProfile } = useTheme();
@@ -20,11 +23,23 @@ export default function ProfilesPage() {
   }, []);
 
   const loadProfiles = async () => {
+    setError(null);
+    setLoading(true);
+    
     try {
       const profilesList = await ProfileManager.getProfiles();
       setProfiles(profilesList);
-    } catch (error) {
-      console.error('Failed to load profiles:', error);
+      errorLogger.info(`Loaded ${profilesList.length} profiles in ProfilesPage`);
+    } catch (err) {
+      const appError = err instanceof AppError ? err : new AppError(
+        ErrorType.UNKNOWN_ERROR,
+        String(err),
+        'プロファイル一覧の読み込みに失敗しました。',
+        ErrorSeverity.MEDIUM,
+        ErrorRecoveryType.RETRY
+      );
+      setError(appError);
+      errorLogger.logError(appError);
     } finally {
       setLoading(false);
     }
@@ -33,11 +48,21 @@ export default function ProfilesPage() {
   const handleDeleteProfile = async (profileId: string) => {
     if (confirm('Are you sure you want to delete this profile?')) {
       try {
-        await ProfileManager.deleteProfile(profileId);
-        await loadProfiles();
-      } catch (error) {
-        console.error('Failed to delete profile:', error);
-        alert('Failed to delete profile');
+        const success = await ProfileManager.deleteProfile(profileId);
+        if (success) {
+          await loadProfiles();
+          errorLogger.info(`Profile deleted successfully: ${profileId}`);
+        }
+      } catch (err) {
+        const appError = err instanceof AppError ? err : new AppError(
+          ErrorType.PROFILE_DELETE_FAILED,
+          String(err),
+          'プロファイルの削除に失敗しました。',
+          ErrorSeverity.MEDIUM,
+          ErrorRecoveryType.RETRY
+        );
+        errorLogger.logError(appError);
+        alert(appError.userMessage);
       }
     }
   };
@@ -48,9 +73,17 @@ export default function ProfilesPage() {
       await loadProfiles();
       // Update theme to new default profile
       updateThemeFromProfile(profileId);
-    } catch (error) {
-      console.error('Failed to set default profile:', error);
-      alert('Failed to set default profile');
+      errorLogger.info(`Default profile set successfully: ${profileId}`);
+    } catch (err) {
+      const appError = err instanceof AppError ? err : new AppError(
+        ErrorType.PROFILE_UPDATE_FAILED,
+        String(err),
+        'デフォルトプロファイルの設定に失敗しました。',
+        ErrorSeverity.MEDIUM,
+        ErrorRecoveryType.RETRY
+      );
+      errorLogger.logError(appError);
+      alert(appError.userMessage);
     }
   };
 
@@ -123,10 +156,52 @@ export default function ProfilesPage() {
     loadProfiles();
   };
 
+  const handleRetry = () => {
+    loadProfiles();
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-dvh">
         <div className="text-lg text-gray-900 dark:text-white">Loading profiles...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 max-w-md w-full text-center">
+            <div className="text-red-500 mb-4">
+              <svg className="w-16 h-16 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              プロファイル読み込みエラー
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              {error.userMessage}
+            </p>
+            <div className="space-y-3">
+              {error.recoveryType === ErrorRecoveryType.RETRY && (
+                <button
+                  onClick={handleRetry}
+                  className="w-full bg-main-color hover:bg-main-color-dark text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  再試行
+                </button>
+              )}
+              <Link
+                href="/"
+                className="block w-full bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                ホームに戻る
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
