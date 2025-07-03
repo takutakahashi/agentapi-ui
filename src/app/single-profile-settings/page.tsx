@@ -195,7 +195,7 @@ export default function SingleProfileSettingsPage() {
               <strong>Note:</strong> Environment variables are stored securely in cookies and will be included in all agentapi-proxy sessions.
             </p>
             <p>
-              Variables marked as "Predefined" are configured via server environment variables and cannot be removed from this interface.
+              Variables marked as &quot;Predefined&quot; are configured via server environment variables and cannot be removed from this interface.
             </p>
           </div>
         </div>
