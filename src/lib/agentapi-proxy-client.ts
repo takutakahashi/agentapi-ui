@@ -757,7 +757,10 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
     
     // If no API key found and profileId is available, try to get from cookie
     if (!apiKey && profileId) {
-      apiKey = CookieStorage.getApiKey(profileId);
+      const cookieApiKey = CookieStorage.getApiKey(profileId);
+      if (cookieApiKey) {
+        apiKey = cookieApiKey;
+      }
     }
     
     return {
