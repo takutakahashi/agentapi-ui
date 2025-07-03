@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { SettingsFormData, loadGlobalSettings, saveGlobalSettings } from '../../types/settings'
 import type { EnvironmentVariable } from '../../types/settings'
 import MCPServerSettings from '../../components/MCPServerSettings'
+import SingleProfileModeSettings from '../../components/settings/SingleProfileModeSettings'
 
 export default function GlobalSettingsPage() {
   const [settings, setSettings] = useState<SettingsFormData>(loadGlobalSettings())
@@ -86,6 +87,11 @@ export default function GlobalSettingsPage() {
         </div>
 
         <div className="space-y-8">
+          {/* Single Profile Mode Settings */}
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+            <SingleProfileModeSettings />
+          </div>
+
           {/* Environment Variables */}
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
