@@ -365,17 +365,31 @@ export class ProfileManager {
       };
       
       let dataToStore: string;
-      if (await CryptoStorage.isEncryptionEnabled()) {
-        const password = MasterPasswordManager.getCurrentPassword();
-        if (!password) {
+      const isEncryptionEnabled = await CryptoStorage.isEncryptionEnabled();
+      const isUnlocked = MasterPasswordManager.isUnlocked();
+      const currentPassword = MasterPasswordManager.getCurrentPassword();
+      
+      console.log('Profile save debug:', {
+        isEncryptionEnabled,
+        isUnlocked,
+        hasPassword: !!currentPassword,
+        profileId: profile.id
+      });
+      
+      if (isEncryptionEnabled) {
+        if (!currentPassword) {
+          console.error('Encryption is enabled but master password is not available');
           throw new Error('Encryption is enabled but master password is not available');
         }
-        dataToStore = await CryptoStorage.encrypt(JSON.stringify(profileToSave), password);
+        console.log('Encrypting profile data...');
+        dataToStore = await CryptoStorage.encrypt(JSON.stringify(profileToSave), currentPassword);
+        console.log('Profile data encrypted successfully');
       } else {
+        console.log('Saving profile without encryption');
         dataToStore = JSON.stringify(profileToSave);
       }
       
-      console.log('Saving profile to localStorage:', { key, encrypted: await CryptoStorage.isEncryptionEnabled() });
+      console.log('Saving profile to localStorage:', { key, encrypted: isEncryptionEnabled });
       localStorage.setItem(key, dataToStore);
       console.log('Profile saved successfully to localStorage');
     } catch (err) {

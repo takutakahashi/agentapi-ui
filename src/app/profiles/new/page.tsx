@@ -56,14 +56,10 @@ export default function NewProfilePage() {
 
     // 暗号化の初期設定をチェック
     if (!(await CryptoStorage.isEncryptionEnabled())) {
-      // 暗号化が無効な場合、初回セットアップかどうかをチェック
-      const hasExistingProfiles = ProfileManager.getProfiles().length > 0;
-      if (!hasExistingProfiles) {
-        // 初回プロファイル作成時は暗号化セットアップを促す
-        setMasterPasswordAction('setup');
-        setShowMasterPasswordModal(true);
-        return;
-      }
+      // 暗号化が無効な場合は、常に暗号化セットアップを促す
+      setMasterPasswordAction('setup');
+      setShowMasterPasswordModal(true);
+      return;
     } else {
       // 暗号化が有効な場合、マスターパスワードがアンロックされているかチェック
       if (!MasterPasswordManager.isUnlocked()) {

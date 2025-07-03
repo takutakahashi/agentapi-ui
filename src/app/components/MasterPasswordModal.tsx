@@ -49,6 +49,8 @@ export function MasterPasswordModal({
           return;
         }
 
+        // 暗号化を有効化
+        await CryptoStorage.enableEncryption();
         await MasterPasswordManager.setMasterPassword(password);
         onUnlock();
         onClose();
@@ -68,10 +70,10 @@ export function MasterPasswordModal({
     }
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     if (mode === 'setup') {
       // Setup時はキャンセルで暗号化を無効にする
-      CryptoStorage.disableEncryption();
+      await CryptoStorage.disableEncryption();
     }
     onClose();
   };
