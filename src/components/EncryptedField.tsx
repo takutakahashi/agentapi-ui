@@ -78,18 +78,18 @@ export default function EncryptedField({
     }
   };
 
-  const handleDecrypt = async () => {
-    if (!isEncrypted) return;
-
-    try {
-      const encryption = getEncryptionManager(proxyEndpoint);
-      const decryptedValue = await encryption.decryptValue(value);
-      onChange(decryptedValue);
-    } catch (error) {
-      console.error('Failed to decrypt value:', error);
-      alert('Failed to decrypt value. This is expected as decryption happens server-side.');
-    }
-  };
+  // Note: Decryption is handled server-side, so this function is not used client-side
+  // const handleDecrypt = async () => {
+  //   if (!isEncrypted) return;
+  //   try {
+  //     const encryption = getEncryptionManager(proxyEndpoint);
+  //     const decryptedValue = await encryption.decryptValue(value);
+  //     onChange(decryptedValue);
+  //   } catch (error) {
+  //     console.error('Failed to decrypt value:', error);
+  //     alert('Failed to decrypt value. This is expected as decryption happens server-side.');
+  //   }
+  // };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;

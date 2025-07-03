@@ -2,7 +2,7 @@
 
 interface EncryptionService {
   encryptValue(value: string): Promise<string>;
-  decryptValue(encryptedValue: string): Promise<string>;
+  decryptValue(): Promise<string>;
   isEncrypted(value: string): boolean;
   getPublicKey(): Promise<string>;
   isEnabled(): Promise<boolean>;
@@ -97,7 +97,7 @@ class AgentAPIProxyEncryption implements EncryptionService {
     }
   }
 
-  async decryptValue(encryptedValue: string): Promise<string> {
+  async decryptValue(): Promise<string> {
     // Decryption is handled server-side only
     // This method is here for interface completeness
     throw new Error('Client-side decryption not supported');
@@ -158,19 +158,9 @@ class LocalStorageEncryption implements EncryptionService {
     }
   }
 
-  async decryptValue(encryptedValue: string): Promise<string> {
-    if (!this.isEncrypted(encryptedValue)) {
-      return encryptedValue;
-    }
-
-    try {
-      const encoded = encryptedValue.replace('LOCAL:', '');
-      const decoded = decodeURIComponent(escape(atob(encoded)));
-      return decoded;
-    } catch (error) {
-      console.error('Local decoding failed:', error);
-      return encryptedValue; // Return original if decoding fails
-    }
+  async decryptValue(): Promise<string> {
+    // Local decryption not implemented for client-side
+    throw new Error('Local decryption not supported on client-side');
   }
 
   isEncrypted(value: string): boolean {
@@ -186,11 +176,11 @@ class EncryptionManager {
     
     // Initialize fallback if needed
     if (fallbackToLocal) {
-      this.initializeWithFallback(proxyEndpoint);
+      this.initializeWithFallback();
     }
   }
 
-  private async initializeWithFallback(proxyEndpoint: string) {
+  private async initializeWithFallback() {
     try {
       const isEnabled = await this.service.isEnabled();
       if (!isEnabled) {
@@ -207,8 +197,8 @@ class EncryptionManager {
     return this.service.encryptValue(value);
   }
 
-  async decryptValue(encryptedValue: string): Promise<string> {
-    return this.service.decryptValue(encryptedValue);
+  async decryptValue(): Promise<string> {
+    return this.service.decryptValue();
   }
 
   isEncrypted(value: string): boolean {
