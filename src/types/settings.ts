@@ -36,7 +36,6 @@ export interface SettingsFormData {
 
 // Single Profile Mode settings
 export interface SingleProfileModeSettings {
-  enabled: boolean
   globalApiKey: string
   created_at: string
   updated_at: string
@@ -50,7 +49,6 @@ export const getDefaultSettings = (): SettingsFormData => ({
 
 // Default Single Profile Mode settings
 export const getDefaultSingleProfileModeSettings = (): SingleProfileModeSettings => ({
-  enabled: false,
   globalApiKey: '',
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString()
@@ -95,9 +93,9 @@ export const saveSingleProfileModeSettings = (settings: SingleProfileModeSetting
   }
 }
 
+// Check if Single Profile Mode is enabled via environment variable
 export const isSingleProfileModeEnabled = (): boolean => {
-  const settings = loadSingleProfileModeSettings()
-  return settings.enabled
+  return process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true'
 }
 
 // Default proxy settings for profiles

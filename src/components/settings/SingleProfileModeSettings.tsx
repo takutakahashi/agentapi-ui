@@ -5,7 +5,8 @@ import {
   SingleProfileModeSettings as SingleProfileModeSettingsType,
   loadSingleProfileModeSettings,
   saveSingleProfileModeSettings,
-  getDefaultSingleProfileModeSettings
+  getDefaultSingleProfileModeSettings,
+  isSingleProfileModeEnabled
 } from '../../types/settings'
 
 interface SingleProfileModeSettingsProps {
@@ -19,58 +20,14 @@ export default function SingleProfileModeSettings({ onSettingsChange }: SinglePr
   const [showApiKey, setShowApiKey] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [isEnabled, setIsEnabled] = useState(false)
 
   useEffect(() => {
     const loadedSettings = loadSingleProfileModeSettings()
     setSettings(loadedSettings)
+    setIsEnabled(isSingleProfileModeEnabled())
     setIsLoading(false)
   }, [])
-
-  const handleToggleMode = async (enabled: boolean) => {
-    setError(null)
-    setSuccess(null)
-    setIsSaving(true)
-
-    try {
-      const updatedSettings = {
-        ...settings,
-        enabled
-      }
-
-      // Handle cookie operations via API route
-      if (enabled && settings.globalApiKey) {
-        const response = await fetch('/api/settings/single-profile-mode', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'set', apiKey: settings.globalApiKey })
-        })
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.error || 'Failed to set API key cookie')
-        }
-      } else if (!enabled) {
-        const response = await fetch('/api/settings/single-profile-mode', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'delete' })
-        })
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.error || 'Failed to delete API key cookie')
-        }
-      }
-
-      saveSingleProfileModeSettings(updatedSettings)
-      setSettings(updatedSettings)
-      onSettingsChange?.(updatedSettings)
-      
-      setSuccess(enabled ? 'Single Profile Modeが有効になりました' : 'Single Profile Modeが無効になりました')
-    } catch (err) {
-      setError('設定の更新に失敗しました: ' + (err instanceof Error ? err.message : 'Unknown error'))
-    } finally {
-      setIsSaving(false)
-    }
-  }
 
   const handleApiKeyChange = (apiKey: string) => {
     setSettings(prev => ({
@@ -91,7 +48,8 @@ export default function SingleProfileModeSettings({ onSettingsChange }: SinglePr
         throw new Error('APIキーを入力してください')
       }
 
-      if (settings.enabled) {
+      // Save API key to cookie when Single Profile Mode is enabled
+      if (isEnabled) {
         const response = await fetch('/api/settings/single-profile-mode', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -133,39 +91,47 @@ export default function SingleProfileModeSettings({ onSettingsChange }: SinglePr
         </p>
       </div>
 
-      {/* Mode Toggle */}
+      {/* Mode Status Display */}
       <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
         <div>
           <h4 className="text-sm font-medium text-gray-900 dark:text-white">
             Single Profile Mode
           </h4>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {settings.enabled ? '有効' : '無効'}
+            {isEnabled ? '有効' : '無効'}
           </p>
         </div>
-        <button
-          onClick={() => handleToggleMode(!settings.enabled)}
-          disabled={isSaving}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-main-color focus:ring-offset-2 ${
-            settings.enabled 
-              ? 'bg-main-color' 
-              : 'bg-gray-200 dark:bg-gray-600'
-          } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+        <div
+          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+            isEnabled 
+              ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400' 
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-400'
+          }`}
         >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              settings.enabled ? 'translate-x-6' : 'translate-x-1'
-            }`}
-          />
-        </button>
+          {isEnabled ? '有効' : '無効'}
+        </div>
       </div>
 
-      {/* API Key Settings */}
-      <div className="space-y-4">
-        <div>
-          <label htmlFor="globalApiKey" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            グローバルAPIキー
-          </label>
+      {/* Environment Variable Info */}
+      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        <h4 className="text-sm font-medium text-blue-800 dark:text-blue-400 mb-2">
+          モードの制御について
+        </h4>
+        <p className="text-xs text-blue-700 dark:text-blue-300 mb-2">
+          Single Profile Mode は環境変数 <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">NEXT_PUBLIC_SINGLE_PROFILE_MODE=true</code> で制御されます。
+        </p>
+        <p className="text-xs text-blue-700 dark:text-blue-300">
+          この設定を変更するには、デプロイ環境で環境変数を設定してアプリケーションを再起動してください。
+        </p>
+      </div>
+
+      {/* API Key Settings - Only show when Single Profile Mode is enabled */}
+      {isEnabled && (
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="globalApiKey" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              グローバルAPIキー
+            </label>
           <div className="relative">
             <input
               id="globalApiKey"
@@ -198,14 +164,15 @@ export default function SingleProfileModeSettings({ onSettingsChange }: SinglePr
           </p>
         </div>
 
-        <button
-          onClick={handleSaveApiKey}
-          disabled={isSaving || !settings.globalApiKey.trim()}
-          className="w-full px-4 py-2 bg-main-color hover:bg-main-color-dark text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-main-color focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isSaving ? '保存中...' : 'APIキーを保存'}
-        </button>
-      </div>
+          <button
+            onClick={handleSaveApiKey}
+            disabled={isSaving || !settings.globalApiKey.trim()}
+            className="w-full px-4 py-2 bg-main-color hover:bg-main-color-dark text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-main-color focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSaving ? '保存中...' : 'APIキーを保存'}
+          </button>
+        </div>
+      )}
 
       {/* Status Messages */}
       {error && (
@@ -231,7 +198,7 @@ export default function SingleProfileModeSettings({ onSettingsChange }: SinglePr
       )}
 
       {/* Additional Information */}
-      {settings.enabled && (
+      {isEnabled && (
         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
           <h4 className="text-sm font-medium text-blue-800 dark:text-blue-400 mb-2">
             Single Profile Mode が有効です
