@@ -74,12 +74,41 @@ export class SafeStorage {
   }
 
   /**
+   * 暗号化設定を自動で読み込み
+   */
+  private static async loadEncryptionConfig(): Promise<void> {
+    if (this.encryptionConfig.enabled && this.encryptionConfig.password) {
+      return; // 既に設定済み
+    }
+    
+    try {
+      const encryptionSettingsKey = createLocalStorageKey('agentapi-encryption-settings');
+      const settingsData = window.localStorage.getItem(encryptionSettingsKey);
+      if (settingsData) {
+        const settings = JSON.parse(settingsData);
+        if (settings.enabled) {
+          // 暗号化が有効だが、パスワードがない場合は無効化
+          if (!this.encryptionConfig.password) {
+            this.encryptionConfig.enabled = false;
+            errorLogger.warn('Encryption is enabled but no password provided - disabling encryption');
+          }
+        }
+      }
+    } catch (err) {
+      errorLogger.warn('Failed to load encryption config', { error: String(err) });
+    }
+  }
+
+  /**
    * 型安全な値の取得
    */
   static async get<T extends JSONSerializable>(
     key: LocalStorageKey
   ): Promise<StorageResult<T | null>> {
     const context = { method: 'SafeStorage.get', key };
+    
+    // 暗号化設定を自動読み込み
+    await this.loadEncryptionConfig();
     
     if (!this.isAvailable()) {
       const error = new StorageError(
@@ -103,6 +132,7 @@ export class SafeStorage {
 
       // 暗号化が有効な場合の復号化処理
       if (this.encryptionConfig.enabled && this.encryptionConfig.password) {
+        errorLogger.debug('Attempting to decrypt data from storage', { ...context, hasPassword: !!this.encryptionConfig.password });
         const parseResult = safeJsonParse<EncryptedData>(storedValue);
         if (parseResult.ok && EncryptionUtil.isEncryptedData(parseResult.value)) {
           // 暗号化されたデータを復号化
@@ -157,6 +187,9 @@ export class SafeStorage {
   ): Promise<StorageResult<void>> {
     const context = { method: 'SafeStorage.set', key };
 
+    // 暗号化設定を自動読み込み
+    await this.loadEncryptionConfig();
+
     if (!this.isAvailable()) {
       const error = new StorageError(
         ErrorType.STORAGE_ACCESS_DENIED,
@@ -186,6 +219,7 @@ export class SafeStorage {
 
       // 暗号化が有効な場合の暗号化処理
       if (this.encryptionConfig.enabled && this.encryptionConfig.password) {
+        errorLogger.debug('Encrypting data before storage', { ...context, hasPassword: !!this.encryptionConfig.password });
         const encryptResult = await EncryptionUtil.encrypt(
           finalValue,
           this.encryptionConfig.password
@@ -217,6 +251,12 @@ export class SafeStorage {
         }
 
         finalValue = encryptedStringifyResult.value;
+      } else {
+        errorLogger.debug('No encryption applied', { 
+          ...context, 
+          encryptionEnabled: this.encryptionConfig.enabled,
+          hasPassword: !!this.encryptionConfig.password 
+        });
       }
 
       // サイズチェック（概算）

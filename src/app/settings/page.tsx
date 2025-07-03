@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { SettingsFormData, loadGlobalSettings, saveGlobalSettings } from '../../types/settings'
 import type { EnvironmentVariable } from '../../types/settings'
 import MCPServerSettings from '../../components/MCPServerSettings'
+import EncryptionSettings from '../components/EncryptionSettings'
 
 export default function GlobalSettingsPage() {
   const [settings, setSettings] = useState<SettingsFormData>(loadGlobalSettings())
@@ -170,6 +171,11 @@ export default function GlobalSettingsPage() {
               title="Global MCP Servers"
               description="Configure Model Context Protocol servers that will be available across all profiles. Profile-specific MCP servers will override these global settings."
             />
+          </div>
+
+          {/* Encryption Settings Section */}
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+            <EncryptionSettings />
           </div>
 
           {/* Action Buttons */}
