@@ -5,7 +5,7 @@ import { StatisticsData } from '../types/statistics'
 import { createAgentAPIProxyClientFromStorage } from './agentapi-proxy-client'
 
 // Get API configuration from browser storage
-function getAPIConfig(): { baseURL: string; apiKey?: string } {
+async function getAPIConfig(): Promise<{ baseURL: string; apiKey?: string }> {
   // Check if we're in a browser environment
   if (typeof window === 'undefined') {
     // Server-side rendering or Node.js environment - use environment variables
@@ -17,7 +17,7 @@ function getAPIConfig(): { baseURL: string; apiKey?: string } {
   
   try {
     // Try to get proxy settings from current profile
-    const currentProfile = ProfileManager.getDefaultProfile();
+    const currentProfile = await ProfileManager.getDefaultProfile();
     if (currentProfile) {
       return {
         baseURL: currentProfile.agentApiProxy.endpoint || process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
@@ -51,7 +51,7 @@ async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const config = getAPIConfig()
+  const config = await getAPIConfig()
   const url = `${config.baseURL}${endpoint}`
   
   const defaultHeaders: HeadersInit = {

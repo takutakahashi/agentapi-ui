@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Session, SessionListParams } from '../../types/agentapi'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { ProfileManager } from '../../utils/profileManager'
+import { Profile } from '../../types/profile'
 import { 
   extractFilterGroups, 
   applySessionFilters, 
@@ -31,8 +32,25 @@ export default function ConversationList() {
   const repositoryParam = searchParams.get('repository')
   
   // Get current profile and create profile-aware client
-  const [currentProfile, setCurrentProfile] = useState(() => ProfileManager.getDefaultProfile())
-  const [agentAPI, setAgentAPI] = useState(() => createAgentAPIProxyClientFromStorage(repositoryParam || undefined, currentProfile?.id))
+  const [, setCurrentProfile] = useState<Profile | null>(null)
+  const [agentAPI, setAgentAPI] = useState<ReturnType<typeof createAgentAPIProxyClientFromStorage> | null>(null)
+
+  // Initialize profile on mount
+  useEffect(() => {
+    const initializeProfile = async () => {
+      try {
+        const profile = await ProfileManager.getDefaultProfile()
+        setCurrentProfile(profile)
+        if (profile) {
+          const api = createAgentAPIProxyClientFromStorage(repositoryParam || undefined, profile.id)
+          setAgentAPI(api)
+        }
+      } catch (error) {
+        console.error('Failed to initialize profile:', error)
+      }
+    }
+    initializeProfile()
+  }, [repositoryParam])
   
   const [allSessions, setAllSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
@@ -63,6 +81,11 @@ export default function ConversationList() {
   const totalPages = Math.ceil(filteredSessions.length / pageState.limit)
 
   const fetchSessions = useCallback(async () => {
+    if (!agentAPI) {
+      setError('API client not initialized')
+      return
+    }
+    
     try {
       setLoading(true)
       setError(null)
@@ -127,6 +150,10 @@ export default function ConversationList() {
       // Get current filter values to use as default parameters for new session
       const { metadata, environment } = getFilterValuesForSessionCreation(sessionFilters)
       
+      if (!agentAPI) {
+        throw new Error('API client not initialized')
+      }
+      
       await agentAPI.start({
         ...metadata,
         description: quickStartMessage.trim(),
@@ -162,6 +189,10 @@ export default function ConversationList() {
     try {
       setDeletingSession(sessionId)
       
+      if (!agentAPI) {
+        throw new Error('API client not initialized')
+      }
+      
       await agentAPI.delete(sessionId)
 
       // セッション一覧を更新
@@ -182,9 +213,10 @@ export default function ConversationList() {
 
   // Listen for profile changes and recreate client
   useEffect(() => {
-    const handleProfileChange = (event: CustomEvent) => {
-      const newProfileId = event.detail.profileId
-      const newProfile = ProfileManager.getProfile(newProfileId)
+    const handleProfileChange = async (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const newProfileId = customEvent.detail.profileId
+      const newProfile = await ProfileManager.getProfile(newProfileId)
       
       if (newProfile) {
         setCurrentProfile(newProfile)
@@ -194,10 +226,10 @@ export default function ConversationList() {
       }
     }
 
-    window.addEventListener('profileChanged', handleProfileChange as EventListener)
+    window.addEventListener('profileChanged', handleProfileChange)
     
     return () => {
-      window.removeEventListener('profileChanged', handleProfileChange as EventListener)
+      window.removeEventListener('profileChanged', handleProfileChange)
     }
   }, [repositoryParam, fetchSessions])
 

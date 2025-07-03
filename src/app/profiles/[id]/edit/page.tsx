@@ -42,11 +42,11 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
     params.then(p => setParamId(p.id));
   }, [params]);
 
-  const loadProfile = useCallback(() => {
+  const loadProfile = useCallback(async () => {
     if (!paramId) return;
     
     try {
-      const loadedProfile = ProfileManager.getProfile(paramId);
+      const loadedProfile = await ProfileManager.getProfile(paramId);
       if (!loadedProfile) {
         router.push('/profiles');
         return;

@@ -7,6 +7,7 @@ import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-c
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client';
 import { SessionMessage, SessionMessageListResponse } from '../../types/agentapi';
 import { ProfileManager } from '../../utils/profileManager';
+import { Profile } from '../../types/profile';
 import { useBackgroundAwareInterval } from '../hooks/usePageVisibility';
 import { messageTemplateManager } from '../../utils/messageTemplateManager';
 import { MessageTemplate } from '../../types/messageTemplate';
@@ -169,17 +170,28 @@ export default function AgentAPIChat() {
   const sessionId = searchParams.get('session');
   
   // Get current profile and create profile-aware client
-  const [currentProfile, setCurrentProfile] = useState(() => ProfileManager.getDefaultProfile());
-  const [agentAPI, setAgentAPI] = useState<ReturnType<typeof createAgentAPIProxyClientFromStorage> | null>(() => {
-    // Initialize agentAPI immediately with default profile
-    const profile = ProfileManager.getDefaultProfile();
-    if (profile) {
-      return createAgentAPIProxyClientFromStorage(undefined, profile.id);
-    }
-    return null;
-  });
+  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
+  const [agentAPI, setAgentAPI] = useState<ReturnType<typeof createAgentAPIProxyClientFromStorage> | null>(null);
   const agentAPIRef = useRef<ReturnType<typeof createAgentAPIProxyClientFromStorage> | null>(agentAPI);
   
+  // Initialize profile on mount
+  useEffect(() => {
+    const initializeProfile = async () => {
+      try {
+        const profile = await ProfileManager.getDefaultProfile();
+        setCurrentProfile(profile);
+        if (profile) {
+          const client = createAgentAPIProxyClientFromStorage(undefined, profile.id);
+          setAgentAPI(client);
+          agentAPIRef.current = client;
+        }
+      } catch (error) {
+        console.error('Failed to initialize profile:', error);
+      }
+    };
+    initializeProfile();
+  }, []);
+
   // Update agentAPI only when profile changes
   useEffect(() => {
     if (currentProfile && (!agentAPI || agentAPIRef.current === null)) {
@@ -320,11 +332,22 @@ export default function AgentAPIChat() {
     }
   }, [showTemplateModal, showPRLinks, showClaudeLogins]);
 
+  const loadTemplatesForProfile = useCallback(async (profileId: string) => {
+    try {
+      const profileTemplates = await messageTemplateManager.getTemplatesForProfile(profileId);
+      setTemplates(profileTemplates);
+    } catch (error) {
+      console.error('Failed to load templates:', error);
+      setTemplates([]);
+    }
+  }, []);
+
   // Listen for profile changes and recreate client
   useEffect(() => {
-    const handleProfileChange = (event: CustomEvent) => {
-      const newProfileId = event.detail.profileId;
-      const newProfile = ProfileManager.getProfile(newProfileId);
+    const handleProfileChange = async (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const newProfileId = customEvent.detail.profileId;
+      const newProfile = await ProfileManager.getProfile(newProfileId);
       
       if (newProfile && newProfile.id !== currentProfile?.id) {
         setCurrentProfile(newProfile);
@@ -335,22 +358,12 @@ export default function AgentAPIChat() {
       }
     };
 
-    window.addEventListener('profileChanged', handleProfileChange as EventListener);
+    window.addEventListener('profileChanged', handleProfileChange);
     
     return () => {
-      window.removeEventListener('profileChanged', handleProfileChange as EventListener);
+      window.removeEventListener('profileChanged', handleProfileChange);
     };
-  }, [currentProfile?.id]);
-
-  const loadTemplatesForProfile = useCallback(async (profileId: string) => {
-    try {
-      const profileTemplates = await messageTemplateManager.getTemplatesForProfile(profileId);
-      setTemplates(profileTemplates);
-    } catch (error) {
-      console.error('Failed to load templates:', error);
-      setTemplates([]);
-    }
-  }, []);
+  }, [currentProfile?.id, loadTemplatesForProfile]);
 
   const loadRecentMessages = useCallback(async () => {
     if (!currentProfile) return;

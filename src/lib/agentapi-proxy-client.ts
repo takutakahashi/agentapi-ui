@@ -277,10 +277,10 @@ export class AgentAPIProxyClient {
     // Collect profile environment variables if profile is specified
     if (this.profileId) {
       try {
-        const profile = ProfileManager.getProfile(this.profileId);
+        const profile = await ProfileManager.getProfile(this.profileId);
         if (profile && profile.environmentVariables) {
           const profileEnvironment: Record<string, string> = {};
-          profile.environmentVariables.forEach(envVar => {
+          profile.environmentVariables.forEach((envVar: { key?: string; value?: string }) => {
             if (envVar.key && envVar.value) {
               profileEnvironment[envVar.key] = envVar.value;
             }
@@ -307,7 +307,7 @@ export class AgentAPIProxyClient {
 
     // Collect MCP server configurations and add to tags
     try {
-      const mcpConfigs = collectMCPConfigurations(this.profileId);
+      const mcpConfigs = await collectMCPConfigurations(this.profileId);
       if (mcpConfigs.length > 0) {
         // Ensure tags object exists
         if (!data.tags) {
@@ -582,7 +582,7 @@ export class AgentAPIProxyClient {
 }
 
 // Utility function to collect MCP server configurations
-function collectMCPConfigurations(profileId?: string): MCPServerConfig[] {
+async function collectMCPConfigurations(profileId?: string): Promise<MCPServerConfig[]> {
   const mcpConfigs: MCPServerConfig[] = [];
   
   try {
@@ -594,9 +594,9 @@ function collectMCPConfigurations(profileId?: string): MCPServerConfig[] {
     
     // Get profile-specific MCP configurations (overrides global)
     if (profileId) {
-      const profile = ProfileManager.getProfile(profileId);
+      const profile = await ProfileManager.getProfile(profileId);
       if (profile && profile.mcpServers) {
-        const profileMcpConfigs = profile.mcpServers.filter(server => server.enabled);
+        const profileMcpConfigs = profile.mcpServers.filter((server: { enabled: boolean }) => server.enabled);
         
         // Merge profile configs with global ones, profile takes precedence
         for (const profileConfig of profileMcpConfigs) {
@@ -612,11 +612,11 @@ function collectMCPConfigurations(profileId?: string): MCPServerConfig[] {
     
     // If no profile specified, try to get current profile
     if (!profileId) {
-      const currentProfileId = ProfileManager.getCurrentProfileId();
+      const currentProfileId = await ProfileManager.getCurrentProfileId();
       if (currentProfileId) {
-        const profile = ProfileManager.getProfile(currentProfileId);
+        const profile = await ProfileManager.getProfile(currentProfileId);
         if (profile && profile.mcpServers) {
-          const profileMcpConfigs = profile.mcpServers.filter(server => server.enabled);
+          const profileMcpConfigs = profile.mcpServers.filter((server: { enabled: boolean }) => server.enabled);
           
           for (const profileConfig of profileMcpConfigs) {
             const existingIndex = mcpConfigs.findIndex(config => config.id === profileConfig.id);
@@ -632,9 +632,9 @@ function collectMCPConfigurations(profileId?: string): MCPServerConfig[] {
     
     // If still no profile, try default profile
     if (!profileId) {
-      const defaultProfile = ProfileManager.getDefaultProfile();
+      const defaultProfile = await ProfileManager.getDefaultProfile();
       if (defaultProfile && defaultProfile.mcpServers) {
-        const defaultMcpConfigs = defaultProfile.mcpServers.filter(server => server.enabled);
+        const defaultMcpConfigs = defaultProfile.mcpServers.filter((server: { enabled: boolean }) => server.enabled);
         
         for (const defaultConfig of defaultMcpConfigs) {
           const existingIndex = mcpConfigs.findIndex(config => config.id === defaultConfig.id);
@@ -674,71 +674,39 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
   try {
     // First, try to get settings from profile if profileId is provided
     if (profileId) {
-      const profile = ProfileManager.getProfile(profileId);
-      if (profile) {
-        settings = {
-          agentApiProxy: profile.agentApiProxy,
-          environmentVariables: profile.environmentVariables
-        };
-        
-        // Mark profile as used (debounced to prevent excessive calls)
-        // ProfileManager.markProfileUsed(profileId);
-        
-        // Add repository to profile history if repoFullname is provided
-        if (repoFullname) {
-          ProfileManager.addRepositoryToProfile(profileId, repoFullname);
-        }
-      }
-    }
-    
-    // If no profile settings found, check for current profile (including URL parameters)
-    if (!settings) {
-      const currentProfileId = ProfileManager.getCurrentProfileId();
-      if (currentProfileId) {
-        const profile = ProfileManager.getProfile(currentProfileId);
-        if (profile) {
-          settings = {
-            agentApiProxy: profile.agentApiProxy,
-            environmentVariables: profile.environmentVariables
-          };
+      // Use sync version temporarily - profile should be loaded by components
+      try {
+        const storedProfile = localStorage.getItem(`agentapi-profile-${profileId}`);
+        if (storedProfile) {
+          const profileData = storedProfile;
           
-          // Mark profile as used (debounced to prevent excessive calls)
-          // ProfileManager.markProfileUsed(currentProfileId);
-          
-          // Add repository to profile history if repoFullname is provided
-          if (repoFullname) {
-            ProfileManager.addRepositoryToProfile(currentProfileId, repoFullname);
+          // Check if data is encrypted (basic check)
+          if (profileData.startsWith('{"data"') && profileData.includes('"iv"') && profileData.includes('"salt"')) {
+            console.warn('Profile is encrypted but cannot decrypt synchronously. Using default settings.');
+          } else {
+            const profile = JSON.parse(profileData);
+            settings = {
+              agentApiProxy: profile.agentApiProxy,
+              environmentVariables: profile.environmentVariables
+            };
+            
+            // Add repository to profile history if repoFullname is provided (async)
+            if (repoFullname) {
+              ProfileManager.addRepositoryToProfile(profileId, repoFullname).catch(console.error);
+            }
           }
         }
+      } catch (error) {
+        console.error('Failed to load profile:', error);
       }
     }
     
-    // If still no profile settings found, fall back to default profile
+    // If no profile settings found, use default settings
     if (!settings) {
-      const defaultProfile = ProfileManager.getDefaultProfile();
-      if (defaultProfile) {
-        settings = {
-          agentApiProxy: defaultProfile.agentApiProxy,
-          environmentVariables: defaultProfile.environmentVariables
-        };
-        
-        // Mark default profile as used (debounced to prevent excessive calls)
-        // ProfileManager.markProfileUsed(defaultProfile.id);
-        
-        // Add repository to default profile history if repoFullname is provided
-        if (repoFullname) {
-          ProfileManager.addRepositoryToProfile(defaultProfile.id, repoFullname);
-        }
-      }
-    }
-    
-    // If still no settings, fall back to default proxy settings
-    if (!settings) {
-      const defaultProxySettings = getDefaultProxySettings();
-      const globalSettings = loadGlobalSettings();
+      // Fallback to default settings to avoid sync/async issues
       settings = {
-        agentApiProxy: defaultProxySettings,
-        environmentVariables: globalSettings.environmentVariables
+        agentApiProxy: getDefaultProxySettings(),
+        environmentVariables: []
       };
     }
     

@@ -54,15 +54,15 @@ export default function ProfilesPage() {
     }
   };
 
-  const handleExportProfile = (profileId: string) => {
+  const handleExportProfile = async (profileId: string) => {
     try {
-      const exportData = ProfileManager.exportProfile(profileId);
+      const exportData = await ProfileManager.exportProfile(profileId);
       if (!exportData) {
         alert('Failed to export profile');
         return;
       }
 
-      const profile = ProfileManager.getProfile(profileId);
+      const profile = await ProfileManager.getProfile(profileId);
       const fileName = `profile-${profile?.name || 'unknown'}.json`;
       
       const blob = new Blob([exportData], { type: 'application/json' });
@@ -89,10 +89,10 @@ export default function ProfilesPage() {
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
           const jsonData = e.target?.result as string;
-          const importedProfile = ProfileManager.importProfile(jsonData);
+          const importedProfile = await ProfileManager.importProfile(jsonData);
           if (importedProfile) {
             loadProfiles();
             alert(`Profile "${importedProfile.name}" imported successfully!`);

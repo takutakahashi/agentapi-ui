@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Session, AgentStatus } from '../../types/agentapi'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, AgentAPIProxyClient } from '../../lib/agentapi-proxy-client'
 import { ProfileManager } from '../../utils/profileManager'
+import { Profile } from '../../types/profile'
 import StatusBadge from './StatusBadge'
 import { useBackgroundAwareInterval } from '../hooks/usePageVisibility'
 import { formatRelativeTime } from '../../utils/timeUtils'
@@ -32,9 +33,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   const router = useRouter()
   
   // Get current profile and create profile-aware clients
-  const [currentProfile, setCurrentProfile] = useState(() => ProfileManager.getDefaultProfile())
-  const [agentAPI, setAgentAPI] = useState(() => createAgentAPIProxyClientFromStorage(undefined, currentProfile?.id))
-  const [agentAPIProxy, setAgentAPIProxy] = useState(() => createAgentAPIProxyClientFromStorage(undefined, currentProfile?.id))
+  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null)
+  const [agentAPI, setAgentAPI] = useState<ReturnType<typeof createAgentAPIProxyClientFromStorage> | null>(null)
+  const [agentAPIProxy, setAgentAPIProxy] = useState<ReturnType<typeof createAgentAPIProxyClientFromStorage> | null>(null)
   
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,6 +44,24 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   const [sessionMessages, setSessionMessages] = useState<{ [sessionId: string]: string }>({})
   const [isMobile, setIsMobile] = useState(false)
   const [sessionAgentStatus, setSessionAgentStatus] = useState<{ [sessionId: string]: AgentStatus }>({})
+
+  // Initialize profile on mount
+  useEffect(() => {
+    const initializeProfile = async () => {
+      try {
+        const profile = await ProfileManager.getDefaultProfile()
+        setCurrentProfile(profile)
+        if (profile) {
+          const api = createAgentAPIProxyClientFromStorage(undefined, profile.id)
+          setAgentAPI(api)
+          setAgentAPIProxy(api)
+        }
+      } catch (error) {
+        console.error('Failed to initialize profile:', error)
+      }
+    }
+    initializeProfile()
+  }, [])
 
   const fetchSessionStatusesInitial = useCallback(async (sessionList: Session[]) => {
     if (sessionList.length === 0 || !agentAPIProxy) return
@@ -94,6 +113,11 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   }, [agentAPIProxy])
 
   const fetchSessions = useCallback(async () => {
+    if (!agentAPI) {
+      setError('API client not initialized')
+      return
+    }
+    
     try {
       setLoading(true)
       setError(null)
@@ -105,7 +129,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       // 各セッションの初期メッセージを取得
       const messagePromises = sessionList.map(async (session) => {
         try {
-          const messages = await agentAPI.getSessionMessages!(session.session_id, { limit: 10 })
+          const messages = await agentAPI!.getSessionMessages!(session.session_id, { limit: 10 })
           const userMessages = messages.messages.filter(msg => msg.role === 'user')
           if (userMessages.length > 0) {
             // システムプロンプトを除去したユーザーメッセージのみを取得
@@ -256,9 +280,10 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
 
   // Listen for profile changes and recreate clients
   useEffect(() => {
-    const handleProfileChange = (event: CustomEvent) => {
-      const newProfileId = event.detail.profileId
-      const newProfile = ProfileManager.getProfile(newProfileId)
+    const handleProfileChange = async (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const newProfileId = customEvent.detail.profileId
+      const newProfile = await ProfileManager.getProfile(newProfileId)
       
       if (newProfile && newProfile.id !== currentProfile?.id) {
         setCurrentProfile(newProfile)
@@ -399,10 +424,10 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       }
     }
 
-    window.addEventListener('profileChanged', handleProfileChange as EventListener)
+    window.addEventListener('profileChanged', handleProfileChange)
     
     return () => {
-      window.removeEventListener('profileChanged', handleProfileChange as EventListener)
+      window.removeEventListener('profileChanged', handleProfileChange)
     }
   }, [currentProfile?.id])
 
@@ -448,6 +473,11 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   const deleteSession = async (sessionId: string) => {
     if (!confirm('このセッションを削除してもよろしいですか？')) return
 
+    if (!agentAPI) {
+      console.error('API client not initialized')
+      return
+    }
+    
     try {
       setDeletingSession(sessionId)
       

@@ -135,27 +135,28 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
     setShowSuggestions(false)
   }
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     resetForm()
     onClose()
-  }
+  }, [onClose])
   
   // Initialize form when modal opens
   useEffect(() => {
     if (isOpen) {
-      initializeFromFilters()
-      if (initialRepository) {
-        setRepository(initialRepository)
-      }
-      
-      // 現在のプロファイルを取得（現在のプロファイル -> デフォルトプロファイルの順）
-      let currentProfile = null
-      const currentProfileId = ProfileManager.getCurrentProfileId()
+      const initializeAsync = async () => {
+        initializeFromFilters()
+        if (initialRepository) {
+          setRepository(initialRepository)
+        }
+        
+        // 現在のプロファイルを取得（現在のプロファイル -> デフォルトプロファイルの順）
+        let currentProfile = null
+        const currentProfileId = await ProfileManager.getCurrentProfileId()
       if (currentProfileId) {
-        currentProfile = ProfileManager.getProfile(currentProfileId)
+        currentProfile = await ProfileManager.getProfile(currentProfileId)
         setCurrentProfileId(currentProfileId)
       } else {
-        currentProfile = ProfileManager.getDefaultProfile()
+        currentProfile = await ProfileManager.getDefaultProfile()
         if (currentProfile) {
           setCurrentProfileId(currentProfile.id)
         }
@@ -173,8 +174,11 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
           }
         }
       }
+      }
+      
+      initializeAsync()
     }
-  }, [isOpen, currentFilters, initialRepository, initializeFromFilters])
+  }, [isOpen, envVars, initialRepository, initializeFromFilters])
 
   // ESCキーでモーダルを閉じる
   useEffect(() => {
@@ -191,7 +195,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen])
+  }, [isOpen, handleClose])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -255,7 +259,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
       // プロファイル固有のリポジトリ履歴に追加
       if (repository.trim() && currentProfileId) {
         const repoName = repository.trim()
-        ProfileManager.addRepositoryToProfile(currentProfileId, repoName)
+        await ProfileManager.addRepositoryToProfile(currentProfileId, repoName)
         
         // 組織/リポジトリ形式の場合、プロファイル固有の組織履歴にも追加
         if (repoName.includes('/')) {

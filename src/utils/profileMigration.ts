@@ -217,7 +217,7 @@ export class ProfileMigration {
           if (storedData && !CryptoStorage.isEncryptedData(storedData)) {
             plainTextProfileIds.push(profileItem.id);
           }
-        } catch (error) {
+        } catch {
           plainTextProfileIds.push(profileItem.id);
         }
       }
@@ -245,7 +245,7 @@ export class ProfileMigration {
     let completeCallback: ((result: { success: boolean; migratedCount: number; errors: string[] }) => void) | null = null;
 
     return {
-      start: (totalCount: number) => {
+      start: () => {
         // 開始時の処理
       },
       update: (currentCount: number, profileId: string) => {

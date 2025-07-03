@@ -82,20 +82,25 @@ export default function NewSessionModal({
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, showTemplateModal])
 
   useEffect(() => {
     if (isOpen) {
-      ProfileManager.migrateExistingSettings()
-      const profilesList = ProfileManager.getProfiles()
-      setProfiles(profilesList)
-      
-      const defaultProfile = ProfileManager.getDefaultProfile()
-      if (defaultProfile) {
-        setSelectedProfileId(defaultProfile.id)
-      } else if (profilesList.length > 0) {
-        setSelectedProfileId(profilesList[0].id)
+      const initializeProfiles = async () => {
+        ProfileManager.migrateExistingSettings()
+        const profilesList = ProfileManager.getProfiles()
+        setProfiles(profilesList)
+        
+        const defaultProfile = await ProfileManager.getDefaultProfile()
+        if (defaultProfile) {
+          setSelectedProfileId(defaultProfile.id)
+        } else if (profilesList.length > 0) {
+          setSelectedProfileId(profilesList[0].id)
+        }
       }
+      
+      initializeProfiles()
       
       // プロファイル固有のキャッシュされたメッセージを読み込む
       const cached = selectedProfileId ? InitialMessageCache.getCachedMessages(selectedProfileId) : []

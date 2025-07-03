@@ -91,7 +91,7 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
 
     setSaving(true);
     try {
-      ProfileManager.updateProfile(profileId, formData);
+      await ProfileManager.updateProfile(profileId, formData);
       onProfileUpdated();
       onClose();
     } catch (error) {

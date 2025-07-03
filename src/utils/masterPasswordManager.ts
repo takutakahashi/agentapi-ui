@@ -229,7 +229,7 @@ export class MasterPasswordManager {
   /**
    * スロットル関数
    */
-  private static throttle<T extends (...args: any[]) => any>(
+  private static throttle<T extends (...args: never[]) => unknown>(
     func: T,
     wait: number
   ): T {
@@ -246,12 +246,12 @@ export class MasterPasswordManager {
           timeout = null;
         }
         previous = now;
-        func.apply(null, args);
+        func(...args);
       } else if (!timeout) {
         timeout = setTimeout(() => {
           previous = Date.now();
           timeout = null;
-          func.apply(null, args);
+          func(...args);
         }, remaining);
       }
     }) as T;

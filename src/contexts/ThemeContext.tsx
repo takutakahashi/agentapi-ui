@@ -76,18 +76,18 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     updateCSSVariables(color);
   }, []);
 
-  const updateThemeFromProfile = useCallback((profileId?: string) => {
+  const updateThemeFromProfile = useCallback(async (profileId?: string) => {
     try {
       let profile;
       
       if (profileId) {
-        profile = ProfileManager.getProfile(profileId);
+        profile = await ProfileManager.getProfile(profileId);
       } else {
         // Get current default profile
         const profiles = ProfileManager.getProfiles();
-        profile = profiles.find(p => p.isDefault);
-        if (profile) {
-          profile = ProfileManager.getProfile(profile.id);
+        const defaultProfile = profiles.find(p => p.isDefault);
+        if (defaultProfile) {
+          profile = await ProfileManager.getProfile(defaultProfile.id);
         }
       }
       

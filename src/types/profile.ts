@@ -87,5 +87,6 @@ export interface UpdateProfileRequest {
   messageTemplates?: MessageTemplate[];
   isDefault?: boolean;
   githubAuth?: GitHubAuthSettings;
+  updated_at?: string;
   mcpServers?: MCPServerConfig[];
 }
