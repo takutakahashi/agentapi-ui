@@ -5,6 +5,7 @@ export interface AgentApiProxySettings {
   enabled: boolean
   timeout: number
   apiKey: string
+  useAsGithubToken?: boolean
 }
 
 export interface EnvironmentVariable {
