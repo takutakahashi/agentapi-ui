@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { ProfileManager } from '../../../utils/profileManager';
 import { CreateProfileRequest } from '../../../types/profile';
 import { getDefaultSettings, getDefaultProxySettings } from '../../../types/settings';
+import { MasterPasswordModal } from '../../components/MasterPasswordModal';
+import { MasterPasswordManager } from '../../../utils/masterPasswordManager';
+import { CryptoStorage } from '../../../utils/cryptoStorage';
 
 const EMOJI_OPTIONS = ['⚙️', '🔧', '💼', '🏠', '🏢', '🚀', '💻', '🔬', '🎯', '⭐', '🌟', '💡'];
 
@@ -40,6 +43,9 @@ export default function NewProfilePage() {
       isDefault: false,
     };
   });
+  
+  const [showMasterPasswordModal, setShowMasterPasswordModal] = useState(false);
+  const [masterPasswordAction, setMasterPasswordAction] = useState<'setup' | 'unlock'>('setup');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,9 +54,32 @@ export default function NewProfilePage() {
       return;
     }
 
+    // 暗号化の初期設定をチェック
+    if (!(await CryptoStorage.isEncryptionEnabled())) {
+      // 暗号化が無効な場合、初回セットアップかどうかをチェック
+      const hasExistingProfiles = ProfileManager.getProfiles().length > 0;
+      if (!hasExistingProfiles) {
+        // 初回プロファイル作成時は暗号化セットアップを促す
+        setMasterPasswordAction('setup');
+        setShowMasterPasswordModal(true);
+        return;
+      }
+    } else {
+      // 暗号化が有効な場合、マスターパスワードがアンロックされているかチェック
+      if (!MasterPasswordManager.isUnlocked()) {
+        setMasterPasswordAction('unlock');
+        setShowMasterPasswordModal(true);
+        return;
+      }
+    }
+
+    await createProfile();
+  };
+
+  const createProfile = async () => {
     setLoading(true);
     try {
-      ProfileManager.createProfile(formData);
+      await ProfileManager.createProfile(formData);
       router.push('/profiles');
     } catch (error) {
       console.error('Failed to create profile:', error);
@@ -62,6 +91,15 @@ export default function NewProfilePage() {
 
   const handleCancel = () => {
     router.push('/profiles');
+  };
+
+  const handleMasterPasswordSuccess = async () => {
+    setShowMasterPasswordModal(false);
+    await createProfile();
+  };
+
+  const handleMasterPasswordCancel = () => {
+    setShowMasterPasswordModal(false);
   };
 
   const addEnvironmentVariable = () => {
@@ -411,6 +449,16 @@ export default function NewProfilePage() {
           </button>
         </div>
       </form>
+
+      {/* Master Password Modal */}
+      {showMasterPasswordModal && (
+        <MasterPasswordModal
+          isOpen={showMasterPasswordModal}
+          mode={masterPasswordAction}
+          onUnlock={handleMasterPasswordSuccess}
+          onClose={handleMasterPasswordCancel}
+        />
+      )}
     </div>
   );
 }

@@ -5,6 +5,9 @@ import { ProfileManager } from '../../utils/profileManager';
 import { Profile, UpdateProfileRequest } from '../../types/profile';
 import { OrganizationHistory, OrganizationRepositoryHistory } from '../../utils/organizationHistory';
 import { GitHubAuthSettings } from '../../components/profiles/GitHubAuthSettings';
+import { MasterPasswordModal } from './MasterPasswordModal';
+import { MasterPasswordManager } from '../../utils/masterPasswordManager';
+import { CryptoStorage } from '../../utils/cryptoStorage';
 
 const EMOJI_OPTIONS = ['⚙️', '🔧', '💼', '🏠', '🏢', '🚀', '💻', '🔬', '🎯', '⭐', '🌟', '💡'];
 
@@ -37,6 +40,8 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
   const [formData, setFormData] = useState<UpdateProfileRequest>({});
   const [organizationHistories, setOrganizationHistories] = useState<OrganizationRepositoryHistory[]>([]);
   const [showOrganizationHistories, setShowOrganizationHistories] = useState(false);
+  const [showMasterPasswordModal, setShowMasterPasswordModal] = useState(false);
+  const [masterPasswordAction, setMasterPasswordAction] = useState<'setup' | 'unlock'>('setup');
   const envScrollRef = useRef<HTMLDivElement>(null);
   const orgScrollRef = useRef<HTMLDivElement>(null);
 
@@ -89,6 +94,19 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
       return;
     }
 
+    // 暗号化が有効な場合、マスターパスワードをチェック
+    if (await CryptoStorage.isEncryptionEnabled()) {
+      if (!MasterPasswordManager.isUnlocked()) {
+        setMasterPasswordAction('unlock');
+        setShowMasterPasswordModal(true);
+        return;
+      }
+    }
+
+    await saveProfile();
+  };
+
+  const saveProfile = async () => {
     setSaving(true);
     try {
       await ProfileManager.updateProfile(profileId, formData);
@@ -100,6 +118,15 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleMasterPasswordSuccess = async () => {
+    setShowMasterPasswordModal(false);
+    await saveProfile();
+  };
+
+  const handleMasterPasswordCancel = () => {
+    setShowMasterPasswordModal(false);
   };
 
   const addEnvironmentVariable = () => {
@@ -577,6 +604,16 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
           )}
         </div>
       </div>
+
+      {/* Master Password Modal */}
+      {showMasterPasswordModal && (
+        <MasterPasswordModal
+          isOpen={showMasterPasswordModal}
+          mode={masterPasswordAction}
+          onUnlock={handleMasterPasswordSuccess}
+          onClose={handleMasterPasswordCancel}
+        />
+      )}
     </div>
   );
 }
