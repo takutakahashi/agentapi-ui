@@ -688,7 +688,7 @@ export class SafeProfileManager {
         }))
       };
       
-      const saveResult = SafeStorage.set(profileKey, profileToSave as any);
+      const saveResult = SafeStorage.set(profileKey, JSON.parse(JSON.stringify(profileToSave)));
       
       if (!saveResult.success) {
         return { success: false, error: saveResult.error };
@@ -739,7 +739,7 @@ export class SafeProfileManager {
             continue;
           }
           
-          const profile = profileResult.data;
+          const profile = profileResult.data as unknown as Profile;
           
           // 基本的な検証
           if (!profile.id || !profile.name) {
@@ -787,7 +787,7 @@ export class SafeProfileManager {
         corruptedProfiles 
       });
 
-      const saveResult = SafeStorage.set(PROFILES_LIST_KEY, profiles as any);
+      const saveResult = SafeStorage.set(PROFILES_LIST_KEY, JSON.parse(JSON.stringify(profiles)));
       if (!saveResult.success) {
         return { success: false, error: saveResult.error };
       }
