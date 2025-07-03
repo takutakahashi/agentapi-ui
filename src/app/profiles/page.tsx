@@ -6,6 +6,7 @@ import { ProfileListItem } from '../../types/profile';
 import Link from 'next/link';
 import { useTheme } from '../../hooks/useTheme';
 import EditProfileModal from '../components/EditProfileModal';
+import { isSingleProfileMode } from '../../utils/singleProfileMode';
 
 export default function ProfilesPage() {
   const [profiles, setProfiles] = useState<ProfileListItem[]>([]);
@@ -13,6 +14,7 @@ export default function ProfilesPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
   const { updateThemeFromProfile } = useTheme();
+  const singleProfileMode = isSingleProfileMode();
 
   useEffect(() => {
     loadProfiles();
@@ -134,32 +136,47 @@ export default function ProfilesPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Profiles</h1>
-        <div className="flex space-x-2">
-          <button
-            onClick={handleImportProfile}
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors focus:ring-2 focus:ring-green-500"
-          >
-            Import Profile
-          </button>
-          <Link
-            href="/profiles/new"
-            className="bg-main-color hover:bg-main-color-dark text-white px-4 py-2 rounded-lg transition-colors focus:ring-2 focus:ring-main-color"
-          >
-            New Profile
-          </Link>
-        </div>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          {singleProfileMode ? 'Settings' : 'Profiles'}
+        </h1>
+        {!singleProfileMode && (
+          <div className="flex space-x-2">
+            <button
+              onClick={handleImportProfile}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors focus:ring-2 focus:ring-green-500"
+            >
+              Import Profile
+            </button>
+            <Link
+              href="/profiles/new"
+              className="bg-main-color hover:bg-main-color-dark text-white px-4 py-2 rounded-lg transition-colors focus:ring-2 focus:ring-main-color"
+            >
+              New Profile
+            </Link>
+          </div>
+        )}
       </div>
 
       {profiles.length === 0 ? (
         <div className="text-center py-12">
-          <div className="text-gray-500 dark:text-gray-400 mb-4">No profiles found</div>
-          <Link
-            href="/profiles/new"
-            className="bg-main-color hover:bg-main-color-dark text-white px-6 py-3 rounded-lg transition-colors focus:ring-2 focus:ring-main-color"
-          >
-            Create Your First Profile
-          </Link>
+          <div className="text-gray-500 dark:text-gray-400 mb-4">
+            {singleProfileMode ? 'Configure environment variables and settings' : 'No profiles found'}
+          </div>
+          {singleProfileMode ? (
+            <Link
+              href="/single-profile-settings"
+              className="bg-main-color hover:bg-main-color-dark text-white px-6 py-3 rounded-lg transition-colors focus:ring-2 focus:ring-main-color"
+            >
+              Configure Environment Variables
+            </Link>
+          ) : (
+            <Link
+              href="/profiles/new"
+              className="bg-main-color hover:bg-main-color-dark text-white px-6 py-3 rounded-lg transition-colors focus:ring-2 focus:ring-main-color"
+            >
+              Create Your First Profile
+            </Link>
+          )}
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

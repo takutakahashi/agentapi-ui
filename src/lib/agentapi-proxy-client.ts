@@ -670,6 +670,20 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
     };
   }
   
+  // Check for SINGLE_PROFILE mode - force /api/proxy only in this mode
+  const isSingleProfileMode = process.env.NEXT_PUBLIC_SINGLE_PROFILE === 'true';
+  if (isSingleProfileMode) {
+    return {
+      baseURL: '/api/proxy',
+      apiKey: process.env.AGENTAPI_API_KEY,
+      timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
+      maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),
+      sessionTimeout: parseInt(process.env.AGENTAPI_PROXY_SESSION_TIMEOUT || '300000'),
+      debug: process.env.NODE_ENV === 'development',
+      profileId,
+    };
+  }
+  
   let settings;
   
   try {
