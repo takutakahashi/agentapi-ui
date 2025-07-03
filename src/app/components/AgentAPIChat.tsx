@@ -337,6 +337,16 @@ export default function AgentAPIChat() {
     }
   }, [showTemplateModal, showPRLinks, showClaudeLogins]);
 
+  const loadTemplatesForProfile = useCallback(async (profileId: string) => {
+    try {
+      const profileTemplates = await messageTemplateManager.getTemplatesForProfile(profileId);
+      setTemplates(profileTemplates);
+    } catch (error) {
+      console.error('Failed to load templates:', error);
+      setTemplates([]);
+    }
+  }, []);
+
   // Listen for profile changes and recreate client
   useEffect(() => {
     const handleProfileChange = async (event: CustomEvent) => {
@@ -362,16 +372,6 @@ export default function AgentAPIChat() {
       window.removeEventListener('profileChanged', handleProfileChange as unknown as EventListener);
     };
   }, [currentProfile?.id, loadTemplatesForProfile]);
-
-  const loadTemplatesForProfile = useCallback(async (profileId: string) => {
-    try {
-      const profileTemplates = await messageTemplateManager.getTemplatesForProfile(profileId);
-      setTemplates(profileTemplates);
-    } catch (error) {
-      console.error('Failed to load templates:', error);
-      setTemplates([]);
-    }
-  }, []);
 
   const loadRecentMessages = useCallback(async () => {
     if (!currentProfile) return;

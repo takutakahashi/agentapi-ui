@@ -574,7 +574,7 @@ export class SafeProfileManager {
             ...context,
             error: (result as any).error
           });
-          return { success: false, error: (result as any).error };
+          return { success: false, error: (result as { error: ProfileError | StorageError }).error };
         }
       }
 
@@ -685,7 +685,7 @@ export class SafeProfileManager {
           lastUsed: item.lastUsed instanceof Date 
             ? item.lastUsed 
             : new Date(item.lastUsed)
-        })) as any
+        }))
       };
       
       const saveResult = SafeStorage.set(profileKey, profileToSave as any);
@@ -814,8 +814,8 @@ export class SafeProfileManager {
       
       const createRequest: CreateProfileRequest = {
         name: createProfileName('Default'),
-        description: 'Default profile' as any,
-        icon: '⚙️' as any,
+        description: 'Default profile',
+        icon: '⚙️',
         fixedOrganizations: [],
         agentApiProxy: defaultProxySettings,
         environmentVariables: defaultSettings.environmentVariables,
@@ -834,7 +834,7 @@ export class SafeProfileManager {
    * プロファイルのマイグレーション（必要に応じて）
    */
   private static async migrateProfileIfNeeded(profile: Profile): Promise<Profile> {
-    const migratedProfile = { ...profile };
+    let migratedProfile = { ...profile };
     
     try {
       // repositoryHistoryのlastUsedを文字列からDateオブジェクトに変換

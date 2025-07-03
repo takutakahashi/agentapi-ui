@@ -259,7 +259,7 @@ export class ProfileManager {
         const updatedProfiles = [...profiles];
         updatedProfiles[profileIndex] = {
           ...updatedProfiles[profileIndex],
-          lastUsed: new Date().toISOString() as any
+          lastUsed: new Date().toISOString()
         };
         
         // プロファイル一覧を直接更新する代わりに、個別プロファイルを更新
@@ -291,7 +291,7 @@ export class ProfileManager {
       await this.createProfile({
         name: createProfileName('Default'),
         description: 'Migrated from existing settings',
-        icon: '⚙️' as any,
+        icon: '⚙️',
         fixedOrganizations: [],
         agentApiProxy: defaultProxySettings,
         environmentVariables: globalSettings.environmentVariables,
@@ -460,9 +460,9 @@ export class ProfileManager {
             errorLogger.info(`Removing reference to missing profile: ${profile.id}`);
             results.cleaned++;
           }
-        } catch (err) {
-          errorLogger.warn(`Error checking profile ${profile.id}:`, err);
-          results.errors.push(`Profile ${profile.id}: ${err}`);
+        } catch (err: unknown) {
+          errorLogger.warn(`Error checking profile ${profile.id}:`, { error: err });
+          results.errors.push(`Profile ${profile.id}: ${String(err)}`);
         }
       }
     } catch (err) {
@@ -486,11 +486,11 @@ export class ProfileManager {
       let profileCount = 0;
       
       for (const key in localStorage) {
-        if (localStorage.hasOwnProperty(key)) {
+        if (Object.prototype.hasOwnProperty.call(localStorage, key)) {
           const value = localStorage.getItem(key) || '';
           totalSize += new Blob([key + value]).size;
           
-          if (key.startsWith(PROFILE_KEY_PREFIX)) {
+          if (key.startsWith('agentapi-profile-')) {
             profileCount++;
           }
         }

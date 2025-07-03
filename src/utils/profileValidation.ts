@@ -3,6 +3,7 @@
  */
 
 import {
+  ProfileId,
   ProfileName,
   ProfileDescription,
   SystemPrompt,
@@ -12,7 +13,9 @@ import {
   isValidProfileId,
   isValidProfileName,
   isValidUrl,
-  isNonEmptyString
+  isNonEmptyString,
+  isISODateString,
+  isHexColor
 } from '../types/typeUtils';
 import { 
   Profile, 
@@ -587,7 +590,7 @@ export const validateCreateProfileRequest = (request: unknown): ValidationResult
     };
   }
 
-  const obj = request as any;
+  const obj = request as Record<string, unknown>;
   const errors: string[] = [];
 
   // 名前のバリデーション
@@ -646,15 +649,15 @@ export const validateCreateProfileRequest = (request: unknown): ValidationResult
   return {
     valid: true,
     value: {
-      name: nameResult.valid ? nameResult.value : obj.name,
-      description: descriptionResult.valid ? descriptionResult.value : obj.description,
-      icon: obj.icon,
-      mainColor: colorResult.valid ? colorResult.value : obj.mainColor,
-      systemPrompt: systemPromptResult.valid ? systemPromptResult.value : obj.systemPrompt,
+      name: nameResult.valid ? nameResult.value : obj.name as string,
+      description: descriptionResult.valid ? descriptionResult.value : obj.description as string | undefined,
+      icon: obj.icon as string | undefined,
+      mainColor: colorResult.valid ? colorResult.value : obj.mainColor as string | undefined,
+      systemPrompt: systemPromptResult.valid ? systemPromptResult.value : obj.systemPrompt as string | undefined,
       fixedOrganizations: orgResult.valid ? orgResult.value : [],
-      agentApiProxy: obj.agentApiProxy,
+      agentApiProxy: obj.agentApiProxy as any,
       environmentVariables: envResult.valid ? envResult.value : [],
-      isDefault: obj.isDefault || false
+      isDefault: (obj.isDefault as boolean) || false
     }
   };
 };
@@ -670,9 +673,9 @@ export const validateUpdateProfileRequest = (request: unknown): ValidationResult
     };
   }
 
-  const obj = request as any;
+  const obj = request as Record<string, unknown>;
   const errors: string[] = [];
-  const validatedRequest: any = {};
+  const validatedRequest: Record<string, unknown> = {};
 
   // 名前のバリデーション（存在する場合のみ）
   if (obj.name !== undefined) {
@@ -730,8 +733,9 @@ export const validateUpdateProfileRequest = (request: unknown): ValidationResult
       errors.push('AgentAPIプロキシ設定は有効なオブジェクトである必要があります。');
     } else {
       // エンドポイントが指定されている場合のみバリデーション
-      if (obj.agentApiProxy.endpoint !== undefined) {
-        const endpointResult = validateApiEndpoint(obj.agentApiProxy.endpoint);
+      const proxy = obj.agentApiProxy as Record<string, unknown>;
+      if (proxy.endpoint !== undefined) {
+        const endpointResult = validateApiEndpoint(proxy.endpoint);
         if (!endpointResult.valid) {
           errors.push(...endpointResult.errors);
         }
