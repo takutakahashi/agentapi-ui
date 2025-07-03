@@ -41,4 +41,4 @@ next-env.d.ts
 # PWA generated files
 /public/sw.js
 /public/fallback-*.js
-/public/workbox-*.js
+/public/workbox-*.jsagentapi-proxy/
