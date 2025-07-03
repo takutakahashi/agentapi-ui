@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '../contexts/ThemeContext'
+import { SessionProvider } from '../contexts/SessionContext'
 import { Analytics } from '@vercel/analytics/react'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -50,7 +51,9 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <ThemeProvider>
-          {children}
+          <SessionProvider>
+            {children}
+          </SessionProvider>
           <Analytics />
         </ThemeProvider>
       </body>

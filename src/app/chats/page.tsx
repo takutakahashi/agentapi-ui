@@ -6,6 +6,7 @@ import SessionListView from '../components/SessionListView'
 import NewSessionModal from '../components/NewSessionModal'
 import TopBar from '../components/TopBar'
 import FloatingNewSessionButton from '../components/FloatingNewSessionButton'
+import SessionManagementPanel from '../components/SessionManagementPanel'
 
 interface TagFilter {
   [key: string]: string[]
@@ -156,6 +157,9 @@ export default function ChatsPage() {
 
       {/* フローティング新セッションボタン */}
       <FloatingNewSessionButton onClick={() => setShowNewSessionModal(true)} />
+      
+      {/* セッション管理パネル */}
+      <SessionManagementPanel />
     </main>
   )
 }
