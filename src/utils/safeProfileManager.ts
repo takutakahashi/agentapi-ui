@@ -111,7 +111,7 @@ export class SafeProfileManager {
     }
 
     try {
-      const result = SafeStorage.get(PROFILES_LIST_KEY);
+      const result = await SafeStorage.get(PROFILES_LIST_KEY);
       
       if (!result.success) {
         return { success: false, error: result.error };
@@ -188,7 +188,7 @@ export class SafeProfileManager {
 
     try {
       const profileKey = this.createProfileKey(profileId);
-      const result = SafeStorage.get(profileKey);
+      const result = await SafeStorage.get(profileKey);
       
       if (!result.success) {
         return { success: false, error: result.error };
@@ -558,7 +558,7 @@ export class SafeProfileManager {
       });
 
       // localStorage の設定
-      const storageSetResult = SafeStorage.set(DEFAULT_PROFILE_KEY, profileId);
+      const storageSetResult = await SafeStorage.set(DEFAULT_PROFILE_KEY, profileId);
       
       // すべての更新を並列で実行
       const results = await Promise.all([
@@ -609,7 +609,7 @@ export class SafeProfileManager {
       }
 
       // localStorage から確認
-      const defaultIdResult = SafeStorage.get<ProfileId>(DEFAULT_PROFILE_KEY);
+      const defaultIdResult = await SafeStorage.get<ProfileId>(DEFAULT_PROFILE_KEY);
       if (defaultIdResult.success && defaultIdResult.data) {
         const profileResult = await this.getProfile(defaultIdResult.data);
         if (profileResult.success && profileResult.data) {
@@ -688,7 +688,7 @@ export class SafeProfileManager {
         }))
       };
       
-      const saveResult = SafeStorage.set(profileKey, JSON.parse(JSON.stringify(profileToSave)));
+      const saveResult = await SafeStorage.set(profileKey, JSON.parse(JSON.stringify(profileToSave)));
       
       if (!saveResult.success) {
         return { success: false, error: saveResult.error };
@@ -728,7 +728,7 @@ export class SafeProfileManager {
       // 各プロファイルを処理
       for (const key of keysResult.data) {
         try {
-          const profileResult = SafeStorage.get(key);
+          const profileResult = await SafeStorage.get(key);
           if (!profileResult.success) {
             errorLogger.warn('Failed to load profile during list update', { key, error: profileResult.error });
             corruptedProfiles++;
@@ -787,7 +787,7 @@ export class SafeProfileManager {
         corruptedProfiles 
       });
 
-      const saveResult = SafeStorage.set(PROFILES_LIST_KEY, JSON.parse(JSON.stringify(profiles)));
+      const saveResult = await SafeStorage.set(PROFILES_LIST_KEY, JSON.parse(JSON.stringify(profiles)));
       if (!saveResult.success) {
         return { success: false, error: saveResult.error };
       }

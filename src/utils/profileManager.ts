@@ -15,6 +15,11 @@ import { errorLogger } from './errorLogger';
 import { 
   SafeProfileManager
 } from './safeProfileManager';
+import { 
+  EncryptedProfileManager,
+  EncryptionSettings,
+  PasswordChangeResult
+} from './encryptedProfileManager';
 import {
   createProfileId,
   isValidProfileId,
@@ -29,7 +34,7 @@ import {
 
 /**
  * 後方互換性を保つProfileManagerクラス
- * 内部的には型安全なSafeProfileManagerを使用
+ * 内部的には型安全なSafeProfileManagerと暗号化対応のEncryptedProfileManagerを使用
  */
 export class ProfileManager {
   
@@ -471,6 +476,66 @@ export class ProfileManager {
     }
 
     return results;
+  }
+
+  // =======================================
+  // 暗号化関連メソッド
+  // =======================================
+
+  /**
+   * 暗号化設定を取得
+   */
+  static async getEncryptionSettings(): Promise<EncryptionSettings> {
+    return await EncryptedProfileManager.getEncryptionSettings();
+  }
+
+  /**
+   * 暗号化を有効化
+   */
+  static async enableEncryption(password: string, settings?: Partial<EncryptionSettings>): Promise<void> {
+    return await EncryptedProfileManager.enableEncryption(password, settings);
+  }
+
+  /**
+   * 暗号化を無効化
+   */
+  static async disableEncryption(): Promise<void> {
+    return await EncryptedProfileManager.disableEncryption();
+  }
+
+  /**
+   * パスワードを変更
+   */
+  static async changePassword(currentPassword: string, newPassword: string): Promise<PasswordChangeResult> {
+    return await EncryptedProfileManager.changePassword(currentPassword, newPassword);
+  }
+
+  /**
+   * パスワードでアンロック
+   */
+  static async unlock(password: string): Promise<boolean> {
+    return await EncryptedProfileManager.unlock(password);
+  }
+
+  /**
+   * ロック
+   */
+  static lock(): void {
+    EncryptedProfileManager.lock();
+  }
+
+  /**
+   * 暗号化状態を確認
+   */
+  static isUnlocked(): boolean {
+    return EncryptedProfileManager.isUnlocked();
+  }
+
+  /**
+   * 既存データの暗号化移行
+   */
+  static async migrateToEncryption(password: string): Promise<PasswordChangeResult> {
+    return await EncryptedProfileManager.migrateToEncryption(password);
   }
 
   /**

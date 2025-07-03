@@ -16,11 +16,48 @@ import {
   convertToAppError 
 } from '../types/errors';
 import { errorLogger } from './errorLogger';
+import { 
+  EncryptionUtil, 
+  EncryptedData
+} from './encryption';
+
+/**
+ * 暗号化設定
+ */
+export interface EncryptionConfig {
+  /** 暗号化を有効にするか */
+  enabled: boolean;
+  /** 暗号化パスワード */
+  password?: string;
+}
 
 /**
  * localStorage の型安全なラッパークラス
  */
 export class SafeStorage {
+  private static encryptionConfig: EncryptionConfig = {
+    enabled: false
+  };
+  /**
+   * 暗号化設定を更新
+   */
+  static setEncryptionConfig(config: EncryptionConfig): void {
+    this.encryptionConfig = { ...config };
+    errorLogger.info('Encryption config updated', { 
+      enabled: config.enabled,
+      hasPassword: !!config.password 
+    });
+  }
+
+  /**
+   * 現在の暗号化設定を取得
+   */
+  static getEncryptionConfig(): Omit<EncryptionConfig, 'password'> {
+    return {
+      enabled: this.encryptionConfig.enabled
+    };
+  }
+
   private static isAvailable(): boolean {
     if (typeof window === 'undefined') {
       return false;
@@ -39,9 +76,9 @@ export class SafeStorage {
   /**
    * 型安全な値の取得
    */
-  static get<T extends JSONSerializable>(
+  static async get<T extends JSONSerializable>(
     key: LocalStorageKey
-  ): StorageResult<T | null> {
+  ): Promise<StorageResult<T | null>> {
     const context = { method: 'SafeStorage.get', key };
     
     if (!this.isAvailable()) {
@@ -62,7 +99,35 @@ export class SafeStorage {
         return { success: true, data: null };
       }
 
-      const parseResult = safeJsonParse<T>(storedValue);
+      let finalValue = storedValue;
+
+      // 暗号化が有効な場合の復号化処理
+      if (this.encryptionConfig.enabled && this.encryptionConfig.password) {
+        const parseResult = safeJsonParse<EncryptedData>(storedValue);
+        if (parseResult.ok && EncryptionUtil.isEncryptedData(parseResult.value)) {
+          // 暗号化されたデータを復号化
+          const decryptResult = await EncryptionUtil.decrypt(
+            parseResult.value,
+            this.encryptionConfig.password
+          );
+          
+          if (!decryptResult.success) {
+            const error = new StorageError(
+              ErrorType.STORAGE_INVALID_DATA,
+              'Failed to decrypt stored data',
+              'データの復号化に失敗しました。パスワードを確認してください。',
+              context,
+              decryptResult.error
+            );
+            errorLogger.logError(error);
+            return { success: false, error };
+          }
+          
+          finalValue = decryptResult.data;
+        }
+      }
+
+      const parseResult = safeJsonParse<T>(finalValue);
       if (!parseResult.ok) {
         const error = new StorageError(
           ErrorType.STORAGE_INVALID_DATA,
@@ -86,10 +151,10 @@ export class SafeStorage {
   /**
    * 型安全な値の設定
    */
-  static set<T extends JSONSerializable>(
+  static async set<T extends JSONSerializable>(
     key: LocalStorageKey,
     value: T
-  ): StorageResult<void> {
+  ): Promise<StorageResult<void>> {
     const context = { method: 'SafeStorage.set', key };
 
     if (!this.isAvailable()) {
@@ -117,8 +182,45 @@ export class SafeStorage {
         return { success: false, error };
       }
 
+      let finalValue = stringifyResult.value;
+
+      // 暗号化が有効な場合の暗号化処理
+      if (this.encryptionConfig.enabled && this.encryptionConfig.password) {
+        const encryptResult = await EncryptionUtil.encrypt(
+          finalValue,
+          this.encryptionConfig.password
+        );
+        
+        if (!encryptResult.success) {
+          const error = new StorageError(
+            ErrorType.STORAGE_INVALID_DATA,
+            'Failed to encrypt data',
+            'データの暗号化に失敗しました。',
+            context,
+            encryptResult.error
+          );
+          errorLogger.logError(error);
+          return { success: false, error };
+        }
+
+        const encryptedStringifyResult = safeJsonStringify(encryptResult.data as unknown as JSONSerializable);
+        if (!encryptedStringifyResult.ok) {
+          const error = new StorageError(
+            ErrorType.STORAGE_INVALID_DATA,
+            'Failed to serialize encrypted data',
+            '暗号化データのシリアライゼーションに失敗しました。',
+            context,
+            encryptedStringifyResult.error
+          );
+          errorLogger.logError(error);
+          return { success: false, error };
+        }
+
+        finalValue = encryptedStringifyResult.value;
+      }
+
       // サイズチェック（概算）
-      const estimatedSize = new Blob([stringifyResult.value]).size;
+      const estimatedSize = new Blob([finalValue]).size;
       if (estimatedSize > 5 * 1024 * 1024) { // 5MB制限
         const error = new StorageError(
           ErrorType.STORAGE_QUOTA_EXCEEDED,
@@ -130,7 +232,7 @@ export class SafeStorage {
         return { success: false, error };
       }
 
-      window.localStorage.setItem(key, stringifyResult.value);
+      window.localStorage.setItem(key, finalValue);
       
       errorLogger.debug('Data stored successfully', { 
         ...context, 
@@ -378,9 +480,9 @@ export class SafeStorage {
   /**
    * 複数の値を一括で設定（トランザクション風）
    */
-  static setMultiple<T extends JSONSerializable>(
+  static async setMultiple<T extends JSONSerializable>(
     entries: Array<{ key: LocalStorageKey; value: T }>
-  ): StorageResult<void> {
+  ): Promise<StorageResult<void>> {
     const context = { 
       method: 'SafeStorage.setMultiple', 
       entryCount: entries.length 
@@ -412,7 +514,7 @@ export class SafeStorage {
 
       // 新しい値を設定
       for (const { key, value } of entries) {
-        const setResult = this.set(key, value);
+        const setResult = await this.set(key, value);
         if (!setResult.success) {
           throw setResult.error;
         }
