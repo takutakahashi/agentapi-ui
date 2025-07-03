@@ -387,10 +387,39 @@ export default function EditProfileModal({ isOpen, onClose, profileId, onProfile
                         <input
                           type="checkbox"
                           checked={formData.agentApiProxy?.useAsGithubToken || false}
-                          onChange={(e) => setFormData(prev => ({
-                            ...prev,
-                            agentApiProxy: { ...prev.agentApiProxy, useAsGithubToken: e.target.checked }
-                          }))}
+                          onChange={(e) => {
+                            const isChecked = e.target.checked
+                            setFormData(prev => {
+                              const newFormData = {
+                                ...prev,
+                                agentApiProxy: { ...prev.agentApiProxy, useAsGithubToken: isChecked }
+                              }
+                              
+                              // チェックが入った場合、GITHUB_TOKEN を環境変数に追加
+                              if (isChecked && prev.agentApiProxy?.apiKey) {
+                                const envVars = prev.environmentVariables || []
+                                const hasGithubToken = envVars.some(env => env.key === 'GITHUB_TOKEN')
+                                
+                                if (!hasGithubToken) {
+                                  newFormData.environmentVariables = [
+                                    ...envVars,
+                                    {
+                                      key: 'GITHUB_TOKEN',
+                                      value: prev.agentApiProxy.apiKey,
+                                      description: 'AgentAPI キーを GITHUB_TOKEN として使用'
+                                    }
+                                  ]
+                                }
+                              }
+                              // チェックが外れた場合、GITHUB_TOKEN を環境変数から削除
+                              else if (!isChecked) {
+                                const envVars = prev.environmentVariables || []
+                                newFormData.environmentVariables = envVars.filter(env => env.key !== 'GITHUB_TOKEN')
+                              }
+                              
+                              return newFormData
+                            })
+                          }}
                           className="mr-2"
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">
