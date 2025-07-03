@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ProfileManager } from '../../../utils/profileManager';
 import { CreateProfileRequest } from '../../../types/profile';
 import { getDefaultSettings, getDefaultProxySettings } from '../../../types/settings';
+import EncryptedField from '../../../components/EncryptedField';
 
 const EMOJI_OPTIONS = ['⚙️', '🔧', '💼', '🏠', '🏢', '🚀', '💻', '🔬', '🎯', '⭐', '🌟', '💡'];
 
@@ -292,21 +293,18 @@ export default function NewProfilePage() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                API Key
-              </label>
-              <input
-                type="password"
-                value={formData.agentApiProxy.apiKey}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  agentApiProxy: { ...prev.agentApiProxy, apiKey: e.target.value }
-                }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                placeholder="Enter API key"
-              />
-            </div>
+            <EncryptedField
+              label="API Key"
+              value={formData.agentApiProxy.apiKey}
+              onChange={(value) => setFormData(prev => ({
+                ...prev,
+                agentApiProxy: { ...prev.agentApiProxy, apiKey: value }
+              }))}
+              placeholder="Enter API key"
+              description="API key for authenticating with the AgentAPI proxy"
+              proxyEndpoint={formData.agentApiProxy.endpoint}
+              autoEncrypt={true}
+            />
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

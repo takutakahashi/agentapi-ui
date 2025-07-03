@@ -6,6 +6,8 @@ import { ProfileManager } from '../../../../utils/profileManager';
 import { Profile, UpdateProfileRequest } from '../../../../types/profile';
 import { OrganizationHistory, OrganizationRepositoryHistory } from '../../../../utils/organizationHistory';
 import MCPServerSettings from '../../../../components/MCPServerSettings';
+import EncryptedField from '../../../../components/EncryptedField';
+import { GitHubAuthSettings } from '../../../../components/profiles/GitHubAuthSettings';
 
 const EMOJI_OPTIONS = ['⚙️', '🔧', '💼', '🏠', '🏢', '🚀', '💻', '🔬', '🎯', '⭐', '🌟', '💡'];
 
@@ -350,21 +352,18 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                API Key
-              </label>
-              <input
-                type="password"
-                value={formData.agentApiProxy?.apiKey || ''}
-                onChange={(e) => setFormData(prev => ({
-                  ...prev,
-                  agentApiProxy: { ...prev.agentApiProxy, apiKey: e.target.value }
-                }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                placeholder="Enter API key"
-              />
-            </div>
+            <EncryptedField
+              label="API Key"
+              value={formData.agentApiProxy?.apiKey || ''}
+              onChange={(value) => setFormData(prev => ({
+                ...prev,
+                agentApiProxy: { ...prev.agentApiProxy, apiKey: value }
+              }))}
+              placeholder="Enter API key"
+              description="API key for authenticating with the AgentAPI proxy"
+              proxyEndpoint={formData.agentApiProxy?.endpoint || ''}
+              autoEncrypt={true}
+            />
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -415,35 +414,39 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
           
           <div className="space-y-3">
             {(formData.environmentVariables || []).map((env, index) => (
-              <div key={index} className="flex gap-2 items-start">
-                <input
-                  type="text"
-                  placeholder="Key"
-                  value={env.key}
-                  onChange={(e) => updateEnvironmentVariable(index, 'key', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                />
-                <input
-                  type="text"
-                  placeholder="Value"
+              <div key={index} className="space-y-2 p-4 border border-gray-200 dark:border-gray-600 rounded-md">
+                <div className="flex gap-2 items-start">
+                  <input
+                    type="text"
+                    placeholder="Key"
+                    value={env.key}
+                    onChange={(e) => updateEnvironmentVariable(index, 'key', e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Description (optional)"
+                    value={env.description || ''}
+                    onChange={(e) => updateEnvironmentVariable(index, 'description', e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeEnvironmentVariable(index)}
+                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded transition-colors"
+                  >
+                    ×
+                  </button>
+                </div>
+                <EncryptedField
+                  label=""
                   value={env.value}
-                  onChange={(e) => updateEnvironmentVariable(index, 'value', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  onChange={(value) => updateEnvironmentVariable(index, 'value', value)}
+                  placeholder="Value"
+                  proxyEndpoint={formData.agentApiProxy?.endpoint || ''}
+                  autoEncrypt={env.key.toLowerCase().includes('token') || env.key.toLowerCase().includes('key') || env.key.toLowerCase().includes('secret') || env.key.toLowerCase().includes('password')}
+                  className="mt-2"
                 />
-                <input
-                  type="text"
-                  placeholder="Description (optional)"
-                  value={env.description || ''}
-                  onChange={(e) => updateEnvironmentVariable(index, 'description', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeEnvironmentVariable(index)}
-                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded transition-colors"
-                >
-                  ×
-                </button>
               </div>
             ))}
             {(formData.environmentVariables || []).length === 0 && (
@@ -458,6 +461,22 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
             onChange={(mcpServers) => setFormData(prev => ({ ...prev, mcpServers }))}
             title="MCP Servers"
             description="Configure Model Context Protocol servers for this profile. These will be automatically set up when starting sessions with this profile."
+          />
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <GitHubAuthSettings
+            profile={profile}
+            onProfileUpdated={loadProfile}
+            onManualTokenChange={(token) => setFormData(prev => ({
+              ...prev,
+              githubAuth: { 
+                ...prev.githubAuth,
+                enabled: !!token,
+                accessToken: token,
+                scopes: prev.githubAuth?.scopes || []
+              }
+            }))}
           />
         </div>
 

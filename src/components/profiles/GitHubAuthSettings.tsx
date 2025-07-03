@@ -4,10 +4,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { Profile, GitHubUser } from '../../types/profile';
 import { githubAuthService } from '../../services/githubAuthService';
+import EncryptedField from '../EncryptedField';
 
 interface GitHubAuthSettingsProps {
   profile: Profile;
   onProfileUpdated?: () => void;
+  onManualTokenChange?: (token: string) => void;
 }
 
 interface AuthStatus {
@@ -16,10 +18,12 @@ interface AuthStatus {
   user?: GitHubUser;
 }
 
-export const GitHubAuthSettings: React.FC<GitHubAuthSettingsProps> = ({ profile, onProfileUpdated }) => {
+export const GitHubAuthSettings: React.FC<GitHubAuthSettingsProps> = ({ profile, onProfileUpdated, onManualTokenChange }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [authStatus, setAuthStatus] = useState<AuthStatus>({ type: 'none', authenticated: false });
   const [loading, setLoading] = useState(true);
+  const [showManualToken, setShowManualToken] = useState(false);
+  const [manualToken, setManualToken] = useState(profile.githubAuth?.accessToken || '');
 
   const checkAuthStatus = useCallback(async () => {
     setLoading(true);
@@ -142,6 +146,40 @@ export const GitHubAuthSettings: React.FC<GitHubAuthSettingsProps> = ({ profile,
           )}
         </>
       )}
+
+      <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-md font-medium text-gray-700 dark:text-gray-300">Manual Token Configuration</h4>
+          <button
+            type="button"
+            onClick={() => setShowManualToken(!showManualToken)}
+            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            {showManualToken ? 'Hide' : 'Show'}
+          </button>
+        </div>
+        
+        {showManualToken && (
+          <div className="space-y-3">
+            <EncryptedField
+              label="GitHub Personal Access Token"
+              value={manualToken}
+              onChange={(token) => {
+                setManualToken(token);
+                onManualTokenChange?.(token);
+              }}
+              placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              description="Enter your GitHub Personal Access Token manually. This will be encrypted for security."
+              proxyEndpoint={profile.agentApiProxy?.endpoint || ''}
+              autoEncrypt={true}
+            />
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              You can create a Personal Access Token in your GitHub settings. 
+              This token will be encrypted and used for GitHub operations.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
