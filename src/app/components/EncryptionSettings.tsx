@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { ProfileManager } from '../../utils/profileManager';
 import { EncryptionSettings as IEncryptionSettings, PasswordChangeResult } from '../../utils/encryptedProfileManager';
 import { EncryptionUtil } from '../../utils/encryption';
+import { SafeStorage } from '../../utils/safeStorage';
 
 /**
  * 暗号化設定コンポーネント
@@ -43,7 +44,17 @@ export default function EncryptionSettings() {
     try {
       const encryptionSettings = await ProfileManager.getEncryptionSettings();
       setSettings(encryptionSettings);
-      setIsUnlocked(ProfileManager.isUnlocked());
+      
+      // 暗号化設定の状態を確認
+      const isAvailable = SafeStorage.isEncryptionAvailable();
+      const isLocked = SafeStorage.isEncryptionLocked();
+      
+      if (isAvailable && encryptionSettings.enabled) {
+        setIsUnlocked(!isLocked);
+      } else {
+        setIsUnlocked(ProfileManager.isUnlocked());
+      }
+      
       setPasswordHint(encryptionSettings.passwordHint || '');
     } catch {
       setMessage({ type: 'error', text: '暗号化設定の読み込みに失敗しました。' });
@@ -75,8 +86,8 @@ export default function EncryptionSettings() {
     }
   };
 
-  const handleLock = () => {
-    ProfileManager.lock();
+  const handleLock = async () => {
+    await ProfileManager.lock();
     setIsUnlocked(false);
     setPassword('');
     setMessage({ type: 'info', text: '暗号化がロックされました。' });

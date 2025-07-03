@@ -79,6 +79,13 @@ export class EncryptionUtil {
   }
 
   /**
+   * パスワードから暗号化キーを生成（公開メソッド）
+   */
+  static async deriveKeyFromPassword(password: string, salt: Uint8Array): Promise<CryptoKey> {
+    return this.deriveKey(password, salt);
+  }
+
+  /**
    * パスワードから暗号化キーを生成
    */
   private static async deriveKey(
@@ -278,6 +285,125 @@ export class EncryptionUtil {
           ErrorType.STORAGE_INVALID_DATA,
           'Decryption failed - invalid password or corrupted data',
           'パスワードが間違っているか、データが破損しています。',
+          context,
+          err
+        );
+        errorLogger.logError(error);
+        return { success: false, error };
+      }
+
+      const error = convertToAppError(err, context) as StorageError;
+      errorLogger.logError(error);
+      return { success: false, error };
+    }
+  }
+
+  /**
+   * CryptoKeyを使用してデータを暗号化
+   */
+  static async encryptWithKey(data: string, cryptoKey: CryptoKey): Promise<EncryptionResult> {
+    const context = { method: 'EncryptionUtil.encryptWithKey' };
+
+    if (!this.isAvailable()) {
+      const error = new StorageError(
+        ErrorType.STORAGE_ACCESS_DENIED,
+        'Web Crypto API is not available',
+        'ブラウザが暗号化機能をサポートしていません。',
+        context
+      );
+      errorLogger.logError(error);
+      return { success: false, error };
+    }
+
+    try {
+      // 初期化ベクターを生成
+      const iv = this.generateRandomBytes(ENCRYPTION_CONFIG.ivLength);
+      
+      // データを暗号化
+      const encoder = new TextEncoder();
+      const encodedData = encoder.encode(data);
+      
+      const encryptedBuffer = await window.crypto.subtle.encrypt(
+        {
+          name: ENCRYPTION_CONFIG.algorithm,
+          iv,
+          tagLength: ENCRYPTION_CONFIG.tagLength
+        },
+        cryptoKey,
+        encodedData
+      );
+
+      const encryptedData: EncryptedData = {
+        data: this.arrayBufferToBase64(encryptedBuffer),
+        iv: this.arrayBufferToBase64(iv),
+        salt: '', // CryptoKey使用時はsaltは不要
+        algorithm: ENCRYPTION_CONFIG.algorithm,
+        iterations: ENCRYPTION_CONFIG.keyDerivation.iterations
+      };
+
+      errorLogger.debug('Data encrypted with CryptoKey successfully', {
+        ...context,
+        dataLength: data.length,
+        encryptedLength: encryptedData.data.length
+      });
+
+      return { success: true, data: encryptedData };
+    } catch (err) {
+      const error = convertToAppError(err, context) as StorageError;
+      errorLogger.logError(error);
+      return { success: false, error };
+    }
+  }
+
+  /**
+   * CryptoKeyを使用してデータを復号化
+   */
+  static async decryptWithKey(encryptedData: EncryptedData, cryptoKey: CryptoKey): Promise<DecryptionResult> {
+    const context = { method: 'EncryptionUtil.decryptWithKey' };
+
+    if (!this.isAvailable()) {
+      const error = new StorageError(
+        ErrorType.STORAGE_ACCESS_DENIED,
+        'Web Crypto API is not available',
+        'ブラウザが暗号化機能をサポートしていません。',
+        context
+      );
+      errorLogger.logError(error);
+      return { success: false, error };
+    }
+
+    try {
+      // Base64デコード
+      const iv = new Uint8Array(this.base64ToArrayBuffer(encryptedData.iv));
+      const data = this.base64ToArrayBuffer(encryptedData.data);
+
+      // データを復号化
+      const decryptedBuffer = await window.crypto.subtle.decrypt(
+        {
+          name: encryptedData.algorithm,
+          iv,
+          tagLength: ENCRYPTION_CONFIG.tagLength
+        },
+        cryptoKey,
+        data
+      );
+
+      const decoder = new TextDecoder();
+      const decryptedData = decoder.decode(decryptedBuffer);
+
+      errorLogger.debug('Data decrypted with CryptoKey successfully', {
+        ...context,
+        decryptedLength: decryptedData.length
+      });
+
+      return { success: true, data: decryptedData };
+    } catch (err) {
+      // 復号化エラーは多くの場合キーが間違っているか、データが破損
+      if (err instanceof Error && err.name === 'OperationError') {
+        const error = new StorageError(
+          ErrorType.STORAGE_INVALID_DATA,
+          'Decryption failed - invalid key or corrupted data',
+          'キーが間違っているか、データが破損しています。',
           context,
           err
         );

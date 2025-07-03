@@ -520,8 +520,8 @@ export class ProfileManager {
   /**
    * ロック
    */
-  static lock(): void {
-    EncryptedProfileManager.lock();
+  static async lock(): Promise<void> {
+    await EncryptedProfileManager.lock();
   }
 
   /**

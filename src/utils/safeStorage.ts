@@ -27,8 +27,12 @@ import {
 export interface EncryptionConfig {
   /** 暗号化を有効にするか */
   enabled: boolean;
-  /** 暗号化パスワード */
-  password?: string;
+  /** 暗号化キー（導出されたCryptoKey） */
+  cryptoKey?: CryptoKey;
+  /** セッション開始時刻 */
+  sessionStart?: number;
+  /** セッションタイムアウト（ミリ秒、デフォルト30分） */
+  sessionTimeout?: number;
 }
 
 /**
@@ -38,24 +42,132 @@ export class SafeStorage {
   private static encryptionConfig: EncryptionConfig = {
     enabled: false
   };
+  
+  private static readonly DEFAULT_SESSION_TIMEOUT = 30 * 60 * 1000; // 30分
   /**
-   * 暗号化設定を更新
+   * 暗号化設定を更新（パスワードからCryptoKeyを導出）
    */
-  static setEncryptionConfig(config: EncryptionConfig): void {
-    this.encryptionConfig = { ...config };
-    errorLogger.info('Encryption config updated', { 
-      enabled: config.enabled,
-      hasPassword: !!config.password 
-    });
+  static async setEncryptionConfig(config: EncryptionConfig & { password?: string }): Promise<void> {
+    // パスワードが提供された場合、CryptoKeyを導出
+    if (config.password && config.enabled) {
+      try {
+        // 既存のsaltを取得または新規作成
+        const saltKey = createLocalStorageKey('agentapi-encryption-salt');
+        let salt: Uint8Array;
+        
+        const existingSalt = window.localStorage.getItem(saltKey);
+        if (existingSalt) {
+          salt = new Uint8Array(JSON.parse(existingSalt));
+        } else {
+          salt = window.crypto.getRandomValues(new Uint8Array(32));
+          window.localStorage.setItem(saltKey, JSON.stringify(Array.from(salt)));
+        }
+        
+        const cryptoKey = await EncryptionUtil.deriveKeyFromPassword(config.password, salt);
+        
+        // パスワードを即座にクリア
+        const passwordToClear = config.password;
+        delete config.password;
+        // パスワード文字列をゼロで上書き（可能な限り）
+        if (passwordToClear) {
+          for (let i = 0; i < passwordToClear.length; i++) {
+            // Note: JavaScriptでは文字列は不変なので完全なクリアは不可能
+          }
+        }
+        
+        this.encryptionConfig = {
+          enabled: config.enabled,
+          cryptoKey,
+          sessionStart: Date.now(),
+          sessionTimeout: config.sessionTimeout || this.DEFAULT_SESSION_TIMEOUT
+        };
+        
+        errorLogger.info('Encryption config updated with derived key', { 
+          enabled: config.enabled,
+          sessionTimeout: this.encryptionConfig.sessionTimeout
+        });
+      } catch (err) {
+        errorLogger.error('Failed to derive encryption key', { error: String(err) });
+        throw err;
+      }
+    } else {
+      // パスワードなしの場合（無効化など）
+      this.encryptionConfig = {
+        enabled: config.enabled,
+        cryptoKey: undefined,
+        sessionStart: undefined,
+        sessionTimeout: undefined
+      };
+      
+      errorLogger.info('Encryption config updated', { 
+        enabled: config.enabled
+      });
+    }
+  }
+
+  /**
+   * セッションタイムアウトをチェック
+   */
+  private static checkSessionTimeout(): boolean {
+    if (!this.encryptionConfig.enabled || !this.encryptionConfig.sessionStart || !this.encryptionConfig.sessionTimeout) {
+      return true; // 暗号化が無効または設定が不完全
+    }
+    
+    const now = Date.now();
+    const elapsed = now - this.encryptionConfig.sessionStart;
+    
+    if (elapsed > this.encryptionConfig.sessionTimeout) {
+      // セッションタイムアウト
+      this.lock();
+      errorLogger.info('Session timed out - encryption locked', {
+        elapsedMs: elapsed,
+        timeoutMs: this.encryptionConfig.sessionTimeout
+      });
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * 暗号化をロック
+   */
+  static lock(): void {
+    this.encryptionConfig = {
+      enabled: false,
+      cryptoKey: undefined,
+      sessionStart: undefined,
+      sessionTimeout: undefined
+    };
+    errorLogger.info('Encryption manually locked');
   }
 
   /**
    * 現在の暗号化設定を取得
    */
-  static getEncryptionConfig(): Omit<EncryptionConfig, 'password'> {
+  static getEncryptionConfig(): Omit<EncryptionConfig, 'cryptoKey'> {
+    this.checkSessionTimeout();
     return {
-      enabled: this.encryptionConfig.enabled
+      enabled: this.encryptionConfig.enabled,
+      sessionStart: this.encryptionConfig.sessionStart,
+      sessionTimeout: this.encryptionConfig.sessionTimeout
     };
+  }
+
+  /**
+   * 暗号化が利用可能かチェック（設定の有無）
+   */
+  static isEncryptionAvailable(): boolean {
+    const { hasSettings } = this.getSessionState();
+    return hasSettings;
+  }
+
+  /**
+   * 暗号化がロック状態かチェック
+   */
+  static isEncryptionLocked(): boolean {
+    const { isLocked } = this.getSessionState();
+    return isLocked;
   }
 
   private static isAvailable(): boolean {
@@ -74,25 +186,40 @@ export class SafeStorage {
   }
 
   /**
-   * 暗号化設定を自動で読み込み
+   * セッション状態を取得
    */
-  private static async loadEncryptionConfig(): Promise<void> {
-    if (this.encryptionConfig.enabled && this.encryptionConfig.password) {
-      return; // 既に設定済み
-    }
-    
+  private static getSessionState(): { isLocked: boolean; hasSettings: boolean } {
     try {
       const encryptionSettingsKey = createLocalStorageKey('agentapi-encryption-settings');
       const settingsData = window.localStorage.getItem(encryptionSettingsKey);
       if (settingsData) {
         const settings = JSON.parse(settingsData);
-        if (settings.enabled) {
-          // 暗号化が有効だが、パスワードがない場合は無効化
-          if (!this.encryptionConfig.password) {
-            this.encryptionConfig.enabled = false;
-            errorLogger.warn('Encryption is enabled but no password provided - disabling encryption');
-          }
-        }
+        return {
+          hasSettings: true,
+          isLocked: settings.enabled && !this.encryptionConfig.cryptoKey
+        };
+      }
+    } catch (err) {
+      errorLogger.warn('Failed to get session state', { error: String(err) });
+    }
+    return { hasSettings: false, isLocked: false };
+  }
+
+  /**
+   * 暗号化設定を自動で読み込み
+   */
+  private static async loadEncryptionConfig(): Promise<void> {
+    if (this.encryptionConfig.enabled && this.encryptionConfig.cryptoKey) {
+      return; // 既に設定済み
+    }
+    
+    try {
+      const { hasSettings, isLocked } = this.getSessionState();
+      
+      if (hasSettings && isLocked) {
+        // 暗号化設定はあるが、セッションがロック状態
+        this.encryptionConfig.enabled = false;
+        errorLogger.info('Encryption settings found but session is locked');
       }
     } catch (err) {
       errorLogger.warn('Failed to load encryption config', { error: String(err) });
@@ -130,15 +257,27 @@ export class SafeStorage {
 
       let finalValue = storedValue;
 
+      // セッションタイムアウトをチェック
+      if (!this.checkSessionTimeout()) {
+        const error = new StorageError(
+          ErrorType.STORAGE_ACCESS_DENIED,
+          'Session timed out',
+          'セッションがタイムアウトしました。再度パスワードを入力してください。',
+          context
+        );
+        errorLogger.logError(error);
+        return { success: false, error };
+      }
+
       // 暗号化が有効な場合の復号化処理
-      if (this.encryptionConfig.enabled && this.encryptionConfig.password) {
-        errorLogger.debug('Attempting to decrypt data from storage', { ...context, hasPassword: !!this.encryptionConfig.password });
+      if (this.encryptionConfig.enabled && this.encryptionConfig.cryptoKey) {
+        errorLogger.debug('Attempting to decrypt data from storage', { ...context, hasCryptoKey: !!this.encryptionConfig.cryptoKey });
         const parseResult = safeJsonParse<EncryptedData>(storedValue);
         if (parseResult.ok && EncryptionUtil.isEncryptedData(parseResult.value)) {
           // 暗号化されたデータを復号化
-          const decryptResult = await EncryptionUtil.decrypt(
+          const decryptResult = await EncryptionUtil.decryptWithKey(
             parseResult.value,
-            this.encryptionConfig.password
+            this.encryptionConfig.cryptoKey
           );
           
           if (!decryptResult.success) {
@@ -217,12 +356,24 @@ export class SafeStorage {
 
       let finalValue = stringifyResult.value;
 
+      // セッションタイムアウトをチェック
+      if (!this.checkSessionTimeout()) {
+        const error = new StorageError(
+          ErrorType.STORAGE_ACCESS_DENIED,
+          'Session timed out',
+          'セッションがタイムアウトしました。再度パスワードを入力してください。',
+          context
+        );
+        errorLogger.logError(error);
+        return { success: false, error };
+      }
+
       // 暗号化が有効な場合の暗号化処理
-      if (this.encryptionConfig.enabled && this.encryptionConfig.password) {
-        errorLogger.debug('Encrypting data before storage', { ...context, hasPassword: !!this.encryptionConfig.password });
-        const encryptResult = await EncryptionUtil.encrypt(
+      if (this.encryptionConfig.enabled && this.encryptionConfig.cryptoKey) {
+        errorLogger.debug('Encrypting data before storage', { ...context, hasCryptoKey: !!this.encryptionConfig.cryptoKey });
+        const encryptResult = await EncryptionUtil.encryptWithKey(
           finalValue,
-          this.encryptionConfig.password
+          this.encryptionConfig.cryptoKey
         );
         
         if (!encryptResult.success) {
@@ -255,7 +406,7 @@ export class SafeStorage {
         errorLogger.debug('No encryption applied', { 
           ...context, 
           encryptionEnabled: this.encryptionConfig.enabled,
-          hasPassword: !!this.encryptionConfig.password 
+          hasCryptoKey: !!this.encryptionConfig.cryptoKey 
         });
       }
 

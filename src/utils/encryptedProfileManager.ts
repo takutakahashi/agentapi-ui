@@ -130,7 +130,7 @@ export class EncryptedProfileManager extends SafeProfileManager {
       await this.saveEncryptionSettings(encryptionSettings);
 
       // SafeStorageに暗号化設定を適用
-      SafeStorage.setEncryptionConfig({
+      await SafeStorage.setEncryptionConfig({
         enabled: true,
         password
       });
@@ -161,7 +161,7 @@ export class EncryptedProfileManager extends SafeProfileManager {
       await this.saveEncryptionSettings(encryptionSettings);
 
       // SafeStorageの暗号化設定を無効化
-      SafeStorage.setEncryptionConfig({
+      await SafeStorage.setEncryptionConfig({
         enabled: false
       });
 
@@ -216,7 +216,7 @@ export class EncryptedProfileManager extends SafeProfileManager {
       // 既存の暗号化されたデータを新しいパスワードで再暗号化
       if (currentSettings.encryptedDataTypes.includes('profiles')) {
         // 一時的に現在のパスワードで復号化
-        SafeStorage.setEncryptionConfig({
+        await SafeStorage.setEncryptionConfig({
           enabled: true,
           password: currentPassword
         });
@@ -225,7 +225,7 @@ export class EncryptedProfileManager extends SafeProfileManager {
         const profilesResult = await this.getProfiles();
         if (profilesResult.success) {
           // 新しいパスワードで暗号化設定を更新
-          SafeStorage.setEncryptionConfig({
+          await SafeStorage.setEncryptionConfig({
             enabled: true,
             password: newPassword
           });
@@ -311,7 +311,7 @@ export class EncryptedProfileManager extends SafeProfileManager {
       }
 
       // パスワードが正しいかテスト
-      SafeStorage.setEncryptionConfig({
+      await SafeStorage.setEncryptionConfig({
         enabled: true,
         password
       });
@@ -335,13 +335,13 @@ export class EncryptedProfileManager extends SafeProfileManager {
         errorLogger.info('Successfully unlocked encryption', context);
       } else {
         errorLogger.warn('Failed to unlock encryption - invalid password', context);
-        SafeStorage.setEncryptionConfig({ enabled: false });
+        await SafeStorage.setEncryptionConfig({ enabled: false });
       }
 
       return isValid;
     } catch (err) {
       errorLogger.error('Unlock failed', { ...context, error: String(err) });
-      SafeStorage.setEncryptionConfig({ enabled: false });
+      await SafeStorage.setEncryptionConfig({ enabled: false });
       return false;
     }
   }
@@ -349,8 +349,8 @@ export class EncryptedProfileManager extends SafeProfileManager {
   /**
    * ロック
    */
-  static lock(): void {
-    SafeStorage.setEncryptionConfig({ enabled: false });
+  static async lock(): Promise<void> {
+    await SafeStorage.setEncryptionConfig({ enabled: false });
     errorLogger.info('Encryption locked');
   }
 
@@ -386,13 +386,13 @@ export class EncryptedProfileManager extends SafeProfileManager {
       let failed = 0;
 
       // まず暗号化なしで既存データを読み込み
-      SafeStorage.setEncryptionConfig({ enabled: false });
+      await SafeStorage.setEncryptionConfig({ enabled: false });
 
       // 全プロファイルを取得
       const profilesResult = await this.getProfiles();
       if (profilesResult.success) {
         // 暗号化を有効化
-        SafeStorage.setEncryptionConfig({
+        await SafeStorage.setEncryptionConfig({
           enabled: true,
           password
         });
@@ -401,12 +401,12 @@ export class EncryptedProfileManager extends SafeProfileManager {
         for (const profileItem of profilesResult.data) {
           try {
             // 暗号化なしでプロファイルを取得
-            SafeStorage.setEncryptionConfig({ enabled: false });
+            await SafeStorage.setEncryptionConfig({ enabled: false });
             const profileResult = await this.getProfile(profileItem.id);
             
             if (profileResult.success && profileResult.data) {
               // 暗号化して保存
-              SafeStorage.setEncryptionConfig({
+              await SafeStorage.setEncryptionConfig({
                 enabled: true,
                 password
               });
