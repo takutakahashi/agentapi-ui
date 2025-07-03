@@ -1,11 +1,23 @@
 import { AgentApiProxySettings, EnvironmentVariable } from './settings';
 import { RepositoryHistoryItem } from '../utils/organizationHistory';
 import { MessageTemplate } from './messageTemplate';
+import {
+  ProfileId,
+  ProfileName,
+  ProfileDescription,
+  SystemPrompt,
+  ISODateString,
+  HexColor,
+  EmojiIcon,
+  ValidUrl,
+  UUID,
+  OrganizationName
+} from './typeUtils';
 
 export interface MCPServerConfig {
-  id: string;
+  id: UUID;
   name: string;
-  endpoint: string;
+  endpoint: ValidUrl;
   enabled: boolean;
   transport: 'stdio' | 'sse' | 'websocket';
   command?: string;
@@ -15,20 +27,20 @@ export interface MCPServerConfig {
 }
 
 export interface Profile {
-  id: string;
-  name: string;
-  description?: string;
-  icon?: string;
-  mainColor?: string;
-  systemPrompt?: string;
-  fixedOrganizations: string[];
+  id: ProfileId;
+  name: ProfileName;
+  description?: ProfileDescription;
+  icon?: EmojiIcon;
+  mainColor?: HexColor;
+  systemPrompt?: SystemPrompt;
+  fixedOrganizations: OrganizationName[];
   agentApiProxy: AgentApiProxySettings;
   repositoryHistory: RepositoryHistoryItem[];
   environmentVariables: EnvironmentVariable[];
   messageTemplates: MessageTemplate[];
   isDefault: boolean;
-  created_at: string;
-  updated_at: string;
+  created_at: ISODateString;
+  updated_at: ISODateString;
   githubAuth?: GitHubAuthSettings;
   mcpServers?: MCPServerConfig[];
 }
@@ -37,10 +49,10 @@ export interface GitHubAuthSettings {
   enabled: boolean;
   accessToken?: string;
   refreshToken?: string;
-  tokenExpiresAt?: string;
+  tokenExpiresAt?: ISODateString;
   user?: GitHubUser;
   scopes: string[];
-  organizations?: string[];
+  organizations?: OrganizationName[];
   repositories?: string[];
 }
 
@@ -49,39 +61,39 @@ export interface GitHubUser {
   login: string;
   name?: string;
   email?: string;
-  avatarUrl?: string;
+  avatarUrl?: ValidUrl;
 }
 
 export interface ProfileListItem {
-  id: string;
-  name: string;
-  description?: string;
-  icon?: string;
-  mainColor?: string;
+  id: ProfileId;
+  name: ProfileName;
+  description?: ProfileDescription;
+  icon?: EmojiIcon;
+  mainColor?: HexColor;
   isDefault: boolean;
-  lastUsed?: string;
+  lastUsed?: ISODateString;
   repositoryCount: number;
 }
 
 export interface CreateProfileRequest {
-  name: string;
-  description?: string;
-  icon?: string;
-  mainColor?: string;
-  systemPrompt?: string;
-  fixedOrganizations: string[];
+  name: ProfileName;
+  description?: ProfileDescription;
+  icon?: EmojiIcon;
+  mainColor?: HexColor;
+  systemPrompt?: SystemPrompt;
+  fixedOrganizations: OrganizationName[];
   agentApiProxy: AgentApiProxySettings;
   environmentVariables: EnvironmentVariable[];
   isDefault?: boolean;
 }
 
 export interface UpdateProfileRequest {
-  name?: string;
-  description?: string;
-  icon?: string;
-  mainColor?: string;
-  systemPrompt?: string;
-  fixedOrganizations?: string[];
+  name?: ProfileName;
+  description?: ProfileDescription;
+  icon?: EmojiIcon;
+  mainColor?: HexColor;
+  systemPrompt?: SystemPrompt;
+  fixedOrganizations?: OrganizationName[];
   agentApiProxy?: Partial<AgentApiProxySettings>;
   environmentVariables?: EnvironmentVariable[];
   messageTemplates?: MessageTemplate[];

@@ -361,7 +361,7 @@ export default function AgentAPIChat() {
     return () => {
       window.removeEventListener('profileChanged', handleProfileChange as unknown as EventListener);
     };
-  }, [currentProfile?.id]);
+  }, [currentProfile?.id, loadTemplatesForProfile]);
 
   const loadTemplatesForProfile = useCallback(async (profileId: string) => {
     try {

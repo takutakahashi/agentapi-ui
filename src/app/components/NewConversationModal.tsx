@@ -135,10 +135,10 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
     setShowSuggestions(false)
   }
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     resetForm()
     onClose()
-  }
+  }, [onClose])
   
   // Initialize form when modal opens
   useEffect(() => {
@@ -177,7 +177,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
       }
     }
     initializeModal()
-  }, [isOpen, currentFilters, initialRepository, initializeFromFilters])
+  }, [isOpen, currentFilters, initialRepository, initializeFromFilters, envVars])
 
   // ESCキーでモーダルを閉じる
   useEffect(() => {
@@ -194,7 +194,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen])
+  }, [isOpen, handleClose])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
