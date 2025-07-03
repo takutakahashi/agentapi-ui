@@ -1,4 +1,5 @@
 import { MCPServerConfig } from './profile';
+import { CookieStorage } from '../utils/cookieStorage';
 
 export interface AgentApiProxySettings {
   endpoint: string
@@ -56,11 +57,24 @@ export const loadGlobalSettings = (): SettingsFormData => {
   
   try {
     const savedSettings = localStorage.getItem('agentapi-global-settings')
+    let parsedSettings: Partial<SettingsFormData> = {}
+    
     if (savedSettings) {
-      const parsedSettings = JSON.parse(savedSettings)
-      // Ensure all required properties exist with proper defaults
-      return mergeWithDefaults(parsedSettings, getDefaultSettings())
+      parsedSettings = JSON.parse(savedSettings)
     }
+    
+    // Load environment variables from cookies
+    const envVarsFromCookie = CookieStorage.getGlobalEnvironmentVariables()
+    if (envVarsFromCookie) {
+      parsedSettings.environmentVariables = Object.entries(envVarsFromCookie).map(([key, value]) => ({
+        key,
+        value,
+        description: ''
+      }))
+    }
+    
+    // Ensure all required properties exist with proper defaults
+    return mergeWithDefaults(parsedSettings, getDefaultSettings())
   } catch (err) {
     console.error('Failed to load global settings:', err)
   }
@@ -75,7 +89,21 @@ export const saveGlobalSettings = (settings: SettingsFormData): void => {
   }
   
   try {
-    localStorage.setItem('agentapi-global-settings', JSON.stringify(settings))
+    // Save environment variables to cookies
+    if (settings.environmentVariables && settings.environmentVariables.length > 0) {
+      const envVarsObj = settings.environmentVariables.reduce((acc, env) => {
+        acc[env.key] = env.value
+        return acc
+      }, {} as Record<string, string>)
+      CookieStorage.setGlobalEnvironmentVariables(envVarsObj)
+    }
+    
+    // Save non-sensitive settings to localStorage
+    const settingsToSave = {
+      ...settings,
+      environmentVariables: [] // Remove environment variables from localStorage
+    }
+    localStorage.setItem('agentapi-global-settings', JSON.stringify(settingsToSave))
   } catch (err) {
     console.error('Failed to save global settings:', err)
     throw err

@@ -1,6 +1,7 @@
 import { Profile, ProfileListItem, CreateProfileRequest, UpdateProfileRequest } from '../types/profile';
 import { loadGlobalSettings, getDefaultSettings, getDefaultProxySettings } from '../types/settings';
 import { v4 as uuidv4 } from 'uuid';
+import { CookieStorage } from './cookieStorage';
 
 const PROFILES_LIST_KEY = 'agentapi-profiles-list';
 const PROFILE_KEY_PREFIX = 'agentapi-profile-';
@@ -35,6 +36,22 @@ export class ProfileManager {
         return null;
       }
       const profile = JSON.parse(stored);
+      
+      // Load API key from cookie
+      const apiKey = CookieStorage.getApiKey(profileId);
+      if (apiKey && profile.agentApiProxy) {
+        profile.agentApiProxy.apiKey = apiKey;
+      }
+      
+      // Load environment variables from cookie
+      const envVarsFromCookie = CookieStorage.getEnvironmentVariables(profileId);
+      if (envVarsFromCookie) {
+        profile.environmentVariables = Object.entries(envVarsFromCookie).map(([key, value]) => ({
+          key,
+          value,
+          description: ''
+        }));
+      }
       
       // repositoryHistoryのlastUsedを文字列からDateオブジェクトに変換
       if (profile.repositoryHistory) {
@@ -140,6 +157,10 @@ export class ProfileManager {
       }
 
       localStorage.removeItem(`${PROFILE_KEY_PREFIX}${profileId}`);
+      
+      // Clean up cookies
+      CookieStorage.deleteApiKey(profileId);
+      CookieStorage.deleteEnvironmentVariables(profileId);
       
       if (profile.isDefault) {
         localStorage.removeItem(DEFAULT_PROFILE_KEY);
@@ -341,13 +362,37 @@ export class ProfileManager {
     try {
       const key = `${PROFILE_KEY_PREFIX}${profile.id}`;
       
+      // Extract API key and environment variables for cookie storage
+      const apiKey = profile.agentApiProxy?.apiKey;
+      const envVars = profile.environmentVariables || [];
+      
+      // Store API key in cookie
+      if (apiKey) {
+        CookieStorage.setApiKey(profile.id, apiKey);
+      }
+      
+      // Store environment variables in cookie (base64 encoded)
+      if (envVars.length > 0) {
+        const envVarsObj = envVars.reduce((acc, env) => {
+          acc[env.key] = env.value;
+          return acc;
+        }, {} as Record<string, string>);
+        CookieStorage.setEnvironmentVariables(profile.id, envVarsObj);
+      }
+      
       // repositoryHistoryのDateオブジェクトをISO文字列に変換してから保存
       const profileToSave = {
         ...profile,
         repositoryHistory: profile.repositoryHistory.map(item => ({
           ...item,
           lastUsed: item.lastUsed instanceof Date ? item.lastUsed.toISOString() : item.lastUsed
-        }))
+        })),
+        // Remove sensitive data from localStorage
+        agentApiProxy: profile.agentApiProxy ? {
+          ...profile.agentApiProxy,
+          apiKey: undefined // Remove API key from localStorage
+        } : undefined,
+        environmentVariables: [] // Remove environment variables from localStorage
       };
       
       const serializedProfile = JSON.stringify(profileToSave);

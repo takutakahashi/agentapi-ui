@@ -16,6 +16,7 @@ import {
 import { loadGlobalSettings, getDefaultProxySettings } from '../types/settings';
 import { ProfileManager } from '../utils/profileManager';
 import { GitHubUser, MCPServerConfig } from '../types/profile';
+import { CookieStorage } from '../utils/cookieStorage';
 
 // Define local AgentStatus type
 interface AgentStatus {
@@ -751,9 +752,17 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
       ? settings.agentApiProxy.timeout 
       : parseInt(process.env.AGENTAPI_TIMEOUT || '10000');
     
+    // Get API key from settings or fall back to cookie and environment variables
+    let apiKey = settings.agentApiProxy.apiKey || process.env.AGENTAPI_API_KEY;
+    
+    // If no API key found and profileId is available, try to get from cookie
+    if (!apiKey && profileId) {
+      apiKey = CookieStorage.getApiKey(profileId);
+    }
+    
     return {
       baseURL,
-      apiKey: settings.agentApiProxy.apiKey || process.env.AGENTAPI_API_KEY,
+      apiKey,
       timeout,
       maxSessions: 10,
       sessionTimeout: 300000, // 5 minutes
