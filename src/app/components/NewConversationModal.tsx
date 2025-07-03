@@ -240,6 +240,11 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
         return acc
       }, {} as Record<string, string>)
       
+      // Debug logs
+      console.log('Debug: envVars state:', envVars)
+      console.log('Debug: validEnvVars:', validEnvVars)
+      console.log('Debug: environment object:', environment)
+      
       // Filter out empty metadata variables
       const validMetadataVars = metadataVars.filter(metaVar => metaVar.key.trim() && metaVar.value.trim())
       const metadata = validMetadataVars.reduce((acc, metaVar) => {
@@ -273,6 +278,8 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
         tags: Object.keys(tags).length > 0 ? tags : undefined
       }
+      
+      console.log('Debug: sessionData being sent:', sessionData)
       
       await agentAPI.start!({
         environment: sessionData.environment,
