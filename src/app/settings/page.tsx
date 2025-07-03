@@ -1,14 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { SettingsFormData, loadGlobalSettings, saveGlobalSettings, isSingleProfileModeEnabled } from '../../types/settings'
+import { SettingsFormData, loadGlobalSettings, saveGlobalSettings } from '../../types/settings'
 import type { EnvironmentVariable } from '../../types/settings'
 import MCPServerSettings from '../../components/MCPServerSettings'
-import SingleProfileModeSettings from '../../components/settings/SingleProfileModeSettings'
 
 export default function GlobalSettingsPage() {
   const [settings, setSettings] = useState<SettingsFormData>(loadGlobalSettings())
-  const [singleProfileMode, setSingleProfileMode] = useState(false)
   
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -26,7 +24,6 @@ export default function GlobalSettingsPage() {
   // Load saved settings on component mount
   useEffect(() => {
     loadSettings()
-    setSingleProfileMode(isSingleProfileModeEnabled())
   }, [loadSettings])
 
   const saveSettings = async () => {
@@ -78,28 +75,17 @@ export default function GlobalSettingsPage() {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            {singleProfileMode ? 'グローバル設定' : 'Global Settings'}
+            Global Settings
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-1">
-            {singleProfileMode 
-              ? 'Single Profile Mode用のグローバル設定' 
-              : 'Configure global environment variables'
-            }
+            Configure global environment variables
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-500">
-            {singleProfileMode
-              ? 'これらの設定はすべてのリポジトリで使用されます。Single Profile Modeでは、プロファイル固有の設定は無効になります。'
-              : 'These settings will be used as defaults for all repositories and profiles. Individual repository settings can override these values.'
-            }
+            These settings will be used as defaults for all repositories and profiles. Individual repository settings can override these values.
           </p>
         </div>
 
         <div className="space-y-8">
-          {/* Single Profile Mode Settings - Always show for configuration */}
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-            <SingleProfileModeSettings />
-          </div>
-
           {/* Environment Variables */}
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
