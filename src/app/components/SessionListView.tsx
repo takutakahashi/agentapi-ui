@@ -230,12 +230,16 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   // Initialize profile and clients
   useEffect(() => {
     const initializeProfile = async () => {
-      const profile = await ProfileManager.getDefaultProfile()
-      setCurrentProfile(profile)
-      if (profile) {
-        const client = createAgentAPIProxyClientFromStorage(undefined, profile.id)
-        setAgentAPI(client)
-        setAgentAPIProxy(client)
+      try {
+        const profile = await ProfileManager.getDefaultProfile()
+        setCurrentProfile(profile)
+        if (profile) {
+          const client = createAgentAPIProxyClientFromStorage(undefined, profile.id)
+          setAgentAPI(client)
+          setAgentAPIProxy(client)
+        }
+      } catch (error) {
+        console.error('Failed to initialize profile:', error)
       }
     }
     initializeProfile()
@@ -275,14 +279,15 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   // Listen for profile changes and recreate clients
   useEffect(() => {
     const handleProfileChange = async (event: CustomEvent) => {
-      const newProfileId = event.detail.profileId
-      const newProfile = await ProfileManager.getProfile(newProfileId)
-      
-      if (newProfile && newProfile.id !== currentProfile?.id) {
-        setCurrentProfile(newProfile)
-        const newClient = createAgentAPIProxyClientFromStorage(undefined, newProfile.id)
-        setAgentAPI(newClient)
-        setAgentAPIProxy(newClient)
+      try {
+        const newProfileId = event.detail.profileId
+        const newProfile = await ProfileManager.getProfile(newProfileId)
+        
+        if (newProfile && newProfile.id !== currentProfile?.id) {
+          setCurrentProfile(newProfile)
+          const newClient = createAgentAPIProxyClientFromStorage(undefined, newProfile.id)
+          setAgentAPI(newClient)
+          setAgentAPIProxy(newClient)
         
         // Helper function to extract user message
         const extractUserMessageLocal = (combinedMessage: string) => {
@@ -413,7 +418,10 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
           }
         }
         
-        fetchSessionsWithNewAPI()
+          fetchSessionsWithNewAPI()
+        }
+      } catch (error) {
+        console.error('Failed to handle profile change:', error)
       }
     }
 

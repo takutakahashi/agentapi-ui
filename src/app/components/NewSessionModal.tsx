@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createAgentAPIClient } from '../../lib/api'
 import type { AgentAPIProxyClient } from '../../lib/agentapi-proxy-client'
 import { ProfileManager } from '../../utils/profileManager'
@@ -54,6 +54,21 @@ export default function NewSessionModal({
   const [showFreeFormRepositorySuggestions, setShowFreeFormRepositorySuggestions] = useState(false)
   const [sessionMode, setSessionMode] = useState<'repository' | 'chat'>('repository')
 
+  const handleClose = useCallback(() => {
+    setInitialMessage('')
+    setSelectedOrganization('')
+    setRepository('')
+    setFreeFormRepository('')
+    setSelectedProfileId('')
+    setSessionMode('repository')
+    setError(null)
+    setStatusMessage('')
+    setAvailableOrganizations([])
+    setShowCachedMessages(false)
+    setShowTemplates(false)
+    onClose()
+  }, [onClose])
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 640)
@@ -82,29 +97,37 @@ export default function NewSessionModal({
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen, showTemplateModal])
+  }, [isOpen, showTemplateModal, handleClose])
 
   useEffect(() => {
     const loadProfiles = async () => {
       if (isOpen) {
-        await ProfileManager.migrateExistingSettings()
-        const profilesList = await ProfileManager.getProfiles()
-        setProfiles(profilesList)
+        try {
+          // 並列で実行できる操作を最適化
+          const [, profilesList, defaultProfile] = await Promise.all([
+            ProfileManager.migrateExistingSettings(),
+            ProfileManager.getProfiles(),
+            ProfileManager.getDefaultProfile()
+          ])
+          
+          setProfiles(profilesList)
+          
+          if (defaultProfile) {
+            setSelectedProfileId(defaultProfile.id)
+          } else if (profilesList.length > 0) {
+            setSelectedProfileId(profilesList[0].id)
+          }
         
-        const defaultProfile = await ProfileManager.getDefaultProfile()
-        if (defaultProfile) {
-          setSelectedProfileId(defaultProfile.id)
-        } else if (profilesList.length > 0) {
-          setSelectedProfileId(profilesList[0].id)
-        }
-      
-      // プロファイル固有のキャッシュされたメッセージを読み込む
-      const cached = selectedProfileId ? InitialMessageCache.getCachedMessages(selectedProfileId) : []
-      setCachedMessages(cached)
-      
-      // プロファイル変更時にテンプレートを読み込む
-      if (selectedProfileId) {
-        loadTemplatesForProfile(selectedProfileId);
+          // プロファイル固有のキャッシュされたメッセージを読み込む
+          const cached = selectedProfileId ? InitialMessageCache.getCachedMessages(selectedProfileId) : []
+          setCachedMessages(cached)
+          
+          // プロファイル変更時にテンプレートを読み込む
+          if (selectedProfileId) {
+            loadTemplatesForProfile(selectedProfileId);
+          }
+        } catch (error) {
+          console.error('Failed to load profiles:', error)
         }
       }
     }
@@ -266,9 +289,11 @@ export default function NewSessionModal({
         
         // リポジトリ履歴への追加は既にモーダル内で実行済み
         
-        // プロファイル使用記録更新
+        // プロファイル使用記録更新（非同期で実行し、結果を待たない）
         if (selectedProfileId) {
-          await ProfileManager.markProfileUsed(selectedProfileId)
+          ProfileManager.markProfileUsed(selectedProfileId).catch(err => 
+            console.error('Failed to mark profile as used:', err)
+          )
         }
         
         // 作成完了
@@ -327,14 +352,17 @@ export default function NewSessionModal({
           : freeFormRepository.trim()
       )
       
-      // プロファイル固有の初期メッセージをキャッシュに追加
+      // プロファイル固有の初期メッセージをキャッシュに追加と最近のメッセージに保存を並列実行
+      const messagePromises = []
       if (selectedProfileId) {
-        InitialMessageCache.addMessage(currentMessage, selectedProfileId)
+        messagePromises.push(
+          Promise.resolve(InitialMessageCache.addMessage(currentMessage, selectedProfileId)),
+          recentMessagesManager.saveMessage(selectedProfileId, currentMessage)
+        )
       }
       
-      // 最近のメッセージに保存
-      if (selectedProfileId) {
-        await recentMessagesManager.saveMessage(selectedProfileId, currentMessage)
+      if (messagePromises.length > 0) {
+        await Promise.all(messagePromises)
       }
       
       // リポジトリ履歴にも事前に追加（モーダルが閉じる前に実行）
@@ -381,22 +409,6 @@ export default function NewSessionModal({
 
   const handleOrganizationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedOrganization(e.target.value)
-  }
-
-
-  const handleClose = () => {
-    setInitialMessage('')
-    setSelectedOrganization('')
-    setRepository('')
-    setFreeFormRepository('')
-    setSelectedProfileId('')
-    setSessionMode('repository')
-    setError(null)
-    setStatusMessage('')
-    setAvailableOrganizations([])
-    setShowCachedMessages(false)
-    setShowTemplates(false)
-    onClose()
   }
   
   const handleMessageFocus = () => {
@@ -511,10 +523,16 @@ export default function NewSessionModal({
   }
 
   const handleProfileUpdated = async () => {
-    // プロファイルリストを再読み込み
-    await ProfileManager.migrateExistingSettings()
-    const profilesList = await ProfileManager.getProfiles()
-    setProfiles(profilesList)
+    try {
+      // プロファイルリストを再読み込み（並列実行）
+      const [, profilesList] = await Promise.all([
+        ProfileManager.migrateExistingSettings(),
+        ProfileManager.getProfiles()
+      ])
+      setProfiles(profilesList)
+    } catch (error) {
+      console.error('Failed to update profiles:', error)
+    }
   }
 
   return (

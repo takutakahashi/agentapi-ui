@@ -41,25 +41,33 @@ export default function TopBar({
   const [selectedProfileId, setSelectedProfileId] = useState<string>('')
 
   const loadProfiles = useCallback(async () => {
-    await ProfileManager.migrateExistingSettings()
-    const profilesList = await ProfileManager.getProfiles()
-    setProfiles(profilesList)
-    
-    // Check URL parameters first, then fall back to default profile
-    const currentProfileId = await ProfileManager.getCurrentProfileId()
-    let selectedProfile: ProfileListItem | null = null
-    
-    if (currentProfileId) {
-      selectedProfile = profilesList.find(p => p.id === currentProfileId) || null
-    } else if (profilesList.length > 0) {
-      selectedProfile = profilesList[0]
-    }
-    
-    setCurrentProfile(selectedProfile)
-    
-    // Update theme when profile is loaded
-    if (selectedProfile) {
-      updateThemeFromProfile(selectedProfile.id)
+    try {
+      // 並列で実行できる操作を最適化
+      const [, profilesList] = await Promise.all([
+        ProfileManager.migrateExistingSettings(),
+        ProfileManager.getProfiles()
+      ])
+      
+      setProfiles(profilesList)
+      
+      // Check URL parameters first, then fall back to default profile
+      const currentProfileId = await ProfileManager.getCurrentProfileId()
+      let selectedProfile: ProfileListItem | null = null
+      
+      if (currentProfileId) {
+        selectedProfile = profilesList.find(p => p.id === currentProfileId) || null
+      } else if (profilesList.length > 0) {
+        selectedProfile = profilesList[0]
+      }
+      
+      setCurrentProfile(selectedProfile)
+      
+      // Update theme when profile is loaded
+      if (selectedProfile) {
+        updateThemeFromProfile(selectedProfile.id)
+      }
+    } catch (error) {
+      console.error('Failed to load profiles:', error)
     }
   }, [updateThemeFromProfile])
 
@@ -80,16 +88,24 @@ export default function TopBar({
   }, [showProfileSwitcher, loadProfiles])
 
   const handleProfileSwitch = async (profileId: string) => {
-    await ProfileManager.setProfileInUrl(profileId)
-    await ProfileManager.setDefaultProfile(profileId)
-    const selectedProfile = profiles.find(p => p.id === profileId)
-    setCurrentProfile(selectedProfile || null)
-    setShowProfileDropdown(false)
-    
-    // Update theme when profile switches
-    updateThemeFromProfile(profileId)
-    
-    window.dispatchEvent(new CustomEvent('profileChanged', { detail: { profileId } }))
+    try {
+      // 並列で実行できる操作を最適化
+      await Promise.all([
+        ProfileManager.setProfileInUrl(profileId),
+        ProfileManager.setDefaultProfile(profileId)
+      ])
+      
+      const selectedProfile = profiles.find(p => p.id === profileId)
+      setCurrentProfile(selectedProfile || null)
+      setShowProfileDropdown(false)
+      
+      // Update theme when profile switches
+      updateThemeFromProfile(profileId)
+      
+      window.dispatchEvent(new CustomEvent('profileChanged', { detail: { profileId } }))
+    } catch (error) {
+      console.error('Failed to switch profile:', error)
+    }
   }
 
   const handleEditProfile = (profileId: string) => {

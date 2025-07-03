@@ -7,20 +7,20 @@ const PROFILE_KEY_PREFIX = 'agentapi-profile-';
 const DEFAULT_PROFILE_KEY = 'agentapi-default-profile-id';
 
 export class ProfileManager {
-  static async getProfiles(): Promise<ProfileListItem[]> {
+  static getProfiles(): Promise<ProfileListItem[]> {
     if (typeof window === 'undefined') {
-      return [];
+      return Promise.resolve([]);
     }
 
     try {
       const stored = localStorage.getItem(PROFILES_LIST_KEY);
       if (!stored) {
-        return [];
+        return Promise.resolve([]);
       }
-      return JSON.parse(stored);
+      return Promise.resolve(JSON.parse(stored));
     } catch (err) {
       console.error('Failed to load profiles list:', err);
-      return [];
+      return Promise.resolve([]);
     }
   }
 
@@ -44,14 +44,15 @@ export class ProfileManager {
         }));
       }
       
+      let needsSave = false;
+      
       // fixedRepository/fixedRepositories から fixedOrganizations への移行処理
       if (profile.fixedRepository && !profile.fixedOrganizations) {
         // 単一のfixedRepositoryからorgを抽出
         const org = profile.fixedRepository.split('/')[0];
         profile.fixedOrganizations = org ? [org] : [];
         delete profile.fixedRepository;
-        // 移行後のプロファイルを保存
-        await this.saveProfile(profile);
+        needsSave = true;
       } else if (profile.fixedRepositories && !profile.fixedOrganizations) {
         // fixedRepositoriesからorgリストを抽出
         const orgs = [...new Set(profile.fixedRepositories
@@ -59,10 +60,17 @@ export class ProfileManager {
           .filter((org: string) => org))];
         profile.fixedOrganizations = orgs;
         delete profile.fixedRepositories;
-        // 移行後のプロファイルを保存
-        await this.saveProfile(profile);
+        needsSave = true;
       } else if (!profile.fixedOrganizations) {
         profile.fixedOrganizations = [];
+      }
+      
+      // 移行が必要な場合のみ保存
+      if (needsSave) {
+        // 非同期で保存し、結果を待たない（パフォーマンス向上）
+        this.saveProfile(profile).catch(err => 
+          console.error('Failed to save migrated profile:', err)
+        );
       }
       
       return profile;
@@ -163,21 +171,32 @@ export class ProfileManager {
     }
 
     const profiles = await this.getProfiles();
-    for (const profile of profiles) {
+    
+    // 並列でプロファイルを取得・更新
+    const updatePromises = profiles.map(async (profile) => {
       const fullProfile = await this.getProfile(profile.id);
       if (fullProfile) {
         fullProfile.isDefault = profile.id === profileId;
-        await this.saveProfile(fullProfile);
+        return this.saveProfile(fullProfile);
       }
-    }
+      return Promise.resolve();
+    });
 
-    try {
-      localStorage.setItem(DEFAULT_PROFILE_KEY, profileId);
-    } catch (err) {
-      console.error('Failed to set default profile:', err);
-    }
+    // localStorage の設定と並列実行
+    const localStoragePromise = Promise.resolve().then(() => {
+      try {
+        localStorage.setItem(DEFAULT_PROFILE_KEY, profileId);
+      } catch (err) {
+        console.error('Failed to set default profile:', err);
+      }
+    });
 
-    this.updateProfilesList();
+    // すべての更新を並列で実行
+    await Promise.all([
+      ...updatePromises,
+      localStoragePromise,
+      this.updateProfilesList()
+    ]);
   }
 
   static async getDefaultProfile(): Promise<Profile | null> {
@@ -261,14 +280,16 @@ export class ProfileManager {
     window.history.replaceState({}, '', url.toString());
   }
 
-  static async markProfileUsed(profileId: string): Promise<void> {
-    const profiles = await this.getProfiles();
-    const profileIndex = profiles.findIndex(p => p.id === profileId);
+  static markProfileUsed(profileId: string): Promise<void> {
+    return this.getProfiles().then(profiles => {
+      const profileIndex = profiles.findIndex(p => p.id === profileId);
     
-    if (profileIndex !== -1) {
-      profiles[profileIndex].lastUsed = new Date().toISOString();
-      await this.saveProfilesList(profiles);
-    }
+      if (profileIndex !== -1) {
+        profiles[profileIndex].lastUsed = new Date().toISOString();
+        return this.saveProfilesList(profiles);
+      }
+      return Promise.resolve();
+    });
   }
 
   static async migrateExistingSettings(): Promise<void> {
@@ -360,9 +381,9 @@ export class ProfileManager {
     }
   }
 
-  private static async updateProfilesList(): Promise<void> {
+  private static updateProfilesList(): Promise<void> {
     if (typeof window === 'undefined') {
-      return;
+      return Promise.resolve();
     }
 
     try {
@@ -397,21 +418,24 @@ export class ProfileManager {
         return bLastUsed - aLastUsed;
       });
 
-      await this.saveProfilesList(profiles);
+      return this.saveProfilesList(profiles);
     } catch (err) {
       console.error('Failed to update profiles list:', err);
+      return Promise.resolve();
     }
   }
 
-  private static async saveProfilesList(profiles: ProfileListItem[]): Promise<void> {
+  private static saveProfilesList(profiles: ProfileListItem[]): Promise<void> {
     if (typeof window === 'undefined') {
-      return;
+      return Promise.resolve();
     }
 
     try {
       localStorage.setItem(PROFILES_LIST_KEY, JSON.stringify(profiles));
+      return Promise.resolve();
     } catch (err) {
       console.error('Failed to save profiles list:', err);
+      return Promise.resolve();
     }
   }
 
