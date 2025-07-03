@@ -111,7 +111,7 @@ export class SafeProfileManager {
     }
 
     try {
-      const result = SafeStorage.get<any>(PROFILES_LIST_KEY);
+      const result = SafeStorage.get(PROFILES_LIST_KEY);
       
       if (!result.success) {
         return { success: false, error: result.error };
@@ -188,7 +188,7 @@ export class SafeProfileManager {
 
     try {
       const profileKey = this.createProfileKey(profileId);
-      const result = SafeStorage.get<any>(profileKey);
+      const result = SafeStorage.get(profileKey);
       
       if (!result.success) {
         return { success: false, error: result.error };
@@ -572,7 +572,7 @@ export class SafeProfileManager {
         if (result && 'success' in result && !result.success) {
           errorLogger.warn('Failed to complete setDefaultProfile operation', {
             ...context,
-            error: (result as any).error
+            error: (result as { error: ProfileError | StorageError }).error
           });
           return { success: false, error: (result as { error: ProfileError | StorageError }).error };
         }
@@ -728,7 +728,7 @@ export class SafeProfileManager {
       // 各プロファイルを処理
       for (const key of keysResult.data) {
         try {
-          const profileResult = SafeStorage.get<any>(key);
+          const profileResult = SafeStorage.get(key);
           if (!profileResult.success) {
             errorLogger.warn('Failed to load profile during list update', { key, error: profileResult.error });
             corruptedProfiles++;

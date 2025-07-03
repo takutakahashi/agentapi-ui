@@ -61,14 +61,14 @@ export const isSystemPrompt = (value: unknown): value is SystemPrompt => {
  * 環境変数の型ガード
  */
 export const isEnvironmentVariable = (value: unknown): value is EnvironmentVariable => {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    'key' in value &&
-    'value' in value &&
-    typeof (value as any).key === 'string' &&
-    typeof (value as any).value === 'string' &&
-    isNonEmptyString((value as any).key)
+    'key' in obj &&
+    'value' in obj &&
+    typeof obj.key === 'string' &&
+    typeof obj.value === 'string' &&
+    isNonEmptyString(obj.key)
   );
 };
 
@@ -87,9 +87,9 @@ export const isAgentApiProxySettings = (value: unknown): value is AgentApiProxyS
     typeof value === 'object' &&
     value !== null &&
     'endpoint' in value &&
-    typeof (value as any).endpoint === 'string' &&
-    isNonEmptyString((value as any).endpoint) &&
-    isValidUrl((value as any).endpoint)
+    typeof (value as Record<string, unknown>).endpoint === 'string' &&
+    isNonEmptyString((value as Record<string, unknown>).endpoint) &&
+    isValidUrl((value as Record<string, unknown>).endpoint)
   );
 };
 
@@ -102,9 +102,9 @@ export const isRepositoryHistoryItem = (value: unknown): value is RepositoryHist
     value !== null &&
     'repository' in value &&
     'lastUsed' in value &&
-    typeof (value as any).repository === 'string' &&
-    isNonEmptyString((value as any).repository) &&
-    ((value as any).lastUsed instanceof Date || isISODateString((value as any).lastUsed))
+    typeof (value as Record<string, unknown>).repository === 'string' &&
+    isNonEmptyString((value as Record<string, unknown>).repository) &&
+    ((value as Record<string, unknown>).lastUsed instanceof Date || isISODateString((value as Record<string, unknown>).lastUsed))
   );
 };
 
@@ -125,12 +125,12 @@ export const isMessageTemplate = (value: unknown): value is MessageTemplate => {
     'id' in value &&
     'name' in value &&
     'content' in value &&
-    typeof (value as any).id === 'string' &&
-    typeof (value as any).name === 'string' &&
-    typeof (value as any).content === 'string' &&
-    isNonEmptyString((value as any).id) &&
-    isNonEmptyString((value as any).name) &&
-    isNonEmptyString((value as any).content)
+    typeof (value as Record<string, unknown>).id === 'string' &&
+    typeof (value as Record<string, unknown>).name === 'string' &&
+    typeof (value as Record<string, unknown>).content === 'string' &&
+    isNonEmptyString((value as Record<string, unknown>).id) &&
+    isNonEmptyString((value as Record<string, unknown>).name) &&
+    isNonEmptyString((value as Record<string, unknown>).content)
   );
 };
 
@@ -153,14 +153,14 @@ export const isMCPServerConfig = (value: unknown): value is MCPServerConfig => {
     'endpoint' in value &&
     'enabled' in value &&
     'transport' in value &&
-    typeof (value as any).id === 'string' &&
-    typeof (value as any).name === 'string' &&
-    typeof (value as any).endpoint === 'string' &&
-    typeof (value as any).enabled === 'boolean' &&
-    ['stdio', 'sse', 'websocket'].includes((value as any).transport) &&
-    isNonEmptyString((value as any).id) &&
-    isNonEmptyString((value as any).name) &&
-    isNonEmptyString((value as any).endpoint)
+    typeof (value as Record<string, unknown>).id === 'string' &&
+    typeof (value as Record<string, unknown>).name === 'string' &&
+    typeof (value as Record<string, unknown>).endpoint === 'string' &&
+    typeof (value as Record<string, unknown>).enabled === 'boolean' &&
+    ['stdio', 'sse', 'websocket'].includes((value as Record<string, unknown>).transport as string) &&
+    isNonEmptyString((value as Record<string, unknown>).id) &&
+    isNonEmptyString((value as Record<string, unknown>).name) &&
+    isNonEmptyString((value as Record<string, unknown>).endpoint)
   );
 };
 
@@ -175,14 +175,14 @@ export const isMCPServerConfigArray = (value: unknown): value is MCPServerConfig
  * GitHubAuthSettingsの型ガード
  */
 export const isGitHubAuthSettings = (value: unknown): value is GitHubAuthSettings => {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    'enabled' in value &&
-    'scopes' in value &&
-    typeof (value as any).enabled === 'boolean' &&
-    Array.isArray((value as any).scopes) &&
-    (value as any).scopes.every((scope: unknown) => typeof scope === 'string')
+    'enabled' in obj &&
+    'scopes' in obj &&
+    typeof obj.enabled === 'boolean' &&
+    Array.isArray(obj.scopes) &&
+    (obj.scopes as unknown[]).every((scope: unknown) => typeof scope === 'string')
   );
 };
 
@@ -194,7 +194,7 @@ export const isProfile = (value: unknown): value is Profile => {
     return false;
   }
 
-  const obj = value as any;
+  const obj = value as Record<string, unknown>;
 
   return (
     isProfileId(obj.id) &&
@@ -225,7 +225,7 @@ export const isProfileListItem = (value: unknown): value is ProfileListItem => {
     return false;
   }
 
-  const obj = value as any;
+  const obj = value as Record<string, unknown>;
 
   return (
     isProfileId(obj.id) &&
@@ -248,7 +248,7 @@ export const isCreateProfileRequest = (value: unknown): value is CreateProfileRe
     return false;
   }
 
-  const obj = value as any;
+  const obj = value as Record<string, unknown>;
 
   return (
     isProfileName(obj.name) &&
@@ -272,7 +272,7 @@ export const isUpdateProfileRequest = (value: unknown): value is UpdateProfileRe
     return false;
   }
 
-  const obj = value as any;
+  const obj = value as Record<string, unknown>;
 
   return (
     (obj.name === undefined || isProfileName(obj.name)) &&
@@ -655,7 +655,7 @@ export const validateCreateProfileRequest = (request: unknown): ValidationResult
       mainColor: colorResult.valid ? colorResult.value : obj.mainColor as string | undefined,
       systemPrompt: systemPromptResult.valid ? systemPromptResult.value : obj.systemPrompt as string | undefined,
       fixedOrganizations: orgResult.valid ? orgResult.value : [],
-      agentApiProxy: obj.agentApiProxy as any,
+      agentApiProxy: obj.agentApiProxy as AgentApiProxySettings,
       environmentVariables: envResult.valid ? envResult.value : [],
       isDefault: (obj.isDefault as boolean) || false
     }
