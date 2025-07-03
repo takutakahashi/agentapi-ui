@@ -121,7 +121,8 @@ export class IndexedDBWrapper {
       
       request.onsuccess = () => {
         const profiles = request.result.map((profile: Record<string, unknown>) => {
-          const { encryptedData: _, ...metadata } = profile;
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { encryptedData, ...metadata } = profile;
           return metadata;
         });
         resolve(profiles);
