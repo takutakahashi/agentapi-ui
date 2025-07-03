@@ -7,7 +7,6 @@ import {
   saveSingleProfileModeSettings,
   getDefaultSingleProfileModeSettings
 } from '../../types/settings'
-import { setApiKeyCookie, deleteApiKeyCookie } from '../../lib/cookie-auth'
 
 interface SingleProfileModeSettingsProps {
   onSettingsChange?: (settings: SingleProfileModeSettingsType) => void
@@ -38,10 +37,27 @@ export default function SingleProfileModeSettings({ onSettingsChange }: SinglePr
         enabled
       }
 
+      // Handle cookie operations via API route
       if (enabled && settings.globalApiKey) {
-        await setApiKeyCookie(settings.globalApiKey)
+        const response = await fetch('/api/settings/single-profile-mode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set', apiKey: settings.globalApiKey })
+        })
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Failed to set API key cookie')
+        }
       } else if (!enabled) {
-        await deleteApiKeyCookie()
+        const response = await fetch('/api/settings/single-profile-mode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete' })
+        })
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Failed to delete API key cookie')
+        }
       }
 
       saveSingleProfileModeSettings(updatedSettings)
@@ -76,7 +92,15 @@ export default function SingleProfileModeSettings({ onSettingsChange }: SinglePr
       }
 
       if (settings.enabled) {
-        await setApiKeyCookie(settings.globalApiKey)
+        const response = await fetch('/api/settings/single-profile-mode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set', apiKey: settings.globalApiKey })
+        })
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Failed to set API key cookie')
+        }
       }
 
       saveSingleProfileModeSettings(settings)
