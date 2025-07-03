@@ -163,27 +163,41 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
       
       if (currentProfile) {
         // Profile の環境変数をフォームに反映（フィルターからの値が優先）
-        if (envVars.length === 1 && !envVars[0].key && !envVars[0].value) {
-          const profileEnvVars = currentProfile.environmentVariables || []
-          
-          // GITHUB_TOKEN として API キーを使用する設定が有効な場合、環境変数に追加
-          const envVarsToSet = [...profileEnvVars]
-          if (currentProfile.agentApiProxy?.useAsGithubToken && currentProfile.agentApiProxy?.apiKey) {
-            // 既存の GITHUB_TOKEN がない場合のみ追加
-            if (!envVarsToSet.some(env => env.key === 'GITHUB_TOKEN')) {
-              envVarsToSet.push({
-                key: 'GITHUB_TOKEN',
-                value: currentProfile.agentApiProxy.apiKey,
-                description: 'AgentAPI キーを GITHUB_TOKEN として使用'
-              })
-            }
+        const profileEnvVars = currentProfile.environmentVariables || []
+        
+        // GITHUB_TOKEN として API キーを使用する設定が有効な場合、環境変数に追加
+        const envVarsToSet = [...profileEnvVars]
+        if (currentProfile.agentApiProxy?.useAsGithubToken && currentProfile.agentApiProxy?.apiKey) {
+          // 既存の GITHUB_TOKEN がない場合のみ追加
+          if (!envVarsToSet.some(env => env.key === 'GITHUB_TOKEN')) {
+            envVarsToSet.push({
+              key: 'GITHUB_TOKEN',
+              value: currentProfile.agentApiProxy.apiKey,
+              description: 'AgentAPI キーを GITHUB_TOKEN として使用'
+            })
           }
-          
+        }
+        
+        // フィルターからの環境変数がない場合のみプロファイルの環境変数を適用
+        if (envVars.length === 1 && !envVars[0].key && !envVars[0].value) {
           if (envVarsToSet.length > 0) {
             setEnvVars(envVarsToSet.map(envVar => ({ 
               key: envVar.key || '', 
               value: envVar.value || '' 
             })))
+          }
+        } else {
+          // フィルターからの環境変数がある場合、GITHUB_TOKEN のみ追加チェック
+          if (currentProfile.agentApiProxy?.useAsGithubToken && currentProfile.agentApiProxy?.apiKey) {
+            const currentEnvVars = [...envVars]
+            // 既存の GITHUB_TOKEN がない場合のみ追加
+            if (!currentEnvVars.some(env => env.key === 'GITHUB_TOKEN')) {
+              currentEnvVars.push({
+                key: 'GITHUB_TOKEN',
+                value: currentProfile.agentApiProxy.apiKey
+              })
+              setEnvVars(currentEnvVars)
+            }
           }
         }
       }
