@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { ProfileManager } from '../../utils/profileManager'
 import { ProfileListItem } from '../../types/profile'
 import { useTheme } from '../../hooks/useTheme'
+import { isSingleProfileModeEnabled } from '../../types/settings'
 import EditProfileModal from './EditProfileModal'
 
 interface TopBarProps {
@@ -39,6 +40,7 @@ export default function TopBar({
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [selectedProfileId, setSelectedProfileId] = useState<string>('')
+  const [singleProfileMode, setSingleProfileMode] = useState(false)
 
   const loadProfiles = useCallback(() => {
     ProfileManager.migrateExistingSettings()
@@ -64,6 +66,9 @@ export default function TopBar({
   }, [updateThemeFromProfile])
 
   useEffect(() => {
+    // Check Single Profile Mode status
+    setSingleProfileMode(isSingleProfileModeEnabled())
+    
     if (showProfileSwitcher) {
       loadProfiles()
       
@@ -72,9 +77,17 @@ export default function TopBar({
         loadProfiles()
       }
       
+      // Listen for Single Profile Mode changes
+      const handleSingleProfileModeChange = () => {
+        setSingleProfileMode(isSingleProfileModeEnabled())
+      }
+      
       window.addEventListener('popstate', handlePopState)
+      window.addEventListener('storage', handleSingleProfileModeChange)
+      
       return () => {
         window.removeEventListener('popstate', handlePopState)
+        window.removeEventListener('storage', handleSingleProfileModeChange)
       }
     }
   }, [showProfileSwitcher, loadProfiles])
@@ -126,7 +139,7 @@ export default function TopBar({
           {/* 右側のボタン群 */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* プロファイル切り替え */}
-            {showProfileSwitcher && (
+            {showProfileSwitcher && !singleProfileMode && (
               <div className="relative">
                 <button
                   onClick={() => setShowProfileDropdown(!showProfileDropdown)}

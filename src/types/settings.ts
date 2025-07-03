@@ -24,6 +24,7 @@ export interface RepositorySettings {
 export interface GlobalSettings {
   environmentVariables: EnvironmentVariable[]
   mcpServers: MCPServerConfig[]
+  singleProfileMode: boolean
   created_at: string
   updated_at: string
 }
@@ -33,11 +34,69 @@ export interface SettingsFormData {
   mcpServers: MCPServerConfig[]
 }
 
+// Single Profile Mode settings
+export interface SingleProfileModeSettings {
+  globalApiKey: string
+  created_at: string
+  updated_at: string
+}
+
 // Default settings
 export const getDefaultSettings = (): SettingsFormData => ({
   environmentVariables: [],
   mcpServers: []
 })
+
+// Default Single Profile Mode settings
+export const getDefaultSingleProfileModeSettings = (): SingleProfileModeSettings => ({
+  globalApiKey: '',
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString()
+})
+
+// Single Profile Mode utilities
+export const loadSingleProfileModeSettings = (): SingleProfileModeSettings => {
+  if (typeof window === 'undefined') {
+    return getDefaultSingleProfileModeSettings()
+  }
+  
+  try {
+    const savedSettings = localStorage.getItem('agentapi-single-profile-mode')
+    if (savedSettings) {
+      const parsedSettings = JSON.parse(savedSettings)
+      return {
+        ...getDefaultSingleProfileModeSettings(),
+        ...parsedSettings
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load single profile mode settings:', err)
+  }
+  return getDefaultSingleProfileModeSettings()
+}
+
+export const saveSingleProfileModeSettings = (settings: SingleProfileModeSettings): void => {
+  if (typeof window === 'undefined') {
+    console.warn('Cannot save single profile mode settings: localStorage not available (server-side)')
+    return
+  }
+  
+  try {
+    const updatedSettings = {
+      ...settings,
+      updated_at: new Date().toISOString()
+    }
+    localStorage.setItem('agentapi-single-profile-mode', JSON.stringify(updatedSettings))
+  } catch (err) {
+    console.error('Failed to save single profile mode settings:', err)
+    throw err
+  }
+}
+
+// Check if Single Profile Mode is enabled via environment variable
+export const isSingleProfileModeEnabled = (): boolean => {
+  return process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true'
+}
 
 // Default proxy settings for profiles
 export const getDefaultProxySettings = (): AgentApiProxySettings => ({
