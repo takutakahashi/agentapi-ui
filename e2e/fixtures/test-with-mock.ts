@@ -12,34 +12,7 @@ export const test = base.extend({
       const pathname = url.pathname;
 
       // Handle different API endpoints
-      if (pathname === '/api/auth/login' && method === 'POST') {
-        const postData = request.postDataJSON();
-        if (postData?.apiKey === 'valid-test-key') {
-          await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({ success: true }),
-            headers: {
-              'Set-Cookie': 'auth-token=mock-token; HttpOnly; Secure; SameSite=Strict; Path=/'
-            }
-          });
-        } else {
-          await route.fulfill({
-            status: 401,
-            contentType: 'application/json',
-            body: JSON.stringify({ error: 'Invalid API key' })
-          });
-        }
-      } else if (pathname === '/api/auth/status' && method === 'GET') {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            singleProfileMode: true,
-            isAuthenticated: false
-          })
-        });
-      } else if (pathname === '/api/proxy/messages' && method === 'POST') {
+      if (pathname === '/api/proxy/messages' && method === 'POST') {
         // Mock streaming response
         const encoder = new TextEncoder();
         const stream = new ReadableStream({

@@ -254,7 +254,7 @@ export default function TopBar({
                 onClick={async () => {
                   try {
                     await fetch('/api/auth/logout', { method: 'POST' })
-                    router.push('/login')
+                    window.location.href = '/?login=required'
                   } catch (error) {
                     console.error('Logout failed:', error)
                   }

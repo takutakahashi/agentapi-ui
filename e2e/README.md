@@ -38,11 +38,13 @@ The tests use MSW (Mock Service Worker) to intercept and mock API requests. This
 ## Single Profile Mode Testing
 
 The tests verify:
-- Login/logout flow with API key authentication
+- Login modal appears when authentication is required
+- API key authentication via `/api/auth/login` endpoint
+- Cookie-based session management
 - Profile switcher is hidden in single profile mode
-- Message sending and receiving
-- Session persistence across page reloads
-- Error handling for invalid API keys and server errors
+- Logout functionality that clears the session
+- Message sending and receiving when authenticated
+- Error handling for invalid API keys
 
 ## Environment Variables
 

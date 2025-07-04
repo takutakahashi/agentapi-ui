@@ -3,14 +3,13 @@ import type { NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
   // Check if single profile mode is enabled
-  const singleProfileMode = process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true'
+  const singleProfileMode = process.env.SINGLE_PROFILE_MODE === 'true'
   
   if (singleProfileMode) {
     const pathname = request.nextUrl.pathname
     
-    // Allow access to login, API routes, and static assets
+    // Allow access to API routes and static assets
     if (
-      pathname.startsWith('/login') ||
       pathname.startsWith('/api/') ||
       pathname.startsWith('/_next/') ||
       pathname.startsWith('/static/')
@@ -18,13 +17,15 @@ export async function middleware(request: NextRequest) {
       return NextResponse.next()
     }
     
-    // Check authentication status
-    const authToken = request.cookies.get('auth-token')
+    // Check if user has auth token
+    const authToken = request.cookies.get('agentapi-auth')
     
     if (!authToken) {
-      // Redirect to login if not authenticated
-      const loginUrl = new URL('/login', request.url)
-      return NextResponse.redirect(loginUrl)
+      // If no auth token, redirect to home page with a query param
+      // The frontend will handle showing login UI
+      const url = new URL(request.url)
+      url.searchParams.set('login', 'required')
+      return NextResponse.redirect(url)
     }
   }
   
