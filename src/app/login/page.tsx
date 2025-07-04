@@ -47,6 +47,9 @@ export default function LoginPage() {
           <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
             Single Profile Mode is enabled. Enter your API key to continue.
           </p>
+          <p className="mt-1 text-center text-xs text-gray-500 dark:text-gray-500">
+            API key can be any valid authentication token for your AgentAPI service.
+          </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleLogin}>
           <div className="rounded-md shadow-sm -space-y-px">
