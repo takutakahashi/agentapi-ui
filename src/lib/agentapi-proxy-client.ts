@@ -13,9 +13,10 @@ import {
   AgentListResponse,
   AgentListParams
 } from '../types/agentapi';
-import { loadGlobalSettings, getDefaultProxySettings } from '../types/settings';
+import { loadGlobalSettings, getDefaultProxySettings, isSingleProfileModeEnabled } from '../types/settings';
 import { ProfileManager } from '../utils/profileManager';
 import { GitHubUser, MCPServerConfig } from '../types/profile';
+import type { EncryptedData } from './encryption';
 
 // Define local AgentStatus type
 interface AgentStatus {
@@ -57,6 +58,8 @@ export class AgentAPIProxyClient {
   private sessionTimeout: number;
   private debug: boolean;
   private profileId?: string;
+  private encryptedConfig?: EncryptedData;
+  
   constructor(config: AgentAPIProxyClientConfig) {
     this.baseURL = config.baseURL.replace(/\/$/, ''); // Remove trailing slash
     this.apiKey = config.apiKey;
@@ -66,11 +69,24 @@ export class AgentAPIProxyClient {
     this.debug = config.debug || false;
     this.profileId = config.profileId;
 
+    // Load encrypted config if in single profile mode
+    if (isSingleProfileModeEnabled() && typeof window !== 'undefined') {
+      const storedEncrypted = localStorage.getItem('agentapi-encrypted-config');
+      if (storedEncrypted) {
+        try {
+          this.encryptedConfig = JSON.parse(storedEncrypted);
+        } catch (err) {
+          console.error('Failed to load encrypted config:', err);
+        }
+      }
+    }
+
     if (this.debug) {
       console.log('[AgentAPIProxy] Initialized with config:', {
         baseURL: this.baseURL,
         maxSessions: this.maxSessions,
-        sessionTimeout: this.sessionTimeout
+        sessionTimeout: this.sessionTimeout,
+        hasEncryptedConfig: !!this.encryptedConfig
       });
     }
   }
@@ -80,6 +96,14 @@ export class AgentAPIProxyClient {
     options: RequestInit = {},
     attempt = 1
   ): Promise<T> {
+    // Check if we're in single profile mode and should use the proxy API
+    const isSingleProfile = isSingleProfileModeEnabled();
+    
+    if (isSingleProfile && typeof window !== 'undefined') {
+      // Use the Next.js proxy API for single profile mode
+      return this.makeProxyRequest<T>(endpoint, options);
+    }
+    
     const url = `${this.baseURL}${endpoint}`;
     
     const defaultHeaders: HeadersInit = {
@@ -247,6 +271,79 @@ export class AgentAPIProxyClient {
         0,
         'NETWORK_ERROR',
         error instanceof Error ? error.message : 'Unknown network error'
+      );
+    }
+  }
+
+  private async makeProxyRequest<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    // Prepare the request body with encrypted config if available
+    let body = options.body;
+    
+    if (this.encryptedConfig && options.method !== 'GET' && options.method !== 'HEAD') {
+      try {
+        const existingBody = body ? JSON.parse(body as string) : {};
+        body = JSON.stringify({
+          ...existingBody,
+          encryptedConfig: this.encryptedConfig
+        });
+      } catch (err) {
+        console.error('Failed to add encrypted config to request:', err);
+      }
+    }
+    
+    const proxyUrl = `/api/proxy${endpoint}`;
+    
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Proxy ${options.method || 'GET'} ${proxyUrl}`, {
+        hasEncryptedConfig: !!this.encryptedConfig,
+        body
+      });
+    }
+    
+    try {
+      const response = await fetch(proxyUrl, {
+        ...options,
+        body,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...options.headers
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({
+          error: 'Proxy request failed',
+          status: response.status
+        }));
+        
+        throw new AgentAPIProxyError(
+          response.status,
+          errorData.error?.code || 'PROXY_ERROR',
+          errorData.error?.message || errorData.error || `HTTP ${response.status}`,
+          errorData.error?.details
+        );
+      }
+      
+      const data = await response.json();
+      
+      if (this.debug) {
+        console.log(`[AgentAPIProxy] Proxy Response:`, { data });
+      }
+      
+      return data;
+    } catch (error) {
+      if (error instanceof AgentAPIProxyError) {
+        throw error;
+      }
+      
+      throw new AgentAPIProxyError(
+        0,
+        'NETWORK_ERROR',
+        error instanceof Error ? error.message : 'Unknown proxy error'
       );
     }
   }
