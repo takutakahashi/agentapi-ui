@@ -18,7 +18,7 @@ export async function middleware(request: NextRequest) {
     }
     
     // Check if user has auth token
-    const authToken = request.cookies.get('agentapi-auth')
+    const authToken = request.cookies.get('agentapi_token')
     
     if (!authToken) {
       // If no auth token, redirect to home page with a query param

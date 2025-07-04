@@ -28,7 +28,7 @@ test.describe('Single Profile Mode', () => {
           status: 200,
           headers: {
             'content-type': 'application/json',
-            'set-cookie': 'agentapi-auth=mock-token; Path=/; HttpOnly; Secure; SameSite=Strict'
+            'set-cookie': 'agentapi_token=mock-token; Path=/; HttpOnly; Secure; SameSite=Strict'
           },
           body: JSON.stringify({ message: 'Successfully logged in' })
         });
@@ -75,7 +75,7 @@ test.describe('Single Profile Mode', () => {
   test('should not show profile switcher in single profile mode', async ({ page }) => {
     // Set auth cookie to skip login
     await page.context().addCookies([{
-      name: 'agentapi-auth',
+      name: 'agentapi_token',
       value: 'mock-token',
       domain: 'localhost',
       path: '/',
@@ -99,7 +99,7 @@ test.describe('Single Profile Mode', () => {
   test('should logout and show login modal', async ({ page }) => {
     // Set auth cookie to skip login
     await page.context().addCookies([{
-      name: 'agentapi-auth',
+      name: 'agentapi_token',
       value: 'mock-token',
       domain: 'localhost',
       path: '/',
@@ -113,7 +113,7 @@ test.describe('Single Profile Mode', () => {
       await route.fulfill({
         status: 200,
         headers: {
-          'set-cookie': 'agentapi-auth=; Path=/; Max-Age=0'
+          'set-cookie': 'agentapi_token=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict'
         },
         body: JSON.stringify({ success: true })
       });
@@ -134,7 +134,7 @@ test.describe('Single Profile Mode', () => {
   test('should send and receive messages when authenticated', async ({ page }) => {
     // Set auth cookie to skip login
     await page.context().addCookies([{
-      name: 'agentapi-auth',
+      name: 'agentapi_token',
       value: 'mock-token',
       domain: 'localhost',
       path: '/',
