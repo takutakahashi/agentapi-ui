@@ -14,27 +14,41 @@
 
 1. 依存関係のインストール:
 ```bash
-npm install
+bun install
 ```
 
 2. 環境変数の設定:
 ```bash
-cp .env.example .env.local
+cp .env.local.example .env.local
 ```
 
 3. `.env.local`を編集:
 ```bash
-# AgentAPI Configuration (Direct connection)
-NEXT_PUBLIC_AGENTAPI_URL=http://localhost:8080/api/v1
+# Single Profile Mode Configuration
+SINGLE_PROFILE_MODE=true
+NEXT_PUBLIC_SINGLE_PROFILE_MODE=true
 
-# AgentAPI Proxy Configuration (Session management)
-NEXT_PUBLIC_AGENTAPI_PROXY_URL=http://localhost:8080
+# Cookie encryption secret (generate with: openssl rand -hex 32)
+COOKIE_ENCRYPTION_SECRET=your_64_character_hex_string_here
+
+# AgentAPI Proxy Configuration
+AGENTAPI_PROXY_URL=http://localhost:8080
 ```
 
 4. 開発サーバーの起動:
 ```bash
-npm run dev
+bun run dev
 ```
+
+### シングルプロファイルモード
+
+環境変数で `SINGLE_PROFILE_MODE=true` を設定すると：
+- ユーザーは `/login` でAPIキーを使って認証する必要があります
+- APIキーは暗号化されてセキュアなCookieに保存されます
+- プロファイル切り替えUIは非表示になります
+- ログアウト機能がトップバーに表示されます
+
+**重要**: シングルプロファイルモードを使用する場合は、必ず `COOKIE_ENCRYPTION_SECRET` に安全な暗号化キーを設定してください。
 
 ## 設定方法
 

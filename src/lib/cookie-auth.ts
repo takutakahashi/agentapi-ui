@@ -82,5 +82,12 @@ export async function getApiKeyFromCookie(): Promise<string | null> {
 
 export async function deleteApiKeyCookie(): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.delete(COOKIE_NAME);
+  // Set the cookie with maxAge=0 to ensure it's deleted
+  cookieStore.set(COOKIE_NAME, '', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict',
+    maxAge: 0,
+    path: '/',
+  });
 }

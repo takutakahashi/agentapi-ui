@@ -22,6 +22,15 @@ export default defineConfig({
     // Set reasonable timeouts
     testTimeout: 10000,
     hookTimeout: 10000,
+    // Exclude E2E tests from unit tests
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/cypress/**',
+      '**/e2e/**',
+      '**/.{idea,git,cache,output,temp}/**',
+      '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*'
+    ],
   },
   resolve: {
     alias: {

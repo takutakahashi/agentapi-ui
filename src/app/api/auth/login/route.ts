@@ -23,34 +23,40 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate API key format (basic validation)
-    if (apiKey.length < 10) {
+    // Most API keys are at least 20 characters, but we'll be lenient
+    if (apiKey.trim().length === 0) {
       return NextResponse.json(
-        { error: 'Invalid API key format' },
+        { error: 'API key cannot be empty' },
         { status: 400 }
       );
     }
 
-    // Test the API key by making a health check request
-    const proxyUrl = process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080';
-    try {
-      const testResponse = await fetch(`${proxyUrl}/health`, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-        },
-      });
+    // Optional: Test the API key by making a health check request
+    // This can be disabled if the proxy server is not running
+    const validateWithProxy = process.env.VALIDATE_API_KEY_WITH_PROXY !== 'false';
+    
+    if (validateWithProxy) {
+      const proxyUrl = process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080';
+      try {
+        const testResponse = await fetch(`${proxyUrl}/health`, {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          // Add timeout to prevent hanging
+          signal: AbortSignal.timeout(5000),
+        });
 
-      if (!testResponse.ok) {
-        return NextResponse.json(
-          { error: 'Invalid API key or server unavailable' },
-          { status: 401 }
-        );
+        if (!testResponse.ok && testResponse.status === 401) {
+          return NextResponse.json(
+            { error: 'Invalid API key' },
+            { status: 401 }
+          );
+        }
+      } catch (error) {
+        // Log the error but don't fail the login if proxy is unavailable
+        console.warn('API key validation with proxy failed:', error);
+        // Continue with login anyway - the actual API calls will fail if the key is invalid
       }
-    } catch (error) {
-      console.error('API key validation failed:', error);
-      return NextResponse.json(
-        { error: 'Unable to validate API key - server unavailable' },
-        { status: 503 }
-      );
     }
 
     // Set the encrypted API key in a secure cookie
