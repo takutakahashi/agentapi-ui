@@ -8,11 +8,12 @@ test.describe('Single Profile Mode', () => {
     });
   });
 
-  test('should show login modal when not authenticated', async ({ page }) => {
-    await page.goto('/?login=required');
+  test('should redirect to login page when not authenticated', async ({ page }) => {
+    await page.goto('/');
     
-    // Should show login modal
-    await expect(page.getByRole('heading', { name: /Enter API Key/i })).toBeVisible();
+    // Should redirect to login page
+    await page.waitForURL('**/login');
+    await expect(page.getByRole('heading', { name: /AgentAPI UI/i })).toBeVisible();
     await expect(page.getByPlaceholder(/Enter your API key/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /login/i })).toBeVisible();
   });
@@ -41,14 +42,14 @@ test.describe('Single Profile Mode', () => {
       }
     });
 
-    await page.goto('/?login=required');
+    await page.goto('/login');
     
     // Enter API key and login
     await page.getByPlaceholder(/Enter your API key/i).fill('valid-test-key');
     await page.getByRole('button', { name: /login/i }).click();
     
-    // Should close modal and navigate to main interface
-    await expect(page.getByRole('heading', { name: /Enter API Key/i })).not.toBeVisible();
+    // Should navigate to main interface
+    await page.waitForURL('**/');
     await expect(page.getByRole('heading', { name: /Conversations/i })).toBeVisible();
   });
 
@@ -62,7 +63,7 @@ test.describe('Single Profile Mode', () => {
       });
     });
 
-    await page.goto('/?login=required');
+    await page.goto('/login');
     
     // Enter invalid API key
     await page.getByPlaceholder(/Enter your API key/i).fill('invalid-key');
@@ -124,11 +125,11 @@ test.describe('Single Profile Mode', () => {
     // Click logout button
     await page.locator('[aria-label="Logout"]').click();
     
-    // Should redirect with login required param
-    await page.waitForURL('**/\\?login=required');
+    // Should redirect to login page
+    await page.waitForURL('**/login');
     
-    // Should show login modal
-    await expect(page.getByRole('heading', { name: /Enter API Key/i })).toBeVisible();
+    // Should show login page
+    await expect(page.getByRole('heading', { name: /AgentAPI UI/i })).toBeVisible();
   });
 
   test('should send and receive messages when authenticated', async ({ page }) => {

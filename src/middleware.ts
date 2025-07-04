@@ -8,8 +8,9 @@ export async function middleware(request: NextRequest) {
   if (singleProfileMode) {
     const pathname = request.nextUrl.pathname
     
-    // Allow access to API routes and static assets
+    // Allow access to login page, API routes and static assets
     if (
+      pathname.startsWith('/login') ||
       pathname.startsWith('/api/') ||
       pathname.startsWith('/_next/') ||
       pathname.startsWith('/static/')
@@ -21,11 +22,9 @@ export async function middleware(request: NextRequest) {
     const authToken = request.cookies.get('agentapi_token')
     
     if (!authToken) {
-      // If no auth token, redirect to home page with a query param
-      // The frontend will handle showing login UI
-      const url = new URL(request.url)
-      url.searchParams.set('login', 'required')
-      return NextResponse.redirect(url)
+      // If no auth token, redirect to login page
+      const loginUrl = new URL('/login', request.url)
+      return NextResponse.redirect(loginUrl)
     }
   }
   

@@ -1,14 +1,11 @@
 'use client'
 
-import { useState, useCallback, useEffect, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, useCallback } from 'react'
 import TagFilterSidebar from '../components/TagFilterSidebar'
 import SessionListView from '../components/SessionListView'
 import NewSessionModal from '../components/NewSessionModal'
 import TopBar from '../components/TopBar'
 import FloatingNewSessionButton from '../components/FloatingNewSessionButton'
-import LoginModal from '../components/LoginModal'
-import { isSingleProfileModeEnabled } from '../../types/settings'
 
 interface TagFilter {
   [key: string]: string[]
@@ -22,21 +19,12 @@ interface CreatingSession {
   startTime: Date
 }
 
-function ChatsPageContent() {
-  const searchParams = useSearchParams()
+export default function ChatsPage() {
   const [showNewSessionModal, setShowNewSessionModal] = useState(false)
   const [tagFilters, setTagFilters] = useState<TagFilter>({})
   const [refreshKey, setRefreshKey] = useState(0)
   const [creatingSessions, setCreatingSessions] = useState<CreatingSession[]>([])
   const [sidebarVisible, setSidebarVisible] = useState(false)
-  const [showLoginModal, setShowLoginModal] = useState(false)
-
-  useEffect(() => {
-    // Check if login is required (from middleware redirect)
-    if (searchParams.get('login') === 'required' && isSingleProfileModeEnabled()) {
-      setShowLoginModal(true)
-    }
-  }, [searchParams])
 
   const handleNewSessionSuccess = () => {
     setRefreshKey(prev => prev + 1)
@@ -168,20 +156,6 @@ function ChatsPageContent() {
 
       {/* フローティング新セッションボタン */}
       <FloatingNewSessionButton onClick={() => setShowNewSessionModal(true)} />
-      
-      {/* ログインモーダル */}
-      <LoginModal
-        isOpen={showLoginModal}
-        onClose={() => setShowLoginModal(false)}
-      />
     </main>
-  )
-}
-
-export default function ChatsPage() {
-  return (
-    <Suspense fallback={<div className="min-h-dvh bg-gray-50 dark:bg-gray-900" />}>
-      <ChatsPageContent />
-    </Suspense>
   )
 }

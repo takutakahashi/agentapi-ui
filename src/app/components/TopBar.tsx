@@ -254,9 +254,11 @@ export default function TopBar({
                 onClick={async () => {
                   try {
                     await fetch('/api/auth/logout', { method: 'POST' })
-                    window.location.href = '/?login=required'
+                    router.push('/login')
                   } catch (error) {
                     console.error('Logout failed:', error)
+                    // Fallback to direct redirect if router fails
+                    window.location.href = '/login'
                   }
                 }}
                 className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
