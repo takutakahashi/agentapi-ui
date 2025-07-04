@@ -2,7 +2,7 @@
 
 ## 概要
 
-Single Profile Mode では、agentapi-proxy に送信する機密情報（API キー、環境変数、MCP サーバー設定など）を暗号化してローカルストレージに保存し、プロキシ処理時に復号化して送信する仕組みを実装します。
+Single Profile Mode では、agentapi-proxy に送信する機密情報（環境変数、MCP サーバー設定など）を暗号化してローカルストレージに保存し、プロキシ処理時に復号化して送信する仕組みを実装します。API キーは Cookie を通じて管理されるため、暗号化対象には含まれません。
 
 ## 背景
 
@@ -20,7 +20,8 @@ Single Profile Mode では、agentapi-proxy に送信する機密情報（API �
 2. **設定情報の暗号化保存**
    - Single Profile の設定保存時に暗号化 API を呼び出し
    - 暗号化されたデータをローカルストレージに保存
-   - 暗号化対象：API キー、環境変数、MCP サーバー設定
+   - 暗号化対象：環境変数、MCP サーバー設定（API キーは Cookie で管理）
+   - 暗号化時に API トークンのハッシュ値を保存
 
 3. **プロキシ処理時の復号化**
    - `/api/proxy` でのリクエスト処理時に復号化
@@ -32,6 +33,7 @@ Single Profile Mode では、agentapi-proxy に送信する機密情報（API �
    - 暗号化キーはサーバー環境変数で管理
    - 初期化ベクトル（IV）は各暗号化処理で生成
    - タイムアウト機能による古いデータの無効化
+   - API トークンのハッシュ値による検証（XSS 耐性向上）
 
 2. **パフォーマンス**
    - 暗号化・復号化処理の高速化
@@ -74,11 +76,12 @@ Single Profile Mode では、agentapi-proxy に送信する機密情報（API �
 ### 2. プロキシ処理時の復号化フロー
 
 ```
-1. Frontend → /api/proxy (暗号化されたデータを含むリクエスト)
-2. NextJS API が localStorage から暗号化データを取得
-3. /api/decrypt を内部呼び出しで復号化
-4. 復号化されたデータを使用して agentapi-proxy にリクエスト
-5. agentapi-proxy からのレスポンスを Frontend に返却
+1. Frontend → /api/proxy (暗号化されたデータをペイロードに含むリクエスト)
+2. NextJS API がリクエストペイロードから暗号化データを取得
+3. Cookie から API トークンを取得し、ハッシュ値を検証
+4. /api/decrypt を内部呼び出しで復号化
+5. 復号化されたデータを使用して agentapi-proxy にリクエスト
+6. agentapi-proxy からのレスポンスを Frontend に返却
 ```
 
 ## API 仕様
@@ -91,11 +94,11 @@ Single Profile Mode では、agentapi-proxy に送信する機密情報（API �
 ```json
 {
   "data": {
-    "apiKey": "sk-...",
     "baseUrl": "https://api.openai.com",
     "mcpServers": [...],
     "environmentVariables": {...}
-  }
+  },
+  "apiTokenHash": "sha256_hash_of_api_token"
 }
 ```
 
@@ -104,7 +107,8 @@ Single Profile Mode では、agentapi-proxy に送信する機密情報（API �
 {
   "encryptedData": "encrypted_base64_string",
   "iv": "initialization_vector_base64",
-  "timestamp": 1234567890
+  "timestamp": 1234567890,
+  "apiTokenHash": "sha256_hash_of_api_token"
 }
 ```
 
@@ -117,7 +121,8 @@ Single Profile Mode では、agentapi-proxy に送信する機密情報（API �
 {
   "encryptedData": "encrypted_base64_string",
   "iv": "initialization_vector_base64",
-  "timestamp": 1234567890
+  "timestamp": 1234567890,
+  "apiTokenHash": "sha256_hash_of_api_token"
 }
 ```
 
@@ -125,7 +130,6 @@ Single Profile Mode では、agentapi-proxy に送信する機密情報（API �
 ```json
 {
   "data": {
-    "apiKey": "sk-...",
     "baseUrl": "https://api.openai.com",
     "mcpServers": [...],
     "environmentVariables": {...}
@@ -133,14 +137,33 @@ Single Profile Mode では、agentapi-proxy に送信する機密情報（API �
 }
 ```
 
+**注意**: 
+- API トークンの検証に失敗した場合は 401 エラーを返す
+- ハッシュ値は Cookie から取得した API トークンと比較して検証
+
 ### /api/proxy の変更
 
 **現在の実装**: localStorage から直接設定を読み取り
 
 **変更後の実装**: 
 1. リクエストペイロードから暗号化データを取得
-2. 内部で `/api/decrypt` を呼び出し
-3. 復号化されたデータを使用してプロキシ処理
+2. Cookie から API トークンを取得
+3. API トークンのハッシュ値を検証
+4. 内部で `/api/decrypt` を呼び出し
+5. 復号化されたデータを使用してプロキシ処理
+
+**リクエスト例**:
+```json
+{
+  "encryptedConfig": {
+    "encryptedData": "encrypted_base64_string",
+    "iv": "initialization_vector_base64",
+    "timestamp": 1234567890,
+    "apiTokenHash": "sha256_hash_of_api_token"
+  },
+  // その他のプロキシリクエストデータ
+}
+```
 
 ## セキュリティ考慮事項
 
@@ -171,9 +194,15 @@ ENCRYPTION_TIMEOUT=86400
    - 古い暗号化データの無効化
    - 定期的なキーローテーション対応
 
-3. **エラーハンドリング**
+3. **API トークン検証**
+   - 復号化前に API トークンのハッシュ値を検証
+   - Cookie から取得した API トークンと比較
+   - 不一致の場合は復号化を拒否（XSS 攻撃への対策）
+
+4. **エラーハンドリング**
    - 暗号化・復号化エラーの適切な処理
    - 機密情報のログ出力禁止
+   - API トークン検証エラーの適切な処理
 
 ## 実装計画
 
@@ -246,5 +275,15 @@ ENCRYPTION_TIMEOUT=86400
 ---
 
 **作成日**: 2025-07-04  
-**バージョン**: 1.0  
+**バージョン**: 1.1  
+**更新日**: 2025-07-04  
 **作成者**: Claude Code
+
+### 変更履歴
+
+- v1.1 (2025-07-04)
+  - API キーを Cookie 経由で管理する仕様に変更
+  - API トークンのハッシュ値検証機能を追加（XSS 対策）
+  - プロキシ処理でペイロードから暗号化データを取得する仕様に変更
+- v1.0 (2025-07-04)
+  - 初版作成
