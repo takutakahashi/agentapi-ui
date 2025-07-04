@@ -1,6 +1,8 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { isSingleProfileModeEnabled } from '../../types/settings'
 import TagFilterSidebar from '../components/TagFilterSidebar'
 import SessionListView from '../components/SessionListView'
 import NewSessionModal from '../components/NewSessionModal'
@@ -20,11 +22,35 @@ interface CreatingSession {
 }
 
 export default function ChatsPage() {
+  const router = useRouter()
   const [showNewSessionModal, setShowNewSessionModal] = useState(false)
   const [tagFilters, setTagFilters] = useState<TagFilter>({})
   const [refreshKey, setRefreshKey] = useState(0)
   const [creatingSessions, setCreatingSessions] = useState<CreatingSession[]>([])
   const [sidebarVisible, setSidebarVisible] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (isSingleProfileModeEnabled()) {
+        try {
+          const response = await fetch('/api/auth/status')
+          const data = await response.json()
+          if (!data.isAuthenticated) {
+            router.push('/login')
+          } else {
+            setIsAuthenticated(true)
+          }
+        } catch (error) {
+          console.error('Failed to check auth status:', error)
+          router.push('/login')
+        }
+      } else {
+        setIsAuthenticated(true)
+      }
+    }
+    checkAuth()
+  }, [router])
 
   const handleNewSessionSuccess = () => {
     setRefreshKey(prev => prev + 1)
@@ -56,6 +82,12 @@ export default function ChatsPage() {
   const handleSessionCompleted = (id: string) => {
     setCreatingSessions(prev => prev.filter(session => session.id !== id))
     setRefreshKey(prev => prev + 1)
+  }
+
+  if (!isAuthenticated && isSingleProfileModeEnabled()) {
+    return <div className="min-h-dvh bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="text-gray-500">Loading...</div>
+    </div>
   }
 
   return (

@@ -254,6 +254,7 @@ export default function AgentAPIChat() {
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
+  const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -914,6 +915,8 @@ export default function AgentAPIChat() {
           </div>
           <div className="flex-1 relative">
             <textarea
+              ref={messageInputRef}
+              aria-label="Message"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
@@ -992,6 +995,7 @@ export default function AgentAPIChat() {
                 <button
                   onClick={() => sendMessage()}
                   disabled={!isConnected || isLoading || !inputValue.trim() || agentStatus?.status === 'running'}
+                  aria-label="Send"
                   className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-sm font-medium"
                 >
                   {isLoading ? 'Sending...' : 'Comment'}
