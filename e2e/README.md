@@ -2,6 +2,8 @@
 
 This directory contains end-to-end tests for the AgentAPI UI application, with a focus on testing Single Profile Mode functionality using mock backends.
 
+**Note: E2E tests are separate from unit tests and should be run independently.**
+
 ## Setup
 
 1. Install Playwright browsers:
@@ -11,15 +13,22 @@ bun run e2e:install
 
 2. Run the tests:
 ```bash
-# Run tests in headless mode
+# Run E2E tests in headless mode
 bun run e2e
 
-# Run tests with UI mode (interactive)
+# Run E2E tests with UI mode (interactive)
 bun run e2e:ui
 
-# Run tests in headed mode (see the browser)
+# Run E2E tests in headed mode (see the browser)
 bun run e2e:headed
 ```
+
+## Test Separation
+
+- **Unit Tests**: Run with `bun run test` (uses Vitest)
+- **E2E Tests**: Run with `bun run e2e` (uses Playwright)
+
+The configurations are completely separate to avoid conflicts.
 
 ## Test Structure
 
