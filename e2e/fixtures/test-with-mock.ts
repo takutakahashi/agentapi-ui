@@ -69,7 +69,7 @@ export const test = base.extend({
         await route.fulfill({
           status: 200,
           contentType: 'text/event-stream',
-          body: stream,
+          body: 'event: message_start\ndata: {"type":"message_start"}\n\nevent: content_block_delta\ndata: {"type":"content_block_delta","delta":{"type":"text_delta","text":"This is a mock response from the API"}}\n\nevent: message_stop\ndata: {"type":"message_stop"}\n\n',
         });
       } else {
         await route.continue();

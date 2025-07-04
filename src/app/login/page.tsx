@@ -30,7 +30,7 @@ export default function LoginPage() {
       } else {
         setError(data.error || 'Invalid API key')
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.')
     } finally {
       setLoading(false)

@@ -63,7 +63,7 @@ export const handlers = [
   }),
 
   http.post('/api/profiles', async ({ request }) => {
-    const newProfile = await request.json();
+    const newProfile = await request.json() as Record<string, unknown>;
     return HttpResponse.json({ ...newProfile, id: 'new-profile-id' });
   }),
 
