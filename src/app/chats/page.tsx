@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import TagFilterSidebar from '../components/TagFilterSidebar'
 import SessionListView from '../components/SessionListView'
@@ -22,7 +22,7 @@ interface CreatingSession {
   startTime: Date
 }
 
-export default function ChatsPage() {
+function ChatsPageContent() {
   const searchParams = useSearchParams()
   const [showNewSessionModal, setShowNewSessionModal] = useState(false)
   const [tagFilters, setTagFilters] = useState<TagFilter>({})
@@ -175,5 +175,13 @@ export default function ChatsPage() {
         onClose={() => setShowLoginModal(false)}
       />
     </main>
+  )
+}
+
+export default function ChatsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-dvh bg-gray-50 dark:bg-gray-900" />}>
+      <ChatsPageContent />
+    </Suspense>
   )
 }
