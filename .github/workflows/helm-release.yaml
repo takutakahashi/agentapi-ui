@@ -1,9 +1,6 @@
 name: Helm Chart Release to OCI Registry
 
 on:
-  push:
-    branches: [ main ]
-    tags: [ 'v*' ]
   release:
     types: [ published ]
   workflow_dispatch:
@@ -35,12 +32,19 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     
-    - name: Extract version from Chart.yaml
-      id: chart_version
+    - name: Extract version from release tag
+      id: release_version
       run: |
-        CHART_VERSION=$(grep '^version:' helm/agentapi-ui/Chart.yaml | cut -d' ' -f2)
-        echo "version=${CHART_VERSION}" >> $GITHUB_OUTPUT
-        echo "Chart version: ${CHART_VERSION}"
+        RELEASE_VERSION=${GITHUB_REF#refs/tags/v}
+        echo "version=${RELEASE_VERSION}" >> $GITHUB_OUTPUT
+        echo "Release version: ${RELEASE_VERSION}"
+    
+    - name: Update Chart.yaml with release version
+      run: |
+        sed -i "s/^version:.*/version: ${{ steps.release_version.outputs.version }}/" helm/agentapi-ui/Chart.yaml
+        sed -i "s/^appVersion:.*/appVersion: \"${{ steps.release_version.outputs.version }}\"/" helm/agentapi-ui/Chart.yaml
+        echo "Updated Chart.yaml:"
+        cat helm/agentapi-ui/Chart.yaml
     
     - name: Package Helm chart
       run: |
@@ -48,8 +52,8 @@ jobs:
     
     - name: Push Helm chart to OCI registry
       run: |
-        helm push ./charts/${{ env.CHART_NAME }}-${{ steps.chart_version.outputs.version }}.tgz oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts
+        helm push ./charts/${{ env.CHART_NAME }}-${{ steps.release_version.outputs.version }}.tgz oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts
     
     - name: Verify chart push
       run: |
-        echo "Helm chart pushed successfully to oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts/${{ env.CHART_NAME }}:${{ steps.chart_version.outputs.version }}"
+        echo "Helm chart pushed successfully to oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts/${{ env.CHART_NAME }}:${{ steps.release_version.outputs.version }}"
