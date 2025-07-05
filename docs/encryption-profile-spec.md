@@ -1,45 +1,8 @@
-# 暗号化プロファイル仕様書
+# 汎用暗号化・復号化API仕様書
 
 ## 概要
 
-本仕様書は、agentapi-ui における暗号化プロファイル機能の技術仕様を定義します。
-
-## プロファイル形式
-
-### 生プロファイル構造
-
-生プロファイルは以下の形式で構成されます：
-
-```
-{ハッシュ化したトークン}.{base64エンコードしたプロファイル情報}
-```
-
-#### 構成要素
-
-1. **ハッシュ化したトークン**
-   - トークンをハッシュ化した値
-   - ハッシュアルゴリズム: SHA-256
-   - 形式: 16進数文字列
-
-2. **base64エンコードしたプロファイル情報**
-   - プロファイル情報をJSON形式でシリアライズ
-   - UTF-8エンコーディングでバイト配列に変換
-   - base64でエンコード
-   - URLセーフな形式（`+` → `-`、`/` → `_`、パディング `=` を削除）
-
-### プロファイル情報の構造
-
-```typescript
-interface ProfileInfo {
-  // プロファイル固有の情報
-  id: string;
-  name: string;
-  settings: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
-  // その他の必要な情報
-}
-```
+本仕様書は、agentapi-ui における汎用的な暗号化・復号化API機能の技術仕様を定義します。このAPIは任意のデータを安全に暗号化・復号化するための汎用的なインターフェースを提供します。
 
 ## 暗号化仕様
 
@@ -52,161 +15,252 @@ interface ProfileInfo {
 
 ### 暗号化プロセス
 
-1. 生プロファイルを生成
-2. AES-256-GCMで暗号化
-3. 暗号化データ形式：
+1. 入力データ（base64形式）を受け取る
+2. トークンベースの検証を実行
+3. AES-256-GCMで暗号化
+4. 暗号化データ形式：
    ```
    {IV}{暗号化されたデータ}{認証タグ}
    ```
-4. 全体をbase64エンコード
+5. 全体をbase64エンコードして返却
 
-## 検証プロセス
+### 復号化プロセス
 
-### 復号化と検証の手順
-
-1. **暗号化プロファイルの復号化**
-   - base64デコード
-   - IV、暗号化データ、認証タグを分離
-   - AES-256-GCMで復号化
-
-2. **生プロファイルの解析**
-   - `.` で分割してトークンハッシュとプロファイル情報を取得
-   - プロファイル情報をbase64デコード
-   - JSONとしてパース
-
-3. **トークン検証**
-   - リクエストで受け取ったトークンをSHA-256でハッシュ化
-   - 生プロファイルから取得したハッシュと比較
-   - 一致しない場合は検証失敗
-
-### エラーハンドリング
-
-検証失敗時のケース：
-- 復号化失敗（不正な暗号化データ）
-- トークンハッシュ不一致
-- プロファイル情報のパース失敗
-- 認証タグ検証失敗
+1. 暗号化データ（base64形式）を受け取る
+2. base64デコード
+3. IV、暗号化データ、認証タグを分離
+4. トークンベースの検証を実行
+5. AES-256-GCMで復号化
+6. 復号化されたデータをbase64エンコードして返却
 
 ## API仕様
 
-### エンドポイント
+### 暗号化エンドポイント
 
 ```
-POST /api/profiles/encrypt
+POST /api/encrypt
 ```
 
-### リクエスト
+#### リクエスト
 
+**Headers:**
+```
+Cookie: token={認証トークン}
+Content-Type: application/json
+```
+
+**Body:**
 ```json
 {
-  "token": "string",
-  "profile": {
-    "id": "string",
-    "name": "string",
-    "settings": {},
-    "createdAt": "string",
-    "updatedAt": "string"
-  }
+  "data": "base64エンコードされたデータ"
 }
 ```
 
-### レスポンス
+#### レスポンス
 
 成功時（200 OK）:
 ```json
 {
-  "encryptedProfile": "string"
+  "encrypted": "base64エンコードされた暗号化データ"
 }
 ```
 
 エラー時（400 Bad Request）:
 ```json
 {
-  "error": "string",
-  "code": "string"
+  "error": "エラーメッセージ",
+  "code": "エラーコード"
 }
 ```
 
-### エンドポイント
-
-```
-POST /api/profiles/decrypt
-```
-
-### リクエスト
-
+エラー時（401 Unauthorized）:
 ```json
 {
-  "token": "string",
-  "encryptedProfile": "string"
+  "error": "Invalid or missing token",
+  "code": "UNAUTHORIZED"
 }
 ```
 
-### レスポンス
+### 復号化エンドポイント
+
+```
+POST /api/decrypt
+```
+
+#### リクエスト
+
+**Headers:**
+```
+Cookie: token={認証トークン}
+Content-Type: application/json
+```
+
+**Body:**
+```json
+{
+  "data": "base64エンコードされた暗号化データ"
+}
+```
+
+#### レスポンス
 
 成功時（200 OK）:
 ```json
 {
-  "profile": {
-    "id": "string",
-    "name": "string",
-    "settings": {},
-    "createdAt": "string",
-    "updatedAt": "string"
-  }
+  "decrypted": "base64エンコードされた復号化データ"
 }
 ```
 
 エラー時（400 Bad Request）:
 ```json
 {
-  "error": "string",
-  "code": "string"
+  "error": "エラーメッセージ",
+  "code": "エラーコード"
 }
 ```
+
+エラー時（401 Unauthorized）:
+```json
+{
+  "error": "Invalid or missing token",
+  "code": "UNAUTHORIZED"
+}
+```
+
+## トークン検証
+
+### トークンの仕組み
+
+1. **Cookie経由での受け渡し**
+   - HTTPOnlyフラグを設定
+   - Secureフラグを設定（HTTPS環境）
+   - SameSite=Strictを設定
+
+2. **検証プロセス**
+   - Cookieからトークンを取得
+   - トークンの有効性を確認
+   - 有効期限のチェック
+   - 権限の確認
+
+## エラーコード一覧
+
+| コード | 説明 |
+|--------|------|
+| `INVALID_DATA` | 無効なデータ形式 |
+| `ENCRYPTION_FAILED` | 暗号化処理の失敗 |
+| `DECRYPTION_FAILED` | 復号化処理の失敗 |
+| `UNAUTHORIZED` | 認証エラー |
+| `TOKEN_EXPIRED` | トークンの有効期限切れ |
+| `INVALID_TOKEN` | 無効なトークン |
+| `INTERNAL_ERROR` | 内部エラー |
 
 ## セキュリティ考慮事項
 
-1. **鍵管理**
-   - 暗号化鍵は環境変数で管理
-   - 定期的な鍵のローテーション
+### 鍵管理
 
-2. **トークン管理**
-   - トークンは平文で保存しない
-   - トークンの有効期限管理
+- 暗号化鍵は環境変数で管理
+- 定期的な鍵のローテーション
+- 鍵の安全な保管
 
-3. **通信セキュリティ**
-   - HTTPS通信の必須化
-   - CSRFトークンの使用
+### トークン管理
 
-4. **監査ログ**
-   - 暗号化・復号化操作のログ記録
-   - 失敗した検証試行の記録
+- トークンは平文で保存しない
+- トークンの有効期限管理
+- セッション固定攻撃への対策
+
+### 通信セキュリティ
+
+- HTTPS通信の必須化
+- CSRFトークンの使用
+- Content Security Policyの設定
+
+### 監査ログ
+
+- 暗号化・復号化操作のログ記録
+- 失敗した認証試行の記録
+- アクセスログの保存
 
 ## 実装上の注意点
 
-1. **パフォーマンス**
-   - 暗号化・復号化処理の非同期実行
-   - 適切なタイムアウト設定
+### パフォーマンス
 
-2. **互換性**
-   - base64のURLセーフ形式の使用
-   - UTF-8エンコーディングの統一
+- 暗号化・復号化処理の非同期実行
+- 適切なタイムアウト設定
+- リクエストサイズの制限
 
-3. **エラーメッセージ**
-   - セキュリティを考慮した汎用的なエラーメッセージ
-   - 詳細なエラー情報は内部ログのみ
+### データ形式
+
+- 入力データは必ずbase64形式
+- UTF-8エンコーディングの統一
+- URLセーフなbase64の使用
+
+### エラーハンドリング
+
+- セキュリティを考慮した汎用的なエラーメッセージ
+- 詳細なエラー情報は内部ログのみ
+- 適切なHTTPステータスコードの使用
+
+## 使用例
+
+### 暗号化の例
+
+```javascript
+// データを準備
+const originalData = "Hello, World!";
+const base64Data = btoa(originalData);
+
+// 暗号化リクエスト
+const response = await fetch('/api/encrypt', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  credentials: 'include', // Cookieを含める
+  body: JSON.stringify({
+    data: base64Data
+  })
+});
+
+const result = await response.json();
+console.log(result.encrypted); // 暗号化されたデータ
+```
+
+### 復号化の例
+
+```javascript
+// 復号化リクエスト
+const response = await fetch('/api/decrypt', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  credentials: 'include', // Cookieを含める
+  body: JSON.stringify({
+    data: encryptedData
+  })
+});
+
+const result = await response.json();
+const decryptedData = atob(result.decrypted);
+console.log(decryptedData); // "Hello, World!"
+```
 
 ## 今後の拡張性
 
-1. **暗号化アルゴリズムの変更**
-   - バージョン識別子の追加
-   - 後方互換性の維持
+### 暗号化アルゴリズムの変更
 
-2. **プロファイル情報の拡張**
-   - スキーマバージョニング
-   - 必須フィールドと任意フィールドの定義
+- バージョン識別子の追加
+- 後方互換性の維持
+- 新しいアルゴリズムへの移行パス
 
-3. **マルチテナント対応**
-   - テナント別の暗号化鍵
-   - プロファイルの共有機能
+### 機能拡張
+
+- バッチ処理のサポート
+- ストリーミング暗号化
+- 圧縮機能の追加
+
+### 認証方式の拡張
+
+- OAuth2.0のサポート
+- APIキー認証
+- マルチファクタ認証
