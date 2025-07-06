@@ -9,6 +9,8 @@ export async function GET() {
     environment: {
       AGENTAPI_PROXY_URL: PROXY_URL,
       SINGLE_PROFILE_MODE: process.env.SINGLE_PROFILE_MODE,
+      COOKIE_ENCRYPTION_SECRET_SET: !!process.env.COOKIE_ENCRYPTION_SECRET,
+      COOKIE_ENCRYPTION_SECRET_LENGTH: process.env.COOKIE_ENCRYPTION_SECRET?.length || 0,
     },
     tests: {} as Record<string, unknown>
   };
