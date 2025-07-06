@@ -58,7 +58,7 @@ export class AgentAPIProxyClient {
   private sessionTimeout: number;
   private debug: boolean;
   private profileId?: string;
-  private encryptedConfig?: EncryptedData;
+  private encryptedConfig?: EncryptedData | string;
   
   constructor(config: AgentAPIProxyClientConfig) {
     this.baseURL = config.baseURL.replace(/\/$/, ''); // Remove trailing slash
@@ -75,18 +75,22 @@ export class AgentAPIProxyClient {
       console.log('[AgentAPIProxy] Single profile mode enabled, checking for encrypted config:', !!storedEncrypted);
       if (storedEncrypted) {
         try {
-          // Validate that the stored data is a valid JSON string
+          // Validate that the stored data is a valid string
           if (typeof storedEncrypted !== 'string' || storedEncrypted.trim().length === 0) {
             throw new Error('Encrypted config is not a valid string');
           }
           
-          // Check if the string starts with a valid JSON character
-          const firstChar = storedEncrypted.trim()[0];
-          if (firstChar !== '{' && firstChar !== '[' && firstChar !== '"') {
-            throw new Error('Encrypted config does not appear to be valid JSON');
-          }
+          // For encrypted config, we expect a base64 encoded string or JSON
+          const trimmedConfig = storedEncrypted.trim();
           
-          this.encryptedConfig = JSON.parse(storedEncrypted);
+          // Try to parse as JSON first (for backward compatibility)
+          try {
+            this.encryptedConfig = JSON.parse(trimmedConfig);
+          } catch {
+            // If JSON parsing fails, it might be a base64 encoded encrypted string
+            // which is valid for encrypted config, so we store it as is
+            this.encryptedConfig = trimmedConfig;
+          }
           
           if (this.debug) {
             console.log('[AgentAPIProxy] Successfully loaded encrypted config');
@@ -94,12 +98,17 @@ export class AgentAPIProxyClient {
         } catch (err) {
           console.error('Failed to load encrypted config:', err);
           
-          // Clear the invalid encrypted config from localStorage
-          console.warn('Clearing invalid encrypted config from localStorage');
-          localStorage.removeItem('agentapi-encrypted-config');
-          
-          // Set encryptedConfig to undefined to avoid further issues
-          this.encryptedConfig = undefined;
+          // Only clear the config if it's clearly invalid (not just a parsing error)
+          // Encrypted config can be a base64 string which is not JSON
+          if (typeof storedEncrypted !== 'string' || storedEncrypted.trim().length === 0) {
+            console.warn('Clearing invalid encrypted config from localStorage');
+            localStorage.removeItem('agentapi-encrypted-config');
+            this.encryptedConfig = undefined;
+          } else {
+            // Store as is - it might be valid encrypted data
+            this.encryptedConfig = storedEncrypted.trim();
+            console.log('[AgentAPIProxy] Stored encrypted config as string (possibly base64 encoded)');
+          }
         }
       }
     } else if (isSingleProfileModeEnabled()) {
@@ -832,18 +841,22 @@ export class AgentAPIProxyClient {
     
     if (storedEncrypted) {
       try {
-        // Validate that the stored data is a valid JSON string
+        // Validate that the stored data is a valid string
         if (typeof storedEncrypted !== 'string' || storedEncrypted.trim().length === 0) {
           throw new Error('Encrypted config is not a valid string');
         }
         
-        // Check if the string starts with a valid JSON character
-        const firstChar = storedEncrypted.trim()[0];
-        if (firstChar !== '{' && firstChar !== '[' && firstChar !== '"') {
-          throw new Error('Encrypted config does not appear to be valid JSON');
-        }
+        // For encrypted config, we expect a base64 encoded string or JSON
+        const trimmedConfig = storedEncrypted.trim();
         
-        this.encryptedConfig = JSON.parse(storedEncrypted);
+        // Try to parse as JSON first (for backward compatibility)
+        try {
+          this.encryptedConfig = JSON.parse(trimmedConfig);
+        } catch {
+          // If JSON parsing fails, it might be a base64 encoded encrypted string
+          // which is valid for encrypted config, so we store it as is
+          this.encryptedConfig = trimmedConfig;
+        }
         
         if (this.debug) {
           console.log('[AgentAPIProxy] Successfully reloaded encrypted config');
@@ -851,12 +864,17 @@ export class AgentAPIProxyClient {
       } catch (err) {
         console.error('Failed to reload encrypted config:', err);
         
-        // Clear the invalid encrypted config from localStorage
-        console.warn('Clearing invalid encrypted config from localStorage');
-        localStorage.removeItem('agentapi-encrypted-config');
-        
-        // Set encryptedConfig to undefined to avoid further issues
-        this.encryptedConfig = undefined;
+        // Only clear the config if it's clearly invalid (not just a parsing error)
+        // Encrypted config can be a base64 string which is not JSON
+        if (typeof storedEncrypted !== 'string' || storedEncrypted.trim().length === 0) {
+          console.warn('Clearing invalid encrypted config from localStorage');
+          localStorage.removeItem('agentapi-encrypted-config');
+          this.encryptedConfig = undefined;
+        } else {
+          // Store as is - it might be valid encrypted data
+          this.encryptedConfig = storedEncrypted.trim();
+          console.log('[AgentAPIProxy] Stored encrypted config as string (possibly base64 encoded)');
+        }
       }
     } else {
       this.encryptedConfig = undefined;
