@@ -98,8 +98,8 @@ export class AgentAPIProxyClient {
           console.warn('Clearing invalid encrypted config from localStorage');
           localStorage.removeItem('agentapi-encrypted-config');
           
-          // Set encryptedConfig to null to avoid further issues
-          this.encryptedConfig = null;
+          // Set encryptedConfig to undefined to avoid further issues
+          this.encryptedConfig = undefined;
         }
       }
     } else if (isSingleProfileModeEnabled()) {
@@ -326,7 +326,7 @@ export class AgentAPIProxyClient {
     if (this.debug) {
       console.log(`[AgentAPIProxy] Proxy ${options.method || 'GET'} ${proxyUrl}`, {
         hasEncryptedConfig: !!this.encryptedConfig,
-        bodyLength: body?.length || 0,
+        bodyLength: typeof body === 'string' ? body.length : 0,
         headers: options.headers
       });
     }
@@ -800,11 +800,11 @@ export class AgentAPIProxyClient {
         console.warn('Clearing invalid encrypted config from localStorage');
         localStorage.removeItem('agentapi-encrypted-config');
         
-        // Set encryptedConfig to null to avoid further issues
-        this.encryptedConfig = null;
+        // Set encryptedConfig to undefined to avoid further issues
+        this.encryptedConfig = undefined;
       }
     } else {
-      this.encryptedConfig = null;
+      this.encryptedConfig = undefined;
     }
   }
 
