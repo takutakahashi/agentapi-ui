@@ -342,40 +342,95 @@ export class AgentAPIProxyClient {
         }
       });
       
+      // Get content type to determine how to handle response
+      const contentType = response.headers.get('content-type');
+      const isJsonResponse = contentType?.includes('application/json');
+      
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({
-          error: 'Proxy request failed',
-          status: response.status
-        }));
+        let errorData: Record<string, unknown>;
+        
+        try {
+          if (isJsonResponse) {
+            errorData = await response.json();
+          } else {
+            const textData = await response.text();
+            errorData = {
+              error: 'Proxy request failed',
+              status: response.status,
+              details: textData
+            };
+          }
+        } catch (parseError) {
+          // If we can't parse the response at all, create a generic error
+          errorData = {
+            error: 'Proxy request failed',
+            status: response.status,
+            details: `Response parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`
+          };
+        }
         
         if (this.debug) {
           console.error(`[AgentAPIProxy] Request failed:`, {
             status: response.status,
             statusText: response.statusText,
             errorData,
-            url: proxyUrl
+            url: proxyUrl,
+            contentType
           });
         }
         
+        const errorObj = errorData as Record<string, unknown>;
+        const errorNested = errorObj.error as Record<string, unknown> | undefined;
+        
+        const errorCode = errorNested?.code || errorObj.code || 'PROXY_ERROR';
+        const errorMessage = errorNested?.message || errorObj.message || errorObj.error || `HTTP ${response.status}`;
+        const errorDetails = errorNested?.details || errorData;
+        
         throw new AgentAPIProxyError(
           response.status,
-          errorData.error?.code || errorData.code || 'PROXY_ERROR',
-          errorData.error?.message || errorData.message || errorData.error || `HTTP ${response.status}`,
-          errorData.error?.details || errorData
+          typeof errorCode === 'string' ? errorCode : 'PROXY_ERROR',
+          typeof errorMessage === 'string' ? errorMessage : `HTTP ${response.status}`,
+          errorDetails as Record<string, unknown>
         );
       }
       
-      const data = await response.json();
+      // Handle successful response
+      let data: unknown;
+      
+      try {
+        if (isJsonResponse) {
+          data = await response.json();
+        } else {
+          // If it's not JSON, try to parse as text and then JSON
+          const textData = await response.text();
+          try {
+            data = JSON.parse(textData);
+          } catch {
+            // If we can't parse as JSON, return the text as is
+            data = textData;
+          }
+        }
+      } catch (parseError) {
+        // If we can't parse the response, throw a meaningful error
+        throw new AgentAPIProxyError(
+          500,
+          'RESPONSE_PARSE_ERROR',
+          `Failed to parse response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`,
+          { originalError: parseError }
+        );
+      }
       
       if (this.debug) {
         console.log(`[AgentAPIProxy] Proxy Response:`, { 
           status: response.status,
           statusText: response.statusText,
-          dataKeys: typeof data === 'object' && data ? Object.keys(data) : 'not an object'
+          contentType,
+          dataKeys: typeof data === 'object' && data ? Object.keys(data) : 'not an object',
+          dataType: typeof data
         });
       }
       
-      return data;
+      return data as T;
     } catch (error) {
       if (error instanceof AgentAPIProxyError) {
         throw error;
