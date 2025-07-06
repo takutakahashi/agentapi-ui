@@ -474,7 +474,7 @@ export class AgentAPIProxyClient {
       // Continue with session creation even if MCP config collection fails
     }
 
-    const session = await this.makeRequest<Session>('/sessions/start', {
+    const session = await this.makeRequest<Session>('/start', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -497,7 +497,7 @@ export class AgentAPIProxyClient {
     if (params?.status) searchParams.set('status', params.status);
     if (params?.user_id) searchParams.set('user_id', params.user_id);
 
-    const endpoint = `/sessions/search${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const endpoint = `/search${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
     const result = await this.makeRequest<SessionListResponse>(endpoint);
     
     return {
@@ -510,7 +510,7 @@ export class AgentAPIProxyClient {
    * Delete a session
    */
   async delete(sessionId: string): Promise<void> {
-    await this.makeRequest<void>(`/sessions/${sessionId}`, {
+    await this.makeRequest<void>(`/${sessionId}`, {
       method: 'DELETE',
     });
 
@@ -530,7 +530,7 @@ export class AgentAPIProxyClient {
     if (params?.from) searchParams.set('from', params.from);
     if (params?.to) searchParams.set('to', params.to);
 
-    const endpoint = `/sessions/${sessionId}/messages${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const endpoint = `/${sessionId}/messages${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
     const result = await this.makeRequest<SessionMessageListResponse>(endpoint);
     
     return {
@@ -547,7 +547,7 @@ export class AgentAPIProxyClient {
         console.log(`[AgentAPIProxy] Sending message to session ${sessionId} (attempt ${retryCount + 1}):`, data.content);
       }
 
-      const result = await this.makeRequest<SessionMessage>(`/sessions/${sessionId}/message`, {
+      const result = await this.makeRequest<SessionMessage>(`/${sessionId}/message`, {
         method: 'POST',
         body: JSON.stringify(data),
       });
@@ -594,7 +594,7 @@ export class AgentAPIProxyClient {
   }
 
   async getSessionStatus(sessionId: string): Promise<AgentStatus> {
-    return this.makeRequest<AgentStatus>(`/sessions/${sessionId}/status`);
+    return this.makeRequest<AgentStatus>(`/${sessionId}/status`);
   }
 
   // Session events using Server-Sent Events
@@ -608,8 +608,8 @@ export class AgentAPIProxyClient {
     // For SSE, we need to construct the full URL - check if we're using proxy
     const isUsingProxy = this.baseURL.includes('/api/proxy');
     const eventSourceUrl = isUsingProxy 
-      ? `/api/proxy/sessions/${sessionId}/events`
-      : `${this.baseURL}/sessions/${sessionId}/events`;
+      ? `/api/proxy/${sessionId}/events`
+      : `${this.baseURL}/${sessionId}/events`;
     
     if (this.debug) {
       console.log(`[AgentAPIProxy] Creating EventSource for session ${sessionId}:`, eventSourceUrl);
