@@ -299,7 +299,8 @@ export class AgentAPIProxyClient {
     if (this.debug) {
       console.log(`[AgentAPIProxy] Proxy ${options.method || 'GET'} ${proxyUrl}`, {
         hasEncryptedConfig: !!this.encryptedConfig,
-        body
+        bodyLength: body?.length || 0,
+        headers: options.headers
       });
     }
     
@@ -320,24 +321,45 @@ export class AgentAPIProxyClient {
           status: response.status
         }));
         
+        if (this.debug) {
+          console.error(`[AgentAPIProxy] Request failed:`, {
+            status: response.status,
+            statusText: response.statusText,
+            errorData,
+            url: proxyUrl
+          });
+        }
+        
         throw new AgentAPIProxyError(
           response.status,
-          errorData.error?.code || 'PROXY_ERROR',
-          errorData.error?.message || errorData.error || `HTTP ${response.status}`,
-          errorData.error?.details
+          errorData.error?.code || errorData.code || 'PROXY_ERROR',
+          errorData.error?.message || errorData.message || errorData.error || `HTTP ${response.status}`,
+          errorData.error?.details || errorData
         );
       }
       
       const data = await response.json();
       
       if (this.debug) {
-        console.log(`[AgentAPIProxy] Proxy Response:`, { data });
+        console.log(`[AgentAPIProxy] Proxy Response:`, { 
+          status: response.status,
+          statusText: response.statusText,
+          dataKeys: typeof data === 'object' && data ? Object.keys(data) : 'not an object'
+        });
       }
       
       return data;
     } catch (error) {
       if (error instanceof AgentAPIProxyError) {
         throw error;
+      }
+      
+      if (this.debug) {
+        console.error(`[AgentAPIProxy] Network error:`, {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          url: proxyUrl,
+          errorType: error instanceof Error ? error.constructor.name : typeof error
+        });
       }
       
       throw new AgentAPIProxyError(
@@ -761,7 +783,7 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
       timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
       maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),
       sessionTimeout: parseInt(process.env.AGENTAPI_PROXY_SESSION_TIMEOUT || '300000'),
-      debug: process.env.NODE_ENV === 'development',
+      debug: true, // Enable debug logging to diagnose proxy issues
       profileId,
     };
   }
@@ -854,7 +876,7 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
       timeout,
       maxSessions: 10,
       sessionTimeout: 300000, // 5 minutes
-      debug: process.env.NODE_ENV === 'development',
+      debug: true, // Enable debug logging to diagnose proxy issues
       profileId,
     };
   } catch (error) {
@@ -866,7 +888,7 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
       timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
       maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),
       sessionTimeout: parseInt(process.env.AGENTAPI_PROXY_SESSION_TIMEOUT || '300000'),
-      debug: process.env.NODE_ENV === 'development',
+      debug: true, // Enable debug logging to diagnose proxy issues
       profileId,
     };
   }
