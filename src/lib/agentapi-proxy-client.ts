@@ -72,6 +72,7 @@ export class AgentAPIProxyClient {
     // Load encrypted config if in single profile mode
     if (isSingleProfileModeEnabled() && typeof window !== 'undefined') {
       const storedEncrypted = localStorage.getItem('agentapi-encrypted-config');
+      console.log('[AgentAPIProxy] Single profile mode enabled, checking for encrypted config:', !!storedEncrypted);
       if (storedEncrypted) {
         try {
           // Validate that the stored data is a valid JSON string
@@ -101,6 +102,10 @@ export class AgentAPIProxyClient {
           this.encryptedConfig = null;
         }
       }
+    } else if (isSingleProfileModeEnabled()) {
+      console.log('[AgentAPIProxy] Single profile mode enabled but no window (server-side)');
+    } else {
+      console.log('[AgentAPIProxy] Single profile mode not enabled');
     }
 
     if (this.debug) {
@@ -469,7 +474,7 @@ export class AgentAPIProxyClient {
       // Continue with session creation even if MCP config collection fails
     }
 
-    const session = await this.makeRequest<Session>('/start', {
+    const session = await this.makeRequest<Session>('/sessions/start', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -492,7 +497,7 @@ export class AgentAPIProxyClient {
     if (params?.status) searchParams.set('status', params.status);
     if (params?.user_id) searchParams.set('user_id', params.user_id);
 
-    const endpoint = `/search${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const endpoint = `/sessions/search${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
     const result = await this.makeRequest<SessionListResponse>(endpoint);
     
     return {
@@ -525,7 +530,7 @@ export class AgentAPIProxyClient {
     if (params?.from) searchParams.set('from', params.from);
     if (params?.to) searchParams.set('to', params.to);
 
-    const endpoint = `/${sessionId}/messages${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const endpoint = `/sessions/${sessionId}/messages${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
     const result = await this.makeRequest<SessionMessageListResponse>(endpoint);
     
     return {
@@ -542,7 +547,7 @@ export class AgentAPIProxyClient {
         console.log(`[AgentAPIProxy] Sending message to session ${sessionId} (attempt ${retryCount + 1}):`, data.content);
       }
 
-      const result = await this.makeRequest<SessionMessage>(`/${sessionId}/message`, {
+      const result = await this.makeRequest<SessionMessage>(`/sessions/${sessionId}/message`, {
         method: 'POST',
         body: JSON.stringify(data),
       });
@@ -589,7 +594,7 @@ export class AgentAPIProxyClient {
   }
 
   async getSessionStatus(sessionId: string): Promise<AgentStatus> {
-    return this.makeRequest<AgentStatus>(`/${sessionId}/status`);
+    return this.makeRequest<AgentStatus>(`/sessions/${sessionId}/status`);
   }
 
   // Session events using Server-Sent Events
@@ -600,7 +605,11 @@ export class AgentAPIProxyClient {
     onError?: (error: Error) => void,
     options?: SessionEventsOptions
   ): EventSource {
-    const eventSourceUrl = `${this.baseURL}/${sessionId}/events`;
+    // For SSE, we need to construct the full URL - check if we're using proxy
+    const isUsingProxy = this.baseURL.includes('/api/proxy');
+    const eventSourceUrl = isUsingProxy 
+      ? `/api/proxy/sessions/${sessionId}/events`
+      : `${this.baseURL}/sessions/${sessionId}/events`;
     
     if (this.debug) {
       console.log(`[AgentAPIProxy] Creating EventSource for session ${sessionId}:`, eventSourceUrl);
@@ -752,6 +761,50 @@ export class AgentAPIProxyClient {
     } catch (error) {
       console.error('[AgentAPIProxy] Failed to get GitHub auth URL:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Reload encrypted config from localStorage
+   */
+  reloadEncryptedConfig(): void {
+    if (!isSingleProfileModeEnabled() || typeof window === 'undefined') {
+      return;
+    }
+
+    const storedEncrypted = localStorage.getItem('agentapi-encrypted-config');
+    console.log('[AgentAPIProxy] Reloading encrypted config:', !!storedEncrypted);
+    
+    if (storedEncrypted) {
+      try {
+        // Validate that the stored data is a valid JSON string
+        if (typeof storedEncrypted !== 'string' || storedEncrypted.trim().length === 0) {
+          throw new Error('Encrypted config is not a valid string');
+        }
+        
+        // Check if the string starts with a valid JSON character
+        const firstChar = storedEncrypted.trim()[0];
+        if (firstChar !== '{' && firstChar !== '[' && firstChar !== '"') {
+          throw new Error('Encrypted config does not appear to be valid JSON');
+        }
+        
+        this.encryptedConfig = JSON.parse(storedEncrypted);
+        
+        if (this.debug) {
+          console.log('[AgentAPIProxy] Successfully reloaded encrypted config');
+        }
+      } catch (err) {
+        console.error('Failed to reload encrypted config:', err);
+        
+        // Clear the invalid encrypted config from localStorage
+        console.warn('Clearing invalid encrypted config from localStorage');
+        localStorage.removeItem('agentapi-encrypted-config');
+        
+        // Set encryptedConfig to null to avoid further issues
+        this.encryptedConfig = null;
+      }
+    } else {
+      this.encryptedConfig = null;
     }
   }
 

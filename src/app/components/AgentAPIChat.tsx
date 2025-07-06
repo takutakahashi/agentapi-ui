@@ -184,6 +184,10 @@ export default function AgentAPIChat() {
   useEffect(() => {
     if (currentProfile && (!agentAPI || agentAPIRef.current === null)) {
       const client = createAgentAPIProxyClientFromStorage(undefined, currentProfile.id);
+      
+      // Reload encrypted config to ensure it's available
+      client.reloadEncryptedConfig();
+      
       setAgentAPI(client);
       agentAPIRef.current = client;
     }
