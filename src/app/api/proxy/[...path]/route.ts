@@ -54,8 +54,13 @@ async function handleProxyRequest(
     const singleProfileMode = process.env.SINGLE_PROFILE_MODE === 'true';
     
     if (!singleProfileMode) {
+      console.error('API proxy request failed: Single profile mode is not enabled. Set SINGLE_PROFILE_MODE=true environment variable.');
       return NextResponse.json(
-        { error: 'Single profile mode is not enabled' },
+        { 
+          error: 'Single profile mode is not enabled', 
+          message: 'This API endpoint requires single profile mode to be enabled.',
+          code: 'SINGLE_PROFILE_MODE_DISABLED'
+        },
         { status: 403 }
       );
     }
@@ -63,8 +68,13 @@ async function handleProxyRequest(
     // Get API key from cookie
     const apiKey = await getApiKeyFromCookie();
     if (!apiKey) {
+      console.error('API proxy request failed: No API key found in cookie. Make sure you are logged in and COOKIE_ENCRYPTION_SECRET is properly configured.');
       return NextResponse.json(
-        { error: 'No API key found in cookie' },
+        { 
+          error: 'Authentication required', 
+          message: 'No API key found in cookie. Please log in again.',
+          code: 'NO_API_KEY'
+        },
         { status: 401 }
       );
     }
