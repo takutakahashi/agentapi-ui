@@ -142,6 +142,28 @@ async function loadEncryptedSettings(): Promise<any> {
 }
 ```
 
+## 環境設定
+
+### 必要な環境変数
+
+暗号化APIを使用するには、以下の環境変数を設定する必要があります：
+
+```bash
+# シングルプロファイルモードを有効化
+NEXT_PUBLIC_SINGLE_PROFILE_MODE=true
+SINGLE_PROFILE_MODE=true
+
+# クッキー暗号化シークレット（64文字の16進数文字列）
+COOKIE_ENCRYPTION_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+
+# データ暗号化キー（32バイト、base64エンコード）
+# 生成方法: openssl rand -base64 32
+ENCRYPTION_KEY=FbdjXtmnZDUCzmd0SVTb2C9L2Z8yWIFi3R/q0yhpnL8=
+
+# 開発時のAPIキー検証を無効化（オプション）
+VALIDATE_API_KEY_WITH_PROXY=false
+```
+
 ## 注意事項
 
 ### セキュリティ
@@ -149,6 +171,7 @@ async function loadEncryptedSettings(): Promise<any> {
 1. **APIトークンの管理**: APIトークンは HTTPOnly クッキーに保存され、JavaScriptからは直接アクセスできません
 2. **暗号化の強度**: AES-256-GCM を使用し、各暗号化操作で新しいIVを生成します
 3. **トークンの有効期限**: クッキーは30日間有効です
+4. **暗号化キーの管理**: `ENCRYPTION_KEY`は32バイト（256ビット）である必要があります
 
 ### エラーハンドリング
 
