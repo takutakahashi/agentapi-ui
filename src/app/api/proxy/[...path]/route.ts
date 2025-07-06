@@ -154,11 +154,10 @@ async function handleProxyRequest(
       headers.set('X-Base-URL', String(decryptedConfig.baseUrl));
     }
 
-    // Copy relevant headers from original request
+    // Copy relevant headers from original request (excluding accept-encoding to avoid compression issues)
     const headersToForward = [
       'user-agent',
       'accept-language',
-      'accept-encoding',
       'cache-control',
       'pragma',
       'sec-fetch-dest',
