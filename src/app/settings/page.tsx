@@ -3,12 +3,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { SettingsFormData, loadGlobalSettings, saveGlobalSettings, isSingleProfileModeEnabled } from '../../types/settings'
 import type { EnvironmentVariable } from '../../types/settings'
-import type { EncryptedData } from '../../lib/encryption'
 import MCPServerSettings from '../../components/MCPServerSettings'
 
 export default function GlobalSettingsPage() {
   const [settings, setSettings] = useState<SettingsFormData>(loadGlobalSettings())
-  const [, setEncryptedData] = useState<EncryptedData | null>(null)
   
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -20,18 +18,10 @@ export default function GlobalSettingsPage() {
     try {
       const globalSettings = loadGlobalSettings()
       setSettings(globalSettings)
-      
-      // Load encrypted data if in single profile mode
-      if (isSingleProfile && typeof window !== 'undefined') {
-        const storedEncrypted = localStorage.getItem('agentapi-encrypted-config')
-        if (storedEncrypted) {
-          setEncryptedData(JSON.parse(storedEncrypted))
-        }
-      }
     } catch (err) {
       console.error('Failed to load global settings:', err)
     }
-  }, [isSingleProfile])
+  }, [])
 
   // Load saved settings on component mount
   useEffect(() => {
@@ -49,27 +39,25 @@ export default function GlobalSettingsPage() {
       // If in single profile mode, also encrypt and save
       if (isSingleProfile) {
         try {
-          // Get API token hash
-          const apiTokenResponse = await fetch('/api/auth/status')
-          if (!apiTokenResponse.ok) {
-            throw new Error('Not authenticated')
+          // Prepare settings data to encrypt
+          const settingsData = {
+            baseUrl: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
+            mcpServers: settings.mcpServers,
+            environmentVariables: settings.environmentVariables.reduce((acc, env) => {
+              if (env.key) acc[env.key] = env.value
+              return acc
+            }, {} as Record<string, string>)
           }
-          const { tokenHash } = await apiTokenResponse.json()
+          
+          // Convert settings to base64
+          const base64Data = Buffer.from(JSON.stringify(settingsData)).toString('base64')
           
           // Encrypt the settings
           const encryptResponse = await fetch('/api/encrypt', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              data: {
-                baseUrl: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
-                mcpServers: settings.mcpServers,
-                environmentVariables: settings.environmentVariables.reduce((acc, env) => {
-                  if (env.key) acc[env.key] = env.value
-                  return acc
-                }, {} as Record<string, string>)
-              },
-              apiTokenHash: tokenHash
+              data: base64Data
             })
           })
           
@@ -77,11 +65,10 @@ export default function GlobalSettingsPage() {
             throw new Error('Failed to encrypt settings')
           }
           
-          const encrypted = await encryptResponse.json()
-          setEncryptedData(encrypted)
+          const { encrypted } = await encryptResponse.json()
           
           // Store encrypted data in localStorage
-          localStorage.setItem('agentapi-encrypted-config', JSON.stringify(encrypted))
+          localStorage.setItem('agentapi-encrypted-config', encrypted)
         } catch (encryptError) {
           console.error('Failed to encrypt settings:', encryptError)
           // Continue with success even if encryption fails
