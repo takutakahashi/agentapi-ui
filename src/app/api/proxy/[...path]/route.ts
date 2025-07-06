@@ -68,7 +68,7 @@ async function handleProxyRequest(
     // Get API key from cookie
     const apiKey = await getApiKeyFromCookie();
     if (!apiKey) {
-      console.error('API proxy request failed: No API key found in cookie. Make sure you are logged in and COOKIE_ENCRYPTION_SECRET is properly configured.');
+      console.error('API proxy request failed: No API key found in cookie. Make sure you are logged in.');
       return NextResponse.json(
         { 
           error: 'Authentication required', 
