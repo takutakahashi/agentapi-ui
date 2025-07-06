@@ -1,21 +1,16 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { SettingsFormData, loadGlobalSettings, saveGlobalSettings, isSingleProfileModeEnabled } from '../../types/settings'
+import { SettingsFormData, getDefaultSettings, isSingleProfileModeEnabled } from '../../types/settings'
 import type { EnvironmentVariable } from '../../types/settings'
 import MCPServerSettings from '../../components/MCPServerSettings'
 
 export default function GlobalSettingsPage() {
-  const [settings, setSettings] = useState<SettingsFormData>(loadGlobalSettings())
+  const [settings, setSettings] = useState<SettingsFormData>(getDefaultSettings())
   
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [decryptedData, setDecryptedData] = useState<{
-    baseUrl?: string
-    environmentVariables?: Record<string, string>
-    mcpServers?: Array<{ name: string; transport: { type: string; command?: string; url?: string } }>
-  } | null>(null)
   const [decryptError, setDecryptError] = useState<string | null>(null)
   
   const isSingleProfile = isSingleProfileModeEnabled()
@@ -42,7 +37,27 @@ export default function GlobalSettingsPage() {
       
       const { decrypted } = await response.json()
       const decryptedJson = JSON.parse(Buffer.from(decrypted, 'base64').toString('utf8'))
-      setDecryptedData(decryptedJson)
+      
+      // 復号化されたデータをテキストエリアに展開
+      if (decryptedJson.environmentVariables) {
+        const envVars = Object.entries(decryptedJson.environmentVariables).map(([key, value]) => ({
+          key,
+          value: String(value),
+          description: ''
+        }))
+        setSettings(prev => ({
+          ...prev,
+          environmentVariables: envVars
+        }))
+      }
+      
+      if (decryptedJson.mcpServers) {
+        setSettings(prev => ({
+          ...prev,
+          mcpServers: decryptedJson.mcpServers
+        }))
+      }
+      
       setDecryptError(null)
     } catch (err) {
       console.error('Failed to decrypt settings:', err)
@@ -50,30 +65,19 @@ export default function GlobalSettingsPage() {
     }
   }, [isSingleProfile])
 
-  const loadSettings = useCallback(() => {
-    try {
-      const globalSettings = loadGlobalSettings()
-      setSettings(globalSettings)
-    } catch (err) {
-      console.error('Failed to load global settings:', err)
-    }
-  }, [])
-
-  // Load saved settings on component mount
+  // Load encrypted settings on component mount
   useEffect(() => {
-    loadSettings()
-    loadEncryptedSettings()
-  }, [loadSettings, loadEncryptedSettings])
+    if (isSingleProfile) {
+      loadEncryptedSettings()
+    }
+  }, [loadEncryptedSettings, isSingleProfile])
 
   const saveSettings = async () => {
     try {
       setLoading(true)
       setError(null)
       
-      // Save unencrypted settings to localStorage
-      saveGlobalSettings(settings)
-      
-      // If in single profile mode, also encrypt and save
+      // In single profile mode, only encrypt and save - never use agentapi-global-settings
       if (isSingleProfile) {
         try {
           // Prepare settings data to encrypt
@@ -104,12 +108,17 @@ export default function GlobalSettingsPage() {
           
           const { encrypted } = await encryptResponse.json()
           
-          // Store encrypted data in localStorage
+          // Store only encrypted data in localStorage
           localStorage.setItem('agentapi-encrypted-config', encrypted)
         } catch (encryptError) {
           console.error('Failed to encrypt settings:', encryptError)
-          // Continue with success even if encryption fails
+          setError('設定の暗号化に失敗しました')
+          return
         }
+      } else {
+        // Non-single profile mode - this should not happen in this component
+        setError('Single profile mode以外では使用できません')
+        return
       }
       
       setSaved(true)
@@ -154,13 +163,13 @@ export default function GlobalSettingsPage() {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Global Settings
+            Settings (Single Profile Mode)
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-1">
-            Configure global environment variables
+            Configure encrypted environment variables and MCP servers
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-500">
-            These settings will be used as defaults for all repositories and profiles. Individual repository settings can override these values.
+            Settings are encrypted and stored securely. No unencrypted data is saved to localStorage.
           </p>
         </div>
 
@@ -169,7 +178,7 @@ export default function GlobalSettingsPage() {
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Global Environment Variables
+                Environment Variables
               </h2>
               <button
                 onClick={addEnvironmentVariable}
@@ -181,7 +190,7 @@ export default function GlobalSettingsPage() {
 
             {settings.environmentVariables.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-                No default environment variables configured
+                No environment variables configured
               </p>
             ) : (
               <div className="space-y-4">
@@ -241,69 +250,15 @@ export default function GlobalSettingsPage() {
             )}
           </div>
 
-          {/* Single Profile Mode - Decrypted Settings Display */}
-          {isSingleProfile && (
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                復号化された設定
+          {/* Loading Status */}
+          {isSingleProfile && decryptError && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6 mb-8">
+              <h2 className="text-xl font-semibold text-red-900 dark:text-red-100 mb-2">
+                設定の読み込みエラー
               </h2>
-              {decryptError ? (
-                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                  <p className="text-sm text-red-600 dark:text-red-400">
-                    エラー: {decryptError}
-                  </p>
-                </div>
-              ) : decryptedData ? (
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Base URL</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 p-3 rounded-md font-mono">
-                      {decryptedData.baseUrl}
-                    </p>
-                  </div>
-                  
-                  {decryptedData.environmentVariables && Object.keys(decryptedData.environmentVariables).length > 0 && (
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">環境変数</h3>
-                      <div className="space-y-2">
-                        {Object.entries(decryptedData.environmentVariables).map(([key, value]) => (
-                          <div key={key} className="bg-gray-50 dark:bg-gray-700 p-3 rounded-md">
-                            <div className="text-sm font-mono">
-                              <span className="text-blue-600 dark:text-blue-400">{key}</span>
-                              <span className="text-gray-500"> = </span>
-                              <span className="text-gray-900 dark:text-white">{String(value)}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {decryptedData.mcpServers && decryptedData.mcpServers.length > 0 && (
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">MCPサーバー</h3>
-                      <div className="space-y-2">
-                        {decryptedData.mcpServers.map((server, index: number) => (
-                          <div key={index} className="bg-gray-50 dark:bg-gray-700 p-3 rounded-md">
-                            <div className="text-sm">
-                              <div className="font-medium text-gray-900 dark:text-white">{server.name}</div>
-                              <div className="text-gray-600 dark:text-gray-400 font-mono text-xs mt-1">
-                                {server.transport.type}: {server.transport.command || server.transport.url}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-                  <p className="text-sm text-blue-600 dark:text-blue-400">
-                    暗号化された設定を読み込み中...
-                  </p>
-                </div>
-              )}
+              <p className="text-sm text-red-600 dark:text-red-400">
+                {decryptError}
+              </p>
             </div>
           )}
 
@@ -312,8 +267,8 @@ export default function GlobalSettingsPage() {
             <MCPServerSettings
               mcpServers={settings.mcpServers || []}
               onChange={(mcpServers) => setSettings(prev => ({ ...prev, mcpServers }))}
-              title="Global MCP Servers"
-              description="Configure Model Context Protocol servers that will be available across all profiles. Profile-specific MCP servers will override these global settings."
+              title="MCP Servers"
+              description="Configure Model Context Protocol servers. These settings are encrypted and stored securely."
             />
           </div>
 
