@@ -184,6 +184,10 @@ export default function AgentAPIChat() {
   useEffect(() => {
     if (currentProfile && (!agentAPI || agentAPIRef.current === null)) {
       const client = createAgentAPIProxyClientFromStorage(undefined, currentProfile.id);
+      
+      // Reload encrypted config to ensure it's available
+      client.reloadEncryptedConfig();
+      
       setAgentAPI(client);
       agentAPIRef.current = client;
     }
@@ -526,9 +530,14 @@ export default function AgentAPIChat() {
     } catch (err) {
       console.error('Failed to send message:', err);
       if (err instanceof AgentAPIProxyError) {
-        setError(`Failed to send message: ${err.message} (Session: ${sessionId})`);
+        // Handle timeout errors specially
+        if (err.code === 'TIMEOUT_ERROR') {
+          setError(`${err.message}`);
+        } else {
+          setError(`メッセージ送信に失敗しました: ${err.message} (セッション: ${sessionId})`);
+        }
       } else {
-        setError('Failed to send message');
+        setError(`メッセージ送信に失敗しました: ${err instanceof Error ? err.message : '不明なエラー'}`);
       }
     } finally {
       setIsLoading(false);

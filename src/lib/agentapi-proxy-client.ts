@@ -72,13 +72,40 @@ export class AgentAPIProxyClient {
     // Load encrypted config if in single profile mode
     if (isSingleProfileModeEnabled() && typeof window !== 'undefined') {
       const storedEncrypted = localStorage.getItem('agentapi-encrypted-config');
+      console.log('[AgentAPIProxy] Single profile mode enabled, checking for encrypted config:', !!storedEncrypted);
       if (storedEncrypted) {
         try {
+          // Validate that the stored data is a valid JSON string
+          if (typeof storedEncrypted !== 'string' || storedEncrypted.trim().length === 0) {
+            throw new Error('Encrypted config is not a valid string');
+          }
+          
+          // Check if the string starts with a valid JSON character
+          const firstChar = storedEncrypted.trim()[0];
+          if (firstChar !== '{' && firstChar !== '[' && firstChar !== '"') {
+            throw new Error('Encrypted config does not appear to be valid JSON');
+          }
+          
           this.encryptedConfig = JSON.parse(storedEncrypted);
+          
+          if (this.debug) {
+            console.log('[AgentAPIProxy] Successfully loaded encrypted config');
+          }
         } catch (err) {
           console.error('Failed to load encrypted config:', err);
+          
+          // Clear the invalid encrypted config from localStorage
+          console.warn('Clearing invalid encrypted config from localStorage');
+          localStorage.removeItem('agentapi-encrypted-config');
+          
+          // Set encryptedConfig to undefined to avoid further issues
+          this.encryptedConfig = undefined;
         }
       }
+    } else if (isSingleProfileModeEnabled()) {
+      console.log('[AgentAPIProxy] Single profile mode enabled but no window (server-side)');
+    } else {
+      console.log('[AgentAPIProxy] Single profile mode not enabled');
     }
 
     if (this.debug) {
@@ -299,7 +326,8 @@ export class AgentAPIProxyClient {
     if (this.debug) {
       console.log(`[AgentAPIProxy] Proxy ${options.method || 'GET'} ${proxyUrl}`, {
         hasEncryptedConfig: !!this.encryptedConfig,
-        body
+        bodyLength: typeof body === 'string' ? body.length : 0,
+        headers: options.headers
       });
     }
     
@@ -320,24 +348,45 @@ export class AgentAPIProxyClient {
           status: response.status
         }));
         
+        if (this.debug) {
+          console.error(`[AgentAPIProxy] Request failed:`, {
+            status: response.status,
+            statusText: response.statusText,
+            errorData,
+            url: proxyUrl
+          });
+        }
+        
         throw new AgentAPIProxyError(
           response.status,
-          errorData.error?.code || 'PROXY_ERROR',
-          errorData.error?.message || errorData.error || `HTTP ${response.status}`,
-          errorData.error?.details
+          errorData.error?.code || errorData.code || 'PROXY_ERROR',
+          errorData.error?.message || errorData.message || errorData.error || `HTTP ${response.status}`,
+          errorData.error?.details || errorData
         );
       }
       
       const data = await response.json();
       
       if (this.debug) {
-        console.log(`[AgentAPIProxy] Proxy Response:`, { data });
+        console.log(`[AgentAPIProxy] Proxy Response:`, { 
+          status: response.status,
+          statusText: response.statusText,
+          dataKeys: typeof data === 'object' && data ? Object.keys(data) : 'not an object'
+        });
       }
       
       return data;
     } catch (error) {
       if (error instanceof AgentAPIProxyError) {
         throw error;
+      }
+      
+      if (this.debug) {
+        console.error(`[AgentAPIProxy] Network error:`, {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          url: proxyUrl,
+          errorType: error instanceof Error ? error.constructor.name : typeof error
+        });
       }
       
       throw new AgentAPIProxyError(
@@ -461,7 +510,7 @@ export class AgentAPIProxyClient {
    * Delete a session
    */
   async delete(sessionId: string): Promise<void> {
-    await this.makeRequest<void>(`/sessions/${sessionId}`, {
+    await this.makeRequest<void>(`/${sessionId}`, {
       method: 'DELETE',
     });
 
@@ -490,17 +539,58 @@ export class AgentAPIProxyClient {
     };
   }
 
-  async sendSessionMessage(sessionId: string, data: SendSessionMessageRequest): Promise<SessionMessage> {
-    const result = await this.makeRequest<SessionMessage>(`/${sessionId}/message`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+  async sendSessionMessage(sessionId: string, data: SendSessionMessageRequest, retryCount = 0): Promise<SessionMessage> {
+    const maxRetries = 2;
+    
+    try {
+      if (this.debug) {
+        console.log(`[AgentAPIProxy] Sending message to session ${sessionId} (attempt ${retryCount + 1}):`, data.content);
+      }
 
-    if (this.debug) {
-      console.log(`[AgentAPIProxy] Sent message to session ${sessionId}:`, data.content);
+      const result = await this.makeRequest<SessionMessage>(`/${sessionId}/message`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+
+      if (this.debug) {
+        console.log(`[AgentAPIProxy] Successfully sent message to session ${sessionId}`);
+      }
+
+      return result;
+    } catch (error) {
+      if (this.debug) {
+        console.error(`[AgentAPIProxy] Failed to send message to session ${sessionId} (attempt ${retryCount + 1}):`, error);
+      }
+
+      // Check if this is a timeout or screen stabilization error
+      const isTimeoutError = error instanceof AgentAPIProxyError && 
+        (error.message.includes('timeout') || 
+         error.message.includes('screen to stabilize') ||
+         error.message.includes('wait for condition'));
+
+      // Retry for timeout errors
+      if (isTimeoutError && retryCount < maxRetries) {
+        const delay = (retryCount + 1) * 2000; // 2s, 4s delay
+        if (this.debug) {
+          console.log(`[AgentAPIProxy] Retrying message send in ${delay}ms...`);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.sendSessionMessage(sessionId, data, retryCount + 1);
+      }
+
+      // Enhance error message for timeout errors
+      if (isTimeoutError) {
+        throw new AgentAPIProxyError(
+          error instanceof AgentAPIProxyError ? error.status : 500,
+          'TIMEOUT_ERROR',
+          'メッセージ送信がタイムアウトしました。画面の操作に時間がかかっている可能性があります。しばらく待ってからもう一度お試しください。',
+          error instanceof AgentAPIProxyError ? error.details : undefined
+        );
+      }
+
+      throw error;
     }
-
-    return result;
   }
 
   async getSessionStatus(sessionId: string): Promise<AgentStatus> {
@@ -515,7 +605,11 @@ export class AgentAPIProxyClient {
     onError?: (error: Error) => void,
     options?: SessionEventsOptions
   ): EventSource {
-    const eventSourceUrl = `${this.baseURL}/${sessionId}/events`;
+    // For SSE, we need to construct the full URL - check if we're using proxy
+    const isUsingProxy = this.baseURL.includes('/api/proxy');
+    const eventSourceUrl = isUsingProxy 
+      ? `/api/proxy/${sessionId}/events`
+      : `${this.baseURL}/${sessionId}/events`;
     
     if (this.debug) {
       console.log(`[AgentAPIProxy] Creating EventSource for session ${sessionId}:`, eventSourceUrl);
@@ -671,6 +765,50 @@ export class AgentAPIProxyClient {
   }
 
   /**
+   * Reload encrypted config from localStorage
+   */
+  reloadEncryptedConfig(): void {
+    if (!isSingleProfileModeEnabled() || typeof window === 'undefined') {
+      return;
+    }
+
+    const storedEncrypted = localStorage.getItem('agentapi-encrypted-config');
+    console.log('[AgentAPIProxy] Reloading encrypted config:', !!storedEncrypted);
+    
+    if (storedEncrypted) {
+      try {
+        // Validate that the stored data is a valid JSON string
+        if (typeof storedEncrypted !== 'string' || storedEncrypted.trim().length === 0) {
+          throw new Error('Encrypted config is not a valid string');
+        }
+        
+        // Check if the string starts with a valid JSON character
+        const firstChar = storedEncrypted.trim()[0];
+        if (firstChar !== '{' && firstChar !== '[' && firstChar !== '"') {
+          throw new Error('Encrypted config does not appear to be valid JSON');
+        }
+        
+        this.encryptedConfig = JSON.parse(storedEncrypted);
+        
+        if (this.debug) {
+          console.log('[AgentAPIProxy] Successfully reloaded encrypted config');
+        }
+      } catch (err) {
+        console.error('Failed to reload encrypted config:', err);
+        
+        // Clear the invalid encrypted config from localStorage
+        console.warn('Clearing invalid encrypted config from localStorage');
+        localStorage.removeItem('agentapi-encrypted-config');
+        
+        // Set encryptedConfig to undefined to avoid further issues
+        this.encryptedConfig = undefined;
+      }
+    } else {
+      this.encryptedConfig = undefined;
+    }
+  }
+
+  /**
    * Set debug mode
    */
   setDebug(debug: boolean): void {
@@ -761,7 +899,7 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
       timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
       maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),
       sessionTimeout: parseInt(process.env.AGENTAPI_PROXY_SESSION_TIMEOUT || '300000'),
-      debug: process.env.NODE_ENV === 'development',
+      debug: true, // Enable debug logging to diagnose proxy issues
       profileId,
     };
   }
@@ -854,7 +992,7 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
       timeout,
       maxSessions: 10,
       sessionTimeout: 300000, // 5 minutes
-      debug: process.env.NODE_ENV === 'development',
+      debug: true, // Enable debug logging to diagnose proxy issues
       profileId,
     };
   } catch (error) {
@@ -866,7 +1004,7 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
       timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
       maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),
       sessionTimeout: parseInt(process.env.AGENTAPI_PROXY_SESSION_TIMEOUT || '300000'),
-      debug: process.env.NODE_ENV === 'development',
+      debug: true, // Enable debug logging to diagnose proxy issues
       profileId,
     };
   }

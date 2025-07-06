@@ -13,7 +13,10 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith('/login') ||
       pathname.startsWith('/api/') ||
       pathname.startsWith('/_next/') ||
-      pathname.startsWith('/static/')
+      pathname.startsWith('/static/') ||
+      pathname === '/manifest.json' ||
+      pathname === '/favicon.ico' ||
+      pathname.startsWith('/icons/')
     ) {
       return NextResponse.next()
     }
@@ -39,7 +42,9 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - manifest.json (PWA manifest)
+     * - icons/ (icon files)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|manifest.json|icons/).*)',
   ],
 }

@@ -1,42 +1,111 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { SettingsFormData, loadGlobalSettings, saveGlobalSettings, isSingleProfileModeEnabled } from '../../types/settings'
+import { SettingsFormData, getDefaultSettings, isSingleProfileModeEnabled } from '../../types/settings'
 import type { EnvironmentVariable } from '../../types/settings'
 import MCPServerSettings from '../../components/MCPServerSettings'
 
 export default function GlobalSettingsPage() {
-  const [settings, setSettings] = useState<SettingsFormData>(loadGlobalSettings())
+  const [settings, setSettings] = useState<SettingsFormData>(getDefaultSettings())
   
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [decryptError, setDecryptError] = useState<string | null>(null)
   
   const isSingleProfile = isSingleProfileModeEnabled()
-  
-  const loadSettings = useCallback(() => {
+
+  // Helper function to clear corrupted encrypted config
+  const clearEncryptedConfig = useCallback(() => {
     try {
-      const globalSettings = loadGlobalSettings()
-      setSettings(globalSettings)
-    } catch (err) {
-      console.error('Failed to load global settings:', err)
+      localStorage.removeItem('agentapi-encrypted-config')
+      console.log('Cleared corrupted encrypted config from localStorage')
+    } catch (error) {
+      console.error('Failed to clear encrypted config:', error)
     }
   }, [])
+  
+  const loadEncryptedSettings = useCallback(async () => {
+    if (!isSingleProfile) return
+    
+    try {
+      const encryptedConfig = localStorage.getItem('agentapi-encrypted-config')
+      if (!encryptedConfig) {
+        setDecryptError('暗号化された設定が見つかりません')
+        return
+      }
+      
+      // Validate encrypted config format
+      if (typeof encryptedConfig !== 'string' || encryptedConfig.trim().length === 0) {
+        console.error('Invalid encrypted config format:', encryptedConfig)
+        localStorage.removeItem('agentapi-encrypted-config')
+        setDecryptError('暗号化設定の形式が無効です。設定をクリアしました。')
+        return
+      }
+      
+      const response = await fetch('/api/decrypt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: encryptedConfig })
+      })
+      
+      if (!response.ok) {
+        throw new Error('復号化に失敗しました')
+      }
+      
+      const { decrypted } = await response.json()
+      
+      let decryptedJson
+      try {
+        const decryptedString = Buffer.from(decrypted, 'base64').toString('utf8')
+        decryptedJson = JSON.parse(decryptedString)
+      } catch (parseError) {
+        console.error('Failed to parse decrypted data:', parseError)
+        localStorage.removeItem('agentapi-encrypted-config')
+        setDecryptError('復号化されたデータの解析に失敗しました。設定をクリアしました。')
+        return
+      }
+      
+      // 復号化されたデータをテキストエリアに展開
+      if (decryptedJson.environmentVariables) {
+        const envVars = Object.entries(decryptedJson.environmentVariables).map(([key, value]) => ({
+          key,
+          value: String(value),
+          description: ''
+        }))
+        setSettings(prev => ({
+          ...prev,
+          environmentVariables: envVars
+        }))
+      }
+      
+      if (decryptedJson.mcpServers) {
+        setSettings(prev => ({
+          ...prev,
+          mcpServers: decryptedJson.mcpServers
+        }))
+      }
+      
+      setDecryptError(null)
+    } catch (err) {
+      console.error('Failed to decrypt settings:', err)
+      setDecryptError('設定の復号化に失敗しました')
+    }
+  }, [isSingleProfile])
 
-  // Load saved settings on component mount
+  // Load encrypted settings on component mount
   useEffect(() => {
-    loadSettings()
-  }, [loadSettings])
+    if (isSingleProfile) {
+      loadEncryptedSettings()
+    }
+  }, [loadEncryptedSettings, isSingleProfile])
 
   const saveSettings = async () => {
     try {
       setLoading(true)
       setError(null)
       
-      // Save unencrypted settings to localStorage
-      saveGlobalSettings(settings)
-      
-      // If in single profile mode, also encrypt and save
+      // In single profile mode, only encrypt and save - never use agentapi-global-settings
       if (isSingleProfile) {
         try {
           // Prepare settings data to encrypt
@@ -67,12 +136,17 @@ export default function GlobalSettingsPage() {
           
           const { encrypted } = await encryptResponse.json()
           
-          // Store encrypted data in localStorage
+          // Store only encrypted data in localStorage
           localStorage.setItem('agentapi-encrypted-config', encrypted)
         } catch (encryptError) {
           console.error('Failed to encrypt settings:', encryptError)
-          // Continue with success even if encryption fails
+          setError('設定の暗号化に失敗しました')
+          return
         }
+      } else {
+        // Non-single profile mode - this should not happen in this component
+        setError('Single profile mode以外では使用できません')
+        return
       }
       
       setSaved(true)
@@ -117,13 +191,13 @@ export default function GlobalSettingsPage() {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Global Settings
+            Settings (Single Profile Mode)
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-1">
-            Configure global environment variables
+            Configure encrypted environment variables and MCP servers
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-500">
-            These settings will be used as defaults for all repositories and profiles. Individual repository settings can override these values.
+            Settings are encrypted and stored securely. No unencrypted data is saved to localStorage.
           </p>
         </div>
 
@@ -132,7 +206,7 @@ export default function GlobalSettingsPage() {
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Global Environment Variables
+                Environment Variables
               </h2>
               <button
                 onClick={addEnvironmentVariable}
@@ -144,7 +218,7 @@ export default function GlobalSettingsPage() {
 
             {settings.environmentVariables.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-                No default environment variables configured
+                No environment variables configured
               </p>
             ) : (
               <div className="space-y-4">
@@ -204,13 +278,35 @@ export default function GlobalSettingsPage() {
             )}
           </div>
 
+          {/* Loading Status */}
+          {isSingleProfile && decryptError && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6 mb-8">
+              <h2 className="text-xl font-semibold text-red-900 dark:text-red-100 mb-2">
+                設定の読み込みエラー
+              </h2>
+              <p className="text-sm text-red-600 dark:text-red-400 mb-4">
+                {decryptError}
+              </p>
+              <button
+                onClick={() => {
+                  clearEncryptedConfig()
+                  setDecryptError(null)
+                  window.location.reload()
+                }}
+                className="px-4 py-2 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
+              >
+                暗号化設定をクリアして再読み込み
+              </button>
+            </div>
+          )}
+
           {/* MCP Servers Section */}
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
             <MCPServerSettings
               mcpServers={settings.mcpServers || []}
               onChange={(mcpServers) => setSettings(prev => ({ ...prev, mcpServers }))}
-              title="Global MCP Servers"
-              description="Configure Model Context Protocol servers that will be available across all profiles. Profile-specific MCP servers will override these global settings."
+              title="MCP Servers"
+              description="Configure Model Context Protocol servers. These settings are encrypted and stored securely."
             />
           </div>
 

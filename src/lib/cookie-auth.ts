@@ -9,9 +9,11 @@ const TAG_LENGTH = 16;
 function getEncryptionKey(): Buffer {
   const secret = process.env.COOKIE_ENCRYPTION_SECRET;
   if (!secret) {
+    console.error('COOKIE_ENCRYPTION_SECRET environment variable is not set. Cookie authentication will not work.');
     throw new Error('COOKIE_ENCRYPTION_SECRET environment variable is required');
   }
   if (secret.length !== 64) {
+    console.error(`COOKIE_ENCRYPTION_SECRET length is ${secret.length}, but must be exactly 64 hex characters (32 bytes).`);
     throw new Error('COOKIE_ENCRYPTION_SECRET must be exactly 32 bytes (64 hex characters)');
   }
   return Buffer.from(secret, 'hex');
@@ -70,12 +72,19 @@ export async function getApiKeyFromCookie(): Promise<string | null> {
     const encryptedApiKey = cookieStore.get(COOKIE_NAME)?.value;
     
     if (!encryptedApiKey) {
+      console.warn('No agentapi_token cookie found');
       return null;
     }
     
     return decryptApiKey(encryptedApiKey);
   } catch (error) {
     console.error('Failed to decrypt API key from cookie:', error);
+    
+    // If there's an error with the encryption key setup, provide more context
+    if (error instanceof Error && error.message.includes('COOKIE_ENCRYPTION_SECRET')) {
+      console.error('Cookie authentication is not properly configured. Please set COOKIE_ENCRYPTION_SECRET environment variable.');
+    }
+    
     return null;
   }
 }
