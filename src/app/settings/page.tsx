@@ -14,6 +14,16 @@ export default function GlobalSettingsPage() {
   const [decryptError, setDecryptError] = useState<string | null>(null)
   
   const isSingleProfile = isSingleProfileModeEnabled()
+
+  // Helper function to clear corrupted encrypted config
+  const clearEncryptedConfig = useCallback(() => {
+    try {
+      localStorage.removeItem('agentapi-encrypted-config')
+      console.log('Cleared corrupted encrypted config from localStorage')
+    } catch (error) {
+      console.error('Failed to clear encrypted config:', error)
+    }
+  }, [])
   
   const loadEncryptedSettings = useCallback(async () => {
     if (!isSingleProfile) return
@@ -22,6 +32,14 @@ export default function GlobalSettingsPage() {
       const encryptedConfig = localStorage.getItem('agentapi-encrypted-config')
       if (!encryptedConfig) {
         setDecryptError('暗号化された設定が見つかりません')
+        return
+      }
+      
+      // Validate encrypted config format
+      if (typeof encryptedConfig !== 'string' || encryptedConfig.trim().length === 0) {
+        console.error('Invalid encrypted config format:', encryptedConfig)
+        localStorage.removeItem('agentapi-encrypted-config')
+        setDecryptError('暗号化設定の形式が無効です。設定をクリアしました。')
         return
       }
       
@@ -36,7 +54,17 @@ export default function GlobalSettingsPage() {
       }
       
       const { decrypted } = await response.json()
-      const decryptedJson = JSON.parse(Buffer.from(decrypted, 'base64').toString('utf8'))
+      
+      let decryptedJson
+      try {
+        const decryptedString = Buffer.from(decrypted, 'base64').toString('utf8')
+        decryptedJson = JSON.parse(decryptedString)
+      } catch (parseError) {
+        console.error('Failed to parse decrypted data:', parseError)
+        localStorage.removeItem('agentapi-encrypted-config')
+        setDecryptError('復号化されたデータの解析に失敗しました。設定をクリアしました。')
+        return
+      }
       
       // 復号化されたデータをテキストエリアに展開
       if (decryptedJson.environmentVariables) {
@@ -256,9 +284,19 @@ export default function GlobalSettingsPage() {
               <h2 className="text-xl font-semibold text-red-900 dark:text-red-100 mb-2">
                 設定の読み込みエラー
               </h2>
-              <p className="text-sm text-red-600 dark:text-red-400">
+              <p className="text-sm text-red-600 dark:text-red-400 mb-4">
                 {decryptError}
               </p>
+              <button
+                onClick={() => {
+                  clearEncryptedConfig()
+                  setDecryptError(null)
+                  window.location.reload()
+                }}
+                className="px-4 py-2 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
+              >
+                暗号化設定をクリアして再読み込み
+              </button>
             </div>
           )}
 

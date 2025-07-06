@@ -182,10 +182,15 @@ async function handleProxyRequest(
     }
 
     // Make the request to the proxy
+    // Set timeout based on the endpoint - longer for message sending
+    const isMessageEndpoint = pathParts.includes('message');
+    const timeoutMs = isMessageEndpoint ? 120000 : 30000; // 2 minutes for messages, 30s for others
+
     const response = await fetch(targetUrl, {
       method,
       headers,
       body,
+      signal: AbortSignal.timeout(timeoutMs),
     });
 
     // Handle non-JSON responses
@@ -209,6 +214,19 @@ async function handleProxyRequest(
     return NextResponse.json(responseData, { status: response.status });
   } catch (error) {
     console.error('Proxy request error:', error);
+    
+    // Handle timeout errors specifically
+    if (error instanceof Error && (error.name === 'TimeoutError' || error.message.includes('timeout'))) {
+      return NextResponse.json(
+        { 
+          error: 'Request timeout',
+          message: 'リクエストがタイムアウトしました。処理に時間がかかっている可能性があります。',
+          code: 'TIMEOUT_ERROR'
+        },
+        { status: 408 }
+      );
+    }
+    
     return NextResponse.json(
       { 
         error: 'Internal proxy error', 

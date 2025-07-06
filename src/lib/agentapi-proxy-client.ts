@@ -74,9 +74,31 @@ export class AgentAPIProxyClient {
       const storedEncrypted = localStorage.getItem('agentapi-encrypted-config');
       if (storedEncrypted) {
         try {
+          // Validate that the stored data is a valid JSON string
+          if (typeof storedEncrypted !== 'string' || storedEncrypted.trim().length === 0) {
+            throw new Error('Encrypted config is not a valid string');
+          }
+          
+          // Check if the string starts with a valid JSON character
+          const firstChar = storedEncrypted.trim()[0];
+          if (firstChar !== '{' && firstChar !== '[' && firstChar !== '"') {
+            throw new Error('Encrypted config does not appear to be valid JSON');
+          }
+          
           this.encryptedConfig = JSON.parse(storedEncrypted);
+          
+          if (this.debug) {
+            console.log('[AgentAPIProxy] Successfully loaded encrypted config');
+          }
         } catch (err) {
           console.error('Failed to load encrypted config:', err);
+          
+          // Clear the invalid encrypted config from localStorage
+          console.warn('Clearing invalid encrypted config from localStorage');
+          localStorage.removeItem('agentapi-encrypted-config');
+          
+          // Set encryptedConfig to null to avoid further issues
+          this.encryptedConfig = null;
         }
       }
     }
@@ -512,17 +534,58 @@ export class AgentAPIProxyClient {
     };
   }
 
-  async sendSessionMessage(sessionId: string, data: SendSessionMessageRequest): Promise<SessionMessage> {
-    const result = await this.makeRequest<SessionMessage>(`/${sessionId}/message`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+  async sendSessionMessage(sessionId: string, data: SendSessionMessageRequest, retryCount = 0): Promise<SessionMessage> {
+    const maxRetries = 2;
+    
+    try {
+      if (this.debug) {
+        console.log(`[AgentAPIProxy] Sending message to session ${sessionId} (attempt ${retryCount + 1}):`, data.content);
+      }
 
-    if (this.debug) {
-      console.log(`[AgentAPIProxy] Sent message to session ${sessionId}:`, data.content);
+      const result = await this.makeRequest<SessionMessage>(`/${sessionId}/message`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+
+      if (this.debug) {
+        console.log(`[AgentAPIProxy] Successfully sent message to session ${sessionId}`);
+      }
+
+      return result;
+    } catch (error) {
+      if (this.debug) {
+        console.error(`[AgentAPIProxy] Failed to send message to session ${sessionId} (attempt ${retryCount + 1}):`, error);
+      }
+
+      // Check if this is a timeout or screen stabilization error
+      const isTimeoutError = error instanceof AgentAPIProxyError && 
+        (error.message.includes('timeout') || 
+         error.message.includes('screen to stabilize') ||
+         error.message.includes('wait for condition'));
+
+      // Retry for timeout errors
+      if (isTimeoutError && retryCount < maxRetries) {
+        const delay = (retryCount + 1) * 2000; // 2s, 4s delay
+        if (this.debug) {
+          console.log(`[AgentAPIProxy] Retrying message send in ${delay}ms...`);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.sendSessionMessage(sessionId, data, retryCount + 1);
+      }
+
+      // Enhance error message for timeout errors
+      if (isTimeoutError) {
+        throw new AgentAPIProxyError(
+          error instanceof AgentAPIProxyError ? error.status : 500,
+          'TIMEOUT_ERROR',
+          'メッセージ送信がタイムアウトしました。画面の操作に時間がかかっている可能性があります。しばらく待ってからもう一度お試しください。',
+          error instanceof AgentAPIProxyError ? error.details : undefined
+        );
+      }
+
+      throw error;
     }
-
-    return result;
   }
 
   async getSessionStatus(sessionId: string): Promise<AgentStatus> {
