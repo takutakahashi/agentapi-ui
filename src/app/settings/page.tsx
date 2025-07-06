@@ -11,9 +11,45 @@ export default function GlobalSettingsPage() {
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [decryptedData, setDecryptedData] = useState<{
+    baseUrl?: string
+    environmentVariables?: Record<string, string>
+    mcpServers?: Array<{ name: string; transport: { type: string; command?: string; url?: string } }>
+  } | null>(null)
+  const [decryptError, setDecryptError] = useState<string | null>(null)
   
   const isSingleProfile = isSingleProfileModeEnabled()
   
+  const loadEncryptedSettings = useCallback(async () => {
+    if (!isSingleProfile) return
+    
+    try {
+      const encryptedConfig = localStorage.getItem('agentapi-encrypted-config')
+      if (!encryptedConfig) {
+        setDecryptError('暗号化された設定が見つかりません')
+        return
+      }
+      
+      const response = await fetch('/api/decrypt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: encryptedConfig })
+      })
+      
+      if (!response.ok) {
+        throw new Error('復号化に失敗しました')
+      }
+      
+      const { decrypted } = await response.json()
+      const decryptedJson = JSON.parse(Buffer.from(decrypted, 'base64').toString('utf8'))
+      setDecryptedData(decryptedJson)
+      setDecryptError(null)
+    } catch (err) {
+      console.error('Failed to decrypt settings:', err)
+      setDecryptError('設定の復号化に失敗しました')
+    }
+  }, [isSingleProfile])
+
   const loadSettings = useCallback(() => {
     try {
       const globalSettings = loadGlobalSettings()
@@ -26,7 +62,8 @@ export default function GlobalSettingsPage() {
   // Load saved settings on component mount
   useEffect(() => {
     loadSettings()
-  }, [loadSettings])
+    loadEncryptedSettings()
+  }, [loadSettings, loadEncryptedSettings])
 
   const saveSettings = async () => {
     try {
@@ -203,6 +240,72 @@ export default function GlobalSettingsPage() {
               </div>
             )}
           </div>
+
+          {/* Single Profile Mode - Decrypted Settings Display */}
+          {isSingleProfile && (
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                復号化された設定
+              </h2>
+              {decryptError ? (
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    エラー: {decryptError}
+                  </p>
+                </div>
+              ) : decryptedData ? (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Base URL</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 p-3 rounded-md font-mono">
+                      {decryptedData.baseUrl}
+                    </p>
+                  </div>
+                  
+                  {decryptedData.environmentVariables && Object.keys(decryptedData.environmentVariables).length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">環境変数</h3>
+                      <div className="space-y-2">
+                        {Object.entries(decryptedData.environmentVariables).map(([key, value]) => (
+                          <div key={key} className="bg-gray-50 dark:bg-gray-700 p-3 rounded-md">
+                            <div className="text-sm font-mono">
+                              <span className="text-blue-600 dark:text-blue-400">{key}</span>
+                              <span className="text-gray-500"> = </span>
+                              <span className="text-gray-900 dark:text-white">{String(value)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {decryptedData.mcpServers && decryptedData.mcpServers.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">MCPサーバー</h3>
+                      <div className="space-y-2">
+                        {decryptedData.mcpServers.map((server, index: number) => (
+                          <div key={index} className="bg-gray-50 dark:bg-gray-700 p-3 rounded-md">
+                            <div className="text-sm">
+                              <div className="font-medium text-gray-900 dark:text-white">{server.name}</div>
+                              <div className="text-gray-600 dark:text-gray-400 font-mono text-xs mt-1">
+                                {server.transport.type}: {server.transport.command || server.transport.url}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                  <p className="text-sm text-blue-600 dark:text-blue-400">
+                    暗号化された設定を読み込み中...
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* MCP Servers Section */}
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
