@@ -197,18 +197,54 @@ async function handleProxyRequest(
     const contentType = response.headers.get('content-type');
     let responseData: unknown;
     
-    if (contentType?.includes('application/json')) {
-      responseData = await response.json();
-    } else {
-      responseData = await response.text();
+    try {
+      if (contentType?.includes('application/json')) {
+        responseData = await response.json();
+      } else {
+        responseData = await response.text();
+      }
+    } catch (parseError) {
+      // If we can't parse the response, create a structured error
+      const errorMessage = `Failed to parse response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`;
+      
+      if (!response.ok) {
+        return NextResponse.json(
+          { 
+            error: 'Proxy response parsing failed', 
+            status: response.status,
+            details: errorMessage,
+            code: 'RESPONSE_PARSE_ERROR'
+          },
+          { status: response.status }
+        );
+      }
+      
+      return NextResponse.json(
+        { 
+          error: 'Response parsing failed', 
+          details: errorMessage,
+          code: 'RESPONSE_PARSE_ERROR'
+        },
+        { status: 500 }
+      );
     }
 
     // Return response with appropriate status
     if (!response.ok) {
-      return NextResponse.json(
-        { error: responseData || 'Proxy request failed', status: response.status },
-        { status: response.status }
-      );
+      // Ensure error response is properly structured
+      let errorResponse: Record<string, unknown>;
+      
+      if (typeof responseData === 'object' && responseData !== null) {
+        errorResponse = responseData as Record<string, unknown>;
+      } else {
+        errorResponse = { 
+          error: responseData || 'Proxy request failed', 
+          status: response.status,
+          code: 'PROXY_REQUEST_FAILED'
+        };
+      }
+      
+      return NextResponse.json(errorResponse, { status: response.status });
     }
 
     return NextResponse.json(responseData, { status: response.status });
