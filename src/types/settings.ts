@@ -153,10 +153,18 @@ function getCurrentHostProxyUrl(): string {
 
 // Default proxy settings for profiles
 export const getDefaultProxySettings = (): AgentApiProxySettings => {
-  // Check if single profile mode is enabled (sync check)
-  const isSingleMode = typeof window === 'undefined' 
-    ? process.env.SINGLE_PROFILE_MODE === 'true'
-    : process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true'
+  // Check if single profile mode is enabled
+  // For server-side, use SINGLE_PROFILE_MODE
+  // For client-side, use NEXT_PUBLIC_SINGLE_PROFILE_MODE first, then fall back to runtime config
+  let isSingleMode = false;
+  
+  if (typeof window === 'undefined') {
+    // Server-side
+    isSingleMode = process.env.SINGLE_PROFILE_MODE === 'true' || process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true';
+  } else {
+    // Client-side - use NEXT_PUBLIC_ version
+    isSingleMode = process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true';
+  }
   
   const endpoint = isSingleMode 
     ? getCurrentHostProxyUrl()

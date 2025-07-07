@@ -25,7 +25,9 @@ cp .env.local.example .env.local
 3. `.env.local`を編集:
 ```bash
 # Single Profile Mode Configuration
+# サーバーサイドで使用（開発環境）
 SINGLE_PROFILE_MODE=true
+# クライアントサイドで使用（本番ビルドで必須）
 NEXT_PUBLIC_SINGLE_PROFILE_MODE=true
 
 # Cookie encryption secret (generate with: openssl rand -hex 32)
@@ -42,13 +44,15 @@ bun run dev
 
 ### シングルプロファイルモード
 
-環境変数で `SINGLE_PROFILE_MODE=true` を設定すると：
+環境変数で `SINGLE_PROFILE_MODE=true` と `NEXT_PUBLIC_SINGLE_PROFILE_MODE=true` を設定すると：
 - ユーザーは `/login` でAPIキーを使って認証する必要があります
 - APIキーは暗号化されてセキュアなCookieに保存されます
 - プロファイル切り替えUIは非表示になります
 - ログアウト機能がトップバーに表示されます
 
-**重要**: シングルプロファイルモードを使用する場合は、必ず `COOKIE_ENCRYPTION_SECRET` に安全な暗号化キーを設定してください。
+**重要**: 
+- シングルプロファイルモードを使用する場合は、必ず `COOKIE_ENCRYPTION_SECRET` に安全な暗号化キーを設定してください。
+- 本番環境（production build）では、`NEXT_PUBLIC_SINGLE_PROFILE_MODE=true` の設定が必須です。これがないとクライアントサイドで環境変数を読み取れません。
 
 ## 設定方法
 

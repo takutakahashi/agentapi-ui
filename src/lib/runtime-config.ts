@@ -8,7 +8,7 @@ export async function getRuntimeConfig() {
   if (typeof window === 'undefined') {
     // Server-side
     runtimeConfig = {
-      singleProfileMode: process.env.SINGLE_PROFILE_MODE === 'true',
+      singleProfileMode: process.env.SINGLE_PROFILE_MODE === 'true' || process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true',
     }
     return runtimeConfig
   }
