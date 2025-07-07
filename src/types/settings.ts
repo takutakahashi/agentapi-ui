@@ -116,11 +116,7 @@ export const isSingleProfileModeEnabledAsync = async (): Promise<boolean> => {
 
 // Get proxy settings with runtime single mode check
 export const getDefaultProxySettingsAsync = async (): Promise<AgentApiProxySettings> => {
-  const isSingleMode = await isSingleProfileModeEnabledAsync()
-  
-  const endpoint = isSingleMode 
-    ? await getCurrentHostProxyUrlAsync()
-    : (process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080')
+  const endpoint = await getCurrentHostProxyUrlAsync()
   
   return {
     endpoint,
@@ -144,16 +140,16 @@ export function getCurrentHostProxyUrlFromHeaders(requestHeaders?: HeadersInit):
     }
   }
   
-  // Fallback to environment variable
-  return process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080'
+  // Fallback to localhost for development
+  return 'http://localhost:3000/api/proxy'
 }
 
 // Get the current hostname for proxy URL
 function getCurrentHostProxyUrl(): string {
   if (typeof window === 'undefined') {
-    // Server-side: fallback to environment variable
+    // Server-side: fallback to localhost for development
     // Note: headers() is async in Next.js 15, so we can't use it here
-    return process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080'
+    return 'http://localhost:3000/api/proxy'
   }
   
   // Client-side: construct URL from current hostname
@@ -190,8 +186,8 @@ export async function getCurrentHostProxyUrlAsync(): Promise<string> {
       console.warn('Failed to get request headers for proxy URL:', error)
     }
     
-    // Fallback to environment variable
-    return process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080'
+    // Fallback to localhost for development
+    return 'http://localhost:3000/api/proxy'
   }
   
   // Client-side: construct URL from current hostname
@@ -210,14 +206,7 @@ export async function getCurrentHostProxyUrlAsync(): Promise<string> {
 
 // Default proxy settings for profiles
 export const getDefaultProxySettings = (): AgentApiProxySettings => {
-  // Check if single profile mode is enabled (sync check)
-  const isSingleMode = typeof window === 'undefined' 
-    ? process.env.SINGLE_PROFILE_MODE === 'true'
-    : process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true'
-  
-  const endpoint = isSingleMode 
-    ? getCurrentHostProxyUrl()
-    : (process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080')
+  const endpoint = getCurrentHostProxyUrl()
   
   return {
     endpoint,

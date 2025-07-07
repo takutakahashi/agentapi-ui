@@ -1053,7 +1053,9 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
     // Use proxy configuration
     const baseURL = settings.agentApiProxy.enabled 
       ? settings.agentApiProxy.endpoint 
-      : (process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080');
+      : (typeof window !== 'undefined' 
+          ? `${window.location.protocol}//${window.location.host}/api/proxy`
+          : 'http://localhost:3000/api/proxy');
     
     const timeout = settings.agentApiProxy.enabled 
       ? settings.agentApiProxy.timeout 
@@ -1069,10 +1071,12 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
       profileId,
     };
   } catch (error) {
-    console.warn('Failed to load proxy settings from storage, using environment variables:', error);
-    // Fallback to environment variables if storage access fails
+    console.warn('Failed to load proxy settings from storage, using fallback:', error);
+    // Fallback if storage access fails
     return {
-      baseURL: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
+      baseURL: typeof window !== 'undefined' 
+        ? `${window.location.protocol}//${window.location.host}/api/proxy`
+        : 'http://localhost:3000/api/proxy',
       apiKey: process.env.AGENTAPI_API_KEY,
       timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
       maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),

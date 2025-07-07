@@ -110,7 +110,7 @@ export default function GlobalSettingsPage() {
         try {
           // Prepare settings data to encrypt
           const settingsData = {
-            baseUrl: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
+            baseUrl: `${window.location.protocol}//${window.location.host}/api/proxy`,
             mcpServers: settings.mcpServers,
             environmentVariables: settings.environmentVariables.reduce((acc, env) => {
               if (env.key) acc[env.key] = env.value
