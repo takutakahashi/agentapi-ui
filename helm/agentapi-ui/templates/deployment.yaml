@@ -48,8 +48,15 @@ spec:
           readinessProbe:
             {{- toYaml .Values.readinessProbe | nindent 12 }}
           {{- end }}
-          {{- if .Values.env }}
           env:
+          {{- if .Values.encryptionKey.enabled }}
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.encryptionKey.secretName }}
+                  key: {{ .Values.encryptionKey.secretKey }}
+          {{- end }}
+          {{- if .Values.env }}
             {{- toYaml .Values.env | nindent 12 }}
           {{- end }}
           resources:
