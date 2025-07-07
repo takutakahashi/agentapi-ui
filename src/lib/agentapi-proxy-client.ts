@@ -574,12 +574,45 @@ export class AgentAPIProxyClient {
    * Delete a session
    */
   async delete(sessionId: string): Promise<void> {
-    await this.makeRequest<void>(`/${sessionId}`, {
-      method: 'DELETE',
-    });
-
     if (this.debug) {
-      console.log(`[AgentAPIProxy] Deleted session: ${sessionId}`);
+      console.log(`[AgentAPIProxy] Attempting to delete session: ${sessionId}`);
+    }
+
+    // Based on agentapi-proxy patterns, try the most likely endpoint first
+    try {
+      // Pattern 1: POST /stop with session_id in body (most likely for agentapi-proxy)
+      await this.makeRequest<void>('/stop', {
+        method: 'POST',
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+
+      if (this.debug) {
+        console.log(`[AgentAPIProxy] Successfully stopped session ${sessionId} using /stop endpoint`);
+      }
+      return;
+    } catch (stopError) {
+      if (this.debug) {
+        console.log(`[AgentAPIProxy] Failed to stop session ${sessionId} using /stop endpoint:`, stopError);
+      }
+
+      // Pattern 2: DELETE /{sessionId} (fallback)
+      try {
+        await this.makeRequest<void>(`/${sessionId}`, {
+          method: 'DELETE',
+        });
+
+        if (this.debug) {
+          console.log(`[AgentAPIProxy] Successfully deleted session ${sessionId} using DELETE /${sessionId}`);
+        }
+        return;
+      } catch (deleteError) {
+        if (this.debug) {
+          console.log(`[AgentAPIProxy] Failed to delete session ${sessionId} using DELETE /${sessionId}:`, deleteError);
+        }
+
+        // If both methods fail, throw the more informative error
+        throw deleteError;
+      }
     }
   }
 
