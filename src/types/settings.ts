@@ -119,7 +119,7 @@ export const getDefaultProxySettingsAsync = async (): Promise<AgentApiProxySetti
   const isSingleMode = await isSingleProfileModeEnabledAsync()
   
   const endpoint = isSingleMode 
-    ? getCurrentHostProxyUrl()
+    ? await getCurrentHostProxyUrlAsync()
     : (process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080')
   
   return {
@@ -130,10 +130,67 @@ export const getDefaultProxySettingsAsync = async (): Promise<AgentApiProxySetti
   }
 }
 
+// Get the current hostname for proxy URL from request headers
+export function getCurrentHostProxyUrlFromHeaders(requestHeaders?: HeadersInit): string {
+  if (requestHeaders) {
+    const headersObj = requestHeaders instanceof Headers ? requestHeaders : new Headers(requestHeaders)
+    const host = headersObj.get('host')
+    const protocol = headersObj.get('x-forwarded-proto') || 
+                    headersObj.get('x-forwarded-scheme') ||
+                    (headersObj.get('x-forwarded-ssl') === 'on' ? 'https' : 'http')
+    
+    if (host) {
+      return `${protocol}://${host}/api/proxy`
+    }
+  }
+  
+  // Fallback to environment variable
+  return process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080'
+}
+
 // Get the current hostname for proxy URL
 function getCurrentHostProxyUrl(): string {
   if (typeof window === 'undefined') {
-    // Server-side: use environment variable or fallback
+    // Server-side: fallback to environment variable
+    // Note: headers() is async in Next.js 15, so we can't use it here
+    return process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080'
+  }
+  
+  // Client-side: construct URL from current hostname
+  const protocol = window.location.protocol
+  const hostname = window.location.hostname
+  const port = window.location.port
+  
+  // Construct the base URL
+  let baseUrl = `${protocol}//${hostname}`
+  if (port && port !== '80' && port !== '443') {
+    baseUrl += `:${port}`
+  }
+  
+  return `${baseUrl}/api/proxy`
+}
+
+// Async version for server-side use with Next.js 15
+export async function getCurrentHostProxyUrlAsync(): Promise<string> {
+  if (typeof window === 'undefined') {
+    // Server-side: try to get hostname from request headers
+    try {
+      const { headers } = await import('next/headers')
+      const headersList = await headers()
+      const host = headersList.get('host')
+      const protocol = headersList.get('x-forwarded-proto') || 
+                      headersList.get('x-forwarded-scheme') ||
+                      (headersList.get('x-forwarded-ssl') === 'on' ? 'https' : 'http')
+      
+      if (host) {
+        return `${protocol}://${host}/api/proxy`
+      }
+    } catch (error) {
+      // headers() might not be available in all contexts
+      console.warn('Failed to get request headers for proxy URL:', error)
+    }
+    
+    // Fallback to environment variable
     return process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080'
   }
   
@@ -169,6 +226,7 @@ export const getDefaultProxySettings = (): AgentApiProxySettings => {
     apiKey: ''
   }
 }
+
 
 
 // Global settings utilities
