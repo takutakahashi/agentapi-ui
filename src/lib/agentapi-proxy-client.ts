@@ -967,7 +967,7 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
   if (typeof window === 'undefined') {
     // Server-side rendering or Node.js environment - use environment variables
     return {
-      baseURL: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
+      baseURL: process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080',
       apiKey: process.env.AGENTAPI_API_KEY,
       timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
       maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),
@@ -1095,4 +1095,33 @@ export function createAgentAPIProxyClientFromStorage(repoFullname?: string, prof
 }
 
 // Default proxy client instance for convenience (uses global settings from storage)
-export const agentAPIProxy = createAgentAPIProxyClientFromStorage();
+// Synchronous version for backward compatibility
+export function createDefaultAgentAPIProxyClient(): AgentAPIProxyClient {
+  if (typeof window === 'undefined') {
+    // Server-side - use environment variables directly
+    const config = {
+      baseURL: process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080',
+      apiKey: process.env.AGENTAPI_API_KEY,
+      timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
+      maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),
+      sessionTimeout: parseInt(process.env.AGENTAPI_PROXY_SESSION_TIMEOUT || '300000'),
+      debug: true,
+    };
+    return new AgentAPIProxyClient(config);
+  }
+  
+  // Client-side - use stored settings
+  const defaultProxySettings = getDefaultProxySettings();
+  const config = {
+    baseURL: defaultProxySettings.endpoint,
+    apiKey: defaultProxySettings.apiKey,
+    timeout: defaultProxySettings.timeout,
+    maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),
+    sessionTimeout: parseInt(process.env.AGENTAPI_PROXY_SESSION_TIMEOUT || '300000'),
+    debug: true,
+  };
+  return new AgentAPIProxyClient(config);
+}
+
+// Default proxy client instance for convenience
+export const agentAPIProxy = createDefaultAgentAPIProxyClient();

@@ -98,6 +98,22 @@ export const isSingleProfileModeEnabled = (): boolean => {
   return process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true'
 }
 
+// Check if Single Profile Mode is enabled via runtime config
+export const isSingleProfileModeEnabledAsync = async (): Promise<boolean> => {
+  if (typeof window === 'undefined') {
+    return process.env.SINGLE_PROFILE_MODE === 'true'
+  }
+  
+  try {
+    const response = await fetch('/api/config')
+    const config = await response.json()
+    return config.singleProfileMode || false
+  } catch (error) {
+    console.error('Failed to fetch runtime config:', error)
+    return process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true'
+  }
+}
+
 // Default proxy settings for profiles
 export const getDefaultProxySettings = (): AgentApiProxySettings => ({
   endpoint: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
@@ -105,6 +121,7 @@ export const getDefaultProxySettings = (): AgentApiProxySettings => ({
   timeout: 30000,
   apiKey: ''
 })
+
 
 // Global settings utilities
 export const loadGlobalSettings = (): SettingsFormData => {
