@@ -114,13 +114,61 @@ export const isSingleProfileModeEnabledAsync = async (): Promise<boolean> => {
   }
 }
 
+// Get proxy settings with runtime single mode check
+export const getDefaultProxySettingsAsync = async (): Promise<AgentApiProxySettings> => {
+  const isSingleMode = await isSingleProfileModeEnabledAsync()
+  
+  const endpoint = isSingleMode 
+    ? getCurrentHostProxyUrl()
+    : (process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080')
+  
+  return {
+    endpoint,
+    enabled: true,
+    timeout: 30000,
+    apiKey: ''
+  }
+}
+
+// Get the current hostname for proxy URL
+function getCurrentHostProxyUrl(): string {
+  if (typeof window === 'undefined') {
+    // Server-side: use environment variable or fallback
+    return process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080'
+  }
+  
+  // Client-side: construct URL from current hostname
+  const protocol = window.location.protocol
+  const hostname = window.location.hostname
+  const port = window.location.port
+  
+  // Construct the base URL
+  let baseUrl = `${protocol}//${hostname}`
+  if (port && port !== '80' && port !== '443') {
+    baseUrl += `:${port}`
+  }
+  
+  return `${baseUrl}/api/proxy`
+}
+
 // Default proxy settings for profiles
-export const getDefaultProxySettings = (): AgentApiProxySettings => ({
-  endpoint: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
-  enabled: true,
-  timeout: 30000,
-  apiKey: ''
-})
+export const getDefaultProxySettings = (): AgentApiProxySettings => {
+  // Check if single profile mode is enabled (sync check)
+  const isSingleMode = typeof window === 'undefined' 
+    ? process.env.SINGLE_PROFILE_MODE === 'true'
+    : process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true'
+  
+  const endpoint = isSingleMode 
+    ? getCurrentHostProxyUrl()
+    : (process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080')
+  
+  return {
+    endpoint,
+    enabled: true,
+    timeout: 30000,
+    apiKey: ''
+  }
+}
 
 
 // Global settings utilities
