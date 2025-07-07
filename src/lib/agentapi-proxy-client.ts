@@ -1112,7 +1112,6 @@ export function createDefaultAgentAPIProxyClient(): AgentAPIProxyClient {
   
   // Client-side - use stored settings
   const defaultProxySettings = getDefaultProxySettings();
-  const globalSettings = loadGlobalSettings();
   const config = {
     baseURL: defaultProxySettings.endpoint,
     apiKey: defaultProxySettings.apiKey,
