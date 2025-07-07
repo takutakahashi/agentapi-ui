@@ -38,7 +38,8 @@ export async function POST(request: NextRequest) {
     if (validateWithProxy) {
       const proxyUrl = process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080';
       try {
-        const testResponse = await fetch(`${proxyUrl}/health`, {
+        // Use /status endpoint instead of /health as per AgentAPI OpenAPI spec
+        const testResponse = await fetch(`${proxyUrl}/status`, {
           headers: {
             'Authorization': `Bearer ${apiKey}`,
           },
