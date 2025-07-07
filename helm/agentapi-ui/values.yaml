@@ -137,6 +137,15 @@ cookieEncryptionSecret:
   # Key within the secret that contains the cookie encryption secret
   secretKey: "cookie-encryption-secret"
 
+# Single Profile Mode configuration
+singleProfileMode:
+  # Enable single profile mode
+  enabled: false
+  # AgentAPI Proxy URL for single profile mode
+  proxyUrl: "http://localhost:8080"
+  # Public AgentAPI Proxy URL for client-side (optional, defaults to proxyUrl)
+  publicProxyUrl: ""
+
 # ConfigMap data
 configMap:
   data: {}
