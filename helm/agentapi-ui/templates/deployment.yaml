@@ -63,6 +63,16 @@ spec:
                   name: {{ .Values.cookieEncryptionSecret.secretName }}
                   key: {{ .Values.cookieEncryptionSecret.secretKey }}
           {{- end }}
+          {{- if .Values.singleProfileMode.enabled }}
+            - name: SINGLE_PROFILE_MODE
+              value: "true"
+            - name: NEXT_PUBLIC_SINGLE_PROFILE_MODE
+              value: "true"
+            - name: AGENTAPI_PROXY_URL
+              value: {{ .Values.singleProfileMode.proxyUrl | quote }}
+            - name: NEXT_PUBLIC_AGENTAPI_PROXY_URL
+              value: {{ .Values.singleProfileMode.publicProxyUrl | default .Values.singleProfileMode.proxyUrl | quote }}
+          {{- end }}
           {{- if .Values.env }}
             {{- toYaml .Values.env | nindent 12 }}
           {{- end }}
