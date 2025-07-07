@@ -3,7 +3,8 @@ import type { NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
   // Check if single profile mode is enabled
-  const singleProfileMode = process.env.SINGLE_PROFILE_MODE === 'true'
+  const singleProfileMode = process.env.SINGLE_PROFILE_MODE === 'true' || 
+                            process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true'
   
   if (singleProfileMode) {
     const pathname = request.nextUrl.pathname

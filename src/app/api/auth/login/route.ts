@@ -4,7 +4,8 @@ import { setApiKeyCookie } from '@/lib/cookie-auth';
 export async function POST(request: NextRequest) {
   try {
     // Check if single profile mode is enabled
-    const singleProfileMode = process.env.SINGLE_PROFILE_MODE === 'true';
+    const singleProfileMode = process.env.SINGLE_PROFILE_MODE === 'true' || 
+                              process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true';
     
     if (!singleProfileMode) {
       return NextResponse.json(

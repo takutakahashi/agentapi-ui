@@ -51,7 +51,8 @@ async function handleProxyRequest(
 ): Promise<NextResponse> {
   try {
     // Check if single profile mode is enabled
-    const singleProfileMode = process.env.SINGLE_PROFILE_MODE === 'true';
+    const singleProfileMode = process.env.SINGLE_PROFILE_MODE === 'true' || 
+                              process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true';
     
     if (!singleProfileMode) {
       console.error('API proxy request failed: Single profile mode is not enabled. Set SINGLE_PROFILE_MODE=true environment variable.');
