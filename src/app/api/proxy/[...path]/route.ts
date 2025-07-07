@@ -79,10 +79,23 @@ async function handleProxyRequest(
       );
     }
 
+    // Determine proxy URL based on single profile mode settings
+    let proxyUrl = PROXY_URL;
+    
+    // In single profile mode, use the request hostname for proxy URL construction
+    if (singleProfileMode) {
+      const host = request.headers.get('host');
+      
+      if (host) {
+        // Use the actual backend URL for proxying
+        proxyUrl = process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080';
+      }
+    }
+    
     // Construct target URL
     const path = pathParts.join('/');
     const searchParams = request.nextUrl.searchParams;
-    const targetUrl = `${PROXY_URL}/${path}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const targetUrl = `${proxyUrl}/${path}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
 
     // Prepare request body and handle encrypted config
     let body: string | undefined;

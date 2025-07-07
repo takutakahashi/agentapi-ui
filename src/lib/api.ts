@@ -8,9 +8,9 @@ import { createAgentAPIProxyClientFromStorage } from './agentapi-proxy-client'
 function getAPIConfig(): { baseURL: string; apiKey?: string } {
   // Check if we're in a browser environment
   if (typeof window === 'undefined') {
-    // Server-side rendering or Node.js environment - use environment variables
+    // Server-side rendering or Node.js environment - use default proxy endpoint
     return {
-      baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
+      baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api/proxy',
       apiKey: process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
     };
   }
@@ -20,7 +20,7 @@ function getAPIConfig(): { baseURL: string; apiKey?: string } {
     const currentProfile = ProfileManager.getDefaultProfile();
     if (currentProfile) {
       return {
-        baseURL: currentProfile.agentApiProxy.endpoint || process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
+        baseURL: currentProfile.agentApiProxy.endpoint || process.env.NEXT_PUBLIC_API_BASE_URL || `${window.location.protocol}//${window.location.host}/api/proxy`,
         apiKey: currentProfile.agentApiProxy.apiKey || process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
       };
     }
@@ -28,13 +28,13 @@ function getAPIConfig(): { baseURL: string; apiKey?: string } {
     // Fall back to default proxy settings
     const defaultProxySettings = getDefaultProxySettings();
     return {
-      baseURL: defaultProxySettings.endpoint || process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
+      baseURL: defaultProxySettings.endpoint || process.env.NEXT_PUBLIC_API_BASE_URL || `${window.location.protocol}//${window.location.host}/api/proxy`,
       apiKey: defaultProxySettings.apiKey || process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
     };
   } catch (error) {
-    console.warn('Failed to load settings from storage for chat API, using environment variables:', error);
+    console.warn('Failed to load settings from storage for chat API, using fallback:', error);
     return {
-      baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
+      baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || `${window.location.protocol}//${window.location.host}/api/proxy`,
       apiKey: process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
     };
   }
