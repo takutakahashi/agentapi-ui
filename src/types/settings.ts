@@ -101,7 +101,8 @@ export const isSingleProfileModeEnabled = (): boolean => {
 // Check if Single Profile Mode is enabled via runtime config
 export const isSingleProfileModeEnabledAsync = async (): Promise<boolean> => {
   if (typeof window === 'undefined') {
-    return process.env.SINGLE_PROFILE_MODE === 'true'
+    return process.env.SINGLE_PROFILE_MODE === 'true' || 
+           process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true'
   }
   
   try {

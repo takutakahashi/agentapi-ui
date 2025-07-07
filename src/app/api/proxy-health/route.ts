@@ -16,7 +16,8 @@ export async function GET() {
   };
 
   // Test 1: Check if single profile mode is enabled
-  const singleProfileMode = process.env.SINGLE_PROFILE_MODE === 'true';
+  const singleProfileMode = process.env.SINGLE_PROFILE_MODE === 'true' || 
+                        process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true';
   (diagnostics.tests as Record<string, unknown>).singleProfileMode = {
     enabled: singleProfileMode,
     status: singleProfileMode ? 'PASS' : 'FAIL',
