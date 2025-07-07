@@ -4,12 +4,10 @@ import { getRuntimeConfig } from '@/lib/runtime-config'
 export function useRuntimeConfig() {
   const [config, setConfig] = useState<{
     singleProfileMode: boolean
-    agentApiProxyUrl: string
     loading: boolean
     error: string | null
   }>({
     singleProfileMode: false,
-    agentApiProxyUrl: 'http://localhost:8080',
     loading: true,
     error: null,
   })
@@ -20,7 +18,6 @@ export function useRuntimeConfig() {
         const runtimeConfig = await getRuntimeConfig()
         setConfig({
           singleProfileMode: runtimeConfig?.singleProfileMode || false,
-          agentApiProxyUrl: runtimeConfig?.agentApiProxyUrl || 'http://localhost:8080',
           loading: false,
           error: null,
         })

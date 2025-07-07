@@ -14,7 +14,6 @@ import {
   AgentListParams
 } from '../types/agentapi';
 import { loadGlobalSettings, getDefaultProxySettings, isSingleProfileModeEnabled } from '../types/settings';
-import { getRuntimeConfig } from '@/lib/runtime-config';
 import { ProfileManager } from '../utils/profileManager';
 import { GitHubUser, MCPServerConfig } from '../types/profile';
 import type { EncryptedData } from './encryption';
@@ -963,13 +962,12 @@ function collectMCPConfigurations(profileId?: string): MCPServerConfig[] {
 }
 
 // Utility functions to get proxy settings from browser storage
-export async function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profileId?: string): Promise<AgentAPIProxyClientConfig> {
+export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profileId?: string): AgentAPIProxyClientConfig {
   // Check if we're in a browser environment
   if (typeof window === 'undefined') {
     // Server-side rendering or Node.js environment - use environment variables
-    const runtimeConfig = await getRuntimeConfig();
     return {
-      baseURL: runtimeConfig?.agentApiProxyUrl || 'http://localhost:8080',
+      baseURL: process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080',
       apiKey: process.env.AGENTAPI_API_KEY,
       timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
       maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),
@@ -1052,22 +1050,10 @@ export async function getAgentAPIProxyConfigFromStorage(repoFullname?: string, p
       };
     }
     
-    // Use proxy configuration with runtime config fallback
-    let baseURL = settings.agentApiProxy.enabled 
+    // Use proxy configuration
+    const baseURL = settings.agentApiProxy.enabled 
       ? settings.agentApiProxy.endpoint 
       : (process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080');
-    
-    // If using fallback URL, try to get runtime config
-    if (!settings.agentApiProxy.enabled || baseURL === 'http://localhost:8080') {
-      try {
-        const runtimeConfig = await getRuntimeConfig();
-        if (runtimeConfig && runtimeConfig.agentApiProxyUrl) {
-          baseURL = runtimeConfig.agentApiProxyUrl;
-        }
-      } catch (error) {
-        console.error('Failed to get runtime config for proxy URL:', error);
-      }
-    }
     
     const timeout = settings.agentApiProxy.enabled 
       ? settings.agentApiProxy.timeout 
@@ -1103,8 +1089,8 @@ export function createAgentAPIProxyClient(config: AgentAPIProxyClientConfig): Ag
 }
 
 // Factory function to create client using stored settings
-export async function createAgentAPIProxyClientFromStorage(repoFullname?: string, profileId?: string): Promise<AgentAPIProxyClient> {
-  const config = await getAgentAPIProxyConfigFromStorage(repoFullname, profileId);
+export function createAgentAPIProxyClientFromStorage(repoFullname?: string, profileId?: string): AgentAPIProxyClient {
+  const config = getAgentAPIProxyConfigFromStorage(repoFullname, profileId);
   return new AgentAPIProxyClient(config);
 }
 
@@ -1124,7 +1110,7 @@ export function createDefaultAgentAPIProxyClient(): AgentAPIProxyClient {
     return new AgentAPIProxyClient(config);
   }
   
-  // Client-side - use stored settings (will be enhanced later with runtime config)
+  // Client-side - use stored settings
   const defaultProxySettings = getDefaultProxySettings();
   const globalSettings = loadGlobalSettings();
   const config = {
@@ -1140,6 +1126,3 @@ export function createDefaultAgentAPIProxyClient(): AgentAPIProxyClient {
 
 // Default proxy client instance for convenience
 export const agentAPIProxy = createDefaultAgentAPIProxyClient();
-
-// Enhanced version that uses runtime config
-export const getAgentAPIProxyWithRuntimeConfig = createAgentAPIProxyClientFromStorage;

@@ -1,4 +1,4 @@
-let runtimeConfig: { singleProfileMode?: boolean; agentApiProxyUrl?: string } | null = null
+let runtimeConfig: { singleProfileMode?: boolean } | null = null
 
 export async function getRuntimeConfig() {
   if (runtimeConfig !== null) {
@@ -9,7 +9,6 @@ export async function getRuntimeConfig() {
     // Server-side
     runtimeConfig = {
       singleProfileMode: process.env.SINGLE_PROFILE_MODE === 'true',
-      agentApiProxyUrl: process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080',
     }
     return runtimeConfig
   }
@@ -27,7 +26,6 @@ export async function getRuntimeConfig() {
     // Fallback to build-time environment variables
     runtimeConfig = {
       singleProfileMode: process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true',
-      agentApiProxyUrl: process.env.NEXT_PUBLIC_AGENTAPI_PROXY_URL || 'http://localhost:8080',
     }
   }
 

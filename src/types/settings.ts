@@ -122,31 +122,6 @@ export const getDefaultProxySettings = (): AgentApiProxySettings => ({
   apiKey: ''
 })
 
-// Get proxy settings from runtime config
-export const getDefaultProxySettingsAsync = async (): Promise<AgentApiProxySettings> => {
-  if (typeof window === 'undefined') {
-    return {
-      endpoint: process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080',
-      enabled: true,
-      timeout: 30000,
-      apiKey: ''
-    }
-  }
-  
-  try {
-    const response = await fetch('/api/config')
-    const config = await response.json()
-    return {
-      endpoint: config.agentApiProxyUrl || 'http://localhost:8080',
-      enabled: true,
-      timeout: 30000,
-      apiKey: ''
-    }
-  } catch (error) {
-    console.error('Failed to fetch runtime config:', error)
-    return getDefaultProxySettings()
-  }
-}
 
 // Global settings utilities
 export const loadGlobalSettings = (): SettingsFormData => {
