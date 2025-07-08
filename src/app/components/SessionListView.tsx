@@ -617,9 +617,6 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
           {/* 既存セッション */}
           {filteredSessions.length > 0 && (
             <div>
-              <h4 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-4">
-                アクティブなセッション ({filteredSessions.length})
-              </h4>
               <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
                 {paginatedSessions.map((session) => (
                   <div
