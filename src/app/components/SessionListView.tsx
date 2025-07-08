@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { Session, AgentStatus } from '../../types/agentapi'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, AgentAPIProxyClient } from '../../lib/agentapi-proxy-client'
 import { ProfileManager } from '../../utils/profileManager'
-import StatusBadge from './StatusBadge'
 import { useBackgroundAwareInterval } from '../hooks/usePageVisibility'
 import { formatRelativeTime } from '../../utils/timeUtils'
 import { truncateText } from '../../utils/textUtils'
@@ -630,18 +629,15 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                           <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white leading-5 sm:leading-6">
                             {truncateText(String(sessionMessages[session.session_id] || session.metadata?.description || 'No description available'), isMobile ? 60 : 80)}
                           </h3>
-                          <div className="flex items-center gap-2">
-                            <StatusBadge status={session.status} />
-                            {sessionAgentStatus[session.session_id] && (
-                              <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                                sessionAgentStatus[session.session_id].status === 'running'
-                                  ? 'bg-yellow-500 animate-pulse'
-                                  : sessionAgentStatus[session.session_id].status === 'stable'
-                                  ? 'bg-green-500'
-                                  : 'bg-red-500'
-                              }`} title={`Agent: ${getAgentStatusDisplayInfo(sessionAgentStatus[session.session_id]).text}`} />
-                            )}
-                          </div>
+                          {sessionAgentStatus[session.session_id] && (
+                            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                              sessionAgentStatus[session.session_id].status === 'running'
+                                ? 'bg-yellow-500 animate-pulse'
+                                : sessionAgentStatus[session.session_id].status === 'stable'
+                                ? 'bg-green-500'
+                                : 'bg-red-500'
+                            }`} title={`Agent: ${getAgentStatusDisplayInfo(sessionAgentStatus[session.session_id]).text}`} />
+                          )}
                         </div>
 
                         {/* セッション情報 */}
