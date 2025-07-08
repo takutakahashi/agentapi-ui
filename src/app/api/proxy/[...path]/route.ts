@@ -50,6 +50,13 @@ async function handleProxyRequest(
   method: string
 ): Promise<NextResponse> {
   try {
+    // Log the incoming request for debugging
+    console.log(`[API Proxy] ${method} request to:`, pathParts.join('/'), {
+      searchParams: request.nextUrl.searchParams.toString(),
+      hasBody: method !== 'GET' && method !== 'HEAD',
+      headers: Object.fromEntries(request.headers.entries())
+    });
+
     // Check if single profile mode is enabled
     const singleProfileMode = process.env.SINGLE_PROFILE_MODE === 'true' || 
                               process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true';
@@ -97,6 +104,8 @@ async function handleProxyRequest(
     const path = pathParts.join('/');
     const searchParams = request.nextUrl.searchParams;
     const targetUrl = `${proxyUrl}/${path}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+
+    console.log(`[API Proxy] Target URL constructed:`, targetUrl);
 
     // Prepare request body and handle encrypted config
     let body: string | undefined;
@@ -199,11 +208,25 @@ async function handleProxyRequest(
     const isMessageEndpoint = pathParts.includes('message');
     const timeoutMs = isMessageEndpoint ? 120000 : 30000; // 2 minutes for messages, 30s for others
 
+    console.log(`[API Proxy] Making ${method} request to backend:`, {
+      url: targetUrl,
+      hasAuth: !!headers.get('Authorization'),
+      timeout: timeoutMs,
+      bodyLength: typeof body === 'string' ? body.length : 0
+    });
+
     const response = await fetch(targetUrl, {
       method,
       headers,
       body,
       signal: AbortSignal.timeout(timeoutMs),
+    });
+
+    console.log(`[API Proxy] Backend response:`, {
+      status: response.status,
+      statusText: response.statusText,
+      contentType: response.headers.get('content-type'),
+      url: targetUrl
     });
 
     // Handle non-JSON responses

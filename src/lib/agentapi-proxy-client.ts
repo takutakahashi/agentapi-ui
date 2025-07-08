@@ -574,12 +574,17 @@ export class AgentAPIProxyClient {
    * Delete a session
    */
   async delete(sessionId: string): Promise<void> {
-    await this.makeRequest<void>(`/${sessionId}`, {
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Attempting to delete session: ${sessionId}`);
+    }
+
+    // Use the correct agentapi-proxy endpoint: DELETE /sessions/{sessionId}
+    await this.makeRequest<void>(`/sessions/${sessionId}`, {
       method: 'DELETE',
     });
 
     if (this.debug) {
-      console.log(`[AgentAPIProxy] Deleted session: ${sessionId}`);
+      console.log(`[AgentAPIProxy] Successfully deleted session: ${sessionId}`);
     }
   }
 
