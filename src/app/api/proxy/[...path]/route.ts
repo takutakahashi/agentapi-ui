@@ -53,8 +53,7 @@ async function handleProxyRequest(
     // Log the incoming request for debugging
     console.log(`[API Proxy] ${method} request to:`, pathParts.join('/'), {
       searchParams: request.nextUrl.searchParams.toString(),
-      hasBody: method !== 'GET' && method !== 'HEAD',
-      headers: Object.fromEntries(request.headers.entries())
+      hasBody: method !== 'GET' && method !== 'HEAD'
     });
 
     // Check if single profile mode is enabled

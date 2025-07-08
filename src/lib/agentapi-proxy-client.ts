@@ -161,7 +161,6 @@ export class AgentAPIProxyClient {
 
       if (this.debug) {
         console.log(`[AgentAPIProxy] ${options.method || 'GET'} ${url} (Bearer token)`, {
-          headers: bearerRequestOptions.headers,
           body: options.body,
           attempt,
         });
@@ -184,7 +183,6 @@ export class AgentAPIProxyClient {
 
             if (this.debug) {
               console.log(`[AgentAPIProxy] ${options.method || 'GET'} ${url} (X-API-Key fallback)`, {
-                headers: fallbackRequestOptions.headers,
                 body: options.body,
                 attempt,
               });
@@ -265,7 +263,6 @@ export class AgentAPIProxyClient {
 
     if (this.debug) {
       console.log(`[AgentAPIProxy] ${options.method || 'GET'} ${url} (no auth)`, {
-        headers: requestOptions.headers,
         body: options.body,
         attempt,
       });
@@ -335,8 +332,7 @@ export class AgentAPIProxyClient {
     if (this.debug) {
       console.log(`[AgentAPIProxy] Proxy ${options.method || 'GET'} ${proxyUrl}`, {
         hasEncryptedConfig: !!this.encryptedConfig,
-        bodyLength: typeof body === 'string' ? body.length : 0,
-        headers: options.headers
+        bodyLength: typeof body === 'string' ? body.length : 0
       });
     }
     
