@@ -9,6 +9,8 @@ image:
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
+  # Tag suffix for single profile mode images
+  singleProfileSuffix: "-single-profile"
 
 imagePullSecrets: []
 nameOverride: ""
