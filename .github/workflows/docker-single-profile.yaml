@@ -8,6 +8,8 @@ on:
         required: false
         default: 'single-profile-latest'
   push:
+    tags:
+      - 'v*'
     branches:
       - main
     paths:
@@ -51,11 +53,8 @@ jobs:
           flavor: |
             suffix=-single-profile,onlatest=true
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=raw,value=${{ github.event.inputs.tag || 'single-profile-latest' }}
-            type=raw,value=single-profile-{{date 'YYYYMMDD-HHmmss'}}
-            type=sha,prefix=single-profile-
+            type=raw,value=${{ github.event.inputs.tag || 'latest' }}
+            type=raw,value=${{ github.sha }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
