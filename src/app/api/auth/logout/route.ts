@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { deleteApiKeyCookie } from '@/lib/cookie-auth';
+import { deleteGitHubTokenCookie } from '@/lib/github-oauth';
 
 export async function POST() {
   try {
@@ -14,8 +15,9 @@ export async function POST() {
       );
     }
 
-    // Delete the API key cookie
+    // Delete both API key and GitHub OAuth cookies
     await deleteApiKeyCookie();
+    await deleteGitHubTokenCookie();
 
     return NextResponse.json(
       { message: 'Successfully logged out' },

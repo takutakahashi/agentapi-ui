@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiKeyFromCookie } from '@/lib/cookie-auth';
 import { getEncryptionService } from '@/lib/encryption';
+import { getGitHubTokenFromCookie } from '@/lib/github-oauth';
 
 const PROXY_URL = process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080';
 
@@ -72,19 +73,24 @@ async function handleProxyRequest(
       );
     }
 
-    // Get API key from cookie
+    // Get authentication token from either API key or GitHub OAuth
     const apiKey = await getApiKeyFromCookie();
-    if (!apiKey) {
-      console.error('API proxy request failed: No API key found in cookie. Make sure you are logged in and COOKIE_ENCRYPTION_SECRET is properly configured.');
+    const githubToken = await getGitHubTokenFromCookie();
+    
+    if (!apiKey && !githubToken) {
+      console.error('API proxy request failed: No authentication token found. Make sure you are logged in.');
       return NextResponse.json(
         { 
           error: 'Authentication required', 
-          message: 'No API key found in cookie. Please log in again.',
-          code: 'NO_API_KEY'
+          message: 'No authentication token found. Please log in again.',
+          code: 'NO_AUTH_TOKEN'
         },
         { status: 401 }
       );
     }
+    
+    // Use API key if available, otherwise use GitHub OAuth token
+    const authToken = apiKey || githubToken;
 
     // Determine proxy URL based on single profile mode settings
     let proxyUrl = PROXY_URL;
@@ -120,7 +126,7 @@ async function handleProxyRequest(
           const bodyData = JSON.parse(bodyText);
           
           // Check if the request contains encrypted configuration
-          if (bodyData.encryptedConfig) {
+          if (bodyData.encryptedConfig && apiKey) {
             const encryptionService = getEncryptionService();
             const currentTokenHash = encryptionService.hashApiToken(apiKey);
             
@@ -155,7 +161,7 @@ async function handleProxyRequest(
 
     // Prepare headers
     const headers = new Headers();
-    headers.set('Authorization', `Bearer ${apiKey}`);
+    headers.set('Authorization', `Bearer ${authToken}`);
     headers.set('Content-Type', 'application/json');
     headers.set('Accept', 'application/json');
     
