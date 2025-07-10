@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getApiKeyFromCookie } from '@/lib/cookie-auth';
 import { getEncryptionService } from '@/lib/encryption';
+import { 
+  getGitHubTokenFromCookie, 
+  getGitHubUser, 
+  isGitHubAuthenticated 
+} from '@/lib/github-oauth';
 
 export async function GET() {
   try {
@@ -19,13 +24,15 @@ export async function GET() {
       );
     }
 
-    // Check if API key exists in cookie
+    // Check both API key and GitHub OAuth authentication
     const apiKey = await getApiKeyFromCookie();
-    const authenticated = !!apiKey;
+    const githubAuthenticated = await isGitHubAuthenticated();
     
-    // Calculate token hash if authenticated
+    const authenticated = !!apiKey || githubAuthenticated;
+    
+    // Calculate token hash if authenticated with API key
     let tokenHash = null;
-    if (authenticated && apiKey) {
+    if (apiKey) {
       try {
         const encryptionService = getEncryptionService();
         tokenHash = encryptionService.hashApiToken(apiKey);
@@ -34,11 +41,36 @@ export async function GET() {
       }
     }
 
+    // Get GitHub user data if authenticated with GitHub
+    let githubUser = null;
+    if (githubAuthenticated) {
+      try {
+        const githubToken = await getGitHubTokenFromCookie();
+        if (githubToken) {
+          githubUser = await getGitHubUser(githubToken);
+        }
+      } catch (err) {
+        console.error('Failed to get GitHub user data:', err);
+      }
+    }
+
+    // Determine authentication method
+    let authMethod = 'none';
+    if (apiKey && githubAuthenticated) {
+      authMethod = 'both';
+    } else if (apiKey) {
+      authMethod = 'api_key';
+    } else if (githubAuthenticated) {
+      authMethod = 'github_oauth';
+    }
+
     return NextResponse.json(
       { 
         singleProfileMode: true,
         authenticated,
+        authMethod,
         tokenHash,
+        githubUser,
         message: authenticated ? 'Authenticated' : 'Not authenticated'
       },
       { status: 200 }
