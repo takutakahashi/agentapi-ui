@@ -53,7 +53,8 @@ jobs:
           flavor: |
             suffix=-single-profile,onlatest=true
           tags: |
-            type=raw,value=${{ github.event.inputs.tag || 'latest' }}
+            type=semver,pattern={{raw}}
+            type=semver,pattern={{major}}.{{minor}}
             type=raw,value=${{ github.sha }}
 
       - name: Build and push Docker image
