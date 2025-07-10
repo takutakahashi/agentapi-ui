@@ -67,6 +67,7 @@ jobs:
           build-args: |
             NEXT_PUBLIC_SINGLE_PROFILE_MODE=true
             SINGLE_PROFILE_MODE=true
+            VALIDATE_API_KEY_WITH_PROXY=true
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
