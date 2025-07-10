@@ -15,7 +15,11 @@ RUN bun install --frozen-lockfile --production
 FROM base AS builder
 COPY . .
 RUN bun install --frozen-lockfile
-RUN bun run build
+ARG NEXT_PUBLIC_SINGLE_PROFILE_MODE=false
+ARG SINGLE_PROFILE_MODE=false
+RUN NEXT_PUBLIC_SINGLE_PROFILE_MODE=${NEXT_PUBLIC_SINGLE_PROFILE_MODE} \
+    SINGLE_PROFILE_MODE=${SINGLE_PROFILE_MODE} \
+    bun run build
 
 # Production stage
 FROM oven/bun:1.2.11-debian AS runner
