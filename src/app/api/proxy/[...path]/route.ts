@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiKeyFromCookie } from '@/lib/cookie-auth';
+import { getOAuthSessionFromCookie } from '@/lib/oauth-cookie';
 import { getEncryptionService } from '@/lib/encryption';
 
 const PROXY_URL = process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080';
@@ -158,6 +159,18 @@ async function handleProxyRequest(
     headers.set('Authorization', `Bearer ${apiKey}`);
     headers.set('Content-Type', 'application/json');
     headers.set('Accept', 'application/json');
+    
+    // Check for OAuth session in cookie and add session ID if available
+    const oauthSession = await getOAuthSessionFromCookie();
+    if (oauthSession) {
+      headers.set('X-Session-ID', oauthSession.sessionId);
+      
+      // For auth/status endpoint, we might want to include the profile ID
+      if (path === 'auth/status' && searchParams.get('profileId') === oauthSession.profileId) {
+        // Session matches the requested profile
+        headers.set('X-OAuth-Profile-ID', oauthSession.profileId);
+      }
+    }
     
     // Add decrypted environment variables as headers if available
     if (decryptedConfig.environmentVariables) {

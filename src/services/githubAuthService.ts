@@ -26,11 +26,20 @@ export class GitHubAuthService {
   async checkAuthStatus(profileId: string): Promise<{ type: 'github' | 'none'; authenticated: boolean; user?: GitHubUser }> {
     try {
       const client = createAgentAPIProxyClientFromStorage(undefined, profileId);
-      const authStatus = await client.getOAuthStatus();
+      
+      // First check if we have OAuth session in cookie (only on client side)
+      let sessionId: string | undefined;
+      if (typeof window !== 'undefined') {
+        // On client side, we can check profile for session ID
+        const profile = ProfileManager.getProfile(profileId);
+        sessionId = profile?.githubAuth?.sessionId;
+      }
+      
+      const authStatus = await client.getOAuthStatus(sessionId);
       
       if (authStatus.authenticated && authStatus.user) {
         // Update profile with latest auth info
-        ProfileManager.updateProfile(profileId, {
+        const updateData: any = {
           githubAuth: {
             enabled: true,
             user: authStatus.user,
@@ -38,7 +47,14 @@ export class GitHubAuthService {
             organizations: [],
             repositories: []
           }
-        });
+        };
+        
+        // If we got a session ID from the response, store it
+        if (authStatus.sessionId) {
+          updateData.githubAuth.sessionId = authStatus.sessionId;
+        }
+        
+        ProfileManager.updateProfile(profileId, updateData);
         
         return {
           type: 'github',
@@ -62,12 +78,9 @@ export class GitHubAuthService {
     try {
       const client = createAgentAPIProxyClientFromStorage(undefined, profileId);
       
-      // Store profile ID for the OAuth callback
-      localStorage.setItem('oauth-profile-id', profileId);
-      
-      // Generate OAuth URL using the proxy client
+      // Generate OAuth URL using the proxy client with profileId in metadata
       const redirectURI = `${window.location.origin}/oauth/callback`;
-      const { authUrl } = await client.startOAuthFlow(redirectURI);
+      const { authUrl } = await client.startOAuthFlow(redirectURI, { profileId });
       
       // Open auth URL in a new window
       const authWindow = window.open(authUrl, 'github-auth', 'width=500,height=700');
@@ -95,7 +108,6 @@ export class GitHubAuthService {
         if (authWindow?.closed) {
           clearInterval(checkClosed);
           window.removeEventListener('message', handleMessage);
-          localStorage.removeItem('oauth-profile-id');
         }
       }, 1000);
       

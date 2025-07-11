@@ -832,12 +832,27 @@ export class AgentAPIProxyClient {
   /**
    * Start OAuth flow and get authorization URL
    */
-  async startOAuthFlow(redirectURI: string): Promise<{ authUrl: string; state: string }> {
+  async startOAuthFlow(redirectURI: string, metadata?: Record<string, string>): Promise<{ authUrl: string; state: string }> {
     try {
       const response = await this.makeRequest<{ auth_url: string; state: string }>('/oauth/authorize', {
         method: 'POST',
         body: JSON.stringify({ redirect_uri: redirectURI })
       });
+      
+      // If we have metadata (like profileId), append it to the redirect URI
+      if (metadata && Object.keys(metadata).length > 0) {
+        const url = new URL(response.auth_url);
+        const redirectUrl = new URL(url.searchParams.get('redirect_uri') || redirectURI);
+        
+        // Add metadata to the callback URL
+        Object.entries(metadata).forEach(([key, value]) => {
+          redirectUrl.searchParams.set(key, value);
+        });
+        
+        url.searchParams.set('redirect_uri', redirectUrl.toString());
+        return { authUrl: url.toString(), state: response.state };
+      }
+      
       return { authUrl: response.auth_url, state: response.state };
     } catch (error) {
       console.error('[AgentAPIProxy] Failed to start OAuth flow:', error);
@@ -880,17 +895,22 @@ export class AgentAPIProxyClient {
   /**
    * Get OAuth authentication status
    */
-  async getOAuthStatus(sessionId?: string): Promise<{ authenticated: boolean; user?: GitHubUser }> {
+  async getOAuthStatus(sessionId?: string): Promise<{ authenticated: boolean; user?: GitHubUser; sessionId?: string }> {
     try {
       const headers: Record<string, string> = {};
       if (sessionId) {
         headers['X-Session-ID'] = sessionId;
       }
       
-      const response = await this.makeRequest<{ authenticated: boolean; user?: GitHubUser }>('/auth/status', {
+      const response = await this.makeRequest<{ authenticated: boolean; user?: GitHubUser; session_id?: string }>('/auth/status', {
         headers
       });
-      return response;
+      
+      return {
+        authenticated: response.authenticated,
+        user: response.user,
+        sessionId: response.session_id
+      };
     } catch (error) {
       console.error('[AgentAPIProxy] Failed to get OAuth status:', error);
       return { authenticated: false };
