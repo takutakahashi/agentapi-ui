@@ -830,6 +830,107 @@ export class AgentAPIProxyClient {
   }
 
   /**
+   * Start OAuth flow and get authorization URL
+   */
+  async startOAuthFlow(redirectURI: string): Promise<{ authUrl: string; state: string }> {
+    try {
+      const response = await this.makeRequest<{ auth_url: string; state: string }>('/oauth/authorize', {
+        method: 'POST',
+        body: JSON.stringify({ redirect_uri: redirectURI })
+      });
+      return { authUrl: response.auth_url, state: response.state };
+    } catch (error) {
+      console.error('[AgentAPIProxy] Failed to start OAuth flow:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Exchange OAuth code for session
+   */
+  async exchangeOAuthCode(code: string, state: string): Promise<{
+    sessionId: string;
+    accessToken: string;
+    tokenType: string;
+    expiresAt: Date;
+    user: GitHubUser;
+  }> {
+    try {
+      const response = await this.makeRequest<{
+        session_id: string;
+        access_token: string;
+        token_type: string;
+        expires_at: string;
+        user: GitHubUser;
+      }>(`/oauth/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`);
+      
+      return {
+        sessionId: response.session_id,
+        accessToken: response.access_token,
+        tokenType: response.token_type,
+        expiresAt: new Date(response.expires_at),
+        user: response.user
+      };
+    } catch (error) {
+      console.error('[AgentAPIProxy] Failed to exchange OAuth code:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get OAuth authentication status
+   */
+  async getOAuthStatus(sessionId?: string): Promise<{ authenticated: boolean; user?: GitHubUser }> {
+    try {
+      const headers: Record<string, string> = {};
+      if (sessionId) {
+        headers['X-Session-ID'] = sessionId;
+      }
+      
+      const response = await this.makeRequest<{ authenticated: boolean; user?: GitHubUser }>('/auth/status', {
+        headers
+      });
+      return response;
+    } catch (error) {
+      console.error('[AgentAPIProxy] Failed to get OAuth status:', error);
+      return { authenticated: false };
+    }
+  }
+
+  /**
+   * Get available authentication types
+   */
+  async getAuthTypes(): Promise<{ enabled: boolean; types: string[] }> {
+    try {
+      const response = await this.makeRequest<{ enabled: boolean; types: string[] }>('/auth/types');
+      return response;
+    } catch (error) {
+      console.error('[AgentAPIProxy] Failed to get auth types:', error);
+      return { enabled: false, types: [] };
+    }
+  }
+
+  /**
+   * Logout from OAuth session
+   */
+  async logoutOAuth(sessionId?: string): Promise<void> {
+    try {
+      const headers: Record<string, string> = {};
+      if (sessionId) {
+        headers['X-Session-ID'] = sessionId;
+      }
+      
+      await this.makeRequest<void>('/oauth/logout', {
+        method: 'POST',
+        headers
+      });
+    } catch (error) {
+      console.error('[AgentAPIProxy] Failed to logout OAuth:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Reload encrypted config from localStorage
    */
   reloadEncryptedConfig(): void {

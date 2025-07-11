@@ -38,6 +38,8 @@ export interface GitHubAuthSettings {
   accessToken?: string;
   refreshToken?: string;
   tokenExpiresAt?: string;
+  sessionId?: string;
+  expiresAt?: string;
   user?: GitHubUser;
   scopes: string[];
   organizations?: string[];

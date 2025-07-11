@@ -26,22 +26,32 @@ export class GitHubAuthService {
   async checkAuthStatus(profileId: string): Promise<{ type: 'github' | 'none'; authenticated: boolean; user?: GitHubUser }> {
     try {
       const client = createAgentAPIProxyClientFromStorage(undefined, profileId);
-      const authInfo: AuthInfoResponse = await client.getAuthInfo();
+      const authStatus = await client.getOAuthStatus();
       
-      // Update profile with auth info if authenticated
-      if (authInfo.authenticated && authInfo.type === 'github' && authInfo.user) {
+      if (authStatus.authenticated && authStatus.user) {
+        // Update profile with latest auth info
         ProfileManager.updateProfile(profileId, {
           githubAuth: {
             enabled: true,
-            user: authInfo.user,
-            scopes: authInfo.scopes || [],
-            organizations: authInfo.organizations || [],
-            repositories: authInfo.repositories || []
+            user: authStatus.user,
+            scopes: [],
+            organizations: [],
+            repositories: []
           }
         });
+        
+        return {
+          type: 'github',
+          authenticated: true,
+          user: authStatus.user
+        };
+      } else {
+        // No authentication, remove from profile
+        ProfileManager.updateProfile(profileId, {
+          githubAuth: undefined
+        });
+        return { type: 'none', authenticated: false };
       }
-      
-      return authInfo;
     } catch (error) {
       console.error('Failed to check auth status:', error);
       return { type: 'none', authenticated: false };
@@ -51,10 +61,43 @@ export class GitHubAuthService {
   async startGitHubAuth(profileId: string): Promise<string> {
     try {
       const client = createAgentAPIProxyClientFromStorage(undefined, profileId);
-      const authUrl = await client.getGitHubAuthUrl(profileId);
+      
+      // Store profile ID for the OAuth callback
+      localStorage.setItem('oauth-profile-id', profileId);
+      
+      // Generate OAuth URL using the proxy client
+      const redirectURI = `${window.location.origin}/oauth/callback`;
+      const { authUrl } = await client.startOAuthFlow(redirectURI);
       
       // Open auth URL in a new window
-      window.open(authUrl, 'github-auth', 'width=500,height=700');
+      const authWindow = window.open(authUrl, 'github-auth', 'width=500,height=700');
+      
+      // Listen for messages from the auth window
+      const handleMessage = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) {
+          return;
+        }
+        
+        if (event.data.type === 'oauth-success') {
+          window.removeEventListener('message', handleMessage);
+          // Refresh the current page to update auth status
+          window.location.reload();
+        } else if (event.data.type === 'oauth-error') {
+          window.removeEventListener('message', handleMessage);
+          console.error('OAuth error:', event.data.error);
+        }
+      };
+      
+      window.addEventListener('message', handleMessage);
+      
+      // Clean up listener if window is closed manually
+      const checkClosed = setInterval(() => {
+        if (authWindow?.closed) {
+          clearInterval(checkClosed);
+          window.removeEventListener('message', handleMessage);
+          localStorage.removeItem('oauth-profile-id');
+        }
+      }, 1000);
       
       return authUrl;
     } catch (error) {
@@ -77,6 +120,14 @@ export class GitHubAuthService {
   }
 
   async disconnect(profileId: string): Promise<void> {
+    try {
+      const client = createAgentAPIProxyClientFromStorage(undefined, profileId);
+      await client.logoutOAuth();
+    } catch (error) {
+      console.error('Failed to logout from GitHub:', error);
+    }
+
+    // Always remove local auth info
     ProfileManager.updateProfile(profileId, {
       githubAuth: undefined
     });
