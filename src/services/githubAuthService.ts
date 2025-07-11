@@ -1,15 +1,6 @@
 import { ProfileManager } from '../utils/profileManager';
 import { createAgentAPIProxyClientFromStorage } from '../lib/agentapi-proxy-client';
-import { GitHubUser } from '../types/profile';
-
-interface AuthInfoResponse {
-  type: 'github' | 'none';
-  authenticated: boolean;
-  user?: GitHubUser;
-  scopes?: string[];
-  organizations?: string[];
-  repositories?: string[];
-}
+import { GitHubUser, GitHubAuthSettings } from '../types/profile';
 
 export class GitHubAuthService {
   private static instance: GitHubAuthService;
@@ -39,22 +30,22 @@ export class GitHubAuthService {
       
       if (authStatus.authenticated && authStatus.user) {
         // Update profile with latest auth info
-        const updateData: any = {
-          githubAuth: {
-            enabled: true,
-            user: authStatus.user,
-            scopes: [],
-            organizations: [],
-            repositories: []
-          }
+        const githubAuthUpdate: Partial<GitHubAuthSettings> = {
+          enabled: true,
+          user: authStatus.user,
+          scopes: [],
+          organizations: [],
+          repositories: []
         };
         
         // If we got a session ID from the response, store it
         if (authStatus.sessionId) {
-          updateData.githubAuth.sessionId = authStatus.sessionId;
+          githubAuthUpdate.sessionId = authStatus.sessionId;
         }
         
-        ProfileManager.updateProfile(profileId, updateData);
+        ProfileManager.updateProfile(profileId, {
+          githubAuth: githubAuthUpdate as GitHubAuthSettings
+        });
         
         return {
           type: 'github',
