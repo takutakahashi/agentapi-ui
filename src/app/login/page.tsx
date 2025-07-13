@@ -2,12 +2,14 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Github } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
   const [apiKey, setApiKey] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [isGitHubLoading, setIsGitHubLoading] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -34,6 +36,36 @@ export default function LoginPage() {
       setError('An error occurred. Please try again.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleGitHubLogin = async () => {
+    setIsGitHubLoading(true)
+    setError('')
+
+    try {
+      const response = await fetch('/api/auth/github/authorize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          redirect_uri: `${window.location.origin}/api/auth/github/callback`
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'GitHub認証の開始に失敗しました')
+      }
+
+      const data = await response.json()
+      
+      // GitHubの認証ページにリダイレクト
+      window.location.href = data.authorization_url
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '予期しないエラーが発生しました')
+      setIsGitHubLoading(false)
     }
   }
 
@@ -82,10 +114,32 @@ export default function LoginPage() {
               disabled={loading || !apiKey}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Logging in...' : 'Login'}
+              {loading ? 'Logging in...' : 'Login with API Key'}
             </button>
           </div>
         </form>
+
+        <div className="mt-6">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-gray-50 dark:bg-gray-900 text-gray-500">Or continue with</span>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <button
+              onClick={handleGitHubLogin}
+              disabled={isGitHubLoading}
+              className="w-full flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Github className="w-5 h-5 mr-2" />
+              {isGitHubLoading ? 'Redirecting...' : 'Continue with GitHub'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

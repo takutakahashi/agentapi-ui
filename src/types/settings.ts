@@ -41,6 +41,16 @@ export interface SingleProfileModeSettings {
   updated_at: string
 }
 
+// GitHub OAuth settings
+export interface GitHubOAuthSettings {
+  clientId: string
+  proxyEndpoint: string
+  sessionId?: string
+  accessToken?: string
+  created_at: string
+  updated_at: string
+}
+
 // Default settings
 export const getDefaultSettings = (): SettingsFormData => ({
   environmentVariables: [],

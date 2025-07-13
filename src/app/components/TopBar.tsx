@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
+import Image from 'next/image'
 import { ProfileManager } from '../../utils/profileManager'
 import { ProfileListItem } from '../../types/profile'
 import { useTheme } from '../../hooks/useTheme'
@@ -41,6 +42,17 @@ export default function TopBar({
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [selectedProfileId, setSelectedProfileId] = useState<string>('')
   const [singleProfileMode, setSingleProfileMode] = useState(false)
+  const [userInfo, setUserInfo] = useState<{
+    type: 'github' | 'api_key'
+    user: {
+      id?: number
+      login?: string
+      name?: string
+      email?: string
+      avatar_url?: string
+      authenticated?: boolean
+    }
+  } | null>(null)
 
   const loadProfiles = useCallback(() => {
     ProfileManager.migrateExistingSettings()
@@ -82,6 +94,23 @@ export default function TopBar({
         setSingleProfileMode(isSingleProfileModeEnabled())
       }
       
+      // Load user info if in single profile mode
+      const loadUserInfo = async () => {
+        if (singleProfileMode) {
+          try {
+            const response = await fetch('/api/user/info')
+            if (response.ok) {
+              const data = await response.json()
+              setUserInfo(data)
+            }
+          } catch (error) {
+            console.error('Failed to load user info:', error)
+          }
+        }
+      }
+      
+      loadUserInfo()
+      
       window.addEventListener('popstate', handlePopState)
       window.addEventListener('storage', handleSingleProfileModeChange)
       
@@ -90,7 +119,7 @@ export default function TopBar({
         window.removeEventListener('storage', handleSingleProfileModeChange)
       }
     }
-  }, [showProfileSwitcher, loadProfiles])
+  }, [showProfileSwitcher, loadProfiles, singleProfileMode])
 
   const handleProfileSwitch = (profileId: string) => {
     ProfileManager.setProfileInUrl(profileId)
@@ -246,6 +275,22 @@ export default function TopBar({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </button>
+            )}
+
+            {/* User info for single profile mode */}
+            {singleProfileMode && userInfo && userInfo.type === 'github' && userInfo.user.avatar_url && (
+              <div className="flex items-center space-x-2 px-2">
+                <Image
+                  src={userInfo.user.avatar_url}
+                  alt={userInfo.user.login || 'User'}
+                  width={24}
+                  height={24}
+                  className="rounded-full"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300 hidden sm:inline">
+                  {userInfo.user.name || userInfo.user.login}
+                </span>
+              </div>
             )}
 
             {/* Logout button for single profile mode */}
