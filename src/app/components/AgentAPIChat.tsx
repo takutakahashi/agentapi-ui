@@ -11,6 +11,7 @@ import { useBackgroundAwareInterval } from '../hooks/usePageVisibility';
 import { messageTemplateManager } from '../../utils/messageTemplateManager';
 import { MessageTemplate } from '../../types/messageTemplate';
 import { recentMessagesManager } from '../../utils/recentMessagesManager';
+import { pushNotificationManager } from '../../utils/pushNotification';
 
 // Define local types for message and agent status
 interface Message {
@@ -192,6 +193,11 @@ export default function AgentAPIChat() {
       agentAPIRef.current = client;
     }
   }, [currentProfile, agentAPI]);
+
+  // Initialize push notifications
+  useEffect(() => {
+    pushNotificationManager.initialize().catch(console.error);
+  }, []);
   
   // Initialize chat when agentAPI is ready - optimized for faster loading
   useEffect(() => {
@@ -278,6 +284,7 @@ export default function AgentAPIChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
+  const prevAgentStatusRef = useRef<AgentStatus | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -405,7 +412,19 @@ export default function AgentAPIChat() {
       }));
       
       setMessages(convertedMessages);
+      
+      // Check for agent status change (running -> stable)
+      const prevStatus = prevAgentStatusRef.current;
+      if (prevStatus?.status === 'running' && sessionStatus?.status === 'stable') {
+        // Agent turn completed, send notification
+        pushNotificationManager.sendLocalNotification(
+          'エージェントが応答しました',
+          '新しいメッセージを確認してください'
+        ).catch(console.error);
+      }
+      
       setAgentStatus(sessionStatus);
+      prevAgentStatusRef.current = sessionStatus;
     } catch (err) {
       console.error('Failed to poll session data:', err);
       if (err instanceof AgentAPIProxyError) {
