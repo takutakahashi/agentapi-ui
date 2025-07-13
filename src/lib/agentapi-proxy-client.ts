@@ -310,12 +310,15 @@ export class AgentAPIProxyClient {
 
   private async makeProxyRequest<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    includeEncryptedConfig = false
   ): Promise<T> {
-    // Prepare the request body with encrypted config if available
+    // Prepare the request body with encrypted config only when explicitly requested
     let body = options.body;
     
-    if (this.encryptedConfig && options.method !== 'GET' && options.method !== 'HEAD') {
+    // Only add encrypted config for specific endpoints that require authentication
+    if (this.encryptedConfig && includeEncryptedConfig && options.method && 
+        options.method.toUpperCase() !== 'GET' && options.method.toUpperCase() !== 'HEAD') {
       try {
         const existingBody = body ? JSON.parse(body as string) : {};
         body = JSON.stringify({
