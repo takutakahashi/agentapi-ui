@@ -72,18 +72,25 @@ async function handleProxyRequest(
       );
     }
 
-    // Get API key from cookie
-    const apiKey = await getApiKeyFromCookie();
-    if (!apiKey) {
-      console.error('API proxy request failed: No API key found in cookie. Make sure you are logged in and COOKIE_ENCRYPTION_SECRET is properly configured.');
-      return NextResponse.json(
-        { 
-          error: 'Authentication required', 
-          message: 'No API key found in cookie. Please log in again.',
-          code: 'NO_API_KEY'
-        },
-        { status: 401 }
-      );
+    // Check if this is an OAuth endpoint that doesn't require API key
+    const path = pathParts.join('/');
+    const isOAuthEndpoint = path.startsWith('oauth/') || path.includes('auth/');
+    
+    // Get API key from cookie (skip for OAuth endpoints)
+    let apiKey: string | null = null;
+    if (!isOAuthEndpoint) {
+      apiKey = await getApiKeyFromCookie();
+      if (!apiKey) {
+        console.error('API proxy request failed: No API key found in cookie. Make sure you are logged in and COOKIE_ENCRYPTION_SECRET is properly configured.');
+        return NextResponse.json(
+          { 
+            error: 'Authentication required', 
+            message: 'No API key found in cookie. Please log in again.',
+            code: 'NO_API_KEY'
+          },
+          { status: 401 }
+        );
+      }
     }
 
     // Determine proxy URL based on single profile mode settings
@@ -100,7 +107,6 @@ async function handleProxyRequest(
     }
     
     // Construct target URL
-    const path = pathParts.join('/');
     const searchParams = request.nextUrl.searchParams;
     const targetUrl = `${proxyUrl}/${path}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
 
@@ -120,7 +126,8 @@ async function handleProxyRequest(
           const bodyData = JSON.parse(bodyText);
           
           // Check if the request contains encrypted configuration
-          if (bodyData.encryptedConfig) {
+          // Only decrypt if we have an API key (OAuth endpoints don't have one)
+          if (bodyData.encryptedConfig && apiKey) {
             const encryptionService = getEncryptionService();
             const currentTokenHash = encryptionService.hashApiToken(apiKey);
             
@@ -140,6 +147,11 @@ async function handleProxyRequest(
                 { status: 401 }
               );
             }
+          } else if (bodyData.encryptedConfig && !apiKey) {
+            // OAuth endpoints with encrypted config should not happen, but handle gracefully
+            console.warn('OAuth endpoint received encrypted config, ignoring');
+            delete bodyData.encryptedConfig;
+            body = JSON.stringify(bodyData);
           }
         } catch {
           // Body is not JSON, use as-is
@@ -155,7 +167,10 @@ async function handleProxyRequest(
 
     // Prepare headers
     const headers = new Headers();
-    headers.set('Authorization', `Bearer ${apiKey}`);
+    // Only add Authorization header for non-OAuth endpoints
+    if (!isOAuthEndpoint && apiKey) {
+      headers.set('Authorization', `Bearer ${apiKey}`);
+    }
     headers.set('Content-Type', 'application/json');
     headers.set('Accept', 'application/json');
     
@@ -210,6 +225,7 @@ async function handleProxyRequest(
     console.log(`[API Proxy] Making ${method} request to backend:`, {
       url: targetUrl,
       hasAuth: !!headers.get('Authorization'),
+      isOAuthEndpoint,
       timeout: timeoutMs,
       bodyLength: typeof body === 'string' ? body.length : 0
     });
