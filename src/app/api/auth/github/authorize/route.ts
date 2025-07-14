@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     headers.append('Set-Cookie', `oauth_state=${data.state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=900`)
 
     return NextResponse.json({
-      authorization_url: data.authorization_url,
+      auth_url: data.auth_url,
       state: data.state
     }, { headers })
   } catch (error) {
