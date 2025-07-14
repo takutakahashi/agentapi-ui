@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Github } from 'lucide-react'
+import { getRedirectUri } from '@/lib/oauth-utils'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -50,7 +51,7 @@ export default function LoginPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          redirect_uri: `${window.location.origin}/api/auth/github/callback`
+          redirect_uri: getRedirectUri()
         }),
       })
 
