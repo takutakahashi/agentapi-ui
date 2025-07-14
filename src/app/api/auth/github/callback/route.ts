@@ -43,10 +43,24 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json()
     
+    // デバッグ: レスポンスの内容をログ出力
+    console.log('OAuth callback response from agentapi-proxy:', JSON.stringify(data, null, 2))
+    
+    // レスポンスフィールドの互換性を確保
+    const sessionId = data.session_id || data.sessionId
+    const accessToken = data.access_token || data.accessToken || data.token
+    
+    if (!sessionId || !accessToken) {
+      console.error('Missing required fields in OAuth callback response. Available fields:', Object.keys(data))
+      return NextResponse.redirect(
+        new URL('/login/github?error=invalid_response', request.url)
+      )
+    }
+    
     // セッションIDとアクセストークンを暗号化してCookieに保存
     const sessionData = JSON.stringify({
-      sessionId: data.session_id,
-      accessToken: data.access_token,
+      sessionId: sessionId,
+      accessToken: accessToken,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24時間後
     })
     

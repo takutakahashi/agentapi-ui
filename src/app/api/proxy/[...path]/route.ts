@@ -230,11 +230,15 @@ async function handleProxyRequest(
       bodyLength: typeof body === 'string' ? body.length : 0
     });
 
+    // OAuth endpoints may return redirects that should not be followed
+    const isOAuthAuthorize = path === 'oauth/authorize'
+    
     const response = await fetch(targetUrl, {
       method,
       headers,
       body,
       signal: AbortSignal.timeout(timeoutMs),
+      redirect: isOAuthAuthorize ? 'manual' : 'follow', // Don't follow redirects for OAuth authorize
     });
 
     console.log(`[API Proxy] Backend response:`, {
@@ -243,6 +247,33 @@ async function handleProxyRequest(
       contentType: response.headers.get('content-type'),
       url: targetUrl
     });
+
+    // Handle OAuth authorize redirect responses
+    if (isOAuthAuthorize && response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (location) {
+        console.log(`[API Proxy] OAuth authorize redirect:`, location);
+        
+        // Extract state from redirect URL
+        try {
+          const redirectUrl = new URL(location);
+          const state = redirectUrl.searchParams.get('state') || crypto.randomUUID();
+          
+          return NextResponse.json({
+            authorization_url: location,
+            auth_url: location, // Provide both field names for compatibility
+            state: state
+          });
+        } catch (urlError) {
+          console.error('Failed to parse OAuth redirect URL:', urlError);
+          return NextResponse.json({
+            authorization_url: location,
+            auth_url: location,
+            state: crypto.randomUUID()
+          });
+        }
+      }
+    }
 
     // Handle non-JSON responses
     const contentType = response.headers.get('content-type');
