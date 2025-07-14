@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Github } from 'lucide-react'
+import { getRedirectUri } from '@/lib/oauth-utils'
 
 export default function GitHubLoginPage() {
   const [isLoading, setIsLoading] = useState(false)
@@ -19,7 +20,7 @@ export default function GitHubLoginPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          redirect_uri: `${window.location.origin}/api/auth/github/callback`
+          redirect_uri: getRedirectUri()
         }),
       })
 
