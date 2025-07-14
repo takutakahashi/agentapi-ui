@@ -24,7 +24,8 @@ export async function POST(request: NextRequest) {
         
         // If it's a GitHub OAuth session, revoke it on the proxy
         if (sessionData.sessionId) {
-          const proxyEndpoint = process.env.AGENTAPI_PROXY_ENDPOINT || 'http://localhost:8080';
+          // デフォルトで /api/proxy を使用（相対URLで同じオリジンを参照）
+          const proxyEndpoint = process.env.AGENTAPI_PROXY_ENDPOINT || '/api/proxy';
           await fetch(`${proxyEndpoint}/oauth/logout`, {
             method: 'POST',
             headers: {

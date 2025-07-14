@@ -24,7 +24,8 @@ export async function GET(request: NextRequest) {
     }
 
     // agentapi-proxyのOAuthコールバックエンドポイントを使用
-    const proxyEndpoint = process.env.AGENTAPI_PROXY_ENDPOINT || 'http://localhost:8080'
+    // デフォルトで /api/proxy を使用（相対URLで同じオリジンを参照）
+    const proxyEndpoint = process.env.AGENTAPI_PROXY_ENDPOINT || '/api/proxy'
     const response = await fetch(`${proxyEndpoint}/oauth/callback?code=${code}&state=${state}`, {
       method: 'GET',
     })

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getApiKeyFromCookie } from '@/lib/cookie-auth';
 
-const PROXY_URL = process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080';
+// デフォルトで /api/proxy を使用（相対URLで同じオリジンを参照）
+const PROXY_URL = process.env.AGENTAPI_PROXY_URL || '/api/proxy';
 
 export async function GET() {
   const diagnostics: Record<string, unknown> = {

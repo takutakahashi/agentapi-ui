@@ -37,7 +37,8 @@ export async function POST(request: NextRequest) {
     const validateWithProxy = process.env.VALIDATE_API_KEY_WITH_PROXY !== 'false';
     
     if (validateWithProxy) {
-      const proxyUrl = process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080';
+      // デフォルトで /api/proxy を使用（相対URLで同じオリジンを参照）
+      const proxyUrl = process.env.AGENTAPI_PROXY_URL || '/api/proxy';
       try {
         console.log(`[Auth] Validating API key with proxy: ${proxyUrl}`);
         
