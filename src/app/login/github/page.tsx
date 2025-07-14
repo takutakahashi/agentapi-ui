@@ -32,7 +32,7 @@ export default function GitHubLoginPage() {
       const data = await response.json()
       
       // GitHubの認証ページにリダイレクト
-      window.location.href = data.authorization_url
+      window.location.href = data.auth_url
     } catch (err) {
       setError(err instanceof Error ? err.message : '予期しないエラーが発生しました')
       setIsLoading(false)
