@@ -37,8 +37,12 @@ export async function POST(request: NextRequest) {
     const validateWithProxy = process.env.VALIDATE_API_KEY_WITH_PROXY !== 'false';
     
     if (validateWithProxy) {
-      // デフォルトで /api/proxy を使用（相対URLで同じオリジンを参照）
-      const proxyUrl = process.env.AGENTAPI_PROXY_URL || '/api/proxy';
+      // デフォルトでローカルの /api/proxy を使用（サーバーサイドでは絶対URLが必要）
+      const baseUrl = process.env.AGENTAPI_PROXY_URL || 
+        (process.env.NODE_ENV === 'production' 
+          ? `https://${request.headers.get('host')}` 
+          : 'http://localhost:3000')
+      const proxyUrl = baseUrl.endsWith('/api/proxy') ? baseUrl : `${baseUrl}/api/proxy`;
       try {
         console.log(`[Auth] Validating API key with proxy: ${proxyUrl}`);
         
