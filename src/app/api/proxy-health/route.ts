@@ -1,9 +1,24 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { getApiKeyFromCookie } from '@/lib/cookie-auth';
 
-const PROXY_URL = process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080';
+// デフォルトでローカルの /api/proxy を使用（サーバーサイドでは絶対URLが必要）
+function getProxyUrl(request?: NextRequest): string {
+  if (process.env.AGENTAPI_PROXY_URL) {
+    return process.env.AGENTAPI_PROXY_URL;
+  }
+  
+  // 環境変数がない場合、ホスト情報から絶対URLを構築
+  if (request && request.headers.get('host')) {
+    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+    return `${protocol}://${request.headers.get('host')}/api/proxy`;
+  }
+  
+  // フォールバック：ローカル開発用
+  return 'http://localhost:3000/api/proxy';
+}
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const PROXY_URL = getProxyUrl(request);
   const diagnostics: Record<string, unknown> = {
     timestamp: new Date().toISOString(),
     environment: {
@@ -43,6 +58,7 @@ export async function GET() {
 
   // Test 3: Try to reach agentapi-proxy
   try {
+    const PROXY_URL = getProxyUrl(request);
     console.log(`[ProxyHealth] Testing connection to ${PROXY_URL}`);
     const response = await fetch(`${PROXY_URL}/health`, {
       method: 'GET',
@@ -100,6 +116,7 @@ export async function GET() {
 
       for (const endpoint of endpointsToTest) {
         try {
+          const PROXY_URL = getProxyUrl(request);
           const response = await fetch(`${PROXY_URL}${endpoint.path}`, {
             method: 'GET',
             headers: {
