@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { encryptCookie, getSecureCookieOptions } from '@/lib/cookie-encryption'
+import { encryptApiKey } from '@/lib/cookie-auth'
 
 export async function GET(request: NextRequest) {
   try {
@@ -43,37 +43,24 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json()
     
-    // セッションIDとアクセストークンを暗号化してCookieに保存
-    const sessionData = JSON.stringify({
-      sessionId: data.session_id,
-      accessToken: data.access_token,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24時間後
-    })
-    
-    const encryptedSession = encryptCookie(sessionData)
-    const cookieOptions = getSecureCookieOptions(86400) // 24時間
+    // APIキーを暗号化してCookieに保存
+    const encryptedApiKey = encryptApiKey(data.access_token)
     
     const headers = new Headers()
     headers.append(
       'Set-Cookie',
-      `agentapi_token=${encryptedSession}; ${Object.entries(cookieOptions)
-        .map(([key, value]) => {
-          if (key === 'maxAge') return `Max-Age=${value}`
-          if (key === 'httpOnly' && value) return 'HttpOnly'
-          if (key === 'secure' && value) return 'Secure'
-          if (key === 'sameSite') return `SameSite=${value}`
-          if (key === 'path') return `Path=${value}`
-          return ''
-        })
-        .filter(Boolean)
-        .join('; ')}`
+      `agentapi_token=${encryptedApiKey}; HttpOnly; Secure; SameSite=strict; Path=/; Max-Age=86400`
     )
     
     // oauth_state Cookieを削除
     headers.append('Set-Cookie', 'oauth_state=; Path=/; Max-Age=0')
 
-    // ホームページにリダイレクト
-    const redirectResponse = NextResponse.redirect(new URL('/', request.url))
+    // ホームページにリダイレクト - 適切なホスト名を使用
+    const redirectUrl = process.env.NEXT_PUBLIC_BASE_URL || 
+      (process.env.NODE_ENV === 'production' 
+        ? `https://${request.headers.get('host')}` 
+        : 'http://localhost:3000')
+    const redirectResponse = NextResponse.redirect(new URL('/chats', redirectUrl))
     headers.forEach((value, key) => {
       redirectResponse.headers.append(key, value)
     })
