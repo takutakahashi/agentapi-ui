@@ -198,24 +198,6 @@ export default function AgentAPIChat() {
   useEffect(() => {
     pushNotificationManager.initialize().catch(console.error);
   }, []);
-
-  // Listen for authentication required events
-  useEffect(() => {
-    const handleAuthRequired = (event: CustomEvent) => {
-      console.log('Authentication required event received:', event.detail);
-      setAuthRequired(true);
-      setShowAuthGuidance(true);
-      if (event.detail.message) {
-        setError(event.detail.message);
-      }
-    };
-
-    window.addEventListener('authenticationRequired', handleAuthRequired as EventListener);
-    
-    return () => {
-      window.removeEventListener('authenticationRequired', handleAuthRequired as EventListener);
-    };
-  }, []);
   
   // Initialize chat when agentAPI is ready - optimized for faster loading
   useEffect(() => {
@@ -302,7 +284,6 @@ export default function AgentAPIChat() {
   const [showClaudeLogins, setShowClaudeLogins] = useState(false);
   const [claudeLoginUrls, setClaudeLoginUrls] = useState<string[]>([]);
   const [showAuthGuidance, setShowAuthGuidance] = useState(false);
-  const [authRequired, setAuthRequired] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
@@ -1070,28 +1051,14 @@ export default function AgentAPIChat() {
                   </svg>
                 </button>
                 
-                {authRequired ? (
-                  <button
-                    onClick={() => {
-                      setShowAuthGuidance(true);
-                      // 認証後にチャット画面に遷移
-                      router.push('/chat');
-                    }}
-                    className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-sm font-medium"
-                    title="認証を開始してチャットに進む"
-                  >
-                    認証
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => sendMessage()}
-                    disabled={!isConnected || isLoading || !inputValue.trim() || agentStatus?.status === 'running'}
-                    aria-label="Send"
-                    className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-sm font-medium"
-                  >
-                    {isLoading ? 'Sending...' : 'Comment'}
-                  </button>
-                )}
+                <button
+                  onClick={() => sendMessage()}
+                  disabled={!isConnected || isLoading || !inputValue.trim() || agentStatus?.status === 'running'}
+                  aria-label="Send"
+                  className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-sm font-medium"
+                >
+                  {isLoading ? 'Sending...' : 'Comment'}
+                </button>
               </div>
             </div>
           </div>
