@@ -77,6 +77,8 @@ spec:
             - name: NEXT_PUBLIC_AGENTAPI_PROXY_URL
               value: {{ .Values.singleProfileMode.publicProxyUrl | default .Values.singleProfileMode.proxyUrl | quote }}
           {{- end }}
+            - name: NEXT_PUBLIC_ALLOWED_ORIGINS
+              value: "https://{{ .Values.hostname }}"
           {{- if .Values.env }}
             {{- toYaml .Values.env | nindent 12 }}
           {{- end }}
