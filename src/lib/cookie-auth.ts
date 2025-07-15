@@ -1,6 +1,14 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { cookies } from 'next/headers';
 
+// Debug logging utility
+const DEBUG_ENABLED = process.env.NODE_ENV !== 'production' && process.env.DEBUG_LOGS !== 'false';
+const debugLog = (...args: unknown[]) => {
+  if (DEBUG_ENABLED) {
+    console.log(...args);
+  }
+};
+
 const COOKIE_NAME = 'agentapi_token';
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
@@ -72,7 +80,7 @@ export async function getApiKeyFromCookie(): Promise<string | null> {
     const encryptedApiKey = cookieStore.get(COOKIE_NAME)?.value;
     
     if (!encryptedApiKey) {
-      console.warn('No agentapi_token cookie found');
+      debugLog('No agentapi_token cookie found');
       return null;
     }
     

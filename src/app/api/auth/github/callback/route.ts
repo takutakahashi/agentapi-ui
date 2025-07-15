@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!response.ok) {
-      console.error('OAuth callback error:', response.status, await response.text())
+      console.error('OAuth callback error:', response.status, 'Response details omitted for security')
       return NextResponse.redirect(
         new URL('/login/github?error=auth_failed', request.url)
       )
