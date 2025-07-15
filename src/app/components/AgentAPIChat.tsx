@@ -232,7 +232,14 @@ export default function AgentAPIChat() {
               
               if (hasWelcomeMessage) {
                 setIsUnauthenticated(true);
-                setShowAuthGuidance(true);
+                
+                // Check if we've already shown auth guidance for this session
+                const authGuidanceShownKey = `authGuidanceShown_${sessionId}`;
+                const hasShownAuthGuidance = sessionStorage.getItem(authGuidanceShownKey) === 'true';
+                
+                if (!hasShownAuthGuidance) {
+                  setShowAuthGuidance(true);
+                }
               } else {
                 setIsUnauthenticated(false);
                 setShowAuthGuidance(false);
@@ -431,7 +438,14 @@ export default function AgentAPIChat() {
       
       if (hasWelcomeMessage) {
         setIsUnauthenticated(true);
-        setShowAuthGuidance(true);
+        
+        // Check if we've already shown auth guidance for this session
+        const authGuidanceShownKey = `authGuidanceShown_${sessionId}`;
+        const hasShownAuthGuidance = sessionStorage.getItem(authGuidanceShownKey) === 'true';
+        
+        if (!hasShownAuthGuidance) {
+          setShowAuthGuidance(true);
+        }
       } else {
         setIsUnauthenticated(false);
         setShowAuthGuidance(false);
@@ -542,6 +556,13 @@ export default function AgentAPIChat() {
     setIsLoading(true);
     setError(null);
 
+    // Mark auth guidance as shown when user sends a message
+    if (messageType === 'user' && isUnauthenticated && sessionId) {
+      const authGuidanceShownKey = `authGuidanceShown_${sessionId}`;
+      sessionStorage.setItem(authGuidanceShownKey, 'true');
+      setShowAuthGuidance(false);
+    }
+
     try {
       if (sessionId) {
         // Send message via session
@@ -597,7 +618,7 @@ export default function AgentAPIChat() {
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, isLoading, isConnected, sessionId, agentStatus, currentProfile, loadRecentMessages]);
+  }, [inputValue, isLoading, isConnected, sessionId, agentStatus, currentProfile, loadRecentMessages, isUnauthenticated]);
 
   const sendStopSignal = () => {
     // Send ESC key (raw message)
@@ -634,6 +655,11 @@ export default function AgentAPIChat() {
         return;
       }
       await agentAPIRef.current.delete(sessionId);
+      
+      // Remove auth guidance flag from session storage
+      const authGuidanceShownKey = `authGuidanceShown_${sessionId}`;
+      sessionStorage.removeItem(authGuidanceShownKey);
+      
       // セッション削除後、conversation画面にリダイレクト
       router.push('/chats');
     } catch (err) {
