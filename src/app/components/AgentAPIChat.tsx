@@ -505,20 +505,24 @@ export default function AgentAPIChat() {
     const uniquePRUrls = Array.from(new Set(allPRUrls));
     setPRLinks(uniquePRUrls);
     
-    // Claude ログインURLを抽出してリストに追加
-    const allClaudeLoginUrls = messages.reduce((urls: string[], message) => {
-      const claudeUrls = extractClaudeLoginUrls(message.content);
-      return [...urls, ...claudeUrls];
-    }, []);
-    
-    // 重複を除去してステートを更新
-    const uniqueClaudeUrls = Array.from(new Set(allClaudeLoginUrls));
-    const hadUrls = claudeLoginUrls.length > 0;
-    setClaudeLoginUrls(uniqueClaudeUrls);
-    
-    // 新しいLogin URLが検出された場合、自動的にポップアップを表示
-    if (uniqueClaudeUrls.length > 0 && !hadUrls && isUnauthenticated) {
-      setShowClaudeLogins(true);
+    // Claude ログインURLを最新のメッセージから抽出
+    if (currentLength > previousLength && messages.length > 0) {
+      // 新しいメッセージが追加された場合のみ、最新のメッセージをチェック
+      const latestMessage = messages[messages.length - 1];
+      const claudeUrls = extractClaudeLoginUrls(latestMessage.content);
+      
+      if (claudeUrls.length > 0) {
+        // 既存のURLと新しいURLをマージして重複を除去
+        const allUrls = [...claudeLoginUrls, ...claudeUrls];
+        const uniqueClaudeUrls = Array.from(new Set(allUrls));
+        const hadUrls = claudeLoginUrls.length > 0;
+        setClaudeLoginUrls(uniqueClaudeUrls);
+        
+        // 新しいLogin URLが検出された場合、自動的にポップアップを表示
+        if (!hadUrls && isUnauthenticated) {
+          setShowClaudeLogins(true);
+        }
+      }
     }
     
     prevMessagesLengthRef.current = currentLength;
