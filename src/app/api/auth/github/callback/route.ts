@@ -41,7 +41,16 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const data = await response.json()
+    const responseText = await response.text()
+    let data
+    try {
+      data = JSON.parse(responseText)
+    } catch (parseError) {
+      console.error('OAuth callback error: [SyntaxError: Failed to parse JSON]', { responseText, parseError })
+      return NextResponse.redirect(
+        new URL('/login/github?error=invalid_response', request.url)
+      )
+    }
     
     // APIキーを暗号化してCookieに保存
     const encryptedApiKey = encryptApiKey(data.access_token)

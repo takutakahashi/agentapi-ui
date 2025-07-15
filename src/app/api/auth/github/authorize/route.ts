@@ -38,7 +38,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const data = await response.json()
+    const responseText = await response.text()
+    let data
+    try {
+      data = JSON.parse(responseText)
+    } catch (parseError) {
+      console.error('OAuth authorize error: [SyntaxError: Failed to parse JSON]', { responseText, parseError })
+      return NextResponse.json(
+        { error: 'Invalid response from OAuth server' },
+        { status: 502 }
+      )
+    }
     
     // stateを一時的にセッションストレージに保存するためのCookieを設定
     const headers = new Headers()
