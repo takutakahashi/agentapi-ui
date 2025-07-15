@@ -227,17 +227,6 @@ export default function AgentAPIChat() {
                 timestamp: msg.timestamp
               }));
               
-              // Check if user is unauthenticated by looking for "Welcome" in the first message only
-              const hasWelcomeMessage = messages.length > 0 && messages[0].content && messages[0].content.includes('Welcome');
-              
-              if (hasWelcomeMessage) {
-                setIsUnauthenticated(true);
-                setShowAuthGuidance(true);
-              } else {
-                setIsUnauthenticated(false);
-                setShowAuthGuidance(false);
-              }
-              
               setMessages(convertedMessages);
               setError(null);
               return;
@@ -292,8 +281,6 @@ export default function AgentAPIChat() {
   const [prLinks, setPRLinks] = useState<string[]>([]);
   const [showClaudeLogins, setShowClaudeLogins] = useState(false);
   const [claudeLoginUrls, setClaudeLoginUrls] = useState<string[]>([]);
-  const [isUnauthenticated, setIsUnauthenticated] = useState(false);
-  const [showAuthGuidance, setShowAuthGuidance] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
@@ -332,20 +319,18 @@ export default function AgentAPIChat() {
           setShowPRLinks(false)
         } else if (showClaudeLogins) {
           setShowClaudeLogins(false)
-        } else if (showAuthGuidance) {
-          setShowAuthGuidance(false)
         }
       }
     }
 
-    if (showTemplateModal || showPRLinks || showClaudeLogins || showAuthGuidance) {
+    if (showTemplateModal || showPRLinks || showClaudeLogins) {
       document.addEventListener('keydown', handleKeyDown)
     }
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [showTemplateModal, showPRLinks, showClaudeLogins, showAuthGuidance]);
+  }, [showTemplateModal, showPRLinks, showClaudeLogins]);
 
   // Listen for profile changes and recreate client
   useEffect(() => {
@@ -426,17 +411,6 @@ export default function AgentAPIChat() {
         timestamp: msg.timestamp
       }));
       
-      // Check if user is unauthenticated by looking for "Welcome" in the first message only
-      const hasWelcomeMessage = messages.length > 0 && messages[0].content && messages[0].content.includes('Welcome');
-      
-      if (hasWelcomeMessage) {
-        setIsUnauthenticated(true);
-        setShowAuthGuidance(true);
-      } else {
-        setIsUnauthenticated(false);
-        setShowAuthGuidance(false);
-      }
-      
       setMessages(convertedMessages);
       
       // Check for agent status change (running -> stable)
@@ -505,28 +479,18 @@ export default function AgentAPIChat() {
     const uniquePRUrls = Array.from(new Set(allPRUrls));
     setPRLinks(uniquePRUrls);
     
-    // Claude ログインURLを最新のメッセージから抽出
-    if (currentLength > previousLength && messages.length > 0) {
-      // 新しいメッセージが追加された場合のみ、最新のメッセージをチェック
-      const latestMessage = messages[messages.length - 1];
-      const claudeUrls = extractClaudeLoginUrls(latestMessage.content);
-      
-      if (claudeUrls.length > 0) {
-        // 既存のURLと新しいURLをマージして重複を除去
-        const allUrls = [...claudeLoginUrls, ...claudeUrls];
-        const uniqueClaudeUrls = Array.from(new Set(allUrls));
-        const hadUrls = claudeLoginUrls.length > 0;
-        setClaudeLoginUrls(uniqueClaudeUrls);
-        
-        // 新しいLogin URLが検出された場合、自動的にポップアップを表示
-        if (!hadUrls && isUnauthenticated) {
-          setShowClaudeLogins(true);
-        }
-      }
-    }
+    // Claude ログインURLを抽出してリストに追加
+    const allClaudeLoginUrls = messages.reduce((urls: string[], message) => {
+      const claudeUrls = extractClaudeLoginUrls(message.content);
+      return [...urls, ...claudeUrls];
+    }, []);
+    
+    // 重複を除去してステートを更新
+    const uniqueClaudeUrls = Array.from(new Set(allClaudeLoginUrls));
+    setClaudeLoginUrls(uniqueClaudeUrls);
     
     prevMessagesLengthRef.current = currentLength;
-  }, [messages, shouldAutoScroll, claudeLoginUrls.length, isUnauthenticated]);
+  }, [messages, shouldAutoScroll]);
 
   const sendMessage = useCallback(async (messageType: 'user' | 'raw' = 'user', content?: string) => {
     const messageContent = content || inputValue.trim();
@@ -815,7 +779,7 @@ export default function AgentAPIChat() {
           transform: 'translateZ(0)' // GPU acceleration
         }}
       >
-        {messages.length === 0 && isConnected && !isUnauthenticated && (
+        {messages.length === 0 && isConnected && (
           <div className="text-center text-gray-500 dark:text-gray-400 py-12">
             <div className="mb-3">
               <svg className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -824,39 +788,6 @@ export default function AgentAPIChat() {
             </div>
             <p className="text-lg font-medium">No conversation yet</p>
             <p className="text-sm mt-1">Start a conversation with the agent below</p>
-          </div>
-        )}
-
-        {/* Authentication Guidance */}
-        {isUnauthenticated && (
-          <div className="flex flex-col items-center justify-center py-12 px-6">
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6 max-w-md w-full">
-              <div className="flex items-center justify-center mb-4">
-                <svg className="w-12 h-12 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-yellow-900 dark:text-yellow-200 text-center mb-3">認証が必要です</h3>
-              <p className="text-sm text-yellow-800 dark:text-yellow-300 text-center mb-4">
-                Claude Codeエージェントを利用するには認証が必要です。
-              </p>
-              <div className="space-y-3">
-                <button
-                  onClick={() => setShowAuthGuidance(true)}
-                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors"
-                >
-                  認証方法を確認する
-                </button>
-                {claudeLoginUrls.length > 0 && (
-                  <button
-                    onClick={() => setShowClaudeLogins(true)}
-                    className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors"
-                  >
-                    ログインURLを開く
-                  </button>
-                )}
-              </div>
-            </div>
           </div>
         )}
         
@@ -1366,116 +1297,6 @@ export default function AgentAPIChat() {
                   <p className="text-sm">Claude ログインURLが見つかりませんでした</p>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Authentication Guidance Modal */}
-      {showAuthGuidance && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowAuthGuidance(false)
-            }
-          }}
-        >
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Claude Code認証方法
-                </h2>
-                <button
-                  onClick={() => setShowAuthGuidance(false)}
-                  className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            
-            <div className="overflow-y-auto max-h-[calc(80vh-8rem)] px-6 py-4">
-              <div className="space-y-6">
-                {/* Control Panel方法 */}
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                  <div className="flex items-start space-x-3">
-                    <div className="flex-shrink-0">
-                      <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-blue-900 dark:text-blue-200 mb-2">
-                        方法1: Claude Codeコントロールパネルで認証
-                      </h3>
-                      <div className="text-sm text-blue-800 dark:text-blue-300 space-y-2">
-                        <p>1. Claude Codeのコントロールパネルを開く</p>
-                        <p>2. 「認証」または「Authentication」メニューを選択</p>
-                        <p>3. 指示に従ってブラウザでClaude.aiにログイン</p>
-                        <p>4. 認証完了後、コントロールパネルを閉じる</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Login URL方法 */}
-                {claudeLoginUrls.length > 0 && (
-                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                    <div className="flex items-start space-x-3">
-                      <div className="flex-shrink-0">
-                        <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-medium text-green-900 dark:text-green-200 mb-2">
-                          方法2: ログインURLを直接開く
-                        </h3>
-                        <p className="text-sm text-green-800 dark:text-green-300 mb-3">
-                          以下のボタンをクリックしてClaude.aiにログインしてください：
-                        </p>
-                        <button
-                          onClick={() => {
-                            setShowAuthGuidance(false);
-                            setShowClaudeLogins(true);
-                          }}
-                          className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors"
-                        >
-                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          ログインURLを表示
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* 注意事項 */}
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                  <div className="flex items-start space-x-3">
-                    <div className="flex-shrink-0">
-                      <svg className="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-yellow-900 dark:text-yellow-200 mb-2">
-                        ご注意
-                      </h3>
-                      <ul className="text-sm text-yellow-800 dark:text-yellow-300 space-y-1 list-disc list-inside">
-                        <li>認証が完了すると、このセッションでエージェントと対話できるようになります</li>
-                        <li>ログインが必要な場合は、新しいタブでClaude.aiが開きます</li>
-                        <li>認証情報はブラウザセッションに保存されます</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
