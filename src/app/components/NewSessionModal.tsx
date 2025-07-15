@@ -273,27 +273,6 @@ export default function NewSessionModal({
         onSuccess()
       } catch (messageErr) {
         console.error('Failed to send initial message:', messageErr)
-        
-        // 500エラーの場合、認証エラーとして処理
-        if (messageErr instanceof Error && messageErr.message.includes('500')) {
-          console.log('500 error detected during message sending - likely authentication required')
-          // 認証が必要な場合は、セッションを削除して認証を促す
-          try {
-            await client.delete(session.session_id)
-            console.log('Session deleted due to authentication error')
-          } catch (deleteErr) {
-            console.warn('Failed to delete session after auth error:', deleteErr)
-          }
-          
-          // 認証エラーを表示
-          window.dispatchEvent(new CustomEvent('authenticationRequired', {
-            detail: {
-              message: '認証が必要です。チャットボタンが認証ボタンに変わります。',
-              showAuthButton: true
-            }
-          }))
-        }
-        
         onSessionStatusUpdate(sessionId, 'failed')
         onSessionCompleted(sessionId)
       }
