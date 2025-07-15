@@ -44,6 +44,14 @@ export async function PATCH(
   return handleProxyRequest(request, resolvedParams.path, 'PATCH');
 }
 
+// Debug logging utility
+const DEBUG_ENABLED = process.env.NODE_ENV !== 'production' && process.env.DEBUG_LOGS !== 'false';
+const debugLog = (...args: unknown[]) => {
+  if (DEBUG_ENABLED) {
+    console.log(...args);
+  }
+};
+
 async function handleProxyRequest(
   request: NextRequest,
   pathParts: string[],
@@ -51,7 +59,7 @@ async function handleProxyRequest(
 ): Promise<NextResponse> {
   try {
     // Log the incoming request for debugging
-    console.log(`[API Proxy] ${method} request to:`, pathParts.join('/'), {
+    debugLog(`[API Proxy] ${method} request to:`, pathParts.join('/'), {
       searchParams: request.nextUrl.searchParams.toString(),
       hasBody: method !== 'GET' && method !== 'HEAD'
     });
@@ -110,7 +118,7 @@ async function handleProxyRequest(
     const searchParams = request.nextUrl.searchParams;
     const targetUrl = `${proxyUrl}/${path}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
 
-    console.log(`[API Proxy] Target URL constructed:`, targetUrl);
+    debugLog(`[API Proxy] Target URL constructed:`, targetUrl);
 
     // Prepare request body and handle encrypted config
     let body: string | undefined;
@@ -222,7 +230,7 @@ async function handleProxyRequest(
     const isMessageEndpoint = pathParts.includes('message');
     const timeoutMs = isMessageEndpoint ? 120000 : 30000; // 2 minutes for messages, 30s for others
 
-    console.log(`[API Proxy] Making ${method} request to backend:`, {
+    debugLog(`[API Proxy] Making ${method} request to backend:`, {
       url: targetUrl,
       hasAuth: !!headers.get('Authorization'),
       isOAuthEndpoint,
@@ -237,7 +245,7 @@ async function handleProxyRequest(
       signal: AbortSignal.timeout(timeoutMs),
     });
 
-    console.log(`[API Proxy] Backend response:`, {
+    debugLog(`[API Proxy] Backend response:`, {
       status: response.status,
       statusText: response.statusText,
       contentType: response.headers.get('content-type'),
@@ -385,7 +393,7 @@ async function handleSSERequest(
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGINS || 'http://localhost:3000',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       },

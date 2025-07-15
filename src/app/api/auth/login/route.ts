@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { setApiKeyCookie } from '@/lib/cookie-auth';
 
+// Debug logging utility
+const DEBUG_ENABLED = process.env.NODE_ENV !== 'production' && process.env.DEBUG_LOGS !== 'false';
+const debugLog = (...args: unknown[]) => {
+  if (DEBUG_ENABLED) {
+    console.log(...args);
+  }
+};
+
 export async function POST(request: NextRequest) {
   try {
     // Check if single profile mode is enabled
@@ -44,7 +52,7 @@ export async function POST(request: NextRequest) {
           : 'http://localhost:3000')
       const proxyUrl = baseUrl.endsWith('/api/proxy') ? baseUrl : `${baseUrl}/api/proxy`;
       try {
-        console.log(`[Auth] Validating API key with proxy: ${proxyUrl}`);
+        debugLog(`[Auth] Validating API key with proxy: ${proxyUrl}`);
         
         const testResponse = await fetch(`${proxyUrl}/health`, {
           headers: {
@@ -56,7 +64,7 @@ export async function POST(request: NextRequest) {
 
         if (!testResponse.ok) {
           if (testResponse.status === 401 || testResponse.status === 403) {
-            console.log(`[Auth] API key validation failed: ${testResponse.status}`);
+            debugLog(`[Auth] API key validation failed: ${testResponse.status}`);
             return NextResponse.json(
               { error: 'Invalid or unauthorized API key' },
               { status: 401 }
@@ -64,9 +72,9 @@ export async function POST(request: NextRequest) {
           }
           
           // Log non-auth errors but don't fail the login
-          console.warn(`[Auth] Proxy health check returned ${testResponse.status}, continuing with login`);
+          debugLog(`[Auth] Proxy health check returned ${testResponse.status}, continuing with login`);
         } else {
-          console.log('[Auth] API key validation successful');
+          debugLog('[Auth] API key validation successful');
         }
       } catch (error) {
         // In single profile mode, we should be more strict about validation
@@ -85,7 +93,7 @@ export async function POST(request: NextRequest) {
         console.warn('[Auth] Continuing with login despite validation error');
       }
     } else {
-      console.log('[Auth] API key validation with proxy is disabled');
+      debugLog('[Auth] API key validation with proxy is disabled');
     }
 
     // Set the encrypted API key in a secure cookie
