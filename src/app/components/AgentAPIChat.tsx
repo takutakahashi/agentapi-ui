@@ -231,7 +231,10 @@ export default function AgentAPIChat() {
               const hasLetsGetStartedMessage = messages.length > 0 && messages[0].content && messages[0].content.includes("Let's get started");
               
               if (hasLetsGetStartedMessage) {
+                setIsUnauthenticated(true);
                 setShowWelcomePopup(true);
+              } else {
+                setIsUnauthenticated(false);
               }
               
               setMessages(convertedMessages);
@@ -288,6 +291,7 @@ export default function AgentAPIChat() {
   const [prLinks, setPRLinks] = useState<string[]>([]);
   const [showClaudeLogins, setShowClaudeLogins] = useState(false);
   const [claudeLoginUrls, setClaudeLoginUrls] = useState<string[]>([]);
+  const [isUnauthenticated, setIsUnauthenticated] = useState(false);
   const [showAuthGuidance, setShowAuthGuidance] = useState(false);
   const [showWelcomePopup, setShowWelcomePopup] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -428,7 +432,10 @@ export default function AgentAPIChat() {
       const hasLetsGetStartedMessage = messages.length > 0 && messages[0].content && messages[0].content.includes("Let's get started");
       
       if (hasLetsGetStartedMessage) {
+        setIsUnauthenticated(true);
         setShowWelcomePopup(true);
+      } else {
+        setIsUnauthenticated(false);
       }
       
       setMessages(convertedMessages);
@@ -513,14 +520,14 @@ export default function AgentAPIChat() {
         setClaudeLoginUrls(uniqueClaudeUrls);
         
         // 新しいLogin URLが検出された場合、自動的にポップアップを表示
-        if (!hadUrls && uniqueClaudeUrls.length > 0) {
+        if (!hadUrls && isUnauthenticated && uniqueClaudeUrls.length > 0) {
           setShowClaudeLogins(true);
         }
       }
     }
     
     prevMessagesLengthRef.current = currentLength;
-  }, [messages, shouldAutoScroll, claudeLoginUrls.length]);
+  }, [messages, shouldAutoScroll, claudeLoginUrls.length, isUnauthenticated]);
 
   const sendMessage = useCallback(async (messageType: 'user' | 'raw' = 'user', content?: string) => {
     const messageContent = content || inputValue.trim();
@@ -809,7 +816,7 @@ export default function AgentAPIChat() {
           transform: 'translateZ(0)' // GPU acceleration
         }}
       >
-        {messages.length === 0 && isConnected && (
+        {messages.length === 0 && isConnected && !isUnauthenticated && (
           <div className="text-center text-gray-500 dark:text-gray-400 py-12">
             <div className="mb-3">
               <svg className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -818,6 +825,39 @@ export default function AgentAPIChat() {
             </div>
             <p className="text-lg font-medium">No conversation yet</p>
             <p className="text-sm mt-1">Start a conversation with the agent below</p>
+          </div>
+        )}
+
+        {/* Authentication Guidance */}
+        {isUnauthenticated && (
+          <div className="flex flex-col items-center justify-center py-12 px-6">
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6 max-w-md w-full">
+              <div className="flex items-center justify-center mb-4">
+                <svg className="w-12 h-12 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-yellow-900 dark:text-yellow-200 text-center mb-3">認証が必要です</h3>
+              <p className="text-sm text-yellow-800 dark:text-yellow-300 text-center mb-4">
+                Claude Codeエージェントを利用するには認証が必要です。
+              </p>
+              <div className="space-y-3">
+                <button
+                  onClick={() => setShowAuthGuidance(true)}
+                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors"
+                >
+                  認証方法を確認する
+                </button>
+                {claudeLoginUrls.length > 0 && (
+                  <button
+                    onClick={() => setShowClaudeLogins(true)}
+                    className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors"
+                  >
+                    ログインURLを開く
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
