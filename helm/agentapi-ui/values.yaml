@@ -52,11 +52,9 @@ ingress:
   annotations: {}
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
-  hosts:
-    - host: "{{ .Values.hostname }}"
-      paths:
-        - path: /
-          pathType: Prefix
+  host: "{{ .Values.hostname }}"
+  path: /
+  pathType: Prefix
   tls: []
   #  - secretName: agentapi-ui-tls
   #    hosts:
