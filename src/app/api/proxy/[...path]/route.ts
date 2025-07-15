@@ -64,6 +64,13 @@ async function handleProxyRequest(
       hasBody: method !== 'GET' && method !== 'HEAD'
     });
 
+    // Check if API mock is enabled
+    const apiMockEnabled = process.env.WITH_API_MOCK === 'true';
+    
+    if (apiMockEnabled) {
+      return handleMockRequest(request, pathParts, method);
+    }
+
     // Check if single profile mode is enabled
     const singleProfileMode = process.env.SINGLE_PROFILE_MODE === 'true' || 
                               process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true';
@@ -330,6 +337,126 @@ async function handleProxyRequest(
       { status: 500 }
     );
   }
+}
+
+async function handleMockRequest(
+  request: NextRequest,
+  pathParts: string[],
+  method: string
+): Promise<NextResponse> {
+  const path = pathParts.join('/');
+  
+  debugLog(`[API Mock] ${method} request to:`, path);
+  
+  // Handle different endpoints
+  switch (path) {
+    case 'status':
+      if (method === 'GET') {
+        return NextResponse.json({ status: 'stable' });
+      }
+      break;
+      
+    case 'messages':
+      if (method === 'GET') {
+        return NextResponse.json([
+          {
+            id: '1',
+            content: 'Hello! How can I help you today?',
+            role: 'assistant',
+            timestamp: new Date().toISOString()
+          },
+          {
+            id: '2',
+            content: 'I need help with my code.',
+            role: 'user',
+            timestamp: new Date().toISOString()
+          }
+        ]);
+      }
+      break;
+      
+    case 'message':
+      if (method === 'POST') {
+        const body = await request.json();
+        return NextResponse.json({
+          id: `msg_${Date.now()}`,
+          content: body.content,
+          role: body.type === 'user' ? 'user' : 'assistant',
+          timestamp: new Date().toISOString(),
+          success: true
+        });
+      }
+      break;
+      
+    case 'events':
+      if (method === 'GET') {
+        return handleMockSSERequest();
+      }
+      break;
+      
+    default:
+      // For any other endpoint, return a generic success response
+      return NextResponse.json({ 
+        success: true, 
+        message: `Mock response for ${method} ${path}`,
+        timestamp: new Date().toISOString()
+      });
+  }
+  
+  // Return 404 for unsupported method/path combinations
+  return NextResponse.json(
+    { error: 'Not found', path, method },
+    { status: 404 }
+  );
+}
+
+async function handleMockSSERequest(): Promise<NextResponse> {
+  const stream = new ReadableStream({
+    start(controller) {
+      // Send initial message
+      controller.enqueue(
+        new TextEncoder().encode(`data: ${JSON.stringify({
+          type: 'status',
+          status: 'running'
+        })}\n\n`)
+      );
+      
+      // Send a mock message after 1 second
+      setTimeout(() => {
+        controller.enqueue(
+          new TextEncoder().encode(`data: ${JSON.stringify({
+            type: 'message',
+            id: `msg_${Date.now()}`,
+            content: 'This is a mock response from the agent.',
+            role: 'assistant',
+            timestamp: new Date().toISOString()
+          })}\n\n`)
+        );
+        
+        // Send completion status
+        setTimeout(() => {
+          controller.enqueue(
+            new TextEncoder().encode(`data: ${JSON.stringify({
+              type: 'status',
+              status: 'stable'
+            })}\n\n`)
+          );
+          controller.close();
+        }, 500);
+      }, 1000);
+    }
+  });
+
+  return new NextResponse(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGINS || 'http://localhost:3000',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
 }
 
 async function handleSSERequest(
