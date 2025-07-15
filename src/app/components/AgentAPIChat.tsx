@@ -233,6 +233,7 @@ export default function AgentAPIChat() {
               if (hasWelcomeMessage) {
                 setIsUnauthenticated(true);
                 setShowAuthGuidance(true);
+                setShowWelcomePopup(true);
               } else {
                 setIsUnauthenticated(false);
                 setShowAuthGuidance(false);
@@ -294,6 +295,7 @@ export default function AgentAPIChat() {
   const [claudeLoginUrls, setClaudeLoginUrls] = useState<string[]>([]);
   const [isUnauthenticated, setIsUnauthenticated] = useState(false);
   const [showAuthGuidance, setShowAuthGuidance] = useState(false);
+  const [showWelcomePopup, setShowWelcomePopup] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
@@ -326,7 +328,9 @@ export default function AgentAPIChat() {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        if (showTemplateModal) {
+        if (showWelcomePopup) {
+          setShowWelcomePopup(false)
+        } else if (showTemplateModal) {
           setShowTemplateModal(false)
         } else if (showPRLinks) {
           setShowPRLinks(false)
@@ -338,14 +342,14 @@ export default function AgentAPIChat() {
       }
     }
 
-    if (showTemplateModal || showPRLinks || showClaudeLogins || showAuthGuidance) {
+    if (showWelcomePopup || showTemplateModal || showPRLinks || showClaudeLogins || showAuthGuidance) {
       document.addEventListener('keydown', handleKeyDown)
     }
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [showTemplateModal, showPRLinks, showClaudeLogins, showAuthGuidance]);
+  }, [showWelcomePopup, showTemplateModal, showPRLinks, showClaudeLogins, showAuthGuidance]);
 
   // Listen for profile changes and recreate client
   useEffect(() => {
@@ -432,6 +436,7 @@ export default function AgentAPIChat() {
       if (hasWelcomeMessage) {
         setIsUnauthenticated(true);
         setShowAuthGuidance(true);
+        setShowWelcomePopup(true);
       } else {
         setIsUnauthenticated(false);
         setShowAuthGuidance(false);
@@ -1366,6 +1371,91 @@ export default function AgentAPIChat() {
                   <p className="text-sm">Claude ログインURLが見つかりませんでした</p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Welcome Popup Modal */}
+      {showWelcomePopup && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowWelcomePopup(false)
+            }
+          }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Welcome to AgentAPI
+                </h2>
+                <button
+                  onClick={() => setShowWelcomePopup(false)}
+                  className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div className="overflow-y-auto max-h-[calc(80vh-8rem)] px-6 py-4">
+              <div className="space-y-6">
+                <div className="text-center">
+                  <div className="mb-4">
+                    <svg className="w-16 h-16 mx-auto text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-1l-4 4z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                    Welcome to AgentAPI Chat
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Claude Code エージェントを使用して作業を開始しましょう
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <h4 className="font-medium text-blue-900 dark:text-blue-200 mb-2">
+                      簡単なセットアップ
+                    </h4>
+                    <p className="text-sm text-blue-800 dark:text-blue-300">
+                      認証を行うことで、数分でチャットを開始できます
+                    </p>
+                  </div>
+                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                    <h4 className="font-medium text-green-900 dark:text-green-200 mb-2">
+                      便利な機能
+                    </h4>
+                    <p className="text-sm text-green-800 dark:text-green-300">
+                      テンプレート、履歴、プルリクエストの自動検出機能
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                  <button
+                    onClick={() => {
+                      setShowWelcomePopup(false);
+                      setShowAuthGuidance(true);
+                    }}
+                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors"
+                  >
+                    認証方法を確認する
+                  </button>
+                  <button
+                    onClick={() => setShowWelcomePopup(false)}
+                    className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors"
+                  >
+                    閉じる
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
