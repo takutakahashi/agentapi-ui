@@ -227,10 +227,8 @@ export default function AgentAPIChat() {
                 timestamp: msg.timestamp
               }));
               
-              // Check if user is unauthenticated by looking for "Welcome" in messages
-              const hasWelcomeMessage = messages.some((msg: SessionMessage) => 
-                msg.content && msg.content.includes('Welcome')
-              );
+              // Check if user is unauthenticated by looking for "Welcome" in the first message only
+              const hasWelcomeMessage = messages.length > 0 && messages[0].content && messages[0].content.includes('Welcome');
               
               if (hasWelcomeMessage) {
                 setIsUnauthenticated(true);
@@ -428,10 +426,8 @@ export default function AgentAPIChat() {
         timestamp: msg.timestamp
       }));
       
-      // Check if user is unauthenticated by looking for "Welcome" in messages
-      const hasWelcomeMessage = messages.some((msg: SessionMessage) => 
-        msg.content && msg.content.includes('Welcome')
-      );
+      // Check if user is unauthenticated by looking for "Welcome" in the first message only
+      const hasWelcomeMessage = messages.length > 0 && messages[0].content && messages[0].content.includes('Welcome');
       
       if (hasWelcomeMessage) {
         setIsUnauthenticated(true);
