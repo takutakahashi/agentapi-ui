@@ -230,13 +230,19 @@ export default function AgentAPIChat() {
               // Check if user is unauthenticated by looking for "Welcome" in the first message only
               const hasWelcomeMessage = messages.length > 0 && messages[0].content && messages[0].content.includes('Welcome');
               
+              // Check for "Let's get started" message to show welcome popup
+              const hasLetsGetStartedMessage = messages.length > 0 && messages[0].content && messages[0].content.includes("Let's get started");
+              
               if (hasWelcomeMessage) {
                 setIsUnauthenticated(true);
                 setShowAuthGuidance(true);
-                setShowWelcomePopup(true);
               } else {
                 setIsUnauthenticated(false);
                 setShowAuthGuidance(false);
+              }
+              
+              if (hasLetsGetStartedMessage) {
+                setShowWelcomePopup(true);
               }
               
               setMessages(convertedMessages);
@@ -433,13 +439,19 @@ export default function AgentAPIChat() {
       // Check if user is unauthenticated by looking for "Welcome" in the first message only
       const hasWelcomeMessage = messages.length > 0 && messages[0].content && messages[0].content.includes('Welcome');
       
+      // Check for "Let's get started" message to show welcome popup
+      const hasLetsGetStartedMessage = messages.length > 0 && messages[0].content && messages[0].content.includes("Let's get started");
+      
       if (hasWelcomeMessage) {
         setIsUnauthenticated(true);
         setShowAuthGuidance(true);
-        setShowWelcomePopup(true);
       } else {
         setIsUnauthenticated(false);
         setShowAuthGuidance(false);
+      }
+      
+      if (hasLetsGetStartedMessage) {
+        setShowWelcomePopup(true);
       }
       
       setMessages(convertedMessages);
