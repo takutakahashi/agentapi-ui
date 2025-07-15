@@ -394,6 +394,33 @@ async function handleMockRequest(
       }
       break;
       
+    case 'search':
+      if (method === 'GET' || method === 'POST') {
+        return NextResponse.json({
+          results: [
+            {
+              id: 'search_1',
+              title: 'How to implement authentication in Next.js',
+              snippet: 'Authentication in Next.js can be implemented using NextAuth.js or custom JWT tokens...',
+              url: 'https://example.com/auth-nextjs',
+              relevance: 0.95,
+              timestamp: new Date().toISOString()
+            },
+            {
+              id: 'search_2',
+              title: 'Best practices for React state management',
+              snippet: 'State management in React has evolved significantly. Modern approaches include Context API, Zustand, and Redux Toolkit...',
+              url: 'https://example.com/react-state',
+              relevance: 0.87,
+              timestamp: new Date().toISOString()
+            }
+          ],
+          total: 2,
+          query: request.nextUrl.searchParams.get('q') || 'mock query'
+        });
+      }
+      break;
+      
     default:
       // For any other endpoint, return a generic success response
       return NextResponse.json({ 
