@@ -9,8 +9,8 @@ export const AuthNotificationBanner: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    // セッションストレージから非表示設定をチェック
-    const hasDismissed = sessionStorage.getItem(AUTH_BANNER_DISMISSED_KEY);
+    // ローカルストレージから非表示設定をチェック
+    const hasDismissed = localStorage.getItem(AUTH_BANNER_DISMISSED_KEY);
     
     if (!hasDismissed) {
       setIsVisible(true);
@@ -19,8 +19,8 @@ export const AuthNotificationBanner: React.FC = () => {
 
   const handleDismiss = () => {
     setIsVisible(false);
-    // 非表示設定をセッションストレージに保存
-    sessionStorage.setItem(AUTH_BANNER_DISMISSED_KEY, 'true');
+    // 非表示設定をローカルストレージに保存
+    localStorage.setItem(AUTH_BANNER_DISMISSED_KEY, 'true');
   };
 
   if (!isVisible) return null;
