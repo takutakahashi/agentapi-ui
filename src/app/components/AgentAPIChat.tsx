@@ -285,6 +285,7 @@ export default function AgentAPIChat() {
   const [loginPopupShown, setLoginPopupShown] = useState(false);
   const [tokenInput, setTokenInput] = useState('');
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [authPromptShown, setAuthPromptShown] = useState(false);
   const [showLoginMethodSelect, setShowLoginMethodSelect] = useState(false);
   const [loginMethodPopupShown, setLoginMethodPopupShown] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -511,10 +512,10 @@ export default function AgentAPIChat() {
       )
     );
     
-    if (hasInvalidApiKey && !loginPopupShown) {
+    if (hasInvalidApiKey && !authPromptShown) {
       // 認証ポップアップを表示
       setShowAuthPrompt(true);
-      setLoginPopupShown(true);
+      setAuthPromptShown(true);
     }
     
     // "Select login method" メッセージの検出
@@ -529,7 +530,7 @@ export default function AgentAPIChat() {
     }
     
     prevMessagesLengthRef.current = currentLength;
-  }, [messages, shouldAutoScroll]);
+  }, [messages, shouldAutoScroll, loginPopupShown, authPromptShown, loginMethodPopupShown]);
 
   const sendMessage = useCallback(async (messageType: 'user' | 'raw' = 'user', content?: string) => {
     const messageContent = content || inputValue.trim();
