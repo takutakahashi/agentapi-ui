@@ -281,6 +281,9 @@ export default function AgentAPIChat() {
   const [prLinks, setPRLinks] = useState<string[]>([]);
   const [showClaudeLogins, setShowClaudeLogins] = useState(false);
   const [claudeLoginUrls, setClaudeLoginUrls] = useState<string[]>([]);
+  const [showLoginPopup, setShowLoginPopup] = useState(false);
+  const [loginPopupShown, setLoginPopupShown] = useState(false);
+  const [tokenInput, setTokenInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
@@ -319,18 +322,20 @@ export default function AgentAPIChat() {
           setShowPRLinks(false)
         } else if (showClaudeLogins) {
           setShowClaudeLogins(false)
+        } else if (showLoginPopup) {
+          setShowLoginPopup(false)
         }
       }
     }
 
-    if (showTemplateModal || showPRLinks || showClaudeLogins) {
+    if (showTemplateModal || showPRLinks || showClaudeLogins || showLoginPopup) {
       document.addEventListener('keydown', handleKeyDown)
     }
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [showTemplateModal, showPRLinks, showClaudeLogins]);
+  }, [showTemplateModal, showPRLinks, showClaudeLogins, showLoginPopup]);
 
   // Listen for profile changes and recreate client
   useEffect(() => {
@@ -489,6 +494,12 @@ export default function AgentAPIChat() {
     const uniqueClaudeUrls = Array.from(new Set(allClaudeLoginUrls));
     setClaudeLoginUrls(uniqueClaudeUrls);
     
+    // 新しいClaude Login URLが検出され、まだポップアップを表示していない場合
+    if (uniqueClaudeUrls.length > 0 && !loginPopupShown) {
+      setShowLoginPopup(true);
+      setLoginPopupShown(true);
+    }
+    
     prevMessagesLengthRef.current = currentLength;
   }, [messages, shouldAutoScroll]);
 
@@ -581,6 +592,17 @@ export default function AgentAPIChat() {
   const sendEnterKey = () => {
     // Send enter key (raw message)
     sendMessage('raw', '\r');
+  };
+
+  const handleTokenSubmit = () => {
+    if (!tokenInput.trim()) return;
+    
+    // POST messageとしてトークンを送信
+    sendMessage('user', tokenInput.trim());
+    
+    // ポップアップを閉じて入力をクリア
+    setShowLoginPopup(false);
+    setTokenInput('');
   };
 
   const deleteSession = useCallback(async () => {
@@ -1248,46 +1270,81 @@ export default function AgentAPIChat() {
               </div>
             </div>
             
-            <div className="overflow-y-auto max-h-[calc(80vh-8rem)] px-6 py-4">
+            <div className="px-6 py-4">
               {claudeLoginUrls.length > 0 ? (
-                <div className="space-y-3">
-                  {claudeLoginUrls.map((url, index) => {
-                    // URLからclient_idを抽出
-                    const urlParams = new URLSearchParams(url.split('?')[1] || '');
-                    const clientId = urlParams.get('client_id') || '';
-                    const state = urlParams.get('state') || '';
-                    const shortClientId = clientId.substring(0, 8);
-                    const shortState = state.substring(0, 8);
+                <div>
+                  <div className="mb-4">
+                    <div className="flex items-center mb-3">
+                      <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        ブラウザで認証を完了してから、取得した認証トークンを入力してください。
+                      </p>
+                    </div>
                     
-                    return (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
-                        <div className="flex-1 min-w-0 mr-3">
-                          <div className="flex items-center">
-                            <svg className="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <span className="text-sm font-medium text-gray-900 dark:text-white">
-                              Claude OAuth認証
-                            </span>
-                          </div>
-                          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            Client ID: {shortClientId}... | State: {shortState}...
-                          </div>
+                    {/* Claude Login URL Button */}
+                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
+                            Claude認証URL
+                          </h4>
+                          <p className="text-xs text-blue-700 dark:text-blue-300">
+                            クリックして認証を完了し、トークンを取得してから下に貼り付けてください
+                          </p>
                         </div>
                         <a
-                          href={url}
+                          href={claudeLoginUrls[0]}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
+                          className="flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
                         >
                           <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                           </svg>
-                          ログイン
+                          認証ページへ
                         </a>
                       </div>
-                    );
-                  })}
+                    </div>
+                    
+                    <label htmlFor="modal-token-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      認証トークン
+                    </label>
+                    <textarea
+                      id="modal-token-input"
+                      value={tokenInput}
+                      onChange={(e) => setTokenInput(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleTokenSubmit();
+                          setShowClaudeLogins(false);
+                        }
+                      }}
+                      placeholder="トークンをペーストしてください..."
+                      className="w-full h-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                    />
+                  </div>
+                  
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      onClick={() => setShowClaudeLogins(false)}
+                      className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-md transition-colors"
+                    >
+                      キャンセル
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleTokenSubmit();
+                        setShowClaudeLogins(false);
+                      }}
+                      disabled={!tokenInput.trim()}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white rounded-md transition-colors disabled:cursor-not-allowed"
+                    >
+                      トークンを送信
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -1297,6 +1354,109 @@ export default function AgentAPIChat() {
                   <p className="text-sm">Claude ログインURLが見つかりませんでした</p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Login Token Popup */}
+      {showLoginPopup && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowLoginPopup(false)
+            }
+          }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Claude ログイン
+                </h2>
+                <button
+                  onClick={() => setShowLoginPopup(false)}
+                  className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div className="px-6 py-4">
+              <div className="mb-4">
+                <div className="flex items-center mb-3">
+                  <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    Claude ログインURLが検出されました。ブラウザで認証を完了してから、取得した認証トークンを入力してください。
+                  </p>
+                </div>
+                
+                {/* Claude Login URL Button */}
+                {claudeLoginUrls.length > 0 && (
+                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
+                          Claude認証URL
+                        </h4>
+                        <p className="text-xs text-blue-700 dark:text-blue-300">
+                          クリックして認証を完了し、トークンを取得してから下に貼り付けてください
+                        </p>
+                      </div>
+                      <a
+                        href={claudeLoginUrls[0]}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
+                      >
+                        <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+認証ページへ
+                      </a>
+                    </div>
+                  </div>
+                )}
+                
+                <label htmlFor="token-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  認証トークン
+                </label>
+                <textarea
+                  id="token-input"
+                  value={tokenInput}
+                  onChange={(e) => setTokenInput(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleTokenSubmit();
+                    }
+                  }}
+                  placeholder="トークンをペーストしてください..."
+                  className="w-full h-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                />
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowLoginPopup(false)}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-md transition-colors"
+                >
+                  キャンセル
+                </button>
+                <button
+                  onClick={handleTokenSubmit}
+                  disabled={!tokenInput.trim()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white rounded-md transition-colors disabled:cursor-not-allowed"
+                >
+                  トークンを送信
+                </button>
+              </div>
             </div>
           </div>
         </div>
