@@ -288,6 +288,8 @@ export default function AgentAPIChat() {
   const [authPromptShown, setAuthPromptShown] = useState(false);
   const [showLoginMethodSelect, setShowLoginMethodSelect] = useState(false);
   const [loginMethodPopupShown, setLoginMethodPopupShown] = useState(false);
+  const [showLoginSuccess, setShowLoginSuccess] = useState(false);
+  const [loginSuccessShown, setLoginSuccessShown] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
@@ -529,8 +531,23 @@ export default function AgentAPIChat() {
       setLoginMethodPopupShown(true);
     }
     
+    // "Login successful" メッセージの検出
+    const hasLoginSuccessful = messages.some(message => 
+      message.role === 'agent' && message.content.includes('Login successful')
+    );
+    
+    if (hasLoginSuccessful && !loginSuccessShown) {
+      // 認証成功ポップアップを表示し、自動的にrawメッセージを送信
+      setShowLoginSuccess(true);
+      setLoginSuccessShown(true);
+      // 少し遅延してrawメッセージを送信
+      setTimeout(() => {
+        sendMessage('raw', '\r');
+      }, 1500);
+    }
+    
     prevMessagesLengthRef.current = currentLength;
-  }, [messages, shouldAutoScroll, loginPopupShown, authPromptShown, loginMethodPopupShown]);
+  }, [messages, shouldAutoScroll, loginPopupShown, authPromptShown, loginMethodPopupShown, loginSuccessShown]);
 
   const sendMessage = useCallback(async (messageType: 'user' | 'raw' = 'user', content?: string) => {
     const messageContent = content || inputValue.trim();
@@ -1638,6 +1655,74 @@ export default function AgentAPIChat() {
                     <strong>Max サブスクリプション:</strong> Claude Proアカウントをお持ちの場合、こちらを選択してください。
                   </p>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Login Success Popup */}
+      {showLoginSuccess && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowLoginSuccess(false)
+            }
+          }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  認証成功
+                </h2>
+                <button
+                  onClick={() => setShowLoginSuccess(false)}
+                  className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div className="px-6 py-4">
+              <div className="mb-4">
+                <div className="flex items-center mb-3">
+                  <svg className="w-8 h-8 mr-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <p className="text-lg font-medium text-gray-900 dark:text-white">
+                      認証に成功しました！
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      Claude Codeへのログインが完了しました。
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+                  <div className="flex items-center">
+                    <svg className="w-4 h-4 mr-2 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      自動的に次のステップに進みます...
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowLoginSuccess(false)}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
+                >
+                  OK
+                </button>
               </div>
             </div>
           </div>
