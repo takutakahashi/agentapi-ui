@@ -285,6 +285,8 @@ export default function AgentAPIChat() {
   const [loginPopupShown, setLoginPopupShown] = useState(false);
   const [tokenInput, setTokenInput] = useState('');
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [showLoginMethodSelect, setShowLoginMethodSelect] = useState(false);
+  const [loginMethodPopupShown, setLoginMethodPopupShown] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
@@ -515,6 +517,17 @@ export default function AgentAPIChat() {
       setLoginPopupShown(true);
     }
     
+    // "Select login method" メッセージの検出
+    const hasSelectLoginMethod = messages.some(message => 
+      message.role === 'agent' && message.content.includes('Select login method')
+    );
+    
+    if (hasSelectLoginMethod && !loginMethodPopupShown) {
+      // ログイン方法選択ポップアップを表示
+      setShowLoginMethodSelect(true);
+      setLoginMethodPopupShown(true);
+    }
+    
     prevMessagesLengthRef.current = currentLength;
   }, [messages, shouldAutoScroll]);
 
@@ -618,6 +631,12 @@ export default function AgentAPIChat() {
     // ポップアップを閉じて入力をクリア
     setShowLoginPopup(false);
     setTokenInput('');
+  };
+
+  const handleMaxSubscriptionSelect = () => {
+    // "\r" を raw メッセージで送信
+    sendMessage('raw', '\r');
+    setShowLoginMethodSelect(false);
   };
 
   const deleteSession = useCallback(async () => {
@@ -1555,6 +1574,67 @@ export default function AgentAPIChat() {
                 <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
                   <p className="text-xs text-gray-600 dark:text-gray-400">
                     <strong>ヒント:</strong> Maxサブスクリプションをお持ちの場合は、エンターキー送信で認証フローを続行できます。
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Login Method Selection Popup */}
+      {showLoginMethodSelect && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowLoginMethodSelect(false)
+            }
+          }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  ログイン方法を選択
+                </h2>
+                <button
+                  onClick={() => setShowLoginMethodSelect(false)}
+                  className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div className="px-6 py-4">
+              <div className="mb-4">
+                <div className="flex items-center mb-3">
+                  <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    Claude Codeのログイン方法を選択してください。
+                  </p>
+                </div>
+                
+                <div className="space-y-3">
+                  <button
+                    onClick={handleMaxSubscriptionSelect}
+                    className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Max サブスクリプションを使う
+                  </button>
+                </div>
+                
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    <strong>Max サブスクリプション:</strong> Claude Proアカウントをお持ちの場合、こちらを選択してください。
                   </p>
                 </div>
               </div>
