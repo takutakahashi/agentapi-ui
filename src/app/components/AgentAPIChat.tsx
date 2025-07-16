@@ -501,9 +501,12 @@ export default function AgentAPIChat() {
       setLoginPopupShown(true);
     }
     
-    // "Invalid API Key" メッセージの検出
+    // "Invalid API Key" または "Invalid API key" メッセージの検出
     const hasInvalidApiKey = messages.some(message => 
-      message.role === 'agent' && message.content.includes('Invalid API Key')
+      message.role === 'agent' && (
+        message.content.includes('Invalid API Key') || 
+        message.content.includes('Invalid API key')
+      )
     );
     
     if (hasInvalidApiKey && !loginPopupShown) {
