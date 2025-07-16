@@ -1358,9 +1358,36 @@ export default function AgentAPIChat() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <p className="text-sm text-gray-700 dark:text-gray-300">
-                    Claude ログインURLが検出されました。認証トークンを入力してください。
+                    Claude ログインURLが検出されました。ログインURLにアクセスして認証を完了するか、認証トークンを直接入力してください。
                   </p>
                 </div>
+                
+                {/* Claude Login URL Button */}
+                {claudeLoginUrls.length > 0 && (
+                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
+                          Claude認証URL
+                        </h4>
+                        <p className="text-xs text-blue-700 dark:text-blue-300">
+                          ブラウザで認証を完了してからトークンを貼り付けてください
+                        </p>
+                      </div>
+                      <a
+                        href={claudeLoginUrls[0]}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
+                      >
+                        <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        ログイン
+                      </a>
+                    </div>
+                  </div>
+                )}
                 
                 <label htmlFor="token-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   認証トークン
@@ -1380,20 +1407,35 @@ export default function AgentAPIChat() {
                 />
               </div>
               
-              <div className="flex justify-end space-x-3">
+              <div className="flex justify-between">
                 <button
                   onClick={() => setShowLoginPopup(false)}
                   className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-md transition-colors"
                 >
-                  キャンセル
+                  後で
                 </button>
-                <button
-                  onClick={handleTokenSubmit}
-                  disabled={!tokenInput.trim()}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white rounded-md transition-colors disabled:cursor-not-allowed"
-                >
-                  送信
-                </button>
+                <div className="flex space-x-3">
+                  {claudeLoginUrls.length > 0 && (
+                    <a
+                      href={claudeLoginUrls[0]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      ブラウザで認証
+                    </a>
+                  )}
+                  <button
+                    onClick={handleTokenSubmit}
+                    disabled={!tokenInput.trim()}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white rounded-md transition-colors disabled:cursor-not-allowed"
+                  >
+                    トークンを送信
+                  </button>
+                </div>
               </div>
             </div>
           </div>
