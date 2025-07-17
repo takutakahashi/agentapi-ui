@@ -114,7 +114,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
         } catch (err) {
           console.warn(`Failed to fetch messages for session ${session.session_id}:`, err)
         }
-        return { sessionId: session.session_id, message: String(session.metadata?.description || 'No description available') }
+        return { sessionId: session.session_id, message: String(session.tags?.description || session.metadata?.description || 'No description available') }
       })
 
       const messageResults = await Promise.all(messagePromises)
@@ -142,7 +142,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       // モックセッションの初期メッセージを設定
       const mockMessages: { [sessionId: string]: string } = {}
       mockSessions.forEach(session => {
-        mockMessages[session.session_id] = String(session.metadata?.description || 'No description available')
+        mockMessages[session.session_id] = String(session.tags?.description || session.metadata?.description || 'No description available')
       })
       setSessionMessages(mockMessages)
       
@@ -353,7 +353,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
               } catch (err) {
                 console.warn(`Failed to fetch messages for session ${session.session_id}:`, err)
               }
-              return { sessionId: session.session_id, message: String(session.metadata?.description || 'No description available') }
+              return { sessionId: session.session_id, message: String(session.tags?.description || session.metadata?.description || 'No description available') }
             })
 
             const messageResults = await Promise.all(messagePromises)
@@ -627,7 +627,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                         {/* タイトルとステータス */}
                         <div className="flex items-start gap-3 mb-2">
                           <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white leading-5 sm:leading-6">
-                            {truncateText(String(sessionMessages[session.session_id] || session.metadata?.description || 'No description available'), isMobile ? 60 : 80)}
+                            {truncateText(String(session.tags?.description || sessionMessages[session.session_id] || session.metadata?.description || 'No description available'), isMobile ? 60 : 80)}
                           </h3>
                           {sessionAgentStatus[session.session_id] && (
                             <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
@@ -665,6 +665,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                         <div className="flex flex-wrap gap-1 sm:gap-2">
                           {/* Tags field (priority display) */}
                           {session.tags && Object.entries(session.tags)
+                            .filter(([key]) => key !== 'description')
                             .slice(0, isMobile ? 2 : 5)
                             .map(([key, value]) => (
                               <span
