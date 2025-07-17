@@ -665,6 +665,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                         <div className="flex flex-wrap gap-1 sm:gap-2">
                           {/* Tags field (priority display) */}
                           {session.tags && Object.entries(session.tags)
+                            .filter(([key]) => key !== 'description')
                             .slice(0, isMobile ? 2 : 5)
                             .map(([key, value]) => (
                               <span
