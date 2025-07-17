@@ -627,7 +627,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                         {/* タイトルとステータス */}
                         <div className="flex items-start gap-3 mb-2">
                           <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white leading-5 sm:leading-6">
-                            {truncateText(String(sessionMessages[session.session_id] || session.tags?.description || session.metadata?.description || 'No description available'), isMobile ? 60 : 80)}
+                            {truncateText(String(session.tags?.description || sessionMessages[session.session_id] || session.metadata?.description || 'No description available'), isMobile ? 60 : 80)}
                           </h3>
                           {sessionAgentStatus[session.session_id] && (
                             <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
