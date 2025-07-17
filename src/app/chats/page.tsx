@@ -6,6 +6,7 @@ import SessionListView from '../components/SessionListView'
 import NewSessionModal from '../components/NewSessionModal'
 import TopBar from '../components/TopBar'
 import FloatingNewSessionButton from '../components/FloatingNewSessionButton'
+import { AuthNotificationBanner } from '../../components/AuthNotificationBanner'
 
 interface TagFilter {
   [key: string]: string[]
@@ -60,6 +61,7 @@ export default function ChatsPage() {
 
   return (
     <main className="min-h-dvh bg-gray-50 dark:bg-gray-900">
+      <AuthNotificationBanner />
       <TopBar
         title="Conversations"
         showFilterButton={true}
