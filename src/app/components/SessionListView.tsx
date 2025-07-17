@@ -114,7 +114,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
         } catch (err) {
           console.warn(`Failed to fetch messages for session ${session.session_id}:`, err)
         }
-        return { sessionId: session.session_id, message: String(session.metadata?.description || 'No description available') }
+        return { sessionId: session.session_id, message: String(session.tags?.description || session.metadata?.description || 'No description available') }
       })
 
       const messageResults = await Promise.all(messagePromises)
@@ -142,7 +142,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       // モックセッションの初期メッセージを設定
       const mockMessages: { [sessionId: string]: string } = {}
       mockSessions.forEach(session => {
-        mockMessages[session.session_id] = String(session.metadata?.description || 'No description available')
+        mockMessages[session.session_id] = String(session.tags?.description || session.metadata?.description || 'No description available')
       })
       setSessionMessages(mockMessages)
       
@@ -353,7 +353,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
               } catch (err) {
                 console.warn(`Failed to fetch messages for session ${session.session_id}:`, err)
               }
-              return { sessionId: session.session_id, message: String(session.metadata?.description || 'No description available') }
+              return { sessionId: session.session_id, message: String(session.tags?.description || session.metadata?.description || 'No description available') }
             })
 
             const messageResults = await Promise.all(messagePromises)
