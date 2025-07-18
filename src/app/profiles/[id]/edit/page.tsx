@@ -6,7 +6,6 @@ import { ProfileManager } from '../../../../utils/profileManager';
 import { Profile, UpdateProfileRequest } from '../../../../types/profile';
 import { isSingleProfileModeEnabled } from '../../../../types/settings';
 import { OrganizationHistory, OrganizationRepositoryHistory } from '../../../../utils/organizationHistory';
-import MCPServerSettings from '../../../../components/MCPServerSettings';
 import Link from 'next/link';
 
 const EMOJI_OPTIONS = ['⚙️', '🔧', '💼', '🏠', '🏢', '🚀', '💻', '🔬', '🎯', '⭐', '🌟', '💡'];
@@ -495,14 +494,6 @@ export default function EditProfilePage({ params }: EditProfilePageProps) {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-          <MCPServerSettings
-            mcpServers={formData.mcpServers || []}
-            onChange={(mcpServers) => setFormData(prev => ({ ...prev, mcpServers }))}
-            title="MCP Servers"
-            description="Configure Model Context Protocol servers for this profile. These will be automatically set up when starting sessions with this profile."
-          />
-        </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Repository History</h2>

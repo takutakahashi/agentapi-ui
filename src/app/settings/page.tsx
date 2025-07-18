@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { SettingsFormData, getDefaultSettings, isSingleProfileModeEnabled } from '../../types/settings'
 import type { EnvironmentVariable } from '../../types/settings'
-import MCPServerSettings from '../../components/MCPServerSettings'
 import BedrockSettingsComponent from '../../components/BedrockSettings'
 
 export default function GlobalSettingsPage() {
@@ -80,12 +79,6 @@ export default function GlobalSettingsPage() {
         }))
       }
       
-      if (decryptedJson.mcpServers) {
-        setSettings(prev => ({
-          ...prev,
-          mcpServers: decryptedJson.mcpServers
-        }))
-      }
       
       if (decryptedJson.bedrockSettings) {
         setSettings(prev => ({
@@ -119,7 +112,6 @@ export default function GlobalSettingsPage() {
           // Prepare settings data to encrypt
           const settingsData = {
             baseUrl: `${window.location.protocol}//${window.location.host}/api/proxy`,
-            mcpServers: settings.mcpServers,
             bedrockSettings: settings.bedrockSettings,
             environmentVariables: settings.environmentVariables.reduce((acc, env) => {
               if (env.key) acc[env.key] = env.value
@@ -203,7 +195,7 @@ export default function GlobalSettingsPage() {
             Settings (Single Profile Mode)
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-1">
-            Configure encrypted environment variables and MCP servers
+            Configure encrypted environment variables
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-500">
             Settings are encrypted and stored securely. No unencrypted data is saved to localStorage.
@@ -319,15 +311,6 @@ export default function GlobalSettingsPage() {
             />
           </div>
 
-          {/* MCP Servers Section */}
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-            <MCPServerSettings
-              mcpServers={settings.mcpServers || []}
-              onChange={(mcpServers) => setSettings(prev => ({ ...prev, mcpServers }))}
-              title="MCP Servers"
-              description="Configure Model Context Protocol servers. These settings are encrypted and stored securely."
-            />
-          </div>
 
           {/* Action Buttons */}
           <div className="flex items-center justify-between bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
