@@ -15,20 +15,8 @@ export class PushNotificationManager {
   async initialize(): Promise<boolean> {
     console.log('PushNotificationManager.initialize() called');
     
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      console.warn('Push notifications are not supported');
-      return false;
-    }
-    
-    console.log('Push notifications are supported');
-
+    // 基本的な通知許可のみ求める（Service Worker なしでも動作）
     try {
-      // Service Worker登録を取得
-      console.log('Waiting for service worker ready...');
-      this.registration = await navigator.serviceWorker.ready;
-      console.log('Service worker ready:', this.registration);
-      
-      // 通知許可を求める
       console.log('Requesting notification permission...');
       const permission = await Notification.requestPermission();
       console.log('Notification permission result:', permission);
@@ -37,6 +25,46 @@ export class PushNotificationManager {
         console.warn('Notification permission denied');
         return false;
       }
+      
+      // Service Worker があれば使用、なければフォールバック
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        console.log('Push notifications are supported');
+        await this.initializeServiceWorker();
+      } else {
+        console.log('Service Worker not supported, using fallback notifications');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to initialize push notifications:', error);
+      return false;
+    }
+  }
+
+  private async initializeServiceWorker(): Promise<void> {
+    try {
+      // Service Worker登録を取得
+      console.log('Waiting for service worker ready...');
+      
+      // Service Worker が利用可能かチェック
+      if (!navigator.serviceWorker.controller) {
+        console.log('No service worker controlling this page, registering...');
+        // Service Worker を手動で登録
+        await navigator.serviceWorker.register('/sw.js');
+        console.log('Service worker registered manually');
+      }
+      
+      // タイムアウト付きでService Worker待機
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Service Worker ready timeout')), 5000);
+      });
+      
+      this.registration = await Promise.race([
+        navigator.serviceWorker.ready,
+        timeoutPromise
+      ]) as ServiceWorkerRegistration;
+      
+      console.log('Service worker ready:', this.registration);
 
       // プッシュ購読を確認/作成
       console.log('Getting existing subscription...');
@@ -58,10 +86,9 @@ export class PushNotificationManager {
       await this.sendSubscriptionToServer();
       
       console.log('Push subscription created:', subscription);
-      return true;
     } catch (error) {
-      console.error('Failed to initialize push notifications:', error);
-      return false;
+      console.error('Failed to initialize service worker:', error);
+      console.log('Continuing with fallback notifications only');
     }
   }
 
