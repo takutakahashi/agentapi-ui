@@ -9,7 +9,6 @@ interface NotificationSettingsProps {
 }
 
 interface NotificationConfig {
-  enabled: boolean;
   agentResponses: boolean;
   sessionEvents: boolean;
   systemNotifications: boolean;
@@ -19,7 +18,6 @@ interface NotificationConfig {
 }
 
 const defaultConfig: NotificationConfig = {
-  enabled: false,
   agentResponses: true,
   sessionEvents: true,
   systemNotifications: true,
@@ -32,7 +30,7 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
   const [config, setConfig] = useState<NotificationConfig>(defaultConfig);
   const [isSupported, setIsSupported] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>('default');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
 
   useEffect(() => {
     setIsSupported(pushNotificationManager.isSupported());
@@ -42,73 +40,56 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
     const savedConfig = localStorage.getItem('notification-settings');
     if (savedConfig) {
       const parsedConfig = JSON.parse(savedConfig);
-      // 通知許可が取り消された場合は、設定も無効化
-      if (parsedConfig.enabled && currentPermission !== 'granted') {
-        parsedConfig.enabled = false;
-        localStorage.setItem('notification-settings', JSON.stringify(parsedConfig));
-      }
       setConfig(parsedConfig);
     }
-  }, []);
+
+    // 通知許可を自動的に初期化
+    if (currentPermission === 'default' && isSupported) {
+      initializeNotifications();
+    }
+  }, [isSupported]);
 
   const saveConfig = (newConfig: NotificationConfig) => {
     setConfig(newConfig);
     localStorage.setItem('notification-settings', JSON.stringify(newConfig));
   };
 
-  const handleToggleEnabled = async () => {
-    console.log('Toggle clicked, current enabled:', config.enabled);
-    console.log('Is supported:', isSupported);
-    console.log('Current permission:', permission);
+  const initializeNotifications = async () => {
+    if (permission === 'granted') return;
     
-    if (!config.enabled) {
-      setIsLoading(true);
-      try {
-        console.log('Attempting to initialize notifications...');
-        
-        // 現在の許可状態を確認
-        let currentPermission = Notification.permission;
-        console.log('Current permission:', currentPermission);
-        
-        // まだ許可を求めていない場合のみリクエスト
-        if (currentPermission === 'default') {
-          console.log('Requesting notification permission...');
-          currentPermission = await Notification.requestPermission();
-          console.log('Permission request result:', currentPermission);
-        }
-        
-        if (currentPermission === 'granted') {
-          // 通知許可が得られた場合、設定を有効化
-          const newConfig = { ...config, enabled: true };
-          saveConfig(newConfig);
-          setPermission('granted');
-          console.log('Notifications enabled successfully');
-          
-          // Service Worker の初期化は別途実行（失敗してもOK）
-          try {
-            await pushNotificationManager.initialize();
-          } catch (swError) {
-            console.log('Service Worker initialization failed, but basic notifications work:', swError);
-          }
-        } else {
-          console.log('Notification permission denied or not available');
-          setPermission(currentPermission);
-          // 許可されなかった場合は無効のまま
-        }
-      } catch (error) {
-        console.error('Failed to enable notifications:', error);
-      } finally {
-        setIsLoading(false);
+    setIsInitializing(true);
+    try {
+      console.log('Initializing push notifications...');
+      
+      // 現在の許可状態を確認
+      let currentPermission = Notification.permission;
+      console.log('Current permission:', currentPermission);
+      
+      // まだ許可を求めていない場合のみリクエスト
+      if (currentPermission === 'default') {
+        console.log('Requesting notification permission...');
+        currentPermission = await Notification.requestPermission();
+        console.log('Permission request result:', currentPermission);
       }
-    } else {
-      console.log('Disabling notifications...');
-      try {
-        await pushNotificationManager.unsubscribe();
-      } catch (error) {
-        console.log('Unsubscribe failed (ok for fallback mode):', error);
+      
+      setPermission(currentPermission);
+      
+      if (currentPermission === 'granted') {
+        console.log('Notifications permission granted');
+        
+        // Service Worker の初期化は別途実行（失敗してもOK）
+        try {
+          await pushNotificationManager.initialize();
+        } catch (swError) {
+          console.log('Service Worker initialization failed, but basic notifications work:', swError);
+        }
+      } else {
+        console.log('Notification permission denied or not available');
       }
-      saveConfig({ ...config, enabled: false });
-      console.log('Notifications disabled');
+    } catch (error) {
+      console.error('Failed to initialize notifications:', error);
+    } finally {
+      setIsInitializing(false);
     }
   };
 
@@ -118,8 +99,8 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
   };
 
   const testNotification = async () => {
-    console.log('Test notification clicked, config.enabled:', config.enabled);
-    if (config.enabled) {
+    console.log('Test notification clicked');
+    if (permission === 'granted') {
       try {
         console.log('Sending test notification...');
         await pushNotificationManager.sendLocalNotification(
@@ -131,7 +112,9 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
         console.error('Failed to send test notification:', error);
       }
     } else {
-      console.log('Notifications not enabled, cannot send test notification');
+      console.log('Notification permission not granted');
+      // 許可を求める
+      await initializeNotifications();
     }
   };
 
@@ -170,36 +153,25 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
                 プッシュ通知
               </h3>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                エージェントからの通知を受信します
+                {permission === 'granted' ? '通知設定を管理します' : '通知許可が必要です'}
               </p>
             </div>
           </div>
           <div className="flex items-center space-x-3">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation(); // 親ボタンのクリックを防ぐ
-                console.log('Toggle button clicked');
-                handleToggleEnabled();
-              }}
-              onTouchStart={(e) => {
-                e.stopPropagation(); // モバイルでのタッチ処理
-              }}
-              disabled={isLoading}
-              className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:opacity-80 active:opacity-90'} ${config.enabled ? 'bg-blue-600' : 'bg-gray-300'}`}
-              style={{
-                backgroundColor: config.enabled ? '#2563eb' : '#d1d5db',
-                WebkitTapHighlightColor: 'transparent'
-              }}
-            >
-              <span className="sr-only">
-                {config.enabled ? 'Disable notifications' : 'Enable notifications'}
-              </span>
-              <span
-                className={`inline-block w-4 h-4 transform bg-white rounded-full shadow-md transition-transform duration-200 ease-in-out ${config.enabled ? 'translate-x-6' : 'translate-x-1'}`}
-              />
-            </button>
+            {permission !== 'granted' && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  initializeNotifications();
+                }}
+                disabled={isInitializing}
+                className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isInitializing ? '設定中...' : '許可する'}
+              </button>
+            )}
             <svg
               className={`h-5 w-5 text-gray-400 transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
               fill="none"
@@ -221,6 +193,14 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
               </div>
             )}
 
+            {permission !== 'granted' && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  通知機能を使用するには、ブラウザの通知許可が必要です。「許可する」ボタンをクリックしてください。
+                </p>
+              </div>
+            )}
+
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -235,7 +215,7 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
                   type="checkbox"
                   checked={config.agentResponses}
                   onChange={(e) => handleConfigChange('agentResponses', e.target.checked)}
-                  disabled={!config.enabled}
+                  disabled={permission !== 'granted'}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
                 />
               </div>
@@ -253,7 +233,7 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
                   type="checkbox"
                   checked={config.sessionEvents}
                   onChange={(e) => handleConfigChange('sessionEvents', e.target.checked)}
-                  disabled={!config.enabled}
+                  disabled={permission !== 'granted'}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
                 />
               </div>
@@ -271,7 +251,7 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
                   type="checkbox"
                   checked={config.systemNotifications}
                   onChange={(e) => handleConfigChange('systemNotifications', e.target.checked)}
-                  disabled={!config.enabled}
+                  disabled={permission !== 'granted'}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
                 />
               </div>
@@ -290,7 +270,7 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
                     type="checkbox"
                     checked={config.quiet}
                     onChange={(e) => handleConfigChange('quiet', e.target.checked)}
-                    disabled={!config.enabled}
+                    disabled={permission !== 'granted'}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
                   />
                 </div>
@@ -301,7 +281,7 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
                       type="time"
                       value={config.quietStart}
                       onChange={(e) => handleConfigChange('quietStart', e.target.value)}
-                      disabled={!config.enabled}
+                      disabled={permission !== 'granted'}
                       className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
                     />
                     <span className="text-sm text-gray-500 dark:text-gray-400">から</span>
@@ -309,7 +289,7 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
                       type="time"
                       value={config.quietEnd}
                       onChange={(e) => handleConfigChange('quietEnd', e.target.value)}
-                      disabled={!config.enabled}
+                      disabled={permission !== 'granted'}
                       className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
                     />
                     <span className="text-sm text-gray-500 dark:text-gray-400">まで</span>
@@ -320,7 +300,7 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
               <div className="flex justify-end space-x-2">
                 <button
                   onClick={testNotification}
-                  disabled={!config.enabled}
+                  disabled={permission !== 'granted'}
                   className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   テスト通知
@@ -333,9 +313,11 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
                         body: '基本的な通知のテストです',
                         icon: '/icon-192x192.png'
                       });
+                    } else {
+                      await initializeNotifications();
                     }
                   }}
-                  disabled={!config.enabled}
+                  disabled={permission !== 'granted'}
                   className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   シンプルテスト

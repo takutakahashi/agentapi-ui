@@ -249,3 +249,57 @@ export class PushNotificationManager {
 }
 
 export const pushNotificationManager = new PushNotificationManager();
+
+// 通知設定を取得する関数
+export function getNotificationSettings() {
+  const defaultConfig = {
+    agentResponses: true,
+    sessionEvents: true,
+    systemNotifications: true,
+    quiet: false,
+    quietStart: '22:00',
+    quietEnd: '08:00',
+  };
+
+  const savedConfig = localStorage.getItem('notification-settings');
+  if (savedConfig) {
+    return { ...defaultConfig, ...JSON.parse(savedConfig) };
+  }
+  return defaultConfig;
+}
+
+// 通知が許可されているかチェック
+export function isNotificationEnabled(): boolean {
+  return Notification.permission === 'granted';
+}
+
+// 特定の通知タイプが有効かチェック
+export function shouldSendNotification(type: 'agentResponses' | 'sessionEvents' | 'systemNotifications'): boolean {
+  if (!isNotificationEnabled()) return false;
+  
+  const config = getNotificationSettings();
+  if (!config[type]) return false;
+  
+  // マナーモードのチェック
+  if (config.quiet) {
+    const now = new Date();
+    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    const startTime = config.quietStart;
+    const endTime = config.quietEnd;
+    
+    // 時間帯チェック（日をまたぐ場合も考慮）
+    if (startTime <= endTime) {
+      // 同日内の時間帯
+      if (currentTime >= startTime && currentTime <= endTime) {
+        return false;
+      }
+    } else {
+      // 日をまたぐ時間帯
+      if (currentTime >= startTime || currentTime <= endTime) {
+        return false;
+      }
+    }
+  }
+  
+  return true;
+}
