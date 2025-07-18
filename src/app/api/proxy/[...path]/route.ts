@@ -219,10 +219,6 @@ async function handleProxyRequest(
       }
     }
     
-    // Add MCP servers configuration if available
-    if (decryptedConfig.mcpServers) {
-      headers.set('X-MCP-Servers', JSON.stringify(decryptedConfig.mcpServers));
-    }
     
     // Add base URL override if available
     if (decryptedConfig.baseUrl) {
