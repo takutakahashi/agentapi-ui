@@ -128,7 +128,7 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
       <div className="p-4">
         <button
           onClick={onToggle}
-          className="w-full flex items-center justify-between text-left"
+          className="w-full flex items-center justify-between text-left p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
         >
           <div className="flex items-center">
             <svg className="h-5 w-5 text-gray-500 dark:text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -143,21 +143,24 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
               </p>
             </div>
           </div>
-          <div className="flex items-center">
-            <div className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors duration-200 ease-in-out ${isLoading ? 'opacity-50' : ''} ${config.enabled ? 'bg-blue-600' : 'bg-gray-300'}`}>
-              <input
-                type="checkbox"
-                name="notifications-enabled"
-                id="notifications-enabled"
-                checked={config.enabled}
-                onChange={handleToggleEnabled}
-                disabled={isLoading}
-                className="sr-only"
-              />
+          <div className="flex items-center space-x-3">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation(); // 親ボタンのクリックを防ぐ
+                console.log('Toggle button clicked');
+                handleToggleEnabled();
+              }}
+              disabled={isLoading}
+              className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${config.enabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+            >
+              <span className="sr-only">
+                {config.enabled ? 'Disable notifications' : 'Enable notifications'}
+              </span>
               <span
                 className={`inline-block w-4 h-4 transform bg-white rounded-full shadow-md transition-transform duration-200 ease-in-out ${config.enabled ? 'translate-x-6' : 'translate-x-1'}`}
               />
-            </div>
+            </button>
             <svg
               className={`h-5 w-5 text-gray-400 transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
               fill="none"
