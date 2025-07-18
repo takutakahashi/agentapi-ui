@@ -189,6 +189,36 @@ async function handleProxyRequest(
       });
     }
     
+    // Add Bedrock settings as environment variables if available
+    if (decryptedConfig.bedrockSettings) {
+      const bedrockConfig = decryptedConfig.bedrockSettings as Record<string, unknown>;
+      
+      // Only add environment variables if Bedrock is enabled
+      if (bedrockConfig.enabled) {
+        headers.set('X-Env-CLAUDE_CODE_USE_BEDROCK', '1');
+        
+        // Add AWS credentials if configured
+        if (bedrockConfig.awsAccessKeyId) {
+          headers.set('X-Env-AWS_ACCESS_KEY_ID', String(bedrockConfig.awsAccessKeyId));
+        }
+        if (bedrockConfig.awsSecretAccessKey) {
+          headers.set('X-Env-AWS_SECRET_ACCESS_KEY', String(bedrockConfig.awsSecretAccessKey));
+        }
+        if (bedrockConfig.awsSessionToken) {
+          headers.set('X-Env-AWS_SESSION_TOKEN', String(bedrockConfig.awsSessionToken));
+        }
+        if (bedrockConfig.region) {
+          headers.set('X-Env-AWS_REGION', String(bedrockConfig.region));
+        }
+        if (bedrockConfig.modelName) {
+          headers.set('X-Env-ANTHROPIC_MODEL', String(bedrockConfig.modelName));
+        }
+        if (bedrockConfig.endpointUrl) {
+          headers.set('X-Env-AWS_ENDPOINT_URL', String(bedrockConfig.endpointUrl));
+        }
+      }
+    }
+    
     // Add MCP servers configuration if available
     if (decryptedConfig.mcpServers) {
       headers.set('X-MCP-Servers', JSON.stringify(decryptedConfig.mcpServers));
