@@ -10,21 +10,6 @@ interface BedrockSettingsProps {
   description?: string
 }
 
-const AWS_REGIONS = [
-  { value: 'us-east-1', label: 'US East (N. Virginia)' },
-  { value: 'us-west-2', label: 'US West (Oregon)' },
-  { value: 'eu-west-1', label: 'Europe (Ireland)' },
-  { value: 'ap-northeast-1', label: 'Asia Pacific (Tokyo)' },
-  { value: 'ap-southeast-1', label: 'Asia Pacific (Singapore)' },
-  { value: 'ap-southeast-2', label: 'Asia Pacific (Sydney)' }
-]
-
-const BEDROCK_MODELS = [
-  { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
-  { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
-  { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' },
-  { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' }
-]
 
 export default function BedrockSettings({ 
   settings, 
@@ -122,36 +107,29 @@ export default function BedrockSettings({
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   AWS Region
                 </label>
-                <select
+                <input
+                  type="text"
                   value={settings.region || ''}
                   onChange={(e) => handleChange('region', e.target.value)}
+                  placeholder="us-east-1"
                   className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="">Select a region</option>
-                  {AWS_REGIONS.map((region) => (
-                    <option key={region.value} value={region.value}>
-                      {region.label}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Model Name
                 </label>
-                <select
+                <input
+                  type="text"
                   value={settings.modelName || ''}
                   onChange={(e) => handleChange('modelName', e.target.value)}
+                  placeholder="claude-3-5-sonnet-20241022"
                   className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="">Select a model</option>
-                  {BEDROCK_MODELS.map((model) => (
-                    <option key={model.value} value={model.value}>
-                      {model.label}
-                    </option>
-                  ))}
-                </select>
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  モデル名または推論プロファイルのARNを入力してください
+                </p>
               </div>
             </div>
           </div>
