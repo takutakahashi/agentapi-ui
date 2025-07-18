@@ -36,11 +36,18 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
 
   useEffect(() => {
     setIsSupported(pushNotificationManager.isSupported());
-    setPermission(pushNotificationManager.getPermissionStatus());
+    const currentPermission = pushNotificationManager.getPermissionStatus();
+    setPermission(currentPermission);
     
     const savedConfig = localStorage.getItem('notification-settings');
     if (savedConfig) {
-      setConfig(JSON.parse(savedConfig));
+      const parsedConfig = JSON.parse(savedConfig);
+      // 通知許可が取り消された場合は、設定も無効化
+      if (parsedConfig.enabled && currentPermission !== 'granted') {
+        parsedConfig.enabled = false;
+        localStorage.setItem('notification-settings', JSON.stringify(parsedConfig));
+      }
+      setConfig(parsedConfig);
     }
   }, []);
 
@@ -58,15 +65,35 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
       setIsLoading(true);
       try {
         console.log('Attempting to initialize notifications...');
-        const success = await pushNotificationManager.initialize();
-        console.log('Initialize result:', success);
         
-        if (success) {
-          saveConfig({ ...config, enabled: true });
+        // 現在の許可状態を確認
+        let currentPermission = Notification.permission;
+        console.log('Current permission:', currentPermission);
+        
+        // まだ許可を求めていない場合のみリクエスト
+        if (currentPermission === 'default') {
+          console.log('Requesting notification permission...');
+          currentPermission = await Notification.requestPermission();
+          console.log('Permission request result:', currentPermission);
+        }
+        
+        if (currentPermission === 'granted') {
+          // 通知許可が得られた場合、設定を有効化
+          const newConfig = { ...config, enabled: true };
+          saveConfig(newConfig);
           setPermission('granted');
           console.log('Notifications enabled successfully');
+          
+          // Service Worker の初期化は別途実行（失敗してもOK）
+          try {
+            await pushNotificationManager.initialize();
+          } catch (swError) {
+            console.log('Service Worker initialization failed, but basic notifications work:', swError);
+          }
         } else {
-          console.log('Failed to enable notifications');
+          console.log('Notification permission denied or not available');
+          setPermission(currentPermission);
+          // 許可されなかった場合は無効のまま
         }
       } catch (error) {
         console.error('Failed to enable notifications:', error);
@@ -75,7 +102,11 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
       }
     } else {
       console.log('Disabling notifications...');
-      await pushNotificationManager.unsubscribe();
+      try {
+        await pushNotificationManager.unsubscribe();
+      } catch (error) {
+        console.log('Unsubscribe failed (ok for fallback mode):', error);
+      }
       saveConfig({ ...config, enabled: false });
       console.log('Notifications disabled');
     }
@@ -147,12 +178,20 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
             <button
               type="button"
               onClick={(e) => {
+                e.preventDefault();
                 e.stopPropagation(); // 親ボタンのクリックを防ぐ
                 console.log('Toggle button clicked');
                 handleToggleEnabled();
               }}
+              onTouchStart={(e) => {
+                e.stopPropagation(); // モバイルでのタッチ処理
+              }}
               disabled={isLoading}
-              className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${config.enabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+              className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:opacity-80 active:opacity-90'} ${config.enabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+              style={{
+                backgroundColor: config.enabled ? '#2563eb' : '#d1d5db',
+                WebkitTapHighlightColor: 'transparent'
+              }}
             >
               <span className="sr-only">
                 {config.enabled ? 'Disable notifications' : 'Enable notifications'}

@@ -29,7 +29,10 @@ export class PushNotificationManager {
       // Service Worker があれば使用、なければフォールバック
       if ('serviceWorker' in navigator && 'PushManager' in window) {
         console.log('Push notifications are supported');
-        await this.initializeServiceWorker();
+        // Service Worker の初期化は非同期で実行（失敗してもOK）
+        this.initializeServiceWorker().catch(error => {
+          console.log('Service Worker initialization failed (using fallback):', error);
+        });
       } else {
         console.log('Service Worker not supported, using fallback notifications');
       }
