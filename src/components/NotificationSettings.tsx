@@ -50,13 +50,23 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
   };
 
   const handleToggleEnabled = async () => {
+    console.log('Toggle clicked, current enabled:', config.enabled);
+    console.log('Is supported:', isSupported);
+    console.log('Current permission:', permission);
+    
     if (!config.enabled) {
       setIsLoading(true);
       try {
+        console.log('Attempting to initialize notifications...');
         const success = await pushNotificationManager.initialize();
+        console.log('Initialize result:', success);
+        
         if (success) {
           saveConfig({ ...config, enabled: true });
           setPermission('granted');
+          console.log('Notifications enabled successfully');
+        } else {
+          console.log('Failed to enable notifications');
         }
       } catch (error) {
         console.error('Failed to enable notifications:', error);
@@ -64,8 +74,10 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
         setIsLoading(false);
       }
     } else {
+      console.log('Disabling notifications...');
       await pushNotificationManager.unsubscribe();
       saveConfig({ ...config, enabled: false });
+      console.log('Notifications disabled');
     }
   };
 
@@ -75,11 +87,20 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
   };
 
   const testNotification = async () => {
+    console.log('Test notification clicked, config.enabled:', config.enabled);
     if (config.enabled) {
-      await pushNotificationManager.sendLocalNotification(
-        'テスト通知',
-        'AgentAPIからのテスト通知です'
-      );
+      try {
+        console.log('Sending test notification...');
+        await pushNotificationManager.sendLocalNotification(
+          'テスト通知',
+          'AgentAPIからのテスト通知です'
+        );
+        console.log('Test notification sent successfully');
+      } catch (error) {
+        console.error('Failed to send test notification:', error);
+      }
+    } else {
+      console.log('Notifications not enabled, cannot send test notification');
     }
   };
 

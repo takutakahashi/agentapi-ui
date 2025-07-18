@@ -13,29 +13,43 @@ export class PushNotificationManager {
   private subscription: PushSubscription | null = null;
 
   async initialize(): Promise<boolean> {
+    console.log('PushNotificationManager.initialize() called');
+    
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       console.warn('Push notifications are not supported');
       return false;
     }
+    
+    console.log('Push notifications are supported');
 
     try {
       // Service Worker登録を取得
+      console.log('Waiting for service worker ready...');
       this.registration = await navigator.serviceWorker.ready;
+      console.log('Service worker ready:', this.registration);
       
       // 通知許可を求める
+      console.log('Requesting notification permission...');
       const permission = await Notification.requestPermission();
+      console.log('Notification permission result:', permission);
+      
       if (permission !== 'granted') {
         console.warn('Notification permission denied');
         return false;
       }
 
       // プッシュ購読を確認/作成
+      console.log('Getting existing subscription...');
       let subscription = await this.registration.pushManager.getSubscription();
+      console.log('Existing subscription:', subscription);
+      
       if (!subscription) {
+        console.log('Creating new subscription...');
         subscription = await this.registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: this.urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
         });
+        console.log('New subscription created:', subscription);
       }
 
       this.subscription = subscription;
@@ -132,21 +146,35 @@ export class PushNotificationManager {
   }
 
   async sendLocalNotification(title: string, body: string): Promise<void> {
+    console.log('sendLocalNotification called:', { title, body });
+    console.log('Registration available:', !!this.registration);
+    console.log('Notification permission:', Notification.permission);
+    
     if (!this.registration) {
       // フォールバック: ブラウザ標準通知
+      console.log('Using fallback browser notification');
       if (Notification.permission === 'granted') {
+        console.log('Creating fallback notification');
         new Notification(title, { body, icon: '/icon-192x192.png' });
+      } else {
+        console.log('Notification permission not granted for fallback');
       }
       return;
     }
 
     // Service Worker経由で通知
-    await this.registration.showNotification(title, {
-      body,
-      icon: '/icon-192x192.png',
-      badge: '/icon-192x192.png',
-      tag: 'agent-response'
-    });
+    console.log('Using service worker notification');
+    try {
+      await this.registration.showNotification(title, {
+        body,
+        icon: '/icon-192x192.png',
+        badge: '/icon-192x192.png',
+        tag: 'agent-response'
+      });
+      console.log('Service worker notification sent successfully');
+    } catch (error) {
+      console.error('Failed to send service worker notification:', error);
+    }
   }
 
   private urlBase64ToUint8Array(base64String: string): Uint8Array {
