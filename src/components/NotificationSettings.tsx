@@ -144,7 +144,7 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
             </div>
           </div>
           <div className="flex items-center">
-            <div className={`relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in ${isLoading ? 'opacity-50' : ''}`}>
+            <div className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors duration-200 ease-in-out ${isLoading ? 'opacity-50' : ''} ${config.enabled ? 'bg-blue-600' : 'bg-gray-300'}`}>
               <input
                 type="checkbox"
                 name="notifications-enabled"
@@ -152,11 +152,10 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
                 checked={config.enabled}
                 onChange={handleToggleEnabled}
                 disabled={isLoading}
-                className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                className="sr-only"
               />
-              <label
-                htmlFor="notifications-enabled"
-                className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${config.enabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+              <span
+                className={`inline-block w-4 h-4 transform bg-white rounded-full shadow-md transition-transform duration-200 ease-in-out ${config.enabled ? 'translate-x-6' : 'translate-x-1'}`}
               />
             </div>
             <svg
@@ -276,13 +275,28 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
                 )}
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-end space-x-2">
                 <button
                   onClick={testNotification}
                   disabled={!config.enabled}
                   className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   テスト通知
+                </button>
+                <button
+                  onClick={async () => {
+                    console.log('Simple notification test');
+                    if (Notification.permission === 'granted') {
+                      new Notification('シンプルテスト', { 
+                        body: '基本的な通知のテストです',
+                        icon: '/icon-192x192.png'
+                      });
+                    }
+                  }}
+                  disabled={!config.enabled}
+                  className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  シンプルテスト
                 </button>
               </div>
             </div>

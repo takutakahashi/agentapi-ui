@@ -164,20 +164,4 @@ body {
   animation: slide-in 0.3s ease-out;
 }
 
-/* Toggle switch styles */
-.toggle-checkbox {
-  transition: all 0.3s ease;
-  transform: translateX(0);
-}
-
-.toggle-checkbox:checked {
-  transform: translateX(100%);
-}
-
-.toggle-label {
-  position: relative;
-  display: block;
-  width: 2.5rem;
-  height: 1.5rem;
-  transition: all 0.3s ease;
-}
+/* Toggle switch styles - removed unused styles */

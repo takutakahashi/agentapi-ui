@@ -50,8 +50,24 @@ export class PushNotificationManager {
       if (!navigator.serviceWorker.controller) {
         console.log('No service worker controlling this page, registering...');
         // Service Worker を手動で登録
-        await navigator.serviceWorker.register('/sw.js');
-        console.log('Service worker registered manually');
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        console.log('Service worker registered manually:', registration);
+        
+        // Service Worker がアクティブになるまで待機
+        if (registration.installing || registration.waiting) {
+          console.log('Waiting for service worker to activate...');
+          await new Promise((resolve) => {
+            const worker = registration.installing || registration.waiting;
+            if (worker) {
+              worker.addEventListener('statechange', () => {
+                if (worker.state === 'activated') {
+                  console.log('Service worker activated');
+                  resolve(void 0);
+                }
+              });
+            }
+          });
+        }
       }
       
       // タイムアウト付きでService Worker待機
