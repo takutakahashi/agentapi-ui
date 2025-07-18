@@ -24,6 +24,7 @@ export interface RepositorySettings {
 export interface GlobalSettings {
   environmentVariables: EnvironmentVariable[]
   mcpServers: MCPServerConfig[]
+  bedrockSettings?: BedrockSettings
   singleProfileMode: boolean
   created_at: string
   updated_at: string
@@ -32,6 +33,7 @@ export interface GlobalSettings {
 export interface SettingsFormData {
   environmentVariables: EnvironmentVariable[]
   mcpServers: MCPServerConfig[]
+  bedrockSettings?: BedrockSettings
 }
 
 // Single Profile Mode settings
@@ -51,10 +53,24 @@ export interface GitHubOAuthSettings {
   updated_at: string
 }
 
+export interface BedrockSettings {
+  enabled: boolean
+  awsAccessKeyId?: string
+  awsSecretAccessKey?: string
+  awsSessionToken?: string
+  region?: string
+  modelName?: string
+  endpointUrl?: string
+  timeout?: number
+}
+
 // Default settings
 export const getDefaultSettings = (): SettingsFormData => ({
   environmentVariables: [],
-  mcpServers: []
+  mcpServers: [],
+  bedrockSettings: {
+    enabled: false
+  }
 })
 
 // Default Single Profile Mode settings
@@ -313,7 +329,8 @@ const mergeWithDefaults = (partialSettings: Partial<SettingsFormData> | null | u
       : defaultSettings.environmentVariables,
     mcpServers: Array.isArray(partialSettings?.mcpServers)
       ? partialSettings.mcpServers
-      : defaultSettings.mcpServers
+      : defaultSettings.mcpServers,
+    bedrockSettings: partialSettings?.bedrockSettings || defaultSettings.bedrockSettings
   }
 }
 
@@ -331,7 +348,8 @@ const mergeSettings = (globalSettings: SettingsFormData, repoSettings: SettingsF
       ...(repoSettings.mcpServers || []).filter(repoServer => 
         !(globalSettings.mcpServers || []).some(globalServer => globalServer.id === repoServer.id)
       )
-    ]
+    ],
+    bedrockSettings: repoSettings.bedrockSettings || globalSettings.bedrockSettings
   }
 }
 
