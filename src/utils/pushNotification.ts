@@ -1,7 +1,16 @@
 const VAPID_PUBLIC_KEY = 'BGzUvb_nB64C8JP8vxV7VRAgOVuD38wnCgM2KPd4_TPgsqRtr6VGadc66ka7lET0cEYlbh_IOooLO_qnXx8fnD0';
 
+export interface PushSubscriptionData {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+}
+
 export class PushNotificationManager {
   private registration: ServiceWorkerRegistration | null = null;
+  private subscription: PushSubscription | null = null;
 
   async initialize(): Promise<boolean> {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -29,12 +38,97 @@ export class PushNotificationManager {
         });
       }
 
+      this.subscription = subscription;
+      
+      // サーバーに購読情報を送信
+      await this.sendSubscriptionToServer();
+      
       console.log('Push subscription created:', subscription);
       return true;
     } catch (error) {
       console.error('Failed to initialize push notifications:', error);
       return false;
     }
+  }
+
+  async getSubscription(): Promise<PushSubscriptionData | null> {
+    if (!this.subscription) {
+      return null;
+    }
+
+    const key = this.subscription.getKey('p256dh');
+    const auth = this.subscription.getKey('auth');
+
+    if (!key || !auth) {
+      return null;
+    }
+
+    return {
+      endpoint: this.subscription.endpoint,
+      keys: {
+        p256dh: this.arrayBufferToBase64(key),
+        auth: this.arrayBufferToBase64(auth)
+      }
+    };
+  }
+
+  async sendSubscriptionToServer(): Promise<void> {
+    try {
+      const subscriptionData = await this.getSubscription();
+      if (!subscriptionData) {
+        throw new Error('Failed to get subscription data');
+      }
+
+      // TODO: サーバーサイドのAPIエンドポイントを実装後に有効化
+      // const response = await fetch('/api/push/subscribe', {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //   },
+      //   body: JSON.stringify(subscriptionData)
+      // });
+
+      // if (!response.ok) {
+      //   throw new Error('Failed to send subscription to server');
+      // }
+
+      console.log('Subscription sent to server:', subscriptionData);
+    } catch (error) {
+      console.error('Failed to send subscription to server:', error);
+    }
+  }
+
+  async unsubscribe(): Promise<boolean> {
+    if (!this.subscription) {
+      return false;
+    }
+
+    try {
+      const success = await this.subscription.unsubscribe();
+      if (success) {
+        this.subscription = null;
+        // TODO: サーバーサイドのAPIエンドポイントを実装後に有効化
+        // await fetch('/api/push/unsubscribe', {
+        //   method: 'POST',
+        //   headers: {
+        //     'Content-Type': 'application/json',
+        //   },
+        //   body: JSON.stringify({ endpoint: this.subscription.endpoint })
+        // });
+      }
+      return success;
+    } catch (error) {
+      console.error('Failed to unsubscribe:', error);
+      return false;
+    }
+  }
+
+  isSupported(): boolean {
+    return 'serviceWorker' in navigator && 'PushManager' in window;
+  }
+
+  getPermissionStatus(): NotificationPermission {
+    return Notification.permission;
   }
 
   async sendLocalNotification(title: string, body: string): Promise<void> {
@@ -68,6 +162,15 @@ export class PushNotificationManager {
       outputArray[i] = rawData.charCodeAt(i);
     }
     return outputArray;
+  }
+
+  private arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary);
   }
 }
 

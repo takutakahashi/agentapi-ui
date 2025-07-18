@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { SettingsFormData, getDefaultSettings, isSingleProfileModeEnabled } from '../../types/settings'
 import type { EnvironmentVariable } from '../../types/settings'
 import BedrockSettingsComponent from '../../components/BedrockSettings'
+import NotificationSettings from '../../components/NotificationSettings'
 
 export default function GlobalSettingsPage() {
   const [settings, setSettings] = useState<SettingsFormData>(getDefaultSettings())
@@ -12,6 +13,7 @@ export default function GlobalSettingsPage() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [decryptError, setDecryptError] = useState<string | null>(null)
+  const [notificationExpanded, setNotificationExpanded] = useState(false)
   
   const isSingleProfile = isSingleProfileModeEnabled()
 
@@ -300,6 +302,12 @@ export default function GlobalSettingsPage() {
               </button>
             </div>
           )}
+
+          {/* Push Notification Settings */}
+          <NotificationSettings
+            isExpanded={notificationExpanded}
+            onToggle={() => setNotificationExpanded(!notificationExpanded)}
+          />
 
           {/* Amazon Bedrock Settings */}
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
