@@ -217,11 +217,36 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
             )}
 
             {/* デバッグ情報 */}
-            <div className="bg-gray-100 dark:bg-gray-700 rounded p-2 text-xs">
-              <p>デバッグ情報:</p>
-              <p>- サポート状態: {isSupported ? 'サポートされています' : 'サポートされていません'}</p>
-              <p>- 許可状態: {permission}</p>
-              <p>- Notification API: {typeof Notification !== 'undefined' ? '利用可能' : '利用不可'}</p>
+            <div className="bg-gray-100 dark:bg-gray-700 rounded p-2 text-xs space-y-1">
+              <p className="font-semibold">デバッグ情報:</p>
+              <p>- サポート状態: {isSupported ? '✅ サポートされています' : '❌ サポートされていません'}</p>
+              <p>- 許可状態: <span className={permission === 'granted' ? 'text-green-600' : permission === 'denied' ? 'text-red-600' : 'text-yellow-600'}>{permission}</span></p>
+              <p>- Notification API: {typeof Notification !== 'undefined' ? '✅ 利用可能' : '❌ 利用不可'}</p>
+              <p>- 現在のURL: {typeof window !== 'undefined' ? window.location.href : 'N/A'}</p>
+              <p>- HTTPS: {typeof window !== 'undefined' && window.location.protocol === 'https:' ? '✅ Yes' : '⚠️ No (localhost以外では必須)'}</p>
+              <p>- Service Worker: {typeof navigator !== 'undefined' && 'serviceWorker' in navigator ? '✅ 利用可能' : '❌ 利用不可'}</p>
+              <button
+                onClick={() => {
+                  console.log('=== 通知診断 ===');
+                  console.log('1. Notification API:', typeof Notification !== 'undefined' ? '存在する' : '存在しない');
+                  if (typeof Notification !== 'undefined') {
+                    console.log('2. Notification.permission:', Notification.permission);
+                    console.log('3. 通知を作成してみる...');
+                    try {
+                      const testNotif = new Notification('診断テスト', { body: 'これが表示されれば通知APIは動作しています' });
+                      console.log('4. 通知作成成功:', testNotif);
+                    } catch (e) {
+                      console.error('4. 通知作成失敗:', e);
+                    }
+                  }
+                  console.log('5. navigator.serviceWorker:', 'serviceWorker' in navigator);
+                  console.log('6. 現在のプロトコル:', window.location.protocol);
+                  console.log('7. ユーザーエージェント:', navigator.userAgent);
+                }}
+                className="mt-2 px-2 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700"
+              >
+                詳細診断を実行
+              </button>
             </div>
 
             <div className="space-y-3">
