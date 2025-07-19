@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>通知テストページ</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+            background: #f0f0f0;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ブラウザ通知テストページ</h1>
+        
+        <div id="status" class="status">
+            <h3>現在の状態:</h3>
+            <p id="statusText">チェック中...</p>
+        </div>
+
+        <div>
+            <button onclick="requestPermission()">通知許可をリクエスト</button>
+            <button onclick="sendSimpleNotification()">シンプル通知</button>
+            <button onclick="sendDetailedNotification()">詳細通知</button>
+            <button onclick="checkEnvironment()">環境チェック</button>
+        </div>
+
+        <div id="log" style="margin-top: 20px; padding: 10px; background: #f9f9f9; border-radius: 5px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto;">
+            <strong>ログ:</strong><br>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const color = type === 'error' ? 'red' : type === 'success' ? 'green' : 'black';
+            logDiv.innerHTML += `<span style="color: ${color}">[${time}] ${message}</span><br>`;
+            console.log(`[${time}] ${message}`);
+        }
+
+        function updateStatus() {
+            const statusDiv = document.getElementById('status');
+            const statusText = document.getElementById('statusText');
+            
+            if (!('Notification' in window)) {
+                statusText.innerHTML = '❌ このブラウザは通知をサポートしていません';
+                statusDiv.className = 'status error';
+                return;
+            }
+
+            const permission = Notification.permission;
+            switch(permission) {
+                case 'granted':
+                    statusText.innerHTML = '✅ 通知は許可されています';
+                    statusDiv.className = 'status success';
+                    break;
+                case 'denied':
+                    statusText.innerHTML = '❌ 通知は拒否されています<br>ブラウザの設定から通知を許可してください';
+                    statusDiv.className = 'status error';
+                    break;
+                default:
+                    statusText.innerHTML = '⚠️ 通知の許可がまだ求められていません';
+                    statusDiv.className = 'status info';
+            }
+        }
+
+        async function requestPermission() {
+            try {
+                log('通知許可をリクエストしています...');
+                const permission = await Notification.requestPermission();
+                log(`許可結果: ${permission}`, permission === 'granted' ? 'success' : 'error');
+                updateStatus();
+            } catch (error) {
+                log(`エラー: ${error.message}`, 'error');
+            }
+        }
+
+        function sendSimpleNotification() {
+            try {
+                if (Notification.permission !== 'granted') {
+                    log('通知が許可されていません', 'error');
+                    return;
+                }
+                
+                const notification = new Notification('テスト通知');
+                log('シンプル通知を送信しました', 'success');
+                
+                notification.onclick = () => {
+                    log('通知がクリックされました');
+                    notification.close();
+                };
+            } catch (error) {
+                log(`通知送信エラー: ${error.message}`, 'error');
+            }
+        }
+
+        function sendDetailedNotification() {
+            try {
+                if (Notification.permission !== 'granted') {
+                    log('通知が許可されていません', 'error');
+                    return;
+                }
+                
+                const notification = new Notification('詳細なテスト通知', {
+                    body: 'これは詳細な通知のテストです。アイコンやタグも含まれています。',
+                    icon: '/icon-192x192.png',
+                    badge: '/icon-192x192.png',
+                    tag: 'test-notification',
+                    requireInteraction: false,
+                    silent: false,
+                    vibrate: [200, 100, 200]
+                });
+                
+                log('詳細通知を送信しました', 'success');
+                
+                notification.onclick = () => {
+                    log('詳細通知がクリックされました');
+                    notification.close();
+                };
+            } catch (error) {
+                log(`通知送信エラー: ${error.message}`, 'error');
+            }
+        }
+
+        function checkEnvironment() {
+            log('=== 環境チェック開始 ===');
+            log(`Notification API: ${('Notification' in window) ? '✅ 利用可能' : '❌ 利用不可'}`);
+            log(`現在の許可状態: ${Notification.permission}`);
+            log(`Service Worker: ${('serviceWorker' in navigator) ? '✅ 利用可能' : '❌ 利用不可'}`);
+            log(`プロトコル: ${window.location.protocol}`);
+            log(`ホスト: ${window.location.host}`);
+            log(`セキュアコンテキスト: ${window.isSecureContext ? '✅ Yes' : '❌ No'}`);
+            log(`ユーザーエージェント: ${navigator.userAgent}`);
+            
+            // プライベートブラウジングの簡易チェック
+            if (navigator.storage && navigator.storage.estimate) {
+                navigator.storage.estimate().then(estimate => {
+                    const quota = estimate.quota || 0;
+                    if (quota < 120000000) { // 120MB以下の場合、プライベートモードの可能性
+                        log('⚠️ プライベートブラウジングモードの可能性があります（ストレージ容量制限）');
+                    }
+                });
+            }
+            
+            log('=== 環境チェック完了 ===');
+        }
+
+        // ページ読み込み時に状態を更新
+        updateStatus();
+        checkEnvironment();
+    </script>
+</body>
+</html>

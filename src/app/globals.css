@@ -163,3 +163,5 @@ body {
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
 }
+
+/* Toggle switch styles - removed unused styles */
