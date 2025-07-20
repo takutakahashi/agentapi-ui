@@ -34,21 +34,60 @@ export default function NotificationDiagnostics() {
     if ('serviceWorker' in navigator) {
       results.push('Service Worker API: ✅ 利用可能');
       try {
-        const registration = await navigator.serviceWorker.getRegistration();
-        if (registration) {
-          results.push(`登録済み: ✅`);
-          results.push(`スコープ: ${registration.scope}`);
-          results.push(`アクティブ: ${registration.active ? '✅' : '❌'}`);
-          results.push(`待機中: ${registration.waiting ? 'あり' : 'なし'}`);
-          results.push(`インストール中: ${registration.installing ? 'あり' : 'なし'}`);
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        results.push(`登録済み: ${registrations.length > 0 ? '✅ 登録済み' : '❌ 未登録'}`);
+        
+        if (registrations.length > 0) {
+          results.push(`\n📋 全ての登録 (${registrations.length}件):`);
+          registrations.forEach((reg, index) => {
+            const scriptURL = reg.active?.scriptURL || reg.installing?.scriptURL || reg.waiting?.scriptURL || 'unknown';
+            const fileName = scriptURL.split('/').pop() || 'unknown';
+            
+            // 各状態を詳細に表示
+            const states = [];
+            if (reg.active) states.push(`active: ${reg.active.state}`);
+            if (reg.installing) states.push(`installing: ${reg.installing.state}`);
+            if (reg.waiting) states.push(`waiting: ${reg.waiting.state}`);
+            
+            results.push(`  SW${index + 1}: ${fileName}`);
+            results.push(`    スコープ: ${reg.scope}`);
+            results.push(`    状態: ${states.length > 0 ? states.join(', ') : 'none'}`);
+            results.push(`    URL: ${scriptURL}`);
+          });
           
-          // アクティブな通知をチェック
-          if ('getNotifications' in registration) {
-            const notifications = await registration.getNotifications();
-            results.push(`アクティブな通知数: ${notifications.length}`);
+          // 通知専用Service Workerがあるかチェック
+          const notificationWorker = registrations.find(reg => 
+            reg.scope.includes('/notifications/') || 
+            reg.active?.scriptURL.includes('notification-worker.js') ||
+            reg.installing?.scriptURL.includes('notification-worker.js')
+          );
+          
+          results.push('\n🔔 通知機能チェック:');
+          if (notificationWorker) {
+            const isActive = !!notificationWorker.active;
+            const state = notificationWorker.active?.state || notificationWorker.installing?.state || 'unknown';
+            results.push(`  通知専用SW: ✅ 検出 (${state})`);
+            results.push(`  アクティブ: ${isActive ? '✅ はい' : '❌ いいえ'}`);
+            
+            if (isActive && Notification.permission === 'granted') {
+              results.push(`  テスト実行: 準備完了`);
+            } else {
+              results.push(`  テスト実行: 条件不足 (権限: ${Notification.permission})`);
+            }
+          } else {
+            results.push(`  通知専用SW: ❌ 未検出`);
+            results.push(`  推奨対策: ページリロードで再登録`);
           }
+        }
+        
+        const controller = navigator.serviceWorker.controller;
+        results.push('\n👤 コントローラー情報:');
+        if (controller) {
+          results.push(`  現在のSW: ${controller.scriptURL.split('/').pop()}`);
+          results.push(`  状態: ${controller.state}`);
+          results.push(`  URL: ${controller.scriptURL}`);
         } else {
-          results.push('登録済み: ❌ 未登録');
+          results.push(`  現在のSW: なし (ページがSWに制御されていません)`);
         }
       } catch (e) {
         results.push(`Service Worker エラー: ${e}`);
@@ -88,15 +127,34 @@ export default function NotificationDiagnostics() {
       
       // 方法2: Service Worker経由
       try {
-        const registration = await navigator.serviceWorker.getRegistration();
-        if (registration && registration.active) {
-          await registration.showNotification('テスト2: SW通知', {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        const notificationWorker = registrations.find(reg => 
+          reg.scope.includes('/notifications/') || 
+          reg.active?.scriptURL.includes('notification-worker.js')
+        );
+        
+        if (notificationWorker && notificationWorker.active) {
+          await notificationWorker.showNotification('テスト2: SW通知', {
             body: 'Service Worker経由の通知',
-            tag: 'test-sw'
+            icon: '/icon-192x192.png',
+            tag: 'test-sw',
+            silent: true
           });
           results.push('✅ SW通知: 成功');
         } else {
-          results.push('❌ SW通知: Service Worker未登録');
+          // フォールバック: 任意のアクティブなService Workerを使用
+          const anyActiveWorker = registrations.find(reg => reg.active);
+          if (anyActiveWorker && anyActiveWorker.active) {
+            await anyActiveWorker.showNotification('テスト2: 汎用SW通知', {
+              body: '汎用Service Worker経由の通知',
+              icon: '/icon-192x192.png',
+              tag: 'test-sw-fallback',
+              silent: true
+            });
+            results.push('✅ SW通知: 成功 (汎用SW使用)');
+          } else {
+            results.push('❌ SW通知: Service Worker未登録/非アクティブ');
+          }
         }
       } catch (e) {
         results.push(`❌ SW通知: 失敗 - ${e}`);
