@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Worker Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Service Worker Test Page</h1>
+    <div id="status"></div>
+    <button onclick="checkServiceWorker()">Check Service Worker Status</button>
+    <button onclick="unregisterAll()">Unregister All Service Workers</button>
+    <button onclick="registerServiceWorker()">Register Service Worker</button>
+    <button onclick="testFetch()">Test Fetch sw.js</button>
+    <div id="output"></div>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        const outputDiv = document.getElementById('output');
+
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            statusDiv.appendChild(div);
+            console.log(message);
+        }
+
+        function displayJSON(obj, title) {
+            const pre = document.createElement('pre');
+            pre.textContent = `${title}:\n${JSON.stringify(obj, null, 2)}`;
+            outputDiv.appendChild(pre);
+        }
+
+        async function checkServiceWorker() {
+            outputDiv.innerHTML = '';
+            
+            // Check if Service Worker is supported
+            if (!('serviceWorker' in navigator)) {
+                log('Service Worker is not supported in this browser', 'error');
+                return;
+            }
+            
+            log('Service Worker is supported', 'success');
+            
+            // Check protocol
+            log(`Protocol: ${location.protocol}`, 'info');
+            log(`Hostname: ${location.hostname}`, 'info');
+            log(`Is HTTPS: ${location.protocol === 'https:'}`, 'info');
+            log(`Is localhost: ${location.hostname === 'localhost'}`, 'info');
+            
+            // Check existing registrations
+            try {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                log(`Found ${registrations.length} Service Worker registration(s)`, 'info');
+                
+                registrations.forEach((reg, index) => {
+                    const info = {
+                        scope: reg.scope,
+                        scriptURL: reg.active?.scriptURL || reg.installing?.scriptURL || reg.waiting?.scriptURL,
+                        state: reg.active ? 'active' : reg.installing ? 'installing' : reg.waiting ? 'waiting' : 'none'
+                    };
+                    displayJSON(info, `Registration ${index + 1}`);
+                });
+                
+                // Check if controller exists
+                if (navigator.serviceWorker.controller) {
+                    log('Page is controlled by a Service Worker', 'success');
+                    displayJSON({
+                        scriptURL: navigator.serviceWorker.controller.scriptURL,
+                        state: navigator.serviceWorker.controller.state
+                    }, 'Controller');
+                } else {
+                    log('Page is NOT controlled by a Service Worker', 'error');
+                }
+                
+            } catch (error) {
+                log(`Error checking registrations: ${error.message}`, 'error');
+            }
+        }
+
+        async function unregisterAll() {
+            try {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (let registration of registrations) {
+                    await registration.unregister();
+                    log(`Unregistered: ${registration.scope}`, 'success');
+                }
+                log('All Service Workers unregistered', 'success');
+            } catch (error) {
+                log(`Error unregistering: ${error.message}`, 'error');
+            }
+        }
+
+        async function registerServiceWorker() {
+            try {
+                log('Attempting to register Service Worker...', 'info');
+                
+                const registration = await navigator.serviceWorker.register('/sw.js', {
+                    scope: '/'
+                });
+                
+                log('Service Worker registered successfully', 'success');
+                
+                displayJSON({
+                    scope: registration.scope,
+                    installing: !!registration.installing,
+                    waiting: !!registration.waiting,
+                    active: !!registration.active,
+                    updateViaCache: registration.updateViaCache
+                }, 'Registration Details');
+                
+                // Wait for activation
+                registration.addEventListener('updatefound', () => {
+                    log('New Service Worker found', 'info');
+                    const installingWorker = registration.installing;
+                    
+                    installingWorker.addEventListener('statechange', () => {
+                        log(`Worker state: ${installingWorker.state}`, 'info');
+                        if (installingWorker.state === 'activated') {
+                            log('Service Worker activated!', 'success');
+                        }
+                    });
+                });
+                
+            } catch (error) {
+                log(`Registration failed: ${error.message}`, 'error');
+                displayJSON({
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                }, 'Error Details');
+            }
+        }
+
+        async function testFetch() {
+            try {
+                log('Testing fetch /sw.js...', 'info');
+                const response = await fetch('/sw.js');
+                log(`Response status: ${response.status}`, response.ok ? 'success' : 'error');
+                log(`Content-Type: ${response.headers.get('content-type')}`, 'info');
+                
+                const text = await response.text();
+                log(`File size: ${text.length} bytes`, 'info');
+                
+                displayJSON({
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: Object.fromEntries(response.headers.entries()),
+                    size: text.length,
+                    preview: text.substring(0, 200) + '...'
+                }, 'sw.js Response');
+                
+            } catch (error) {
+                log(`Fetch failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Initial check
+        window.addEventListener('load', () => {
+            log('Page loaded', 'info');
+            checkServiceWorker();
+        });
+    </script>
+</body>
+</html>

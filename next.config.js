@@ -1,8 +1,8 @@
 const withPWA = require('next-pwa')({
   dest: 'public',
-  register: true,
+  register: false, // 自前で登録するため無効化
   skipWaiting: true,
-  disable: false, // 開発環境でも Service Worker を有効にする
+  disable: false, // 開発環境でも有効
   fallbacks: {
     document: '/offline',
   },
@@ -44,7 +44,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:; object-src 'none'; base-uri 'self';",
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:; object-src 'none'; base-uri 'self'; worker-src 'self';",
           },
           {
             key: 'Permissions-Policy',
