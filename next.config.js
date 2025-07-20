@@ -6,6 +6,8 @@ const withPWA = require('next-pwa')({
   fallbacks: {
     document: '/offline',
   },
+  // カスタムワーカーを追加
+  customWorkerDir: 'worker',
 })
 
 /** @type {import('next').NextConfig} */

@@ -27,17 +27,20 @@ export class PushNotificationManager {
     try {
       console.log('Starting push notification initialization...');
       
-      // Service Worker登録
-      console.log('Registering service worker...');
-      this.registration = await navigator.serviceWorker.register('/push-sw.js', {
-        scope: '/'
-      });
-      console.log('Service worker registered:', this.registration);
+      // 既存のService Workerを確認（Next.js PWAが登録したもの）
+      console.log('Checking for existing service worker...');
+      const existingRegistration = await navigator.serviceWorker.getRegistration('/');
       
-      // Service Workerの準備完了を待つ
-      console.log('Waiting for service worker to be ready...');
-      this.registration = await navigator.serviceWorker.ready;
-      console.log('Service worker is ready');
+      if (existingRegistration) {
+        console.log('Using existing service worker registration');
+        this.registration = existingRegistration;
+      } else {
+        console.log('No existing service worker found, waiting for registration...');
+        // Service Workerの準備完了を待つ
+        this.registration = await navigator.serviceWorker.ready;
+      }
+      
+      console.log('Service worker is ready:', this.registration);
       
       // 通知許可を求める
       console.log('Requesting notification permission...');

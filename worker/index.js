@@ -1,15 +1,4 @@
-console.log('Push Service Worker script loaded')
-
-self.addEventListener('install', (event) => {
-  console.log('Push Service Worker installing...')
-  self.skipWaiting()
-})
-
-self.addEventListener('activate', (event) => {
-  console.log('Push Service Worker activating...')
-  event.waitUntil(clients.claim())
-})
-
+// Push notification event handlers
 self.addEventListener('push', (event) => {
   console.log('Push event received:', event)
   
