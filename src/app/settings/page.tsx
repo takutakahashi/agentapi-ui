@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { SettingsFormData, getDefaultSettings, isSingleProfileModeEnabled } from '../../types/settings'
 import type { EnvironmentVariable } from '../../types/settings'
 import BedrockSettingsComponent from '../../components/BedrockSettings'
+import PushNotificationSettings from '../../components/PushNotificationSettings'
 
 export default function GlobalSettingsPage() {
   const [settings, setSettings] = useState<SettingsFormData>(getDefaultSettings())
@@ -310,6 +311,9 @@ export default function GlobalSettingsPage() {
               description="Configure Amazon Bedrock provider settings for Claude API access. These settings are encrypted and stored securely."
             />
           </div>
+
+          {/* Push Notification Settings */}
+          <PushNotificationSettings />
 
 
           {/* Action Buttons */}

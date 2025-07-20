@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@types/uuid": "^10.0.0",
+    "@types/web-push": "^3.6.4",
     "@vercel/analytics": "^1.5.0",
     "lucide-react": "^0.525.0",
     "next": "15.3.0",
@@ -26,7 +27,8 @@
     "react": "^18",
     "react-dom": "^18",
     "recharts": "^3.0.0",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@playwright/experimental-ct-react": "^1.53.2",
