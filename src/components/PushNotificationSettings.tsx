@@ -8,6 +8,7 @@ export default function PushNotificationSettings() {
   const [permission, setPermission] = useState<NotificationPermission>('default')
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [isInitializing, setIsInitializing] = useState(false)
+  const [initializationStep, setInitializationStep] = useState<string>('')
   const [testTitle, setTestTitle] = useState('Test Notification')
   const [testBody, setTestBody] = useState('This is a test push notification from AgentAPI')
   const [isSendingTest, setIsSendingTest] = useState(false)
@@ -31,19 +32,39 @@ export default function PushNotificationSettings() {
 
   const handleInitialize = async () => {
     setIsInitializing(true)
+    setInitializationStep('Starting initialization...')
+    setTestResult(null)
+    
     try {
+      // コンソールログをキャプチャするために少し待つ
+      const originalLog = console.log
+      const logs: string[] = []
+      console.log = (...args) => {
+        logs.push(args.join(' '))
+        originalLog(...args)
+        setInitializationStep(args.join(' '))
+      }
+
       const success = await pushNotificationManager.initialize()
+      
+      // ログ関数を復元
+      console.log = originalLog
+      
       if (success) {
         await checkPermissionAndSubscription()
         setTestResult('Push notifications initialized successfully!')
+        setInitializationStep('Initialization completed')
       } else {
         setTestResult('Failed to initialize push notifications')
+        setInitializationStep('Initialization failed')
       }
     } catch (error) {
       console.error('Initialization error:', error)
-      setTestResult('Error initializing push notifications')
+      setTestResult(`Error initializing push notifications: ${error}`)
+      setInitializationStep('Error occurred')
     } finally {
       setIsInitializing(false)
+      setTimeout(() => setInitializationStep(''), 3000)
     }
   }
 
@@ -153,25 +174,36 @@ export default function PushNotificationSettings() {
         </div>
 
         {/* Controls */}
-        <div className="flex flex-wrap gap-3">
-          {permission !== 'granted' || !isSubscribed ? (
-            <button
-              onClick={handleInitialize}
-              disabled={isInitializing}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-            >
-              {isInitializing && (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              )}
-              {isInitializing ? 'Initializing...' : 'Enable Push Notifications'}
-            </button>
-          ) : (
-            <button
-              onClick={handleUnsubscribe}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-            >
-              Disable Push Notifications
-            </button>
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-3">
+            {permission !== 'granted' || !isSubscribed ? (
+              <button
+                onClick={handleInitialize}
+                disabled={isInitializing}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              >
+                {isInitializing && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                )}
+                {isInitializing ? 'Initializing...' : 'Enable Push Notifications'}
+              </button>
+            ) : (
+              <button
+                onClick={handleUnsubscribe}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+              >
+                Disable Push Notifications
+              </button>
+            )}
+          </div>
+          
+          {/* Initialization Progress */}
+          {isInitializing && initializationStep && (
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-sm text-blue-600 dark:text-blue-400">
+                {initializationStep}
+              </p>
+            </div>
           )}
         </div>
 

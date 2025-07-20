@@ -18,35 +18,62 @@ export class PushNotificationManager {
       return false;
     }
 
+    // HTTPSまたはlocalhostでのみ動作
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+      console.warn('Push notifications require HTTPS or localhost');
+      return false;
+    }
+
     try {
+      console.log('Starting push notification initialization...');
+      
       // Service Worker登録
-      this.registration = await navigator.serviceWorker.register('/sw.js', {
+      console.log('Registering service worker...');
+      this.registration = await navigator.serviceWorker.register('/push-sw.js', {
         scope: '/'
       });
+      console.log('Service worker registered:', this.registration);
       
-      await navigator.serviceWorker.ready;
+      // Service Workerの準備完了を待つ
+      console.log('Waiting for service worker to be ready...');
       this.registration = await navigator.serviceWorker.ready;
+      console.log('Service worker is ready');
       
       // 通知許可を求める
+      console.log('Requesting notification permission...');
       const permission = await Notification.requestPermission();
+      console.log('Notification permission:', permission);
+      
       if (permission !== 'granted') {
         console.warn('Notification permission denied');
         return false;
       }
 
       // プッシュ購読を確認/作成
+      console.log('Checking existing subscription...');
       this.subscription = await this.registration.pushManager.getSubscription();
+      
       if (!this.subscription) {
+        console.log('Creating new subscription...');
         this.subscription = await this.registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: this.urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
         });
+        console.log('New subscription created');
+      } else {
+        console.log('Using existing subscription');
       }
 
-      // サーバーに購読情報を送信
-      await this.sendSubscriptionToServer(this.subscription);
+      // サーバーに購読情報を送信（失敗しても初期化は成功とする）
+      try {
+        console.log('Sending subscription to server...');
+        await this.sendSubscriptionToServer(this.subscription);
+        console.log('Subscription sent to server successfully');
+      } catch (serverError) {
+        console.warn('Failed to send subscription to server, but initialization will continue:', serverError);
+      }
 
-      console.log('Push subscription created:', this.subscription);
+      console.log('Push notification initialization completed successfully');
       return true;
     } catch (error) {
       console.error('Failed to initialize push notifications:', error);
@@ -64,19 +91,32 @@ export class PushNotificationManager {
         }
       };
 
-      const response = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(subscriptionData),
-      });
+      // 10秒でタイムアウト
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      if (!response.ok) {
-        throw new Error('Failed to send subscription to server');
+      try {
+        const response = await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(subscriptionData),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Server responded with ${response.status}: ${errorText}`);
+        }
+
+        console.log('Subscription sent to server successfully');
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        throw fetchError;
       }
-
-      console.log('Subscription sent to server successfully');
     } catch (error) {
       console.error('Failed to send subscription to server:', error);
       throw error;
