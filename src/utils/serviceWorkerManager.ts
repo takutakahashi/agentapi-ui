@@ -258,7 +258,34 @@ export class ServiceWorkerManager {
     console.log('📤 Sending notification via Service Worker...');
 
     try {
-      // 現在アクティブなService Workerを取得
+      // 通知専用Service Workerを探す
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      const notificationWorker = registrations.find(reg => 
+        reg.scope.includes('/notifications/')
+      );
+      
+      if (notificationWorker && notificationWorker.active) {
+        console.log('✅ Found notification-specific Service Worker');
+        
+        await notificationWorker.showNotification(title, {
+          body: options.body || '',
+          icon: options.icon || '/icon-192x192.png',
+          badge: options.badge || '/icon-192x192.png',
+          tag: options.tag || `sw-notification-${Date.now()}`,
+          requireInteraction: options.requireInteraction || false,
+          silent: options.silent || false,
+          data: {
+            dateOfArrival: Date.now(),
+            primaryKey: 1
+          },
+          ...options
+        });
+        
+        console.log('🔔 Notification-specific Service Worker notification sent successfully');
+        return { success: true, method: 'notification-worker' };
+      }
+      
+      // フォールバック: 一般的なService Worker
       const registration = await navigator.serviceWorker.ready;
       
       if (registration && registration.active) {
