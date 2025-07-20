@@ -216,15 +216,42 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
               </div>
             )}
 
+            {/* モバイル専用の注意事項 */}
+            {typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mb-4">
+                <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
+                  📱 モバイルデバイスでの通知について
+                </p>
+                <ul className="text-xs text-yellow-700 dark:text-yellow-300 space-y-1 list-disc list-inside">
+                  {/iPhone|iPad|iPod/i.test(navigator.userAgent) && (
+                    <>
+                      <li>iOSではPWAとしてホーム画面に追加する必要があります</li>
+                      <li>Safari: 共有ボタン → ホーム画面に追加</li>
+                      <li>iOS 16.4以降が必要です</li>
+                    </>
+                  )}
+                  {/Android/i.test(navigator.userAgent) && (
+                    <>
+                      <li>Chrome: メニュー → ホーム画面に追加</li>
+                      <li>アプリの通知設定も確認してください</li>
+                    </>
+                  )}
+                  <li>バッテリー節約モードでは通知が制限されることがあります</li>
+                </ul>
+              </div>
+            )}
+
             {/* デバッグ情報 */}
             <div className="bg-gray-100 dark:bg-gray-700 rounded p-2 text-xs space-y-1">
               <p className="font-semibold">デバッグ情報:</p>
+              <p>- デバイス: {typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? '📱 モバイル' : '💻 デスクトップ'}</p>
               <p>- サポート状態: {isSupported ? '✅ サポートされています' : '❌ サポートされていません'}</p>
               <p>- 許可状態: <span className={permission === 'granted' ? 'text-green-600' : permission === 'denied' ? 'text-red-600' : 'text-yellow-600'}>{permission}</span></p>
               <p>- Notification API: {typeof Notification !== 'undefined' ? '✅ 利用可能' : '❌ 利用不可'}</p>
               <p>- 現在のURL: {typeof window !== 'undefined' ? window.location.href : 'N/A'}</p>
               <p>- HTTPS: {typeof window !== 'undefined' && window.location.protocol === 'https:' ? '✅ Yes' : '⚠️ No (localhost以外では必須)'}</p>
               <p>- Service Worker: {typeof navigator !== 'undefined' && 'serviceWorker' in navigator ? '✅ 利用可能' : '❌ 利用不可'}</p>
+              <p>- PWAモード: {typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches ? '✅ Yes' : '❌ No'}</p>
               <button
                 onClick={() => {
                   console.log('=== 通知診断 ===');
