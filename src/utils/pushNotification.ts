@@ -27,19 +27,57 @@ export class PushNotificationManager {
     try {
       console.log('Starting push notification initialization...');
       
-      // 既存のService Workerを確認（Next.js PWAが登録したもの）
-      console.log('Checking for existing service worker...');
-      const existingRegistration = await navigator.serviceWorker.getRegistration('/');
+      // Service Workerの登録を確認
+      console.log('Checking for service worker registration...');
       
-      if (existingRegistration) {
-        console.log('Using existing service worker registration');
-        this.registration = existingRegistration;
+      // まず既存の登録を確認
+      let registration = await navigator.serviceWorker.getRegistration('/');
+      
+      if (!registration) {
+        console.log('No existing registration found, registering new service worker...');
+        // Service Workerを手動で登録
+        try {
+          // まずNext.js PWAのService Workerを試す
+          registration = await navigator.serviceWorker.register('/sw.js');
+          console.log('Service worker registered successfully');
+          
+          // 登録が完了するまで待つ
+          await new Promise((resolve) => {
+            if (registration.active) {
+              resolve(undefined);
+            } else {
+              registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                if (newWorker) {
+                  newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'activated') {
+                      resolve(undefined);
+                    }
+                  });
+                }
+              });
+            }
+          });
+        } catch (registerError) {
+          console.error('Failed to register sw.js, trying fallback:', registerError);
+          
+          // フォールバック: シンプルなpush notifications service workerを使用
+          try {
+            registration = await navigator.serviceWorker.register('/push-notifications-sw.js');
+            console.log('Fallback service worker registered successfully');
+            
+            // アクティベーションを待つ
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          } catch (fallbackError) {
+            console.error('Failed to register fallback service worker:', fallbackError);
+            throw fallbackError;
+          }
+        }
       } else {
-        console.log('No existing service worker found, waiting for registration...');
-        // Service Workerの準備完了を待つ
-        this.registration = await navigator.serviceWorker.ready;
+        console.log('Using existing service worker registration');
       }
       
+      this.registration = registration;
       console.log('Service worker is ready:', this.registration);
       
       // 通知許可を求める

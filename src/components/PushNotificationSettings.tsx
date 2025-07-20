@@ -18,7 +18,17 @@ export default function PushNotificationSettings() {
     setIsSupported(pushNotificationManager.isSupported())
     
     if (pushNotificationManager.isSupported()) {
-      checkPermissionAndSubscription()
+      // Service Workerが登録されるまで少し待つ
+      const checkServiceWorker = async () => {
+        const registration = await navigator.serviceWorker.getRegistration('/')
+        if (registration || window.location.hostname === 'localhost') {
+          checkPermissionAndSubscription()
+        } else {
+          // 1秒後に再チェック
+          setTimeout(checkServiceWorker, 1000)
+        }
+      }
+      checkServiceWorker()
     }
   }, [])
 
