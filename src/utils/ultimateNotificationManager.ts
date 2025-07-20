@@ -97,6 +97,10 @@ export class UltimateNotificationManager {
   private async ensurePermission(): Promise<NotificationPermission> {
     console.log('🔐 Ensuring notification permission...');
     
+    if (typeof window === 'undefined' || typeof Notification === 'undefined') {
+      return 'denied';
+    }
+    
     let permission = Notification.permission;
     console.log('Current permission:', permission);
 
@@ -112,7 +116,7 @@ export class UltimateNotificationManager {
   private async setupServiceWorker(): Promise<void> {
     console.log('⚙️ Setting up Service Worker...');
     
-    if (!('serviceWorker' in navigator)) {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
       console.warn('⚠️ Service Worker not supported');
       return;
     }
@@ -479,6 +483,19 @@ export class UltimateNotificationManager {
   async getStatus(): Promise<UltimateNotificationStatus> {
     console.log('📊 Getting ultimate notification status...');
 
+    if (typeof window === 'undefined') {
+      return {
+        isSupported: false,
+        permission: 'denied',
+        isReady: false,
+        diagnostics: {} as NotificationDiagnosticResult,
+        browserAnalysis: {},
+        serviceWorkerStatus: {},
+        recommendations: ['SSR環境では通知機能は利用できません'],
+        testResults: []
+      };
+    }
+
     const [diagnostics, browserAnalysis, serviceWorkerStatus, testResults] = await Promise.all([
       notificationDiagnostics.runFullDiagnostics(),
       browserNotificationHandler.runEnvironmentSpecificTest(),
@@ -494,8 +511,8 @@ export class UltimateNotificationManager {
     );
 
     return {
-      isSupported: 'Notification' in window,
-      permission: Notification.permission,
+      isSupported: typeof window !== 'undefined' && 'Notification' in window,
+      permission: typeof Notification !== 'undefined' ? Notification.permission : 'denied',
       isReady: this.isInitialized,
       diagnostics,
       browserAnalysis,
@@ -615,6 +632,10 @@ export class UltimateNotificationManager {
 
   // 設定管理
   private loadConfig(): NotificationConfig {
+    if (typeof window === 'undefined') {
+      return this.getDefaultConfig();
+    }
+    
     try {
       const saved = localStorage.getItem('ultimate-notification-config');
       if (saved) {
@@ -640,7 +661,9 @@ export class UltimateNotificationManager {
 
   updateConfig(updates: Partial<NotificationConfig>): void {
     this.config = { ...this.config, ...updates };
-    localStorage.setItem('ultimate-notification-config', JSON.stringify(this.config));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ultimate-notification-config', JSON.stringify(this.config));
+    }
     console.log('💾 Configuration updated:', this.config);
   }
 
@@ -650,6 +673,10 @@ export class UltimateNotificationManager {
 
   // イベント処理
   private setupEventListeners(): void {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
+    }
+    
     // ページの可視性変更
     document.addEventListener('visibilitychange', () => {
       console.log('👁️ Page visibility changed:', document.visibilityState);

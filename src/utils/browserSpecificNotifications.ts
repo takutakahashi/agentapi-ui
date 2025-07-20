@@ -9,7 +9,7 @@ export interface BrowserNotificationLimitations {
 }
 
 export class BrowserSpecificNotificationHandler {
-  private userAgent = navigator.userAgent;
+  private userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
   
   detectEnvironment() {
     return {

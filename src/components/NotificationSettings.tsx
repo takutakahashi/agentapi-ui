@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { pushNotificationManager } from '@/utils/pushNotification';
+import { ultimateNotificationManager } from '@/utils/ultimateNotificationManager';
 import NotificationDiagnostics from './NotificationDiagnostics';
 
 interface NotificationSettingsProps {
@@ -93,11 +93,11 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
       if (currentPermission === 'granted') {
         console.log('Notifications permission granted');
         
-        // Service Worker の初期化は別途実行（失敗してもOK）
+        // Ultimate Notification Manager の初期化（Service Worker含む）
         try {
-          await pushNotificationManager.initialize();
+          await ultimateNotificationManager.initialize();
         } catch (swError) {
-          console.log('Service Worker initialization failed, but basic notifications work:', swError);
+          console.log('Ultimate notification manager initialization failed, but basic notifications work:', swError);
         }
       } else {
         console.log('Notification permission denied or not available');
@@ -119,11 +119,11 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
     if (permission === 'granted') {
       try {
         console.log('Sending test notification...');
-        await pushNotificationManager.sendLocalNotification(
+        const result = await ultimateNotificationManager.sendNotification(
           'テスト通知',
-          'AgentAPIからのテスト通知です'
+          { body: 'AgentAPIからのテスト通知です' }
         );
-        console.log('Test notification sent successfully');
+        console.log('Test notification result:', result);
       } catch (error) {
         console.error('Failed to send test notification:', error);
       }
@@ -421,17 +421,17 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
                 </button>
                 <button
                   onClick={async () => {
-                    console.log('Force test clicked');
+                    console.log('Ultimate test clicked');
                     try {
-                      await pushNotificationManager.forceNotificationTest();
+                      await ultimateNotificationManager.runUltimateTest();
                     } catch (error) {
-                      console.error('Force test failed:', error);
-                      alert('強制テストに失敗しました: ' + (error instanceof Error ? error.message : String(error)));
+                      console.error('Ultimate test failed:', error);
+                      alert('Ultimate テストに失敗しました: ' + (error instanceof Error ? error.message : String(error)));
                     }
                   }}
                   className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
                 >
-                  強制テスト
+                  Ultimate テスト
                 </button>
               </div>
               

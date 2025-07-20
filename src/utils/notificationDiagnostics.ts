@@ -76,7 +76,7 @@ export class NotificationDeepDiagnostics {
     console.log('🔍 Starting Ultra Deep Notification Diagnostics...');
     
     this.results.timestamp = Date.now();
-    this.results.userAgent = navigator.userAgent;
+    this.results.userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : 'SSR';
     
     // 環境分析
     await this.analyzeEnvironment();
@@ -107,6 +107,17 @@ export class NotificationDeepDiagnostics {
   }
 
   private async analyzeEnvironment(): Promise<void> {
+    if (typeof window === 'undefined') {
+      this.results.environment = {
+        isSecureContext: false,
+        isLocalhost: false,
+        protocol: 'SSR',
+        origin: 'SSR',
+        domain: 'SSR'
+      };
+      return;
+    }
+
     this.results.environment = {
       isSecureContext: window.isSecureContext,
       isLocalhost: location.hostname === 'localhost' || location.hostname === '127.0.0.1',

@@ -28,8 +28,8 @@ export class ServiceWorkerManager {
     console.log('🔍 Analyzing Service Worker state...');
 
     const result = {
-      supported: 'serviceWorker' in navigator,
-      controlled: !!navigator.serviceWorker?.controller,
+      supported: typeof navigator !== 'undefined' && 'serviceWorker' in navigator,
+      controlled: typeof navigator !== 'undefined' && !!navigator.serviceWorker?.controller,
       registrations: [] as ServiceWorkerRegistrationInfo[],
       conflicts: [] as string[],
       recommendations: [] as string[]
@@ -212,7 +212,7 @@ export class ServiceWorkerManager {
 
   // メッセージリスナーの設定
   private setupMessageListener(): void {
-    if ('serviceWorker' in navigator) {
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', (event) => {
         console.log('📨 Message from Service Worker:', event.data);
         
