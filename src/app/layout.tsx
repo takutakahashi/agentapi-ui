@@ -6,6 +6,7 @@ import { ToastProvider } from '../contexts/ToastContext'
 import { ToastContainer } from '../components/Toast'
 import { Analytics } from '@vercel/analytics/react'
 import PWAInstallPrompt from '../components/PWAInstallPrompt'
+import ServiceWorkerRegistration from '../components/ServiceWorkerRegistration'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -57,6 +58,7 @@ export default function RootLayout({
             {children}
             <ToastContainer />
             <PWAInstallPrompt />
+            <ServiceWorkerRegistration />
             <Analytics />
           </ToastProvider>
         </ThemeProvider>

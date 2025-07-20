@@ -264,15 +264,22 @@ export class ServiceWorkerManager {
       if (registration && registration.active) {
         console.log('✅ Found active Service Worker, sending notification');
         
-        await registration.showNotification(title, {
-          body: options.body,
+        // Qiita記事推奨: 通知オプションを適切に設定
+        const notificationOptions: NotificationOptions = {
+          body: options.body || '',
           icon: options.icon || '/icon-192x192.png',
           badge: options.badge || '/icon-192x192.png',
           tag: options.tag || `sw-notification-${Date.now()}`,
           requireInteraction: options.requireInteraction || false,
           silent: options.silent || false,
+          data: {
+            dateOfArrival: Date.now(),
+            primaryKey: 1
+          },
           ...options
-        });
+        };
+        
+        await registration.showNotification(title, notificationOptions);
         
         console.log('🔔 Service Worker notification sent successfully');
         return { success: true, method: 'service-worker-ready' };

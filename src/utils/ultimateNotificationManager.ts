@@ -71,15 +71,15 @@ export class UltimateNotificationManager {
         return false;
       }
 
-      // ステップ2: 権限確認・要求
+      // ステップ2: Service Worker セットアップを先に実行（Qiita記事の推奨）
+      await this.setupServiceWorker();
+
+      // ステップ3: Service Worker準備完了後に権限確認・要求
       const permission = await this.ensurePermission();
       if (permission !== 'granted') {
         console.warn('⚠️ Notification permission not granted:', permission);
         return false;
       }
-
-      // ステップ3: Service Worker セットアップ
-      await this.setupServiceWorker();
 
       // ステップ4: ブラウザ固有の最適化
       await this.optimizeForBrowser();
