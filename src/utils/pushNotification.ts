@@ -43,11 +43,11 @@ export class PushNotificationManager {
           
           // 登録が完了するまで待つ
           await new Promise((resolve) => {
-            if (registration.active) {
+            if (registration?.active) {
               resolve(undefined);
-            } else {
+            } else if (registration) {
               registration.addEventListener('updatefound', () => {
-                const newWorker = registration.installing;
+                const newWorker = registration!.installing;
                 if (newWorker) {
                   newWorker.addEventListener('statechange', () => {
                     if (newWorker.state === 'activated') {
@@ -56,6 +56,8 @@ export class PushNotificationManager {
                   });
                 }
               });
+            } else {
+              resolve(undefined);
             }
           });
         } catch (registerError) {
@@ -75,6 +77,10 @@ export class PushNotificationManager {
         }
       } else {
         console.log('Using existing service worker registration');
+      }
+      
+      if (!registration) {
+        throw new Error('Failed to get service worker registration');
       }
       
       this.registration = registration;
