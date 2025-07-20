@@ -122,14 +122,42 @@ export class UltimateNotificationManager {
       const swState = await serviceWorkerManager.analyzeServiceWorkerState();
       console.log('📊 Service Worker state:', swState);
 
+      // 既存のService Workerがある場合は利用
+      if (swState.registrations.length > 0 && swState.controlled) {
+        console.log('✅ Using existing Service Worker for notifications');
+        this.setupServiceWorkerMessaging();
+        return;
+      }
+
+      // Service Worker未登録の場合は緊急登録
+      if (swState.registrations.length === 0) {
+        console.log('🚨 No Service Worker found - attempting emergency registration');
+        
+        try {
+          // まず既存のNext.js Service Workerを確認
+          const registration = await navigator.serviceWorker.register('/sw.js', {
+            scope: '/',
+            updateViaCache: 'none'
+          });
+          
+          console.log('📦 Emergency Service Worker registered:', registration);
+          
+          // アクティブ化を待機
+          await this.waitForServiceWorkerReady(registration);
+          
+        } catch (swError) {
+          console.warn('⚠️ Emergency SW registration failed, trying notification-specific:', swError);
+          
+          // フォールバック: 通知専用ワーカー
+          const notificationResult = await serviceWorkerManager.registerNotificationServiceWorker();
+          console.log('📦 Notification-specific Service Worker:', notificationResult);
+        }
+      }
+
       // 競合がある場合の対処
       if (swState.conflicts.length > 0) {
         console.warn('⚠️ Service Worker conflicts detected:', swState.conflicts);
       }
-
-      // 通知専用 Service Worker の登録試行
-      const registrationResult = await serviceWorkerManager.registerNotificationServiceWorker();
-      console.log('📦 Notification Service Worker registration:', registrationResult);
 
       // メッセージハンドラーの設定
       this.setupServiceWorkerMessaging();
@@ -137,6 +165,37 @@ export class UltimateNotificationManager {
     } catch (error) {
       console.error('❌ Service Worker setup failed:', error);
     }
+  }
+
+  private async waitForServiceWorkerReady(registration: ServiceWorkerRegistration): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Service Worker ready timeout'));
+      }, 10000);
+
+      if (registration.active) {
+        clearTimeout(timeout);
+        resolve();
+        return;
+      }
+
+      const worker = registration.installing || registration.waiting;
+      if (!worker) {
+        clearTimeout(timeout);
+        resolve(); // すでに準備完了
+        return;
+      }
+
+      worker.addEventListener('statechange', () => {
+        if (worker.state === 'activated') {
+          clearTimeout(timeout);
+          resolve();
+        } else if (worker.state === 'redundant') {
+          clearTimeout(timeout);
+          reject(new Error('Service Worker became redundant'));
+        }
+      });
+    });
   }
 
   private setupServiceWorkerMessaging(): void {
@@ -224,23 +283,33 @@ export class UltimateNotificationManager {
     }
 
     const startTime = Date.now();
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches;
 
-    // 複数の方法を順序立てて試行
-    const methods = [
+    // PWAモードでは Service Worker 優先、そうでなければ従来の順序
+    const methods = isPWA ? [
+      () => this.sendViaServiceWorker(title, options),
+      () => this.sendViaFallback(title, options) // PWAではnativeはスキップ
+    ] : [
       () => this.sendViaServiceWorker(title, options),
       () => this.sendViaNativeAPI(title, options),
       () => this.sendViaFallback(title, options)
     ];
 
-    for (const method of methods) {
+    console.log(`🎯 PWA mode: ${isPWA}, trying ${methods.length} methods`);
+
+    for (let i = 0; i < methods.length; i++) {
       try {
-        const result = await method();
+        console.log(`🔄 Trying notification method ${i + 1}/${methods.length}`);
+        const result = await methods[i]();
         if (result.success) {
           result.duration = Date.now() - startTime;
+          console.log(`✅ Notification sent successfully via method ${i + 1}: ${result.method}`);
           return result;
+        } else {
+          console.warn(`⚠️ Method ${i + 1} failed: ${result.error}`);
         }
       } catch (error) {
-        console.warn('⚠️ Notification method failed:', error);
+        console.warn(`⚠️ Method ${i + 1} threw error:`, error);
       }
     }
 
@@ -274,6 +343,18 @@ export class UltimateNotificationManager {
         method: 'native',
         duration: 0,
         error: 'Permission not granted'
+      };
+    }
+
+    // PWAモードや一部ブラウザでは Service Worker経由でのみ通知可能
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches;
+    if (isPWA) {
+      console.log('🚫 PWA mode detected - native notifications not allowed');
+      return {
+        success: false,
+        method: 'native',
+        duration: 0,
+        error: 'PWA mode requires Service Worker notifications'
       };
     }
 

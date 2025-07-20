@@ -257,12 +257,37 @@ export class ServiceWorkerManager {
   }> {
     console.log('📤 Sending notification via Service Worker...');
 
-    // 方法1: 専用通知ワーカー
+    try {
+      // 現在アクティブなService Workerを取得
+      const registration = await navigator.serviceWorker.ready;
+      
+      if (registration && registration.active) {
+        console.log('✅ Found active Service Worker, sending notification');
+        
+        await registration.showNotification(title, {
+          body: options.body,
+          icon: options.icon || '/icon-192x192.png',
+          badge: options.badge || '/icon-192x192.png',
+          tag: options.tag || `sw-notification-${Date.now()}`,
+          requireInteraction: options.requireInteraction || false,
+          silent: options.silent || false,
+          ...options
+        });
+        
+        console.log('🔔 Service Worker notification sent successfully');
+        return { success: true, method: 'service-worker-ready' };
+      }
+    } catch (error) {
+      console.warn('⚠️ Service Worker ready method failed:', error);
+    }
+
+    // フォールバック1: 専用通知ワーカー
     const notificationWorker = Array.from(this.registrations.values())
       .find(reg => reg.active?.scriptURL.includes('notification-sw.js'));
 
     if (notificationWorker?.active) {
       try {
+        console.log('🔧 Trying dedicated notification worker');
         notificationWorker.active.postMessage({
           type: 'SHOW_NOTIFICATION',
           data: { title, ...options }
@@ -277,12 +302,13 @@ export class ServiceWorkerManager {
       }
     }
 
-    // 方法2: 既存ワーカー（拡張済み）
+    // フォールバック2: 既存ワーカー
     const mainWorker = Array.from(this.registrations.values())
       .find(reg => reg.scope === location.origin + '/');
 
     if (mainWorker?.active) {
       try {
+        console.log('🔧 Trying main worker');
         await mainWorker.showNotification(title, options);
         return { success: true, method: 'main-worker' };
       } catch (error) {
@@ -290,17 +316,39 @@ export class ServiceWorkerManager {
       }
     }
 
-    // 方法3: ブラウザネイティブ
+    // フォールバック3: 緊急Service Worker登録
     try {
-      new Notification(title, options);
-      return { success: true, method: 'native' };
+      console.log('🚨 Emergency Service Worker registration for notification');
+      const emergencyRegistration = await navigator.serviceWorker.register('/sw.js', {
+        scope: '/',
+        updateViaCache: 'none'
+      });
+      
+      // アクティブ化を短時間待機
+      await new Promise((resolve) => {
+        if (emergencyRegistration.active) {
+          resolve(void 0);
+        } else {
+          setTimeout(resolve, 1000); // 1秒待機
+        }
+      });
+      
+      if (emergencyRegistration.active) {
+        await emergencyRegistration.showNotification(title, {
+          ...options,
+          icon: options.icon || '/icon-192x192.png'
+        });
+        return { success: true, method: 'emergency-worker' };
+      }
     } catch (error) {
-      return { 
-        success: false, 
-        method: 'none',
-        error: error instanceof Error ? error.message : String(error)
-      };
+      console.warn('⚠️ Emergency worker registration failed:', error);
     }
+
+    return { 
+      success: false, 
+      method: 'none',
+      error: 'No Service Worker available for notifications'
+    };
   }
 
   // 通知テスト（包括的）
