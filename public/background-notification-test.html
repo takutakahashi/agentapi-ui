@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>バックグラウンド通知テスト</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .warning {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .log {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>バックグラウンド通知テスト</h1>
+        
+        <div class="warning">
+            <strong>⚠️ 重要:</strong> 通知をテストするには、このタブから別のタブまたはアプリに切り替えてください。
+            通知は通常、ページがフォーカスされていない時に表示されます。
+        </div>
+
+        <div style="margin: 20px 0;">
+            <button onclick="requestPermissionAndTest()">1. 通知許可をリクエスト</button>
+            <button onclick="scheduleNotification(5)">2. 5秒後に通知</button>
+            <button onclick="scheduleNotification(10)">3. 10秒後に通知</button>
+            <button onclick="testMultipleNotifications()">4. 複数通知テスト</button>
+        </div>
+
+        <div id="status" style="margin: 20px 0; padding: 15px; background: #e5e7eb; border-radius: 6px;">
+            ステータス: 待機中...
+        </div>
+
+        <div class="log" id="log">
+            ログ:
+        </div>
+    </div>
+
+    <script>
+        let notificationCount = 0;
+
+        function log(message) {
+            const logEl = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logEl.textContent += `\n[${time}] ${message}`;
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(message, isError = false) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = `ステータス: ${message}`;
+            statusEl.style.background = isError ? '#fee2e2' : '#d1fae5';
+        }
+
+        async function requestPermissionAndTest() {
+            log('通知許可をリクエスト中...');
+            
+            try {
+                const permission = await Notification.requestPermission();
+                log(`許可結果: ${permission}`);
+                
+                if (permission === 'granted') {
+                    updateStatus('通知が許可されました！');
+                    
+                    // すぐにテスト通知を送信
+                    new Notification('通知許可完了', {
+                        body: '通知が正常に許可されました。他のタブに切り替えてテストしてください。',
+                        icon: '/icon-192x192.png',
+                        badge: '/icon-192x192.png',
+                        tag: 'permission-test'
+                    });
+                    
+                    log('テスト通知を送信しました');
+                } else {
+                    updateStatus('通知が拒否されました', true);
+                }
+            } catch (error) {
+                log(`エラー: ${error}`);
+                updateStatus('エラーが発生しました', true);
+            }
+        }
+
+        function scheduleNotification(seconds) {
+            if (Notification.permission !== 'granted') {
+                alert('先に通知を許可してください');
+                return;
+            }
+            
+            updateStatus(`${seconds}秒後に通知を送信します...`);
+            log(`${seconds}秒後の通知をスケジュール`);
+            
+            // カウントダウン表示
+            let remaining = seconds;
+            const countdownInterval = setInterval(() => {
+                remaining--;
+                if (remaining > 0) {
+                    updateStatus(`通知まで: ${remaining}秒`);
+                } else {
+                    clearInterval(countdownInterval);
+                }
+            }, 1000);
+            
+            setTimeout(() => {
+                notificationCount++;
+                
+                try {
+                    const notification = new Notification(`通知テスト #${notificationCount}`, {
+                        body: `これは${seconds}秒後に送信された通知です。\n現在時刻: ${new Date().toLocaleTimeString()}`,
+                        icon: '/icon-192x192.png',
+                        badge: '/icon-192x192.png',
+                        tag: `scheduled-${notificationCount}`,
+                        requireInteraction: false,
+                        silent: false,
+                        vibrate: [200, 100, 200]
+                    });
+                    
+                    notification.onclick = () => {
+                        log(`通知 #${notificationCount} がクリックされました`);
+                        window.focus();
+                        notification.close();
+                    };
+                    
+                    notification.onshow = () => {
+                        log(`通知 #${notificationCount} が表示されました`);
+                        updateStatus('通知が表示されました！');
+                    };
+                    
+                    notification.onerror = (error) => {
+                        log(`通知エラー: ${error}`);
+                        updateStatus('通知エラー', true);
+                    };
+                    
+                    notification.onclose = () => {
+                        log(`通知 #${notificationCount} が閉じられました`);
+                    };
+                    
+                } catch (error) {
+                    log(`通知作成エラー: ${error}`);
+                    updateStatus('通知作成に失敗しました', true);
+                }
+            }, seconds * 1000);
+        }
+
+        function testMultipleNotifications() {
+            if (Notification.permission !== 'granted') {
+                alert('先に通知を許可してください');
+                return;
+            }
+            
+            log('複数通知テストを開始');
+            updateStatus('複数通知を送信中...');
+            
+            // 3つの通知を2秒間隔で送信
+            for (let i = 0; i < 3; i++) {
+                setTimeout(() => {
+                    notificationCount++;
+                    new Notification(`連続通知 ${i + 1}/3`, {
+                        body: `これは連続通知のテストです (${i + 1}番目)`,
+                        icon: '/icon-192x192.png',
+                        tag: `multiple-${i}`,
+                        silent: i > 0 // 最初の通知以外は音を鳴らさない
+                    });
+                    log(`連続通知 ${i + 1}/3 を送信`);
+                }, i * 2000);
+            }
+        }
+
+        // ページ読み込み時の状態チェック
+        window.addEventListener('load', () => {
+            log('ページ読み込み完了');
+            log(`通知API: ${('Notification' in window) ? '利用可能' : '利用不可'}`);
+            log(`現在の許可状態: ${Notification.permission}`);
+            log(`ドキュメント可視性: ${document.visibilityState}`);
+            
+            // 可視性の変更を監視
+            document.addEventListener('visibilitychange', () => {
+                log(`可視性が変更されました: ${document.visibilityState}`);
+            });
+            
+            // フォーカスの変更を監視
+            window.addEventListener('focus', () => {
+                log('ウィンドウがフォーカスされました');
+            });
+            
+            window.addEventListener('blur', () => {
+                log('ウィンドウがフォーカスを失いました');
+            });
+        });
+    </script>
+</body>
+</html>

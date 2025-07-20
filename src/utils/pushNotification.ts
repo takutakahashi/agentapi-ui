@@ -49,39 +49,67 @@ export class PushNotificationManager {
       // Service Worker登録を取得
       console.log('Waiting for service worker ready...');
       
-      // Service Worker が利用可能かチェック
-      if (!navigator.serviceWorker.controller) {
-        console.log('No service worker controlling this page, registering...');
-        // Service Worker を手動で登録
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        console.log('Service worker registered manually:', registration);
+      // まずカスタムService Workerを登録を試行
+      try {
+        console.log('Attempting to register custom service worker...');
+        const customRegistration = await navigator.serviceWorker.register('/custom-sw.js', {
+          scope: '/'
+        });
+        console.log('Custom service worker registered:', customRegistration);
         
-        // Service Worker がアクティブになるまで待機
-        if (registration.installing || registration.waiting) {
-          console.log('Waiting for service worker to activate...');
-          await new Promise((resolve) => {
-            const worker = registration.installing || registration.waiting;
+        // アクティブになるまで待機
+        await new Promise((resolve) => {
+          if (customRegistration.active) {
+            resolve(void 0);
+          } else {
+            const worker = customRegistration.installing || customRegistration.waiting;
             if (worker) {
               worker.addEventListener('statechange', () => {
                 if (worker.state === 'activated') {
-                  console.log('Service worker activated');
+                  console.log('Custom service worker activated');
                   resolve(void 0);
                 }
               });
             }
-          });
+          }
+        });
+        
+        this.registration = customRegistration;
+      } catch (customError) {
+        console.log('Custom SW registration failed, trying default:', customError);
+        
+        // フォールバック: デフォルトのService Worker
+        if (!navigator.serviceWorker.controller) {
+          console.log('No service worker controlling this page, registering default...');
+          const registration = await navigator.serviceWorker.register('/sw.js');
+          console.log('Default service worker registered:', registration);
+          
+          if (registration.installing || registration.waiting) {
+            console.log('Waiting for default service worker to activate...');
+            await new Promise((resolve) => {
+              const worker = registration.installing || registration.waiting;
+              if (worker) {
+                worker.addEventListener('statechange', () => {
+                  if (worker.state === 'activated') {
+                    console.log('Default service worker activated');
+                    resolve(void 0);
+                  }
+                });
+              }
+            });
+          }
         }
+        
+        // タイムアウト付きでService Worker待機
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Service Worker ready timeout')), 5000);
+        });
+        
+        this.registration = await Promise.race([
+          navigator.serviceWorker.ready,
+          timeoutPromise
+        ]) as ServiceWorkerRegistration;
       }
-      
-      // タイムアウト付きでService Worker待機
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Service Worker ready timeout')), 5000);
-      });
-      
-      this.registration = await Promise.race([
-        navigator.serviceWorker.ready,
-        timeoutPromise
-      ]) as ServiceWorkerRegistration;
       
       console.log('Service worker ready:', this.registration);
 
@@ -195,31 +223,145 @@ export class PushNotificationManager {
     console.log('sendLocalNotification called:', { title, body });
     console.log('Registration available:', !!this.registration);
     console.log('Notification permission:', Notification.permission);
+    console.log('Document visibility:', document.visibilityState);
+    console.log('Document focused:', document.hasFocus());
     
-    if (!this.registration) {
-      // フォールバック: ブラウザ標準通知
-      console.log('Using fallback browser notification');
-      if (Notification.permission === 'granted') {
-        console.log('Creating fallback notification');
-        new Notification(title, { body, icon: '/icon-192x192.png' });
-      } else {
-        console.log('Notification permission not granted for fallback');
-      }
+    if (Notification.permission !== 'granted') {
+      console.warn('Notification permission not granted');
       return;
     }
 
-    // Service Worker経由で通知
-    console.log('Using service worker notification');
-    try {
-      await this.registration.showNotification(title, {
-        body,
-        icon: '/icon-192x192.png',
-        badge: '/icon-192x192.png',
-        tag: 'agent-response'
-      });
-      console.log('Service worker notification sent successfully');
-    } catch (error) {
-      console.error('Failed to send service worker notification:', error);
+    // 複数の方法で通知を試行
+    const methods = [
+      // 方法1: Service Worker経由
+      async () => {
+        if (this.registration) {
+          console.log('Trying Service Worker notification...');
+          await this.registration.showNotification(title, {
+            body,
+            icon: '/icon-192x192.png',
+            badge: '/icon-192x192.png',
+            tag: `notification-${Date.now()}`,
+            requireInteraction: false,
+            silent: false
+          });
+          console.log('Service Worker notification sent');
+          return true;
+        }
+        return false;
+      },
+      
+      // 方法2: ブラウザ標準通知（常にフォールバック）
+      async () => {
+        console.log('Trying browser notification...');
+        const notification = new Notification(title, { 
+          body, 
+          icon: '/icon-192x192.png',
+          tag: `notification-${Date.now()}`,
+          requireInteraction: false,
+          silent: false
+        });
+        
+        notification.onclick = () => {
+          console.log('Browser notification clicked');
+          window.focus();
+          notification.close();
+        };
+        
+        notification.onshow = () => {
+          console.log('Browser notification shown');
+        };
+        
+        notification.onerror = (error) => {
+          console.error('Browser notification error:', error);
+        };
+        
+        console.log('Browser notification created');
+        return true;
+      },
+      
+      // 方法3: メッセージ経由でService Workerに送信
+      async () => {
+        if (this.registration && this.registration.active) {
+          console.log('Trying message to Service Worker...');
+          this.registration.active.postMessage({
+            type: 'SHOW_NOTIFICATION',
+            title,
+            options: {
+              body,
+              icon: '/icon-192x192.png',
+              tag: `message-notification-${Date.now()}`
+            }
+          });
+          console.log('Message sent to Service Worker');
+          return true;
+        }
+        return false;
+      }
+    ];
+
+    // 各方法を順番に試行
+    for (let i = 0; i < methods.length; i++) {
+      try {
+        const success = await methods[i]();
+        if (success) {
+          console.log(`Notification method ${i + 1} succeeded`);
+          break;
+        }
+      } catch (error) {
+        console.error(`Notification method ${i + 1} failed:`, error);
+        if (i === methods.length - 1) {
+          // 最後の方法も失敗した場合
+          console.error('All notification methods failed');
+        }
+      }
+    }
+  }
+
+  // 強制的に通知をテストするメソッド
+  async forceNotificationTest(): Promise<void> {
+    console.log('=== 強制通知テスト開始 ===');
+    
+    // 1. 基本チェック
+    console.log('Document visible:', document.visibilityState);
+    console.log('Document focused:', document.hasFocus());
+    console.log('Permission:', Notification.permission);
+    
+    if (Notification.permission !== 'granted') {
+      throw new Error('Notification permission not granted');
+    }
+    
+    // 2. 異なるタイミングで複数の通知を送信
+    const notifications = [
+      { title: 'テスト1', body: '即座の通知', delay: 0 },
+      { title: 'テスト2', body: '1秒後の通知', delay: 1000 },
+      { title: 'テスト3', body: '3秒後の通知', delay: 3000 }
+    ];
+    
+    for (const notif of notifications) {
+      setTimeout(async () => {
+        try {
+          // 複数の方法で同時に通知
+          if (this.registration) {
+            await this.registration.showNotification(notif.title, {
+              body: notif.body,
+              icon: '/icon-192x192.png',
+              tag: `test-${Date.now()}`,
+              requireInteraction: false
+            });
+          }
+          
+          new Notification(notif.title, {
+            body: notif.body + ' (Browser)',
+            icon: '/icon-192x192.png',
+            tag: `browser-test-${Date.now()}`
+          });
+          
+          console.log(`${notif.title} sent successfully`);
+        } catch (error) {
+          console.error(`Failed to send ${notif.title}:`, error);
+        }
+      }, notif.delay);
     }
   }
 

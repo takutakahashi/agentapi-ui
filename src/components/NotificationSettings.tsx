@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { pushNotificationManager } from '@/utils/pushNotification';
+import NotificationDiagnostics from './NotificationDiagnostics';
 
 interface NotificationSettingsProps {
   isExpanded: boolean;
@@ -418,7 +419,24 @@ export default function NotificationSettings({ isExpanded, onToggle }: Notificat
                 >
                   シンプルテスト
                 </button>
+                <button
+                  onClick={async () => {
+                    console.log('Force test clicked');
+                    try {
+                      await pushNotificationManager.forceNotificationTest();
+                    } catch (error) {
+                      console.error('Force test failed:', error);
+                      alert('強制テストに失敗しました: ' + (error instanceof Error ? error.message : String(error)));
+                    }
+                  }}
+                  className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+                >
+                  強制テスト
+                </button>
               </div>
+              
+              {/* 高度な診断ツール */}
+              <NotificationDiagnostics />
             </div>
           </div>
         )}
