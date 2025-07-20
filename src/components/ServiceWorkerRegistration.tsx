@@ -4,129 +4,113 @@ import { useEffect } from 'react';
 
 export default function ServiceWorkerRegistration() {
   useEffect(() => {
-    console.log('🔍 ServiceWorkerRegistration component mounted');
-    console.log('🔍 window object:', typeof window);
-    console.log('🔍 navigator.serviceWorker:', 'serviceWorker' in navigator);
+    console.log('🔧 ServiceWorkerRegistration v2 - Redundant Fix');
     
-    // Service Worker登録のデバッグ関数
-    const registerServiceWorker = async () => {
-      console.log('🔧 Attempting to register Service Worker...');
-      console.log('🔍 Current URL:', window.location.href);
-      console.log('🔍 Protocol:', window.location.protocol);
-      console.log('🔍 Is HTTPS:', window.location.protocol === 'https:');
-      console.log('🔍 Is localhost:', window.location.hostname === 'localhost');
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       
-      try {
-        // sw.jsのフェッチテスト
-        console.log('🔍 Testing sw.js accessibility...');
-        const swResponse = await fetch('/sw.js');
-        console.log('🔍 sw.js response status:', swResponse.status);
-        console.log('🔍 sw.js content-type:', swResponse.headers.get('content-type'));
+      const registerWithRetry = async () => {
+        console.log('🚀 Starting Service Worker registration with redundant fix...');
         
-        // 既存の登録を確認
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        console.log(`📋 Found ${registrations.length} existing Service Worker registrations`);
-        registrations.forEach((reg, index) => {
-          console.log(`📋 Registration ${index}:`, {
-            scope: reg.scope,
-            scriptURL: reg.active?.scriptURL || reg.installing?.scriptURL || reg.waiting?.scriptURL,
-            state: reg.active ? 'active' : reg.installing ? 'installing' : reg.waiting ? 'waiting' : 'none'
-          });
-        });
-        
-        // /sw.js が登録されているか確認
-        const hasMainSW = registrations.some(reg => 
-          reg.active?.scriptURL.includes('/sw.js')
-        );
-        
-        if (!hasMainSW) {
-          console.log('📦 Registering main Service Worker...');
-          const registration = await navigator.serviceWorker.register('/sw.js', {
-            scope: '/'
+        try {
+          // 1. 既存の全登録をクリア（競合回避）
+          const existing = await navigator.serviceWorker.getRegistrations();
+          console.log(`🗑️ Clearing ${existing.length} existing registrations`);
+          
+          for (const reg of existing) {
+            console.log(`🗑️ Unregistering: ${reg.scope}`);
+            await reg.unregister();
+          }
+          
+          // 2. 短い待機でブラウザ内部状態をクリア
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          // 3. 新しい登録を実行（通知専用Workerを使用）
+          console.log('📦 Registering notification-specific Service Worker...');
+          const registration = await navigator.serviceWorker.register('/notification-worker.js', {
+            scope: '/notifications/',
+            updateViaCache: 'none'
           });
           
-          console.log('✅ Service Worker registered:', registration);
-          console.log('🔍 Registration details:', {
-            scope: registration.scope,
-            installing: registration.installing,
-            waiting: registration.waiting,
-            active: registration.active,
-            updateViaCache: registration.updateViaCache
-          });
+          console.log('✅ Registration created:', registration);
           
-          // 登録完了を待機
-          if (!registration.active) {
-            await new Promise<void>((resolve) => {
-              const worker = registration.installing || registration.waiting;
-              if (worker) {
-                console.log('🔍 Worker state:', worker.state);
-                worker.addEventListener('statechange', () => {
-                  console.log('🔍 Worker state changed to:', worker.state);
-                  if (worker.state === 'activated') {
-                    console.log('✅ Service Worker activated');
-                    resolve();
-                  }
-                });
-              } else {
-                console.log('⚠️ No worker found in installing or waiting state');
-                resolve();
+          // 4. すぐにredundantになるのを防ぐため、skipWaitingを明示的に呼ぶ
+          if (registration.installing) {
+            console.log('📨 Sending skipWaiting to installing worker');
+            registration.installing.postMessage({ type: 'SKIP_WAITING' });
+          }
+          
+          // 5. 状態変化を詳細に監視
+          const monitorWorker = (worker: ServiceWorker, label: string) => {
+            if (!worker) return;
+            
+            console.log(`👀 Monitoring ${label} worker:`, worker.state);
+            
+            worker.addEventListener('statechange', () => {
+              console.log(`🔄 ${label} worker state: ${worker.state}`);
+              
+              if (worker.state === 'activated') {
+                console.log(`🎉 ${label} worker activated successfully!`);
+              } else if (worker.state === 'redundant') {
+                console.error(`❌ ${label} worker became redundant - investigating...`);
+                console.error('💡 Possible causes: Another SW with same scope, update conflict, or registration error');
               }
             });
-          }
+          };
           
-          // ページをリロードして新しいService Workerを適用
-          if (window.matchMedia('(display-mode: standalone)').matches) {
-            console.log('📱 PWA mode detected, Service Worker will be active on next launch');
-          }
-        } else {
-          console.log('✅ Service Worker already registered');
+          monitorWorker(registration.installing!, 'Installing');
+          monitorWorker(registration.waiting!, 'Waiting');
+          monitorWorker(registration.active!, 'Active');
+          
+          // 6. controllerchangeイベントをリッスン
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            console.log('🔄 Service Worker controller changed');
+          });
+          
+          // 7. updatefoundイベントをリッスン  
+          registration.addEventListener('updatefound', () => {
+            console.log('🔄 Service Worker update found');
+          });
+          
+          // 8. 10秒後に状態確認
+          setTimeout(async () => {
+            const allRegs = await navigator.serviceWorker.getRegistrations();
+            console.log(`🔍 Final check: Found ${allRegs.length} registrations after 10 seconds`);
+            
+            allRegs.forEach((reg, i) => {
+              console.log(`📋 Registration ${i}:`, {
+                scope: reg.scope,
+                active: reg.active?.state,
+                installing: reg.installing?.state,
+                waiting: reg.waiting?.state
+              });
+            });
+            
+            if (allRegs.length === 0) {
+              console.error('💀 All Service Workers disappeared - likely a persistent issue');
+              console.log('🔧 Attempting emergency re-registration...');
+              
+              // 緊急再登録
+              const emergencyReg = await navigator.serviceWorker.register('/notification-worker.js', {
+                scope: '/notifications/',
+                updateViaCache: 'none'
+              });
+              console.log('🚨 Emergency registration:', emergencyReg);
+            }
+          }, 10000);
+          
+        } catch (error) {
+          console.error('❌ Registration failed:', error);
         }
-        
-        // Service Worker の準備完了を確認
-        const ready = await navigator.serviceWorker.ready;
-        console.log('✅ Service Worker ready:', ready);
-        console.log('🔍 Ready SW details:', {
-          scope: ready.scope,
-          active: ready.active ? {
-            scriptURL: ready.active.scriptURL,
-            state: ready.active.state
-          } : null
-        });
-        
-      } catch (error) {
-        console.error('❌ Service Worker registration failed:', error);
-        console.error('❌ Error details:', {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          name: error instanceof Error ? error.name : 'Unknown'
-        });
-      }
-    };
-    
-    // window.onloadを使用してService Workerを登録
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      // 即座に登録を試みる
-      console.log('🔍 Attempting immediate registration...');
-      registerServiceWorker();
+      };
       
-      // window.onloadでも登録を試みる
-      window.addEventListener('load', () => {
-        console.log('🔍 Window loaded, attempting registration again...');
-        registerServiceWorker();
-      });
-    } else {
-      console.warn('⚠️ Service Worker not supported:', {
-        windowDefined: typeof window !== 'undefined',
-        serviceWorkerInNavigator: typeof window !== 'undefined' && 'serviceWorker' in navigator
-      });
-    }
-    
-    // クリーンアップ
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('load', () => {});
+      // すぐに実行
+      registerWithRetry();
+      
+      // ページロード時にも実行
+      if (document.readyState === 'loading') {
+        window.addEventListener('load', registerWithRetry);
       }
-    };
+    }
   }, []);
   
   return null;

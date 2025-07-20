@@ -138,9 +138,9 @@ export class UltimateNotificationManager {
         console.log('🚨 No Service Worker found - attempting emergency registration');
         
         try {
-          // まず既存のNext.js Service Workerを確認
-          const registration = await navigator.serviceWorker.register('/sw.js', {
-            scope: '/',
+          // 通知専用Service Workerを登録
+          const registration = await navigator.serviceWorker.register('/notification-worker.js', {
+            scope: '/notifications/',
             updateViaCache: 'none'
           });
           
