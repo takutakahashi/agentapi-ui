@@ -74,6 +74,15 @@ async function getUserInfo(request: NextRequest): Promise<{ userId?: string; use
 
 export async function POST(request: NextRequest) {
   try {
+    // 認証チェック
+    const authToken = request.cookies.get('agentapi_token')?.value;
+    if (!authToken) {
+      return NextResponse.json(
+        { error: 'プッシュ通知を利用するにはログインが必要です' },
+        { status: 401 }
+      );
+    }
+
     const subscriptionRequest: SubscriptionRequest = await request.json();
 
     if (!subscriptionRequest || !subscriptionRequest.endpoint || !subscriptionRequest.keys) {
@@ -85,6 +94,14 @@ export async function POST(request: NextRequest) {
 
     // ユーザー情報を取得
     const userInfo = await getUserInfo(request);
+    
+    // ユーザー情報が取得できない場合はエラー
+    if (!userInfo.userId) {
+      return NextResponse.json(
+        { error: 'ユーザー情報の取得に失敗しました。再度ログインしてください' },
+        { status: 401 }
+      );
+    }
     
     // サブスクリプションデータを構築
     const subscription: SubscriptionData = {

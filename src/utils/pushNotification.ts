@@ -22,6 +22,13 @@ export class PushNotificationManager {
       return false;
     }
 
+    // 認証状態をチェック
+    const isAuthenticated = await this.checkAuthenticationStatus();
+    if (!isAuthenticated) {
+      console.warn('プッシュ通知を利用するにはログインが必要です');
+      return false;
+    }
+
     try {
       // プッシュ通知用のService Workerを登録
       const pushSWRegistration = await navigator.serviceWorker.register('/sw-push.js', {
@@ -180,6 +187,12 @@ export class PushNotificationManager {
       return { success: false, message: 'VAPID公開キーが設定されていません。環境変数を確認してください。' };
     }
 
+    // 認証状態をチェック
+    const isAuthenticated = await this.checkAuthenticationStatus();
+    if (!isAuthenticated) {
+      return { success: false, message: 'プッシュ通知を利用するにはログインが必要です' };
+    }
+
     try {
       // 1. Service Worker初期化
       const initialized = await this.initialize();
@@ -247,6 +260,13 @@ export class PushNotificationManager {
       return false;
     }
 
+    // 認証状態をチェック
+    const isAuthenticated = await this.checkAuthenticationStatus();
+    if (!isAuthenticated) {
+      console.warn('未ログインのため、プッシュ通知の自動初期化をスキップします');
+      return false;
+    }
+
     try {
       const initialized = await this.initialize();
       if (initialized && pushNotificationSettings.shouldAutoSubscribe()) {
@@ -259,6 +279,21 @@ export class PushNotificationManager {
       return initialized;
     } catch (error) {
       console.error('自動初期化エラー:', error);
+      return false;
+    }
+  }
+
+  // 認証状態をチェックするメソッド
+  async checkAuthenticationStatus(): Promise<boolean> {
+    try {
+      const response = await fetch('/api/auth/status');
+      if (response.ok) {
+        const authStatus = await response.json();
+        return authStatus.authenticated === true;
+      }
+      return false;
+    } catch (error) {
+      console.error('認証状態の確認に失敗:', error);
       return false;
     }
   }
