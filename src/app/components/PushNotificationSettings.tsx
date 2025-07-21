@@ -117,7 +117,7 @@ export const PushNotificationSettings: React.FC = () => {
     setMessage('');
 
     try {
-      await pushNotificationManager.testNotification();
+      await pushNotificationManager.sendLocalNotification('テスト通知', 'プッシュ通知のテストです');
       setMessage('テスト通知を送信しました');
     } catch (error) {
       setMessage(`テスト通知エラー: ${error instanceof Error ? error.message : '不明なエラー'}`);
