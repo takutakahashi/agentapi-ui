@@ -2,15 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { getSubscriptions } from '../../../lib/subscriptions';
 
-const VAPID_PUBLIC_KEY = 'BOv-qOWAZ4--eLYAQNk-0jZPDGHH3rrmb4RFaQglVpdz_zQrS5wH1quNS4aWoWSDnRbPO764YURRZt8_B2OMkDQ';
-const VAPID_PRIVATE_KEY = '-ni1VcRxrb-o_6h2Sy2TmQyk1iNRJCCBcqZXgKu94Zk';
-const VAPID_SUBJECT = 'mailto:admin@agentapi.example.com';
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BOv-qOWAZ4--eLYAQNk-0jZPDGHH3rrmb4RFaQglVpdz_zQrS5wH1quNS4aWoWSDnRbPO764YURRZt8_B2OMkDQ';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '-ni1VcRxrb-o_6h2Sy2TmQyk1iNRJCCBcqZXgKu94Zk';
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@agentapi.example.com';
 
-webpush.setVapidDetails(
-  VAPID_SUBJECT,
-  VAPID_PUBLIC_KEY,
-  VAPID_PRIVATE_KEY
-);
+// VAPID設定の検証
+if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+  console.error('VAPID keys not configured. Please set NEXT_PUBLIC_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables.');
+}
+
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    VAPID_SUBJECT,
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY
+  );
+}
 
 interface NotificationPayload {
   title: string;
@@ -23,6 +30,14 @@ interface NotificationPayload {
 
 export async function POST(request: NextRequest) {
   try {
+    // VAPID設定のチェック
+    if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+      return NextResponse.json(
+        { error: 'VAPID keys are not configured. Please set environment variables.' },
+        { status: 500 }
+      );
+    }
+
     const { title, body, url, icon, badge, tag }: NotificationPayload = await request.json();
 
     if (!title || !body) {

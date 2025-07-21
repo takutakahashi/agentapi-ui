@@ -9,6 +9,7 @@
 - **Session Management**: agentapi-proxyを通じたセッション管理
 - **Settings Management**: グローバル・リポジトリ別設定管理
 - **Real-time Communication**: WebSocketによるリアルタイム通信
+- **Push Notifications**: PWAプッシュ通知機能
 
 ## セットアップ
 
@@ -33,6 +34,11 @@ COOKIE_ENCRYPTION_SECRET=your_64_character_hex_string_here
 
 # AgentAPI Proxy Configuration
 AGENTAPI_PROXY_URL=http://localhost:8080
+
+# Push Notification Configuration (オプション)
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_vapid_public_key_here
+VAPID_PRIVATE_KEY=your_vapid_private_key_here
+VAPID_SUBJECT=mailto:admin@example.com
 ```
 
 4. 開発サーバーの起動:
@@ -80,3 +86,27 @@ bun run dev
 
 - 直接AgentAPIとのチャット
 - URLパラメータ`?session=<session_id>`でセッション指定可能
+
+## プッシュ通知設定
+
+プッシュ通知機能を有効にするには：
+
+1. **VAPIDキーの生成**:
+```bash
+npx web-push generate-vapid-keys
+```
+
+2. **環境変数の設定**:
+```bash
+# .env.local に追加
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_public_key_here
+VAPID_PRIVATE_KEY=your_private_key_here
+VAPID_SUBJECT=mailto:your-email@example.com
+```
+
+3. **設定画面で有効化**:
+- `/settings` ページのプッシュ通知セクションから設定
+- 通知許可を取得してサブスクリプションを有効化
+- テスト通知で動作確認
+
+**セキュリティ**: プライベートキーは環境変数で管理し、公開しないでください。
