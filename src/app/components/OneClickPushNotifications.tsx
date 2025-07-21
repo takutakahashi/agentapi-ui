@@ -113,12 +113,6 @@ export const OneClickPushNotifications: React.FC = () => {
     }
   };
 
-  const getStatusColor = () => {
-    if (!state.isSupported) return 'text-red-600';
-    if (state.permission === 'denied') return 'text-red-600';
-    if (state.isEnabled) return 'text-green-600';
-    return 'text-yellow-600';
-  };
 
   const getStatusText = () => {
     if (!state.isSupported) return '非対応';
