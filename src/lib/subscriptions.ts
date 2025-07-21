@@ -4,6 +4,10 @@ interface SubscriptionData {
     p256dh: string;
     auth: string;
   };
+  userId?: string; // ユーザー識別子（GitHubユーザーIDまたはセッションID）
+  userType?: 'github' | 'api_key'; // 認証タイプ
+  userName?: string; // ユーザー名（表示用）
+  createdAt?: Date; // サブスクリプション作成日時
 }
 
 // サーバーレス環境対応: メモリベースの保存
@@ -24,6 +28,18 @@ function saveSubscriptions(subscriptions: SubscriptionData[]): void {
 
 export function getSubscriptions(): SubscriptionData[] {
   return loadSubscriptions();
+}
+
+export function getSubscriptionsByUserId(userId: string): SubscriptionData[] {
+  return loadSubscriptions().filter(sub => sub.userId === userId);
+}
+
+export function getUserSubscriptions(userType?: 'github' | 'api_key'): SubscriptionData[] {
+  const subscriptions = loadSubscriptions();
+  if (userType) {
+    return subscriptions.filter(sub => sub.userType === userType);
+  }
+  return subscriptions;
 }
 
 export function addSubscription(subscription: SubscriptionData): void {

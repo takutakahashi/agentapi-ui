@@ -22,6 +22,13 @@ export class PushNotificationManager {
       return false;
     }
 
+    // 認証状態をチェック
+    const isAuthenticated = await this.checkAuthenticationStatus();
+    if (!isAuthenticated) {
+      console.warn('プッシュ通知を利用するにはログインが必要です');
+      return false;
+    }
+
     try {
       // プッシュ通知用のService Workerを登録
       const pushSWRegistration = await navigator.serviceWorker.register('/sw-push.js', {
@@ -101,17 +108,30 @@ export class PushNotificationManager {
   }
 
   async sendSubscriptionToServer(subscription: PushSubscription): Promise<void> {
+    // ユーザー情報を含めたサブスクリプションデータを送信
+    const subscriptionData = {
+      ...subscription.toJSON(),
+      // ユーザー情報はサーバー側で自動取得されるため、クライアントからは送信しない
+      // 必要に応じて明示的に送信したい場合は以下を有効化
+      // userId: 'user-id',
+      // userType: 'github' | 'api_key',
+      // userName: 'user-name'
+    };
+
     const response = await fetch('/api/subscribe', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(subscription.toJSON()),
+      body: JSON.stringify(subscriptionData),
     });
 
     if (!response.ok) {
       throw new Error('サブスクリプション送信に失敗しました');
     }
+
+    const result = await response.json();
+    console.log('サブスクリプション送信結果:', result);
 
     // 成功時に設定を更新
     pushNotificationSettings.setEndpoint(subscription.endpoint);
@@ -137,12 +157,21 @@ export class PushNotificationManager {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ title, body }),
+      body: JSON.stringify({ 
+        title, 
+        body,
+        // 自分自身にのみテスト通知を送信する場合は以下を有効化
+        // targetUserId: 'current-user-id',
+        // targetUserType: 'github' | 'api_key'
+      }),
     });
 
     if (!response.ok) {
       throw new Error('テスト通知送信に失敗しました');
     }
+
+    const result = await response.json();
+    console.log('テスト通知送信結果:', result);
   }
 
   getSubscriptionStatus(): { isSubscribed: boolean; endpoint?: string } {
@@ -156,6 +185,12 @@ export class PushNotificationManager {
   async enableOneClick(): Promise<{ success: boolean; message: string }> {
     if (!VAPID_PUBLIC_KEY) {
       return { success: false, message: 'VAPID公開キーが設定されていません。環境変数を確認してください。' };
+    }
+
+    // 認証状態をチェック
+    const isAuthenticated = await this.checkAuthenticationStatus();
+    if (!isAuthenticated) {
+      return { success: false, message: 'プッシュ通知を利用するにはログインが必要です' };
     }
 
     try {
@@ -225,6 +260,13 @@ export class PushNotificationManager {
       return false;
     }
 
+    // 認証状態をチェック
+    const isAuthenticated = await this.checkAuthenticationStatus();
+    if (!isAuthenticated) {
+      console.warn('未ログインのため、プッシュ通知の自動初期化をスキップします');
+      return false;
+    }
+
     try {
       const initialized = await this.initialize();
       if (initialized && pushNotificationSettings.shouldAutoSubscribe()) {
@@ -237,6 +279,21 @@ export class PushNotificationManager {
       return initialized;
     } catch (error) {
       console.error('自動初期化エラー:', error);
+      return false;
+    }
+  }
+
+  // 認証状態をチェックするメソッド
+  async checkAuthenticationStatus(): Promise<boolean> {
+    try {
+      const response = await fetch('/api/auth/status');
+      if (response.ok) {
+        const authStatus = await response.json();
+        return authStatus.authenticated === true;
+      }
+      return false;
+    } catch (error) {
+      console.error('認証状態の確認に失敗:', error);
       return false;
     }
   }
