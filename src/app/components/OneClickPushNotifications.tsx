@@ -98,7 +98,7 @@ export const OneClickPushNotifications: React.FC = () => {
     setState(prev => ({ ...prev, isLoading: true, lastMessage: '' }));
 
     try {
-      await pushNotificationManager.testNotification();
+      await pushNotificationManager.sendLocalNotification('テスト通知', 'プッシュ通知のテストです');
       setState(prev => ({
         ...prev,
         isLoading: false,

@@ -118,7 +118,7 @@ export class PushNotificationManager {
       // userName: 'user-name'
     };
 
-    const response = await fetch('/api/subscribe', {
+    const response = await fetch('/api/proxy/notification/subscribe', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -138,7 +138,7 @@ export class PushNotificationManager {
   }
 
   async removeSubscriptionFromServer(subscription: PushSubscription): Promise<void> {
-    const response = await fetch('/api/subscribe', {
+    const response = await fetch('/api/proxy/notification/subscribe', {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -151,28 +151,8 @@ export class PushNotificationManager {
     }
   }
 
-  async testNotification(title: string = 'テスト通知', body: string = 'プッシュ通知のテストです'): Promise<void> {
-    const response = await fetch('/api/send-notification', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ 
-        title, 
-        body,
-        // 自分自身にのみテスト通知を送信する場合は以下を有効化
-        // targetUserId: 'current-user-id',
-        // targetUserType: 'github' | 'api_key'
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error('テスト通知送信に失敗しました');
-    }
-
-    const result = await response.json();
-    console.log('テスト通知送信結果:', result);
-  }
+  // testNotification機能はagentapi-proxyのhelperコマンドに移行
+  // クライアント側からの直接送信は不要
 
   getSubscriptionStatus(): { isSubscribed: boolean; endpoint?: string } {
     return {
@@ -219,7 +199,8 @@ export class PushNotificationManager {
       // 5. テスト通知送信（設定で有効な場合）
       if (pushNotificationSettings.shouldShowTestNotifications()) {
         try {
-          await this.testNotification('✅ プッシュ通知が有効になりました', 'AgentAPIからの通知を受け取れるようになりました');
+          // ローカル通知でテスト（サーバー送信は不要）
+          await this.sendLocalNotification('✅ プッシュ通知が有効になりました', 'AgentAPIからの通知を受け取れるようになりました');
         } catch (error) {
           console.warn('テスト通知の送信に失敗:', error);
         }
