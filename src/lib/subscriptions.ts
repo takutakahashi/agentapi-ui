@@ -1,6 +1,3 @@
-import fs from 'fs';
-import path from 'path';
-
 interface SubscriptionData {
   endpoint: string;
   keys: {
@@ -9,37 +6,20 @@ interface SubscriptionData {
   };
 }
 
-const SUBSCRIPTIONS_FILE = path.join(process.cwd(), 'tmp', 'subscriptions.json');
-
-function ensureDirectory() {
-  const dir = path.dirname(SUBSCRIPTIONS_FILE);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-}
+// サーバーレス環境対応: メモリベースの保存
+// 注意: これは一時的な実装です。本番環境では以下を使用してください:
+// - データベース (PostgreSQL, MySQL, etc.)
+// - Redis/Memcached
+// - KVストレージ (Vercel KV, Upstash, etc.)
+let subscriptionsCache: SubscriptionData[] = [];
 
 function loadSubscriptions(): SubscriptionData[] {
-  try {
-    ensureDirectory();
-    if (!fs.existsSync(SUBSCRIPTIONS_FILE)) {
-      return [];
-    }
-    const data = fs.readFileSync(SUBSCRIPTIONS_FILE, 'utf8');
-    return JSON.parse(data) || [];
-  } catch (error) {
-    console.error('サブスクリプション読み込みエラー:', error);
-    return [];
-  }
+  return subscriptionsCache;
 }
 
 function saveSubscriptions(subscriptions: SubscriptionData[]): void {
-  try {
-    ensureDirectory();
-    fs.writeFileSync(SUBSCRIPTIONS_FILE, JSON.stringify(subscriptions, null, 2));
-  } catch (error) {
-    console.error('サブスクリプション保存エラー:', error);
-    throw error;
-  }
+  subscriptionsCache = subscriptions;
+  console.log(`サブスクリプション保存完了: ${subscriptions.length}件`);
 }
 
 export function getSubscriptions(): SubscriptionData[] {
