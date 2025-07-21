@@ -1,29 +1,17 @@
-import { pushNotificationSettings } from '../lib/pushNotificationSettings';
-
-// 環境変数からVAPIDキーを取得（必須）
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-
-if (!VAPID_PUBLIC_KEY) {
-  console.error('NEXT_PUBLIC_VAPID_PUBLIC_KEY environment variable is required for push notifications');
-}
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BOv-qOWAZ4--eLYAQNk-0jZPDGHH3rrmb4RFaQglVpdz_zQrS5wH1quNS4aWoWSDnRbPO764YURRZt8_B2OMkDQ';
 
 export class PushNotificationManager {
   private registration: ServiceWorkerRegistration | null = null;
   private subscription: PushSubscription | null = null;
 
   async initialize(): Promise<boolean> {
-    if (!VAPID_PUBLIC_KEY) {
-      console.error('VAPID公開キーが設定されていません');
-      return false;
-    }
-
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       console.warn('プッシュ通知はサポートされていません');
       return false;
     }
 
     try {
-      // プッシュ通知用のService Workerを登録
+      // まずプッシュ通知用のService Workerを登録
       const pushSWRegistration = await navigator.serviceWorker.register('/sw-push.js', {
         scope: '/'
       });
@@ -50,11 +38,6 @@ export class PushNotificationManager {
   }
 
   async subscribe(): Promise<boolean> {
-    if (!VAPID_PUBLIC_KEY) {
-      console.error('VAPID公開キーが設定されていません');
-      return false;
-    }
-
     if (!this.registration) {
       console.error('Service Workerが登録されていません');
       return false;
@@ -112,9 +95,6 @@ export class PushNotificationManager {
     if (!response.ok) {
       throw new Error('サブスクリプション送信に失敗しました');
     }
-
-    // 成功時に設定を更新
-    pushNotificationSettings.setEndpoint(subscription.endpoint);
   }
 
   async removeSubscriptionFromServer(subscription: PushSubscription): Promise<void> {
@@ -150,104 +130,6 @@ export class PushNotificationManager {
       isSubscribed: !!this.subscription,
       endpoint: this.subscription?.endpoint
     };
-  }
-
-  // ワンクリック有効化機能
-  async enableOneClick(): Promise<{ success: boolean; message: string }> {
-    if (!VAPID_PUBLIC_KEY) {
-      return { success: false, message: 'VAPID公開キーが設定されていません。環境変数を確認してください。' };
-    }
-
-    try {
-      // 1. Service Worker初期化
-      const initialized = await this.initialize();
-      if (!initialized) {
-        return { success: false, message: 'Service Workerの初期化に失敗しました' };
-      }
-
-      // 2. 通知許可取得
-      const permissionGranted = await this.requestPermission();
-      if (!permissionGranted) {
-        return { success: false, message: '通知許可が拒否されました' };
-      }
-
-      // 3. サブスクリプション作成
-      const subscribed = await this.subscribe();
-      if (!subscribed) {
-        return { success: false, message: 'サブスクリプションの作成に失敗しました' };
-      }
-
-      // 4. 設定を永続化
-      pushNotificationSettings.setEnabled(true);
-      pushNotificationSettings.setEndpoint(this.subscription?.endpoint);
-
-      // 5. テスト通知送信（設定で有効な場合）
-      if (pushNotificationSettings.shouldShowTestNotifications()) {
-        try {
-          await this.testNotification('✅ プッシュ通知が有効になりました', 'AgentAPIからの通知を受け取れるようになりました');
-        } catch (error) {
-          console.warn('テスト通知の送信に失敗:', error);
-        }
-      }
-
-      return { success: true, message: 'プッシュ通知が正常に有効化されました' };
-    } catch (error) {
-      console.error('ワンクリック有効化エラー:', error);
-      return { success: false, message: `有効化に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}` };
-    }
-  }
-
-  // ワンクリック無効化機能
-  async disableOneClick(): Promise<{ success: boolean; message: string }> {
-    try {
-      const unsubscribed = await this.unsubscribe();
-      if (unsubscribed) {
-        pushNotificationSettings.setEnabled(false);
-        pushNotificationSettings.setEndpoint(undefined);
-        return { success: true, message: 'プッシュ通知が無効化されました' };
-      } else {
-        return { success: false, message: 'サブスクリプションの削除に失敗しました' };
-      }
-    } catch (error) {
-      console.error('ワンクリック無効化エラー:', error);
-      return { success: false, message: `無効化に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}` };
-    }
-  }
-
-  // 自動初期化（ページロード時に呼び出し）
-  async autoInitialize(): Promise<boolean> {
-    if (!VAPID_PUBLIC_KEY) {
-      console.warn('VAPID公開キーが設定されていないため、自動初期化をスキップします');
-      return false;
-    }
-
-    if (!pushNotificationSettings.isEnabled()) {
-      return false;
-    }
-
-    try {
-      const initialized = await this.initialize();
-      if (initialized && pushNotificationSettings.shouldAutoSubscribe()) {
-        const subscribed = await this.subscribe();
-        if (subscribed) {
-          pushNotificationSettings.setEndpoint(this.subscription?.endpoint);
-        }
-        return subscribed;
-      }
-      return initialized;
-    } catch (error) {
-      console.error('自動初期化エラー:', error);
-      return false;
-    }
-  }
-
-  // 設定管理用のヘルパーメソッド
-  getSettings() {
-    return pushNotificationSettings.getSettings();
-  }
-
-  updateSettings(updates: Parameters<typeof pushNotificationSettings.updateSettings>[0]) {
-    pushNotificationSettings.updateSettings(updates);
   }
 
   async sendLocalNotification(title: string, body: string): Promise<void> {

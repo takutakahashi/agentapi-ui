@@ -5,6 +5,7 @@ import { ThemeProvider } from '../contexts/ThemeContext'
 import { ToastProvider } from '../contexts/ToastContext'
 import { ToastContainer } from '../components/Toast'
 import { Analytics } from '@vercel/analytics/react'
+import { PushNotificationAutoInit } from './components/PushNotificationAutoInit'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -55,6 +56,7 @@ export default function RootLayout({
           <ToastProvider>
             {children}
             <ToastContainer />
+            <PushNotificationAutoInit />
             <Analytics />
           </ToastProvider>
         </ThemeProvider>

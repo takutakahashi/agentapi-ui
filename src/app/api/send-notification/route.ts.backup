@@ -2,15 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { getSubscriptions } from '../../../lib/subscriptions';
 
-// 環境変数からVAPIDキーを取得（必須）
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BOv-qOWAZ4--eLYAQNk-0jZPDGHH3rrmb4RFaQglVpdz_zQrS5wH1quNS4aWoWSDnRbPO764YURRZt8_B2OMkDQ';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '-ni1VcRxrb-o_6h2Sy2TmQyk1iNRJCCBcqZXgKu94Zk';
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@agentapi.example.com';
 
 // VAPID設定の検証
 if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
   console.error('VAPID keys not configured. Please set NEXT_PUBLIC_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables.');
-} else {
+}
+
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
     VAPID_SUBJECT,
     VAPID_PUBLIC_KEY,
@@ -111,6 +112,6 @@ export async function GET() {
   return NextResponse.json({
     vapidPublicKey: VAPID_PUBLIC_KEY,
     subscriptionCount: subscriptions.length,
-    status: VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY ? 'ready' : 'not_configured'
+    status: 'ready'
   });
 }
