@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { SettingsFormData, getDefaultSettings, isSingleProfileModeEnabled } from '../../types/settings'
 import type { EnvironmentVariable } from '../../types/settings'
 import BedrockSettingsComponent from '../../components/BedrockSettings'
-import { PushNotificationSettings } from '../components/PushNotificationSettings'
+import { OneClickPushNotifications } from '../components/OneClickPushNotifications'
 
 export default function GlobalSettingsPage() {
   const [settings, setSettings] = useState<SettingsFormData>(getDefaultSettings())
@@ -313,7 +313,7 @@ export default function GlobalSettingsPage() {
           </div>
 
           {/* Push Notification Settings */}
-          <PushNotificationSettings />
+          <OneClickPushNotifications />
 
 
           {/* Action Buttons */}
