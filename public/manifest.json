@@ -9,6 +9,7 @@
   "scope": "/",
   "start_url": "/",
   "gcm_sender_id": "103953800507",
+  "permissions": ["notifications"],
   "icons": [
     {
       "src": "/icon-192x192.png",
