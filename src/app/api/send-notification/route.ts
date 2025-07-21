@@ -26,8 +26,8 @@ interface NotificationPayload {
   icon?: string;
   badge?: string;
   tag?: string;
-  targetUserId?: string; // 特定のユーザーに送信する場合
-  targetUserType?: 'github' | 'api_key'; // 特定の認証タイプのユーザーに送信する場合
+  targetUserId?: string; // 特定のユーザーに送信（targetUserIdかtargetUserTypeのいずれかは必須）
+  targetUserType?: 'github' | 'api_key'; // 特定の認証タイプのユーザーに送信
   senderInfo?: {
     userId?: string;
     userName?: string;
@@ -100,6 +100,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // targetUserIdまたはtargetUserTypeのいずれかは必須
+    if (!targetUserId && !targetUserType) {
+      return NextResponse.json(
+        { error: 'targetUserIdまたはtargetUserTypeのいずれかは必須です' },
+        { status: 400 }
+      );
+    }
+
     // 送信者情報を取得
     const actualSenderInfo = senderInfo || await getSenderInfo(request);
 
@@ -108,12 +116,9 @@ export async function POST(request: NextRequest) {
     if (targetUserId) {
       // 特定のユーザーに送信
       subscriptions = getSubscriptionsByUserId(targetUserId);
-    } else if (targetUserType) {
-      // 特定の認証タイプのユーザーに送信
-      subscriptions = getUserSubscriptions(targetUserType);
     } else {
-      // 全ユーザーに送信
-      subscriptions = getSubscriptions();
+      // 特定の認証タイプのユーザーに送信
+      subscriptions = getUserSubscriptions(targetUserType!);
     }
     
     if (subscriptions.length === 0) {
