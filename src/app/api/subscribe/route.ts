@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSubscriptions, addSubscription, removeSubscription } from '../../../lib/subscriptions';
 
 interface SubscriptionData {
   endpoint: string;
@@ -7,8 +8,6 @@ interface SubscriptionData {
     auth: string;
   };
 }
-
-let subscriptions: SubscriptionData[] = [];
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,22 +20,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const existingIndex = subscriptions.findIndex(
-      sub => sub.endpoint === subscription.endpoint
-    );
+    addSubscription(subscription);
+    console.log('サブスクリプションが保存されました:', subscription.endpoint);
 
-    if (existingIndex !== -1) {
-      subscriptions[existingIndex] = subscription;
-      console.log('サブスクリプションが更新されました:', subscription.endpoint);
-    } else {
-      subscriptions.push(subscription);
-      console.log('新しいサブスクリプションが追加されました:', subscription.endpoint);
-    }
-
+    const allSubscriptions = getSubscriptions();
     return NextResponse.json({ 
       success: true, 
       message: 'サブスクリプションが正常に保存されました',
-      subscriptionCount: subscriptions.length
+      subscriptionCount: allSubscriptions.length
     });
 
   } catch (error) {
@@ -49,9 +40,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
+  const allSubscriptions = getSubscriptions();
   return NextResponse.json({
-    subscriptionCount: subscriptions.length,
-    subscriptions: subscriptions.map(sub => ({
+    subscriptionCount: allSubscriptions.length,
+    subscriptions: allSubscriptions.map(sub => ({
       endpoint: sub.endpoint.substring(0, 50) + '...',
       hasKeys: !!sub.keys.p256dh && !!sub.keys.auth
     }))
@@ -69,17 +61,14 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const initialLength = subscriptions.length;
-    subscriptions = subscriptions.filter(sub => sub.endpoint !== endpoint);
+    const removed = removeSubscription(endpoint);
     
-    const removed = initialLength - subscriptions.length;
-    
-    if (removed > 0) {
+    if (removed) {
       console.log('サブスクリプションが削除されました:', endpoint);
       return NextResponse.json({ 
         success: true, 
         message: 'サブスクリプションが削除されました',
-        removedCount: removed
+        removedCount: 1
       });
     } else {
       return NextResponse.json(
@@ -97,4 +86,4 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-export { subscriptions };
+// subscriptions変数は内部でのみ使用

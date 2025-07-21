@@ -11,12 +11,15 @@ export class PushNotificationManager {
     }
 
     try {
-      // Service Workerを登録
-      this.registration = await navigator.serviceWorker.register('/sw.js');
-      console.log('Service Worker登録成功:', this.registration);
+      // まずプッシュ通知用のService Workerを登録
+      const pushSWRegistration = await navigator.serviceWorker.register('/sw-push.js', {
+        scope: '/'
+      });
+      console.log('プッシュ通知用Service Worker登録成功:', pushSWRegistration);
       
-      // Service Workerの準備完了を待つ
-      await navigator.serviceWorker.ready;
+      // プッシュ通知用のService Workerを使用
+      this.registration = pushSWRegistration;
+      await this.registration.update();
       
       return true;
     } catch (error) {

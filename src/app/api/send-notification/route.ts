@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
-import { subscriptions } from '../subscribe/route';
+import { getSubscriptions } from '../../../lib/subscriptions';
 
 const VAPID_PUBLIC_KEY = 'BOv-qOWAZ4--eLYAQNk-0jZPDGHH3rrmb4RFaQglVpdz_zQrS5wH1quNS4aWoWSDnRbPO764YURRZt8_B2OMkDQ';
 const VAPID_PRIVATE_KEY = '-ni1VcRxrb-o_6h2Sy2TmQyk1iNRJCCBcqZXgKu94Zk';
@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const subscriptions = getSubscriptions();
+    
     if (subscriptions.length === 0) {
       return NextResponse.json(
         { error: 'アクティブなサブスクリプションがありません' },
@@ -91,6 +93,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
+  const subscriptions = getSubscriptions();
   return NextResponse.json({
     vapidPublicKey: VAPID_PUBLIC_KEY,
     subscriptionCount: subscriptions.length,
