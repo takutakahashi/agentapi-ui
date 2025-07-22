@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { startPeriodicCleanup } from '@/lib/subscriptions'
+
+// サーバー起動時に定期クリーンアップを開始
+if (typeof window === 'undefined') {
+  startPeriodicCleanup();
+}
 
 export async function middleware(request: NextRequest) {
   // Check if single profile mode is enabled
