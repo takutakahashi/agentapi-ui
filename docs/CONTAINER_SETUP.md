@@ -23,7 +23,7 @@ docker build --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY="your-public-key-here" .
 ## セキュリティ考慮事項
 
 - VAPIDキーはBase64URL形式（`A-Za-z0-9_-`のみ）
-- API Route（`/api/vapid`）でサーバー側検証
+- API Route（`/api/config`）でサーバー側検証
 - 不正な形式のキーは自動で拒否
 
 ## Docker Compose例
