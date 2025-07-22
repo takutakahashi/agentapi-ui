@@ -1,33 +1,58 @@
 import { pushNotificationSettings } from '../lib/pushNotificationSettings';
 
-// Runtime configurationからVAPIDキーを取得（コンテナ対応）
-function getVAPIDPublicKey(): string | undefined {
-  // 1. ビルド時環境変数（従来方式）
-  if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) {
-    return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+// Runtime configurationからVAPIDキーを取得（Next.js推奨方式）
+let vapidKeyCache: string | null = null;
+let vapidKeyPromise: Promise<string | null> | null = null;
+
+async function fetchVAPIDKey(): Promise<string | null> {
+  if (vapidKeyCache !== null) {
+    return vapidKeyCache;
   }
-  
-  // 2. Runtime configuration（コンテナ対応）
-  if (typeof window !== 'undefined' && window.__RUNTIME_CONFIG__) {
-    const key = window.__RUNTIME_CONFIG__.VAPID_PUBLIC_KEY;
-    // VAPIDキーの形式検証（Base64URL）
-    if (key && /^[A-Za-z0-9_-]+$/.test(key)) {
-      return key;
+
+  if (vapidKeyPromise) {
+    return vapidKeyPromise;
+  }
+
+  vapidKeyPromise = (async () => {
+    try {
+      const response = await fetch('/api/config');
+      if (response.ok) {
+        const config = await response.json();
+        const key = config.vapidPublicKey;
+        
+        // VAPIDキーの形式検証（Base64URL）
+        if (key && /^[A-Za-z0-9_-]+$/.test(key)) {
+          vapidKeyCache = key;
+          return key;
+        }
+        console.error('Invalid VAPID_PUBLIC_KEY format from API');
+      }
+    } catch (error) {
+      console.error('Failed to fetch VAPID key:', error);
     }
-    console.error('Invalid VAPID_PUBLIC_KEY format in runtime config');
-  }
-  
-  return undefined;
+    
+    // フォールバック: ビルド時環境変数
+    const fallbackKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (fallbackKey) {
+      vapidKeyCache = fallbackKey;
+      return fallbackKey;
+    }
+    
+    vapidKeyCache = null;
+    return null;
+  })();
+
+  return vapidKeyPromise;
 }
 
-const getVAPIDKey = () => getVAPIDPublicKey();
+const getVAPIDKey = () => fetchVAPIDKey();
 
 export class PushNotificationManager {
   private registration: ServiceWorkerRegistration | null = null;
   private subscription: PushSubscription | null = null;
 
   async initialize(): Promise<boolean> {
-    const vapidKey = getVAPIDKey();
+    const vapidKey = await getVAPIDKey();
     if (!vapidKey) {
       console.error('VAPID公開キーが設定されていません');
       return false;
@@ -73,7 +98,7 @@ export class PushNotificationManager {
   }
 
   async subscribe(): Promise<boolean> {
-    const vapidKey = getVAPIDKey();
+    const vapidKey = await getVAPIDKey();
     if (!vapidKey) {
       console.error('VAPID公開キーが設定されていません');
       return false;
@@ -180,7 +205,7 @@ export class PushNotificationManager {
 
   // ワンクリック有効化機能
   async enableOneClick(): Promise<{ success: boolean; message: string }> {
-    const vapidKey = getVAPIDKey();
+    const vapidKey = await getVAPIDKey();
     if (!vapidKey) {
       return { success: false, message: 'VAPID公開キーが設定されていません。環境変数を確認してください。' };
     }
@@ -250,7 +275,7 @@ export class PushNotificationManager {
 
   // 自動初期化（ページロード時に呼び出し）
   async autoInitialize(): Promise<boolean> {
-    const vapidKey = getVAPIDKey();
+    const vapidKey = await getVAPIDKey();
     if (!vapidKey) {
       console.warn('VAPID公開キーが設定されていないため、自動初期化をスキップします');
       return false;

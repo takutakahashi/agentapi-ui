@@ -1,29 +1,30 @@
 # コンテナデプロイメントガイド
 
-## セキュリティ考慮事項
+## Next.js推奨のRuntime Environment Variables
 
-VAPIDキーは以下の形式要件を満たす必要があります：
-- Base64URL形式（`A-Za-z0-9_-`のみ）
-- 特殊文字や改行を含まない
-- 適切にエスケープされた値
+このアプリケーションはNext.jsのAPI Routesを使用してruntime環境変数をサポートします。
 
 ## VAPID キーの設定方法
 
-このアプリケーションは2つの方式でVAPIDキーを設定できます：
-
-### 1. Runtime Configuration（推奨：コンテナ対応）
+### 1. Runtime Configuration（推奨：Next.js標準方式）
 
 ```bash
 # コンテナ起動時に環境変数を渡す
 docker run -e VAPID_PUBLIC_KEY="your-public-key-here" -p 3000:3000 your-app:latest
 ```
 
-### 2. Build-time Configuration（従来方式）
+### 2. Build-time Configuration（フォールバック）
 
 ```bash
-# ビルド時に環境変数を設定
+# ビルド時に環境変数を設定（フォールバック用）
 docker build --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY="your-public-key-here" .
 ```
+
+## セキュリティ考慮事項
+
+- VAPIDキーはBase64URL形式（`A-Za-z0-9_-`のみ）
+- API Route（`/api/config`）でサーバー側検証
+- 不正な形式のキーは自動で拒否
 
 ## Docker Compose例
 
