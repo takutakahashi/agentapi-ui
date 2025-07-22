@@ -35,17 +35,46 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Add script to generate runtime config
+# Add script to generate runtime config with proper escaping
 COPY <<EOF /usr/local/bin/generate-config.sh
 #!/bin/bash
-cat > /app/public/config.js << EOL
+set -euo pipefail
+
+# VAPIDキーのバリデーション（Base64URLのみ許可）
+validate_vapid_key() {
+  local key="\$1"
+  if [[ ! "\$key" =~ ^[A-Za-z0-9_-]+$ ]]; then
+    echo "Error: Invalid VAPID_PUBLIC_KEY format. Must be Base64URL encoded." >&2
+    return 1
+  fi
+  return 0
+}
+
+# JSONエスケープ関数
+json_escape() {
+  python3 -c "import json; print(json.dumps('\$1'))" | sed 's/^"//;s/"$//'
+}
+
+# 環境変数が設定されている場合のみconfig.jsを生成
+if [ -n "\${VAPID_PUBLIC_KEY:-}" ]; then
+  if validate_vapid_key "\$VAPID_PUBLIC_KEY"; then
+    # 安全にエスケープしてJavaScriptファイルを生成
+    cat > /app/public/config.js << EOL
+// Runtime configuration - generated at container startup
 window.__RUNTIME_CONFIG__ = {
-  VAPID_PUBLIC_KEY: '\${VAPID_PUBLIC_KEY:-}'
+  VAPID_PUBLIC_KEY: '\$(json_escape "\$VAPID_PUBLIC_KEY")'
 };
 EOL
+  else
+    echo "Warning: Skipping config.js generation due to invalid VAPID_PUBLIC_KEY"
+  fi
+fi
 EOF
 
 RUN chmod +x /usr/local/bin/generate-config.sh
+
+# Install python3-minimal for JSON escaping
+RUN apt-get update && apt-get install -y --no-install-recommends python3-minimal && rm -rf /var/lib/apt/lists/*
 
 USER nextjs
 
