@@ -35,6 +35,8 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# No need for runtime config generation - using API Routes instead
+
 USER nextjs
 
 EXPOSE 3000

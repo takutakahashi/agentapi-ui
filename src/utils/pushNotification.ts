@@ -1,18 +1,59 @@
 import { pushNotificationSettings } from '../lib/pushNotificationSettings';
 
-// 環境変数からVAPIDキーを取得（必須）
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+// Runtime configurationからVAPIDキーを取得（Next.js推奨方式）
+let vapidKeyCache: string | null = null;
+let vapidKeyPromise: Promise<string | null> | null = null;
 
-if (!VAPID_PUBLIC_KEY) {
-  console.error('NEXT_PUBLIC_VAPID_PUBLIC_KEY environment variable is required for push notifications');
+async function fetchVAPIDKey(): Promise<string | null> {
+  if (vapidKeyCache !== null) {
+    return vapidKeyCache;
+  }
+
+  if (vapidKeyPromise) {
+    return vapidKeyPromise;
+  }
+
+  vapidKeyPromise = (async () => {
+    try {
+      const response = await fetch('/api/config');
+      if (response.ok) {
+        const config = await response.json();
+        const key = config.vapidPublicKey;
+        
+        // VAPIDキーの形式検証（Base64URL）
+        if (key && /^[A-Za-z0-9_-]+$/.test(key)) {
+          vapidKeyCache = key;
+          return key;
+        }
+        console.error('Invalid VAPID_PUBLIC_KEY format from API');
+      }
+    } catch (error) {
+      console.error('Failed to fetch VAPID key:', error);
+    }
+    
+    // フォールバック: ビルド時環境変数
+    const fallbackKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (fallbackKey) {
+      vapidKeyCache = fallbackKey;
+      return fallbackKey;
+    }
+    
+    vapidKeyCache = null;
+    return null;
+  })();
+
+  return vapidKeyPromise;
 }
+
+const getVAPIDKey = () => fetchVAPIDKey();
 
 export class PushNotificationManager {
   private registration: ServiceWorkerRegistration | null = null;
   private subscription: PushSubscription | null = null;
 
   async initialize(): Promise<boolean> {
-    if (!VAPID_PUBLIC_KEY) {
+    const vapidKey = await getVAPIDKey();
+    if (!vapidKey) {
       console.error('VAPID公開キーが設定されていません');
       return false;
     }
@@ -57,7 +98,8 @@ export class PushNotificationManager {
   }
 
   async subscribe(): Promise<boolean> {
-    if (!VAPID_PUBLIC_KEY) {
+    const vapidKey = await getVAPIDKey();
+    if (!vapidKey) {
       console.error('VAPID公開キーが設定されていません');
       return false;
     }
@@ -75,7 +117,7 @@ export class PushNotificationManager {
         // 新しいサブスクリプションを作成
         this.subscription = await this.registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: this.urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+          applicationServerKey: this.urlBase64ToUint8Array(vapidKey)
         });
       }
 
@@ -163,7 +205,8 @@ export class PushNotificationManager {
 
   // ワンクリック有効化機能
   async enableOneClick(): Promise<{ success: boolean; message: string }> {
-    if (!VAPID_PUBLIC_KEY) {
+    const vapidKey = await getVAPIDKey();
+    if (!vapidKey) {
       return { success: false, message: 'VAPID公開キーが設定されていません。環境変数を確認してください。' };
     }
 
@@ -232,7 +275,8 @@ export class PushNotificationManager {
 
   // 自動初期化（ページロード時に呼び出し）
   async autoInitialize(): Promise<boolean> {
-    if (!VAPID_PUBLIC_KEY) {
+    const vapidKey = await getVAPIDKey();
+    if (!vapidKey) {
       console.warn('VAPID公開キーが設定されていないため、自動初期化をスキップします');
       return false;
     }
