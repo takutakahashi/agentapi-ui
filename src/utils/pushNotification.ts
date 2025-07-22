@@ -1,22 +1,13 @@
 import { pushNotificationSettings } from '../lib/pushNotificationSettings';
 
-// 環境変数からVAPIDキーを取得（必須）
+// 環境変数からVAPIDキーを取得（オプション）
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-
-if (!VAPID_PUBLIC_KEY) {
-  console.error('NEXT_PUBLIC_VAPID_PUBLIC_KEY environment variable is required for push notifications');
-}
 
 export class PushNotificationManager {
   private registration: ServiceWorkerRegistration | null = null;
   private subscription: PushSubscription | null = null;
 
   async initialize(): Promise<boolean> {
-    if (!VAPID_PUBLIC_KEY) {
-      console.error('VAPID公開キーが設定されていません');
-      return false;
-    }
-
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       console.warn('プッシュ通知はサポートされていません');
       return false;
@@ -57,11 +48,6 @@ export class PushNotificationManager {
   }
 
   async subscribe(): Promise<boolean> {
-    if (!VAPID_PUBLIC_KEY) {
-      console.error('VAPID公開キーが設定されていません');
-      return false;
-    }
-
     if (!this.registration) {
       console.error('Service Workerが登録されていません');
       return false;
@@ -73,10 +59,13 @@ export class PushNotificationManager {
       
       if (!this.subscription) {
         // 新しいサブスクリプションを作成
-        this.subscription = await this.registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: this.urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-        });
+        const subscribeOptions: PushSubscriptionOptionsInit = {
+          userVisibleOnly: true
+        };
+        if (VAPID_PUBLIC_KEY) {
+          subscribeOptions.applicationServerKey = this.urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+        }
+        this.subscription = await this.registration.pushManager.subscribe(subscribeOptions);
       }
 
       // サーバーにサブスクリプションを送信
@@ -163,10 +152,6 @@ export class PushNotificationManager {
 
   // ワンクリック有効化機能
   async enableOneClick(): Promise<{ success: boolean; message: string }> {
-    if (!VAPID_PUBLIC_KEY) {
-      return { success: false, message: 'VAPID公開キーが設定されていません。環境変数を確認してください。' };
-    }
-
     // 認証状態をチェック
     const isAuthenticated = await this.checkAuthenticationStatus();
     if (!isAuthenticated) {
@@ -232,11 +217,6 @@ export class PushNotificationManager {
 
   // 自動初期化（ページロード時に呼び出し）
   async autoInitialize(): Promise<boolean> {
-    if (!VAPID_PUBLIC_KEY) {
-      console.warn('VAPID公開キーが設定されていないため、自動初期化をスキップします');
-      return false;
-    }
-
     if (!pushNotificationSettings.isEnabled()) {
       return false;
     }
