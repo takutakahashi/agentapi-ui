@@ -15,7 +15,7 @@ async function fetchVAPIDKey(): Promise<string | null> {
 
   vapidKeyPromise = (async () => {
     try {
-      const response = await fetch('/api/config');
+      const response = await fetch('/api/vapid');
       if (response.ok) {
         const config = await response.json();
         const key = config.vapidPublicKey;
