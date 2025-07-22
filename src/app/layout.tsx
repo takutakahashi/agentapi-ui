@@ -50,6 +50,7 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
+        <script src="/config.js"></script>
       </head>
       <body className={inter.className}>
         <ThemeProvider>

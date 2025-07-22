@@ -35,6 +35,18 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Add script to generate runtime config
+COPY <<EOF /usr/local/bin/generate-config.sh
+#!/bin/bash
+cat > /app/public/config.js << EOL
+window.__RUNTIME_CONFIG__ = {
+  VAPID_PUBLIC_KEY: '\${VAPID_PUBLIC_KEY:-}'
+};
+EOL
+EOF
+
+RUN chmod +x /usr/local/bin/generate-config.sh
+
 USER nextjs
 
 EXPOSE 3000
@@ -44,4 +56,5 @@ ENV HOSTNAME="0.0.0.0"
 ARG VALIDATE_API_KEY_WITH_PROXY=true
 ENV VALIDATE_API_KEY_WITH_PROXY=${VALIDATE_API_KEY_WITH_PROXY}
 
-CMD ["bun", "server.js"]
+# Generate config.js with environment variables at startup
+CMD ["/bin/bash", "-c", "generate-config.sh && exec bun server.js"]
