@@ -8,8 +8,8 @@ function getVAPIDPublicKey(): string | undefined {
   }
   
   // 2. Runtime configuration（コンテナ対応）
-  if (typeof window !== 'undefined' && (window as any).__RUNTIME_CONFIG__) {
-    const key = (window as any).__RUNTIME_CONFIG__.VAPID_PUBLIC_KEY;
+  if (typeof window !== 'undefined' && window.__RUNTIME_CONFIG__) {
+    const key = window.__RUNTIME_CONFIG__.VAPID_PUBLIC_KEY;
     // VAPIDキーの形式検証（Base64URL）
     if (key && /^[A-Za-z0-9_-]+$/.test(key)) {
       return key;
