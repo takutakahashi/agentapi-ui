@@ -153,7 +153,7 @@ export class PushNotificationManager {
       const subscriptions = data.subscriptions || [];
       
       // endpointが一致し、failureCountが低いsubscriptionが存在するかチェック
-      const existing = subscriptions.find((sub: any) => 
+      const existing = subscriptions.find((sub: { endpoint: string; failureCount?: number }) => 
         sub.endpoint.includes(subscription.endpoint.substring(-50)) && 
         (sub.failureCount || 0) < 3
       );
