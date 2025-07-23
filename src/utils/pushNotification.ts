@@ -113,13 +113,25 @@ export class PushNotificationManager {
       // 既存のサブスクリプションを確認
       this.subscription = await this.registration.pushManager.getSubscription();
       
-      if (!this.subscription) {
-        // 新しいサブスクリプションを作成
-        this.subscription = await this.registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: this.urlBase64ToUint8Array(vapidKey)
-        });
+      if (this.subscription) {
+        // 既存のsubscriptionがサーバーに登録されているか確認
+        const isValid = await this.validateExistingSubscription(this.subscription);
+        if (isValid) {
+          console.log('既存のサブスクリプションを使用します:', this.subscription.endpoint);
+          pushNotificationSettings.setEndpoint(this.subscription.endpoint);
+          return true;
+        } else {
+          // 無効な場合は削除して新規作成
+          await this.subscription.unsubscribe();
+          console.log('無効なサブスクリプションを削除しました');
+        }
       }
+
+      // 新しいサブスクリプションを作成
+      this.subscription = await this.registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: this.urlBase64ToUint8Array(vapidKey)
+      });
 
       // サーバーにサブスクリプションを送信
       await this.sendSubscriptionToServer(this.subscription);
@@ -128,6 +140,28 @@ export class PushNotificationManager {
     } catch (error) {
       console.error('プッシュサブスクリプション作成失敗:', error);
       return false;
+    }
+  }
+
+  // 既存subscriptionの有効性をサーバーで確認
+  private async validateExistingSubscription(subscription: PushSubscription): Promise<boolean> {
+    try {
+      const response = await fetch('/api/subscriptions/cleanup');
+      if (!response.ok) return false;
+      
+      const data = await response.json();
+      const subscriptions = data.subscriptions || [];
+      
+      // endpointが一致し、failureCountが低いsubscriptionが存在するかチェック
+      const existing = subscriptions.find((sub: any) => 
+        sub.endpoint.includes(subscription.endpoint.substring(-50)) && 
+        (sub.failureCount || 0) < 3
+      );
+      
+      return !!existing;
+    } catch (error) {
+      console.warn('Subscription validation failed:', error);
+      return false; // エラー時は新規作成
     }
   }
 
@@ -281,7 +315,9 @@ export class PushNotificationManager {
       return false;
     }
 
+    // 明示的に有効化されている場合のみ自動購読
     if (!pushNotificationSettings.isEnabled()) {
+      console.log('プッシュ通知が無効のため、自動初期化をスキップします');
       return false;
     }
 
@@ -294,13 +330,31 @@ export class PushNotificationManager {
 
     try {
       const initialized = await this.initialize();
-      if (initialized && pushNotificationSettings.shouldAutoSubscribe()) {
+      if (!initialized) return false;
+
+      // 既存のsubscriptionが存在するかチェック
+      const existingSubscription = await this.registration?.pushManager.getSubscription();
+      if (existingSubscription) {
+        this.subscription = existingSubscription;
+        const isValid = await this.validateExistingSubscription(existingSubscription);
+        if (isValid) {
+          console.log('既存の有効なsubscriptionを確認しました');
+          pushNotificationSettings.setEndpoint(existingSubscription.endpoint);
+          return true;
+        }
+      }
+
+      // autoSubscribeが有効な場合のみ新規購読
+      if (pushNotificationSettings.shouldAutoSubscribe()) {
+        console.log('自動購読を実行します');
         const subscribed = await this.subscribe();
         if (subscribed) {
           pushNotificationSettings.setEndpoint(this.subscription?.endpoint);
         }
         return subscribed;
       }
+
+      console.log('自動購読は無効化されています');
       return initialized;
     } catch (error) {
       console.error('自動初期化エラー:', error);

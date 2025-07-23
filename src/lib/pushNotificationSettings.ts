@@ -10,7 +10,7 @@ const STORAGE_KEY = 'agentapi-push-notification-settings';
 
 const defaultSettings: PushNotificationSettings = {
   enabled: false,
-  autoSubscribe: true,
+  autoSubscribe: false, // デフォルトは無効に変更
   showTestNotifications: true,
 };
 
