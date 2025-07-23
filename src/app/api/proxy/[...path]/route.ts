@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiKeyFromCookie } from '@/lib/cookie-auth';
 import { getEncryptionService } from '@/lib/encryption';
+import { markSubscriptionFailure, markSubscriptionSuccess } from '@/lib/subscriptions';
 
 const PROXY_URL = process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080';
 
@@ -330,6 +331,29 @@ async function handleProxyRequest(
       }
       
       return NextResponse.json(errorResponse, { status: response.status });
+    }
+
+    // Push notification送信結果の追跡
+    if (pathParts.includes('notification') && pathParts.includes('send')) {
+      try {
+        if (response.ok && typeof responseData === 'object' && responseData !== null) {
+          const result = responseData as Record<string, unknown>;
+          // 送信成功時の処理
+          if (result.successfulEndpoints && Array.isArray(result.successfulEndpoints)) {
+            result.successfulEndpoints.forEach((endpoint: string) => {
+              markSubscriptionSuccess(endpoint);
+            });
+          }
+          // 送信失敗時の処理
+          if (result.failedEndpoints && Array.isArray(result.failedEndpoints)) {
+            result.failedEndpoints.forEach((endpoint: string) => {
+              markSubscriptionFailure(endpoint);
+            });
+          }
+        }
+      } catch (trackingError) {
+        console.warn('Subscription tracking error:', trackingError);
+      }
     }
 
     return NextResponse.json(responseData, { status: response.status });

@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { deleteApiKeyCookie } from '@/lib/cookie-auth';
 import { decryptCookie } from '@/lib/cookie-encryption';
+import { getSubscriptionsByUserId, removeSubscription } from '@/lib/subscriptions';
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,6 +41,31 @@ export async function POST(request: NextRequest) {
       } catch (err) {
         // If decryption fails, it might be an old API key cookie
         console.error('Failed to decrypt session data:', err);
+      }
+    }
+
+    // ユーザーのsubscriptionをクリーンアップ
+    if (authToken) {
+      try {
+        const decryptedData = decryptCookie(authToken);
+        const sessionData = JSON.parse(decryptedData);
+        
+        if (sessionData.userId) {
+          const userSubscriptions = getSubscriptionsByUserId(sessionData.userId);
+          let removedCount = 0;
+          
+          for (const subscription of userSubscriptions) {
+            if (removeSubscription(subscription.endpoint)) {
+              removedCount++;
+            }
+          }
+          
+          if (removedCount > 0) {
+            console.log(`ユーザー ${sessionData.userId} のsubscription ${removedCount}件をクリーンアップしました`);
+          }
+        }
+      } catch (cleanupError) {
+        console.warn('Subscription cleanup error during logout:', cleanupError);
       }
     }
 
