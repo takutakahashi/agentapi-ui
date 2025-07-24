@@ -34,6 +34,7 @@ export interface SettingsFormData {
   environmentVariables: EnvironmentVariable[]
   mcpServers: MCPServerConfig[]
   bedrockSettings?: BedrockSettings
+  systemPrompt?: string
 }
 
 // Single Profile Mode settings
@@ -70,7 +71,8 @@ export const getDefaultSettings = (): SettingsFormData => ({
   mcpServers: [],
   bedrockSettings: {
     enabled: false
-  }
+  },
+  systemPrompt: ''
 })
 
 // Default Single Profile Mode settings
@@ -330,7 +332,8 @@ const mergeWithDefaults = (partialSettings: Partial<SettingsFormData> | null | u
     mcpServers: Array.isArray(partialSettings?.mcpServers)
       ? partialSettings.mcpServers
       : defaultSettings.mcpServers,
-    bedrockSettings: partialSettings?.bedrockSettings || defaultSettings.bedrockSettings
+    bedrockSettings: partialSettings?.bedrockSettings || defaultSettings.bedrockSettings,
+    systemPrompt: partialSettings?.systemPrompt ?? defaultSettings.systemPrompt
   }
 }
 
@@ -349,7 +352,8 @@ const mergeSettings = (globalSettings: SettingsFormData, repoSettings: SettingsF
         !(globalSettings.mcpServers || []).some(globalServer => globalServer.id === repoServer.id)
       )
     ],
-    bedrockSettings: repoSettings.bedrockSettings || globalSettings.bedrockSettings
+    bedrockSettings: repoSettings.bedrockSettings || globalSettings.bedrockSettings,
+    systemPrompt: repoSettings.systemPrompt || globalSettings.systemPrompt
   }
 }
 

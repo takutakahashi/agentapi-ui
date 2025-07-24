@@ -80,6 +80,12 @@ export default function GlobalSettingsPage() {
         }))
       }
       
+      if (decryptedJson.systemPrompt) {
+        setSettings(prev => ({
+          ...prev,
+          systemPrompt: decryptedJson.systemPrompt
+        }))
+      }
       
       if (decryptedJson.bedrockSettings) {
         setSettings(prev => ({
@@ -113,6 +119,7 @@ export default function GlobalSettingsPage() {
           // Prepare settings data to encrypt
           const settingsData = {
             baseUrl: `${window.location.protocol}//${window.location.host}/api/proxy`,
+            systemPrompt: settings.systemPrompt,
             bedrockSettings: settings.bedrockSettings,
             environmentVariables: settings.environmentVariables.reduce((acc, env) => {
               if (env.key) acc[env.key] = env.value
@@ -204,6 +211,23 @@ export default function GlobalSettingsPage() {
         </div>
 
         <div className="space-y-8">
+          {/* System Prompt */}
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              System Prompt
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Define the default system prompt that will be used for all sessions. This prompt is encrypted and stored securely.
+            </p>
+            <textarea
+              value={settings.systemPrompt || ''}
+              onChange={(e) => setSettings(prev => ({ ...prev, systemPrompt: e.target.value }))}
+              placeholder="Enter your system prompt here..."
+              rows={6}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-vertical"
+            />
+          </div>
+
           {/* Environment Variables */}
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">

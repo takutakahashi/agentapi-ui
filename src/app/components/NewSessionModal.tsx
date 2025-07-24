@@ -10,6 +10,7 @@ import { messageTemplateManager } from '../../utils/messageTemplateManager'
 import { MessageTemplate } from '../../types/messageTemplate'
 import { recentMessagesManager } from '../../utils/recentMessagesManager'
 import { OrganizationHistory } from '../../utils/organizationHistory'
+import { isSingleProfileModeEnabled } from '../../types/settings'
 import EditProfileModal from './EditProfileModal'
 
 interface NewSessionModalProps {
@@ -236,16 +237,33 @@ export default function NewSessionModal({
       // Agent Availableになったらメッセージを送信
       onSessionStatusUpdate(sessionId, 'sending-message')
       
-      // 選択されたプロファイルからシステムプロンプトを取得
-      let systemPromptProfile = null
-      if (selectedProfileId) {
-        systemPromptProfile = ProfileManager.getProfile(selectedProfileId)
+      // システムプロンプトを取得
+      let systemPrompt = ''
+      const isSingleProfile = isSingleProfileModeEnabled()
+      
+      if (isSingleProfile) {
+        // Single Profile Modeの場合、APIからシステムプロンプトを取得
+        try {
+          const response = await fetch('/api/system-prompt')
+          if (response.ok) {
+            const data = await response.json()
+            systemPrompt = data.systemPrompt || ''
+          }
+        } catch (error) {
+          console.warn('Failed to fetch system prompt from API:', error)
+        }
+      } else {
+        // 通常モードの場合、選択されたプロファイルからシステムプロンプトを取得
+        if (selectedProfileId) {
+          const systemPromptProfile = ProfileManager.getProfile(selectedProfileId)
+          systemPrompt = systemPromptProfile?.systemPrompt || ''
+        }
       }
       
       // システムプロンプトと初期メッセージを結合
       let combinedMessage = message
-      if (systemPromptProfile?.systemPrompt?.trim()) {
-        combinedMessage = `${systemPromptProfile.systemPrompt}\n\n---\n\n${message}`
+      if (systemPrompt.trim()) {
+        combinedMessage = `${systemPrompt}\n\n---\n\n${message}`
         console.log(`Combined system prompt with initial message for session ${session.session_id}`)
       }
       
