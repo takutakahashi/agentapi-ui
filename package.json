@@ -1,6 +1,6 @@
 {
   "name": "agentapi-ui",
-  "version": "v1.19.0",
+  "version": "v1.33.0",
   "private": true,
   "packageManager": "bun@1.2.16",
   "scripts": {
