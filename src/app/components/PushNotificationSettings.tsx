@@ -116,14 +116,9 @@ export const PushNotificationSettings: React.FC = () => {
     setIsLoading(true);
     setMessage('');
 
-    try {
-      await pushNotificationManager.sendLocalNotification('テスト通知', 'プッシュ通知のテストです');
-      setMessage('テスト通知を送信しました');
-    } catch (error) {
-      setMessage(`テスト通知エラー: ${error instanceof Error ? error.message : '不明なエラー'}`);
-    } finally {
-      setIsLoading(false);
-    }
+    // ローカル通知機能は削除されました
+    setMessage('テスト通知機能は無効化されています（ローカル通知機能削除済み）');
+    setIsLoading(false);
   };
 
   const getPermissionText = (permission: NotificationPermission) => {
