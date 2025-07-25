@@ -97,20 +97,12 @@ export const OneClickPushNotifications: React.FC = () => {
   const handleTestNotification = async () => {
     setState(prev => ({ ...prev, isLoading: true, lastMessage: '' }));
 
-    try {
-      await pushNotificationManager.sendLocalNotification('テスト通知', 'プッシュ通知のテストです');
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-        lastMessage: 'テスト通知を送信しました'
-      }));
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-        lastMessage: `テスト通知エラー: ${error instanceof Error ? error.message : '不明なエラー'}`
-      }));
-    }
+    // ローカル通知機能は削除されました
+    setState(prev => ({
+      ...prev,
+      isLoading: false,
+      lastMessage: 'テスト通知機能は無効化されています（ローカル通知機能削除済み）'
+    }));
   };
 
 

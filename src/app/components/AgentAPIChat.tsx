@@ -424,15 +424,6 @@ export default function AgentAPIChat() {
       
       setMessages(convertedMessages);
       
-      // Check for agent status change (running -> stable)
-      const prevStatus = prevAgentStatusRef.current;
-      if (prevStatus?.status === 'running' && sessionStatus?.status === 'stable') {
-        // Agent turn completed, send notification
-        pushNotificationManager.sendLocalNotification(
-          'エージェントが応答しました',
-          '新しいメッセージを確認してください'
-        ).catch(console.error);
-      }
       
       setAgentStatus(sessionStatus);
       prevAgentStatusRef.current = sessionStatus;

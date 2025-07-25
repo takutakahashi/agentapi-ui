@@ -239,15 +239,6 @@ export class PushNotificationManager {
       pushNotificationSettings.setEnabled(true);
       pushNotificationSettings.setEndpoint(this.subscription?.endpoint);
 
-      // 5. テスト通知送信（設定で有効な場合）
-      if (pushNotificationSettings.shouldShowTestNotifications()) {
-        try {
-          // ローカル通知でテスト（サーバー送信は不要）
-          await this.sendLocalNotification('✅ プッシュ通知が有効になりました', 'AgentAPIからの通知を受け取れるようになりました');
-        } catch (error) {
-          console.warn('テスト通知の送信に失敗:', error);
-        }
-      }
 
       return { success: true, message: 'プッシュ通知が正常に有効化されました' };
     } catch (error) {
@@ -332,23 +323,6 @@ export class PushNotificationManager {
     pushNotificationSettings.updateSettings(updates);
   }
 
-  async sendLocalNotification(title: string, body: string): Promise<void> {
-    if (!this.registration) {
-      // フォールバック: ブラウザ標準通知
-      if (Notification.permission === 'granted') {
-        new Notification(title, { body, icon: '/icon-192x192.png' });
-      }
-      return;
-    }
-
-    // Service Worker経由で通知
-    await this.registration.showNotification(title, {
-      body,
-      icon: '/icon-192x192.png',
-      badge: '/icon-192x192.png',
-      tag: 'agent-response'
-    });
-  }
 
   private urlBase64ToUint8Array(base64String: string): Uint8Array {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
