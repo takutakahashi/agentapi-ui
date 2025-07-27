@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { decryptApiKey } from './lib/cookie-auth'
 
 export async function middleware(request: NextRequest) {
   // Check if single profile mode is enabled
@@ -29,6 +30,23 @@ export async function middleware(request: NextRequest) {
       // If no auth token, redirect to login page
       const loginUrl = new URL('/login', request.url)
       return NextResponse.redirect(loginUrl)
+    }
+    
+    // Validate the cookie by attempting to decrypt it
+    try {
+      const decryptedToken = decryptApiKey(authToken.value)
+      if (!decryptedToken) {
+        // If decryption fails, clear the invalid cookie and redirect to login
+        const response = NextResponse.redirect(new URL('/login', request.url))
+        response.cookies.delete('agentapi_token')
+        return response
+      }
+    } catch (error) {
+      // If decryption throws an error, clear the invalid cookie and redirect to login
+      console.error('Failed to decrypt auth token:', error)
+      const response = NextResponse.redirect(new URL('/login', request.url))
+      response.cookies.delete('agentapi_token')
+      return response
     }
   }
   

@@ -68,7 +68,7 @@ export async function setApiKeyCookie(apiKey: string): Promise<void> {
   cookieStore.set(COOKIE_NAME, encryptedApiKey, {
     httpOnly: true,
     secure: true,
-    sameSite: 'strict',
+    sameSite: 'lax', // Changed from 'strict' to 'lax' for better PWA compatibility
     maxAge: 30 * 24 * 60 * 60, // 30 days
     path: '/',
   });
@@ -103,7 +103,7 @@ export async function deleteApiKeyCookie(): Promise<void> {
   cookieStore.set(COOKIE_NAME, '', {
     httpOnly: true,
     secure: true,
-    sameSite: 'strict',
+    sameSite: 'lax', // Keep consistent with setApiKeyCookie
     maxAge: 0,
     path: '/',
   });
