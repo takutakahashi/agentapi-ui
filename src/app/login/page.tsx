@@ -4,9 +4,11 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Github } from 'lucide-react'
 import { getRedirectUri } from '@/lib/oauth-utils'
+import { useAuthPersistence } from '@/hooks/useAuthPersistence'
 
 export default function LoginPage() {
   const router = useRouter()
+  const { persistApiKey } = useAuthPersistence()
   const [apiKey, setApiKey] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -35,6 +37,8 @@ export default function LoginPage() {
       const data = await response.json()
 
       if (response.ok) {
+        // Persist API key for PWA session persistence
+        await persistApiKey(apiKey)
         router.push('/')
       } else {
         setError(data.error || 'Invalid API key')

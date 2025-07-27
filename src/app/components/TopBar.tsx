@@ -8,6 +8,7 @@ import { ProfileListItem } from '../../types/profile'
 import { useTheme } from '../../hooks/useTheme'
 import { isSingleProfileModeEnabled } from '../../types/settings'
 import EditProfileModal from './EditProfileModal'
+import { useAuthPersistence } from '@/hooks/useAuthPersistence'
 
 interface TopBarProps {
   title: string
@@ -36,6 +37,7 @@ export default function TopBar({
 }: TopBarProps) {
   const router = useRouter()
   const { updateThemeFromProfile } = useTheme()
+  const { clearPersistedAuth } = useAuthPersistence()
   const [profiles, setProfiles] = useState<ProfileListItem[]>([])
   const [currentProfile, setCurrentProfile] = useState<ProfileListItem | null>(null)
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
@@ -299,9 +301,13 @@ export default function TopBar({
                 onClick={async () => {
                   try {
                     await fetch('/api/auth/logout', { method: 'POST' })
+                    // Clear persisted auth for PWA
+                    await clearPersistedAuth()
                     router.push('/login')
                   } catch (error) {
                     console.error('Logout failed:', error)
+                    // Clear persisted auth even if logout fails
+                    await clearPersistedAuth()
                     // Fallback to direct redirect if router fails
                     window.location.href = '/login'
                   }
