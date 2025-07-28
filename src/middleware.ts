@@ -28,7 +28,6 @@ export async function middleware(request: NextRequest) {
     console.log(`[Middleware] Checking auth for path: ${pathname}`)
     console.log(`[Middleware] Cookie exists: ${!!authToken}`)
     console.log(`[Middleware] Cookie value: ${authToken?.value ? '[PRESENT]' : '[MISSING]'}`)
-    console.log(`[Middleware] All cookies: ${request.cookies.toString()}`)
     
     if (!authToken) {
       console.log(`[Middleware] No auth token found, redirecting to login`)
