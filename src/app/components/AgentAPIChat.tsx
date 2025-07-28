@@ -1019,6 +1019,12 @@ export default function AgentAPIChat() {
               onBlur={() => {
                 setTimeout(() => setShowTemplates(false), 150);
               }}
+              onInput={(e) => {
+                // エージェントが実行中で、テキストエリアに文字が入力されたらESCを送信
+                if (agentStatus?.status === 'running' && e.currentTarget.value.trim()) {
+                  sendStopSignal();
+                }
+              }}
               placeholder={
                 !isConnected 
                   ? "Connecting..." 
