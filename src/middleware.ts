@@ -25,11 +25,25 @@ export async function middleware(request: NextRequest) {
     // Check if user has auth token
     const authToken = request.cookies.get('agentapi_token')
     
+    console.log(`[Middleware] Checking auth for path: ${pathname}`)
+    console.log(`[Middleware] Cookie exists: ${!!authToken}`)
+    console.log(`[Middleware] Cookie value: ${authToken?.value ? '[PRESENT]' : '[MISSING]'}`)
+    console.log(`[Middleware] All cookies: ${request.cookies.toString()}`)
+    
     if (!authToken) {
+      console.log(`[Middleware] No auth token found, redirecting to login`)
       // If no auth token, redirect to login page
       const loginUrl = new URL('/login', request.url)
       return NextResponse.redirect(loginUrl)
     }
+    
+    if (!authToken.value || authToken.value.trim() === '') {
+      console.log(`[Middleware] Auth token is empty, redirecting to login`)
+      const loginUrl = new URL('/login', request.url)
+      return NextResponse.redirect(loginUrl)
+    }
+    
+    console.log(`[Middleware] Auth token valid, allowing access to ${pathname}`)
   }
   
   return NextResponse.next()
