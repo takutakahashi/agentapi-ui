@@ -97,6 +97,31 @@ export async function getApiKeyFromCookie(): Promise<string | null> {
   }
 }
 
+export async function renewApiKeyCookie(): Promise<void> {
+  try {
+    const cookieStore = await cookies();
+    const encryptedApiKey = cookieStore.get(COOKIE_NAME)?.value;
+    
+    if (!encryptedApiKey) {
+      debugLog('No agentapi_token cookie found to renew');
+      return;
+    }
+    
+    // Re-set the cookie to renew its expiration
+    cookieStore.set(COOKIE_NAME, encryptedApiKey, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 30 * 24 * 60 * 60, // 30 days
+      path: '/',
+    });
+    
+    debugLog('Renewed agentapi_token cookie expiration');
+  } catch (error) {
+    console.error('Failed to renew API key cookie:', error);
+  }
+}
+
 export async function deleteApiKeyCookie(): Promise<void> {
   const cookieStore = await cookies();
   // Set the cookie with maxAge=0 to ensure it's deleted

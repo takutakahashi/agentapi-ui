@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getApiKeyFromCookie } from '@/lib/cookie-auth';
+import { getApiKeyFromCookie, renewApiKeyCookie } from '@/lib/cookie-auth';
 import { getEncryptionService } from '@/lib/encryption';
 
 const PROXY_URL = process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080';
@@ -98,6 +98,11 @@ async function handleProxyRequest(
           },
           { status: 401 }
         );
+      }
+      
+      // Renew cookie expiration only on session creation
+      if (path === 'start' && method === 'POST') {
+        await renewApiKeyCookie();
       }
     }
 
