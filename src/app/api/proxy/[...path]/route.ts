@@ -100,8 +100,10 @@ async function handleProxyRequest(
         );
       }
       
-      // Renew cookie expiration on authenticated API requests
-      await renewApiKeyCookie();
+      // Renew cookie expiration only on session creation
+      if (path === 'start' && method === 'POST') {
+        await renewApiKeyCookie();
+      }
     }
 
     // Determine proxy URL based on single profile mode settings
