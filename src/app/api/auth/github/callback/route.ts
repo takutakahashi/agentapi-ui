@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     const headers = new Headers()
     headers.append(
       'Set-Cookie',
-      `agentapi_token=${encryptedApiKey}; HttpOnly; Secure; SameSite=strict; Path=/; Max-Age=86400`
+      `agentapi_token=${encryptedApiKey}; HttpOnly; Secure; SameSite=strict; Path=/; Max-Age=2592000`
     )
     
     // oauth_state Cookieを削除
