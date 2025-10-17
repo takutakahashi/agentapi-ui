@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Github } from 'lucide-react'
 import { getRedirectUri } from '@/lib/oauth-utils'
@@ -11,12 +11,36 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [isGitHubLoading, setIsGitHubLoading] = useState(false)
+  const [checkingAuth, setCheckingAuth] = useState(true)
 
   // 環境変数から設定を取得
   const oauthOnlyMode = process.env.NEXT_PUBLIC_OAUTH_ONLY_MODE === 'true'
   const loginTitle = process.env.NEXT_PUBLIC_LOGIN_TITLE || 'AgentAPI UI'
   const loginDescription = process.env.NEXT_PUBLIC_LOGIN_DESCRIPTION || 'Single Profile Mode is enabled. Enter your API key to continue.'
   const loginSubDescription = process.env.NEXT_PUBLIC_LOGIN_SUB_DESCRIPTION || 'API key can be any valid authentication token for your AgentAPI service.'
+
+  // 認証状態をチェックして自動リダイレクト
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      try {
+        const response = await fetch('/api/auth/status')
+        const data = await response.json()
+        
+        if (data.authenticated) {
+          // 認証済みの場合はダッシュボードにリダイレクト
+          router.push('/')
+        } else {
+          // 認証されていない場合はログインフォームを表示
+          setCheckingAuth(false)
+        }
+      } catch (error) {
+        console.error('Failed to check auth status:', error)
+        setCheckingAuth(false)
+      }
+    }
+
+    checkAuthStatus()
+  }, [router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -74,6 +98,18 @@ export default function LoginPage() {
       setError(err instanceof Error ? err.message : '予期しないエラーが発生しました')
       setIsGitHubLoading(false)
     }
+  }
+
+  // 認証状態チェック中はローディングを表示
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Checking authentication...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
