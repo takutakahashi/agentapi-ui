@@ -4,20 +4,23 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Github } from 'lucide-react'
 import { getRedirectUri } from '@/lib/oauth-utils'
+import { useConfig } from '@/hooks/useConfig'
 
 export default function LoginPage() {
   const router = useRouter()
+  const { config, isLoading: isConfigLoading } = useConfig()
   const [apiKey, setApiKey] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [isGitHubLoading, setIsGitHubLoading] = useState(false)
   const [checkingAuth, setCheckingAuth] = useState(true)
 
-  // 環境変数から設定を取得（ビルド時に静的に埋め込まれる）
-  const oauthOnlyMode = process.env.NEXT_PUBLIC_OAUTH_ONLY_MODE === 'true'
-  const loginTitle = process.env.NEXT_PUBLIC_LOGIN_TITLE || 'AgentAPI UI'
-  const loginDescription = process.env.NEXT_PUBLIC_LOGIN_DESCRIPTION || 'Single Profile Mode is enabled. Enter your API key to continue.'
-  const loginSubDescription = process.env.NEXT_PUBLIC_LOGIN_SUB_DESCRIPTION || 'API key can be any valid authentication token for your AgentAPI service.'
+  // 設定から値を取得
+  const showApiKeyForm = config?.authMode !== 'oauth_only'
+  const showOAuthButtons = config?.authMode !== 'api_key'
+  const loginTitle = config?.loginTitle ?? 'AgentAPI UI'
+  const loginDescription = config?.loginDescription ?? 'Enter your API key or sign in with GitHub to continue.'
+  const loginSubDescription = config?.loginSubDescription ?? ''
 
   // 認証状態をチェック
   useEffect(() => {
@@ -100,8 +103,8 @@ export default function LoginPage() {
     }
   }
 
-  // 認証状態チェック中はローディングを表示
-  if (checkingAuth) {
+  // 認証状態チェック中または設定読み込み中はローディングを表示
+  if (checkingAuth || isConfigLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
@@ -122,14 +125,14 @@ export default function LoginPage() {
           <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
             {loginDescription}
           </p>
-          {!oauthOnlyMode && loginSubDescription && (
+          {showApiKeyForm && loginSubDescription && (
             <p className="mt-1 text-center text-xs text-gray-500 dark:text-gray-500">
               {loginSubDescription}
             </p>
           )}
         </div>
 
-        {!oauthOnlyMode && (
+        {showApiKeyForm && (
           <form className="mt-8 space-y-6" onSubmit={handleLogin}>
             <div className="rounded-md shadow-sm -space-y-px">
               <div>
@@ -167,13 +170,13 @@ export default function LoginPage() {
           </form>
         )}
 
-        {error && oauthOnlyMode && (
+        {error && !showApiKeyForm && (
           <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4 mt-8">
             <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
           </div>
         )}
 
-        {!oauthOnlyMode && (
+        {showApiKeyForm && showOAuthButtons && (
           <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -186,16 +189,18 @@ export default function LoginPage() {
           </div>
         )}
 
-        <div className={oauthOnlyMode ? "mt-8" : "mt-6"}>
-          <button
-            onClick={handleGitHubLogin}
-            disabled={isGitHubLoading}
-            className="w-full flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Github className="w-5 h-5 mr-2" />
-            {isGitHubLoading ? 'Redirecting...' : 'Continue with GitHub'}
-          </button>
-        </div>
+        {showOAuthButtons && (
+          <div className={!showApiKeyForm ? "mt-8" : "mt-6"}>
+            <button
+              onClick={handleGitHubLogin}
+              disabled={isGitHubLoading}
+              className="w-full flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Github className="w-5 h-5 mr-2" />
+              {isGitHubLoading ? 'Redirecting...' : 'Continue with GitHub'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
