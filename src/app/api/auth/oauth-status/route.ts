@@ -1,17 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
-export async function GET(request: NextRequest) {
+// agentapi-proxy の URL を取得
+const PROXY_URL = process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080'
+
+export async function GET() {
   try {
-    // agentapi-proxyのOAuth認証エンドポイントを確認
-    const baseUrl = process.env.AGENTAPI_PROXY_ENDPOINT ||
-      (process.env.NODE_ENV === 'production'
-        ? `https://${request.headers.get('host')}`
-        : 'http://localhost:3000')
-    const proxyEndpoint = baseUrl.endsWith('/api/proxy') ? baseUrl : `${baseUrl}/api/proxy`
-
-    // OAuthエンドポイントにPOSTリクエストを送信して、有効かどうかを確認
-    // ダミーのredirect_uriを使用（実際の認証は行わない）
-    const response = await fetch(`${proxyEndpoint}/oauth/authorize`, {
+    // agentapi-proxyのOAuth認証エンドポイントを直接確認
+    // 注意: /api/proxy 経由ではなく、直接 agentapi-proxy に接続
+    const response = await fetch(`${PROXY_URL}/oauth/authorize`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
