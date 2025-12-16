@@ -66,8 +66,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             NEXT_PUBLIC_OAUTH_ONLY_MODE=true
-            NEXT_PUBLIC_SINGLE_PROFILE_MODE=true
-            SINGLE_PROFILE_MODE=true
             VALIDATE_API_KEY_WITH_PROXY=true
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -48,8 +48,7 @@ export const handlers = [
 
   http.get('/api/auth/status', () => {
     return HttpResponse.json({
-      singleProfileMode: process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true',
-      isAuthenticated: true
+      authenticated: true
     });
   }),
 

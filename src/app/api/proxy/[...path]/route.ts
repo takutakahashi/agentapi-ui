@@ -64,22 +64,6 @@ async function handleProxyRequest(
       hasBody: method !== 'GET' && method !== 'HEAD'
     });
 
-    // Check if single profile mode is enabled
-    const singleProfileMode = process.env.SINGLE_PROFILE_MODE === 'true' || 
-                              process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true';
-    
-    if (!singleProfileMode) {
-      console.error('API proxy request failed: Single profile mode is not enabled. Set SINGLE_PROFILE_MODE=true environment variable.');
-      return NextResponse.json(
-        { 
-          error: 'Single profile mode is not enabled', 
-          message: 'This API endpoint requires single profile mode to be enabled.',
-          code: 'SINGLE_PROFILE_MODE_DISABLED'
-        },
-        { status: 403 }
-      );
-    }
-
     // Check if this is an OAuth endpoint that doesn't require API key
     const path = pathParts.join('/');
     const isOAuthEndpoint = path.startsWith('oauth/') || path.includes('auth/');
@@ -106,19 +90,9 @@ async function handleProxyRequest(
       }
     }
 
-    // Determine proxy URL based on single profile mode settings
-    let proxyUrl = PROXY_URL;
-    
-    // In single profile mode, use the request hostname for proxy URL construction
-    if (singleProfileMode) {
-      const host = request.headers.get('host');
-      
-      if (host) {
-        // Use the actual backend URL for proxying
-        proxyUrl = process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080';
-      }
-    }
-    
+    // Use the configured proxy URL
+    const proxyUrl = PROXY_URL;
+
     // Construct target URL
     const searchParams = request.nextUrl.searchParams;
     const targetUrl = `${proxyUrl}/${path}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;

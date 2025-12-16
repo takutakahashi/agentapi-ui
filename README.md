@@ -25,15 +25,14 @@ cp .env.local.example .env.local
 
 3. `.env.local`を編集:
 ```bash
-# Single Profile Mode Configuration
-SINGLE_PROFILE_MODE=true
-NEXT_PUBLIC_SINGLE_PROFILE_MODE=true
-
 # Cookie encryption secret (generate with: openssl rand -hex 32)
 COOKIE_ENCRYPTION_SECRET=your_64_character_hex_string_here
 
 # AgentAPI Proxy Configuration
 AGENTAPI_PROXY_URL=http://localhost:8080
+
+# OAuth Only Mode (optional - hides API key login form)
+NEXT_PUBLIC_OAUTH_ONLY_MODE=false
 
 # Push Notification Configuration (オプション)
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_vapid_public_key_here
@@ -46,15 +45,17 @@ VAPID_SUBJECT=mailto:admin@example.com
 bun run dev
 ```
 
-### シングルプロファイルモード
+### 認証
 
-環境変数で `SINGLE_PROFILE_MODE=true` を設定すると：
-- ユーザーは `/login` でAPIキーを使って認証する必要があります
-- APIキーは暗号化されてセキュアなCookieに保存されます
-- プロファイル切り替えUIは非表示になります
-- ログアウト機能がトップバーに表示されます
+ユーザーは `/login` ページで認証を行います：
+- **APIキー認証**: APIキーを入力してログイン
+- **GitHub OAuth認証**: GitHub経由でログイン（agentapi-proxyのOAuth設定が必要）
 
-**重要**: シングルプロファイルモードを使用する場合は、必ず `COOKIE_ENCRYPTION_SECRET` に安全な暗号化キーを設定してください。
+APIキーは暗号化されてセキュアなCookieに保存されます。
+
+**OAuth専用モード**: `NEXT_PUBLIC_OAUTH_ONLY_MODE=true` を設定すると、APIキー入力フォームを非表示にしてGitHub OAuth認証のみを使用できます。
+
+**重要**: 必ず `COOKIE_ENCRYPTION_SECRET` に安全な暗号化キーを設定してください。
 
 ## 設定方法
 

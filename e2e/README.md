@@ -1,6 +1,6 @@
 # E2E Tests for AgentAPI UI
 
-This directory contains end-to-end tests for the AgentAPI UI application, with a focus on testing Single Profile Mode functionality using mock backends.
+This directory contains end-to-end tests for the AgentAPI UI application, with a focus on testing authentication functionality using mock backends.
 
 **Note: E2E tests are separate from unit tests and should be run independently.**
 
@@ -32,7 +32,7 @@ The configurations are completely separate to avoid conflicts.
 
 ## Test Structure
 
-- `single-profile-mode.spec.ts` - Tests for Single Profile Mode functionality
+- `authentication.spec.ts` - Tests for authentication functionality
 - `fixtures/mock-server.ts` - MSW mock server configuration
 - `fixtures/test-with-mock.ts` - Custom test fixture with API mocking
 
@@ -44,13 +44,12 @@ The tests use MSW (Mock Service Worker) to intercept and mock API requests. This
 - Test error handling
 - Ensure consistent test results
 
-## Single Profile Mode Testing
+## Authentication Testing
 
 The tests verify:
-- Login modal appears when authentication is required
+- Login page appears when authentication is required
 - API key authentication via `/api/auth/login` endpoint
 - Cookie-based session management
-- Profile switcher is hidden in single profile mode
 - Logout functionality that clears the session
 - Message sending and receiving when authenticated
 - Error handling for invalid API keys
@@ -58,5 +57,4 @@ The tests verify:
 ## Environment Variables
 
 The tests use `.env.test` for configuration:
-- `NEXT_PUBLIC_SINGLE_PROFILE_MODE=true` - Enables single profile mode
 - `COOKIE_ENCRYPTION_SECRET` - Required for cookie encryption in tests

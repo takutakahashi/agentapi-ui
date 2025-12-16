@@ -1,24 +1,17 @@
-name: Docker Build (Single Profile Mode)
+name: Docker Build (Dev)
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Image tag (e.g., v1.0.0-single)'
+        description: 'Image tag suffix (e.g., dev, test)'
         required: false
-        default: 'single-profile-latest'
+        default: 'dev'
   push:
-    tags:
-      - 'v*'
     branches:
-      - main
-    paths:
-      - 'src/**'
-      - 'public/**'
-      - 'package.json'
-      - 'bun.lockb'
-      - 'Dockerfile'
-      - '.github/workflows/docker-single-profile.yaml'
+      - 'claude/**'
+      - 'feature/**'
+      - 'fix/**'
 
 env:
   REGISTRY: ghcr.io
@@ -50,12 +43,9 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          flavor: |
-            suffix=-single-profile,onlatest=true
           tags: |
-            type=semver,pattern={{raw}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=${{ github.sha }}
+            type=raw,value=${{ github.event.inputs.tag || 'dev' }}
+            type=raw,value=${{ github.sha }}-dev
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -64,10 +54,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            NEXT_PUBLIC_SINGLE_PROFILE_MODE=true
-            SINGLE_PROFILE_MODE=true
-            VALIDATE_API_KEY_WITH_PROXY=true
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false

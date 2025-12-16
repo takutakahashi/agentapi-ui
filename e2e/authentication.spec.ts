@@ -1,13 +1,6 @@
 import { test, expect } from './fixtures/test-with-mock';
 
-test.describe('Single Profile Mode', () => {
-  test.beforeEach(async ({ page }) => {
-    // Set single profile mode environment
-    await page.addInitScript(() => {
-      (window as any).NEXT_PUBLIC_SINGLE_PROFILE_MODE = 'true';
-    });
-  });
-
+test.describe('Authentication', () => {
   test('should redirect to login page when not authenticated', async ({ page }) => {
     await page.goto('/');
     
@@ -73,7 +66,7 @@ test.describe('Single Profile Mode', () => {
     await expect(page.getByText(/Invalid API key/i)).toBeVisible();
   });
 
-  test('should not show profile switcher in single profile mode', async ({ page }) => {
+  test('should not show profile switcher when authenticated', async ({ page }) => {
     // Set auth cookie to skip login
     await page.context().addCookies([{
       name: 'agentapi_token',

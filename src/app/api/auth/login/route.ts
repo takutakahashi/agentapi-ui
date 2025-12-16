@@ -11,17 +11,6 @@ const debugLog = (...args: unknown[]) => {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if single profile mode is enabled
-    const singleProfileMode = process.env.SINGLE_PROFILE_MODE === 'true' || 
-                              process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true';
-    
-    if (!singleProfileMode) {
-      return NextResponse.json(
-        { error: 'Single profile mode is not enabled' },
-        { status: 403 }
-      );
-    }
-
     const { apiKey } = await request.json();
     
     if (!apiKey || typeof apiKey !== 'string') {
