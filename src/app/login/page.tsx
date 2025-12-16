@@ -12,21 +12,30 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [isGitHubLoading, setIsGitHubLoading] = useState(false)
   const [checkingAuth, setCheckingAuth] = useState(true)
+  const [isOAuthEnabled, setIsOAuthEnabled] = useState<boolean | null>(null)
 
   // 環境変数から設定を取得
-  const oauthOnlyMode = process.env.NEXT_PUBLIC_OAUTH_ONLY_MODE === 'true'
   const loginTitle = process.env.NEXT_PUBLIC_LOGIN_TITLE || 'AgentAPI UI'
   const loginDescription = process.env.NEXT_PUBLIC_LOGIN_DESCRIPTION || 'Single Profile Mode is enabled. Enter your API key to continue.'
   const loginSubDescription = process.env.NEXT_PUBLIC_LOGIN_SUB_DESCRIPTION || 'API key can be any valid authentication token for your AgentAPI service.'
 
-  // 認証状態をチェックして自動リダイレクト
+  // 認証状態とOAuth状態をチェック
   useEffect(() => {
-    const checkAuthStatus = async () => {
+    const checkStatus = async () => {
       try {
-        const response = await fetch('/api/auth/status')
-        const data = await response.json()
-        
-        if (data.authenticated) {
+        // 認証状態とOAuth状態を並列でチェック
+        const [authResponse, oauthResponse] = await Promise.all([
+          fetch('/api/auth/status'),
+          fetch('/api/auth/oauth-status')
+        ])
+
+        const authData = await authResponse.json()
+        const oauthData = await oauthResponse.json()
+
+        // OAuth状態を設定
+        setIsOAuthEnabled(oauthData.enabled)
+
+        if (authData.authenticated) {
           // 認証済みの場合はダッシュボードにリダイレクト
           router.push('/')
         } else {
@@ -34,12 +43,13 @@ export default function LoginPage() {
           setCheckingAuth(false)
         }
       } catch (error) {
-        console.error('Failed to check auth status:', error)
+        console.error('Failed to check status:', error)
+        setIsOAuthEnabled(false)
         setCheckingAuth(false)
       }
     }
 
-    checkAuthStatus()
+    checkStatus()
   }, [router])
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -122,14 +132,14 @@ export default function LoginPage() {
           <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
             {loginDescription}
           </p>
-          {!oauthOnlyMode && loginSubDescription && (
+          {!isOAuthEnabled && loginSubDescription && (
             <p className="mt-1 text-center text-xs text-gray-500 dark:text-gray-500">
               {loginSubDescription}
             </p>
           )}
         </div>
-        
-        {!oauthOnlyMode && (
+
+        {!isOAuthEnabled && (
           <form className="mt-8 space-y-6" onSubmit={handleLogin}>
             <div className="rounded-md shadow-sm -space-y-px">
               <div>
@@ -167,13 +177,13 @@ export default function LoginPage() {
           </form>
         )}
 
-        {error && oauthOnlyMode && (
+        {error && isOAuthEnabled && (
           <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4 mt-8">
             <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
           </div>
         )}
 
-        {!oauthOnlyMode && (
+        {!isOAuthEnabled && (
           <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -186,16 +196,18 @@ export default function LoginPage() {
           </div>
         )}
 
-        <div className={oauthOnlyMode ? "mt-8" : "mt-6"}>
-          <button
-            onClick={handleGitHubLogin}
-            disabled={isGitHubLoading}
-            className="w-full flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Github className="w-5 h-5 mr-2" />
-            {isGitHubLoading ? 'Redirecting...' : 'Continue with GitHub'}
-          </button>
-        </div>
+        {isOAuthEnabled !== null && (
+          <div className={isOAuthEnabled ? "mt-8" : "mt-6"}>
+            <button
+              onClick={handleGitHubLogin}
+              disabled={isGitHubLoading}
+              className="w-full flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Github className="w-5 h-5 mr-2" />
+              {isGitHubLoading ? 'Redirecting...' : 'Continue with GitHub'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

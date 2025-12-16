@@ -25,26 +25,10 @@ export interface AgentApiProxySettings {
   useAsGithubToken?: boolean
 }
 
-export interface EnvironmentVariable {
-  key: string
-  value: string
-  description?: string
-}
-
-export interface RepositorySettings {
-  repoFullname: string
-  environmentVariables: EnvironmentVariable[]
-  created_at: string
-  updated_at: string
-}
-
 export interface GlobalSettings {
   agentApiProxy: AgentApiProxySettings
-  environmentVariables: EnvironmentVariable[]
   mcpServers: MCPServerConfig[]
-  bedrockSettings?: BedrockSettings
   repositoryHistory: RepositoryHistoryItem[]
-  fixedOrganizations: string[]
   messageTemplates: MessageTemplate[]
   githubAuth?: GitHubOAuthSettings
   created_at: string
@@ -52,9 +36,7 @@ export interface GlobalSettings {
 }
 
 export interface SettingsFormData {
-  environmentVariables: EnvironmentVariable[]
   mcpServers: MCPServerConfig[]
-  bedrockSettings?: BedrockSettings
 }
 
 // GitHub OAuth settings
@@ -67,24 +49,9 @@ export interface GitHubOAuthSettings {
   updated_at: string
 }
 
-export interface BedrockSettings {
-  enabled: boolean
-  awsAccessKeyId?: string
-  awsSecretAccessKey?: string
-  awsSessionToken?: string
-  region?: string
-  modelName?: string
-  endpointUrl?: string
-  timeout?: number
-}
-
 // Default settings
 export const getDefaultSettings = (): SettingsFormData => ({
-  environmentVariables: [],
-  mcpServers: [],
-  bedrockSettings: {
-    enabled: false
-  }
+  mcpServers: []
 })
 
 // Get proxy settings
@@ -270,32 +237,21 @@ export const saveRepositorySettings = (repoFullname: string, settings: SettingsF
 // Safely merge partial settings with defaults to ensure all properties exist
 const mergeWithDefaults = (partialSettings: Partial<SettingsFormData> | null | undefined, defaultSettings: SettingsFormData): SettingsFormData => {
   return {
-    environmentVariables: Array.isArray(partialSettings?.environmentVariables) 
-      ? partialSettings.environmentVariables 
-      : defaultSettings.environmentVariables,
     mcpServers: Array.isArray(partialSettings?.mcpServers)
       ? partialSettings.mcpServers
-      : defaultSettings.mcpServers,
-    bedrockSettings: partialSettings?.bedrockSettings || defaultSettings.bedrockSettings
+      : defaultSettings.mcpServers
   }
 }
 
 // Merge settings with hierarchy: global settings as base, repo settings as overrides
 const mergeSettings = (globalSettings: SettingsFormData, repoSettings: SettingsFormData): SettingsFormData => {
   return {
-    environmentVariables: [
-      ...(globalSettings.environmentVariables || []),
-      ...(repoSettings.environmentVariables || []).filter(repoVar => 
-        !(globalSettings.environmentVariables || []).some(globalVar => globalVar.key === repoVar.key)
-      )
-    ],
     mcpServers: [
       ...(globalSettings.mcpServers || []),
-      ...(repoSettings.mcpServers || []).filter(repoServer => 
+      ...(repoSettings.mcpServers || []).filter(repoServer =>
         !(globalSettings.mcpServers || []).some(globalServer => globalServer.id === repoServer.id)
       )
-    ],
-    bedrockSettings: repoSettings.bedrockSettings || globalSettings.bedrockSettings
+    ]
   }
 }
 
@@ -311,11 +267,8 @@ export const getDefaultFullGlobalSettings = (): GlobalSettings => {
   const now = new Date().toISOString()
   return {
     agentApiProxy: getDefaultProxySettings(),
-    environmentVariables: [],
     mcpServers: [],
-    bedrockSettings: { enabled: false },
     repositoryHistory: [],
-    fixedOrganizations: [],
     messageTemplates: [],
     created_at: now,
     updated_at: now

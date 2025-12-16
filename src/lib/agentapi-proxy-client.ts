@@ -276,35 +276,6 @@ export class AgentAPIProxyClient {
       };
     }
 
-    // Collect global environment variables
-    try {
-      const globalSettings = loadFullGlobalSettings();
-      if (globalSettings.environmentVariables && globalSettings.environmentVariables.length > 0) {
-        const globalEnvironment: Record<string, string> = {};
-        globalSettings.environmentVariables.forEach(envVar => {
-          if (envVar.key && envVar.value) {
-            globalEnvironment[envVar.key] = envVar.value;
-          }
-        });
-
-        if (Object.keys(globalEnvironment).length > 0) {
-          // Merge global environment variables with session-specific ones
-          // Session-specific environment variables take precedence
-          data.environment = {
-            ...globalEnvironment,
-            ...(data.environment || {})
-          };
-
-          if (this.debug) {
-            console.log(`[AgentAPIProxy] Merged ${Object.keys(globalEnvironment).length} environment variables from global settings`);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('[AgentAPIProxy] Failed to collect global environment variables:', error);
-      // Continue with session creation even if global env collection fails
-    }
-
     const session = await this.makeRequest<Session>('/start', {
       method: 'POST',
       body: JSON.stringify(data),

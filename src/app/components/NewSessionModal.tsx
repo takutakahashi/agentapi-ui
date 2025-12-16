@@ -8,7 +8,7 @@ import { messageTemplateManager } from '../../utils/messageTemplateManager'
 import { MessageTemplate } from '../../types/messageTemplate'
 import { recentMessagesManager } from '../../utils/recentMessagesManager'
 import { OrganizationHistory } from '../../utils/organizationHistory'
-import { loadFullGlobalSettings, addRepositoryToHistory } from '../../types/settings'
+import { addRepositoryToHistory } from '../../types/settings'
 
 interface NewSessionModalProps {
   isOpen: boolean
@@ -28,22 +28,17 @@ export default function NewSessionModal({
   onSessionCompleted
 }: NewSessionModalProps) {
   const [initialMessage, setInitialMessage] = useState('')
-  const [selectedOrganization, setSelectedOrganization] = useState('')
-  const [repository, setRepository] = useState('')
   const [freeFormRepository, setFreeFormRepository] = useState('')
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState('')
   const [isMobile, setIsMobile] = useState(false)
-  const [availableOrganizations, setAvailableOrganizations] = useState<string[]>([])
   const [cachedMessages, setCachedMessages] = useState<string[]>([])
   const [showCachedMessages, setShowCachedMessages] = useState(false)
   const [templates, setTemplates] = useState<MessageTemplate[]>([])
   const [showTemplates, setShowTemplates] = useState(false)
   const [recentMessages, setRecentMessages] = useState<string[]>([])
   const [showTemplateModal, setShowTemplateModal] = useState(false)
-  const [repositorySuggestions, setRepositorySuggestions] = useState<string[]>([])
-  const [showRepositorySuggestions, setShowRepositorySuggestions] = useState(false)
   const [freeFormRepositorySuggestions, setFreeFormRepositorySuggestions] = useState<string[]>([])
   const [showFreeFormRepositorySuggestions, setShowFreeFormRepositorySuggestions] = useState(false)
   const [sessionMode, setSessionMode] = useState<'repository' | 'chat'>('repository')
@@ -80,19 +75,6 @@ export default function NewSessionModal({
 
   useEffect(() => {
     if (isOpen) {
-      // グローバル設定から固定組織を読み込む
-      const globalSettings = loadFullGlobalSettings()
-      if (globalSettings.fixedOrganizations && globalSettings.fixedOrganizations.length > 0) {
-        setAvailableOrganizations(globalSettings.fixedOrganizations)
-        // 最初の組織を自動選択
-        if (!selectedOrganization || !globalSettings.fixedOrganizations.includes(selectedOrganization)) {
-          setSelectedOrganization(globalSettings.fixedOrganizations[0])
-        }
-      } else {
-        setAvailableOrganizations([])
-        setSelectedOrganization('')
-      }
-
       // キャッシュされたメッセージを読み込む
       const cached = InitialMessageCache.getCachedMessages()
       setCachedMessages(cached)
@@ -135,22 +117,11 @@ export default function NewSessionModal({
         tags.repository = repo
       }
 
-      // グローバル設定から環境変数を取得
-      const globalSettings = loadFullGlobalSettings()
-      const environmentVariables = globalSettings.environmentVariables || []
-
       // 環境変数オブジェクトを構築
       const environment: Record<string, string> = {}
 
-      // グローバル環境変数を追加
-      environmentVariables.forEach(envVar => {
-        if (envVar.key && envVar.value) {
-          environment[envVar.key] = envVar.value
-        }
-      })
-
-      // リポジトリ情報を環境変数に追加（既存の値を上書きしない）
-      if (repo && !environment.REPOSITORY) {
+      // リポジトリ情報を環境変数に追加
+      if (repo) {
         environment.REPOSITORY = repo
       }
 
@@ -235,11 +206,7 @@ export default function NewSessionModal({
 
     // チャットモードの場合はリポジトリの必須チェックをスキップ
     if (sessionMode === 'repository') {
-      const hasRepository = availableOrganizations.length > 0
-        ? (selectedOrganization && repository.trim())
-        : freeFormRepository.trim()
-
-      if (!hasRepository) {
+      if (!freeFormRepository.trim()) {
         setError('リポジトリを指定してください')
         return
       }
@@ -253,13 +220,7 @@ export default function NewSessionModal({
       const client = createAgentAPIClient()
       const currentMessage = initialMessage.trim()
       // チャットモードの場合はリポジトリを空にする
-      const currentRepository = sessionMode === 'chat' ? '' : (
-        availableOrganizations.length > 0
-          ? (selectedOrganization && repository.trim()
-             ? `${selectedOrganization}/${repository.trim()}`
-             : '')
-          : freeFormRepository.trim()
-      )
+      const currentRepository = sessionMode === 'chat' ? '' : freeFormRepository.trim()
 
       // 初期メッセージをキャッシュに追加
       InitialMessageCache.addMessage(currentMessage)
@@ -273,12 +234,6 @@ export default function NewSessionModal({
         try {
           addRepositoryToHistory(currentRepository)
           console.log('Repository added to history successfully (pre-session)')
-
-          // 組織履歴にも追加
-          if (selectedOrganization) {
-            OrganizationHistory.addRepositoryToOrganization(selectedOrganization, currentRepository)
-            console.log('Repository added to organization history:', { organization: selectedOrganization, repository: currentRepository })
-          }
         } catch (error) {
           console.error('Failed to add repository to history (pre-session):', error)
         }
@@ -292,8 +247,6 @@ export default function NewSessionModal({
 
       // 入力値をクリアしてモーダルを閉じる
       setInitialMessage('')
-      setSelectedOrganization('')
-      setRepository('')
       setFreeFormRepository('')
       setStatusMessage('')
       setIsCreating(false)
@@ -308,20 +261,12 @@ export default function NewSessionModal({
     }
   }
 
-  const handleOrganizationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedOrganization(e.target.value)
-  }
-
-
   const handleClose = () => {
     setInitialMessage('')
-    setSelectedOrganization('')
-    setRepository('')
     setFreeFormRepository('')
     setSessionMode('repository')
     setError(null)
     setStatusMessage('')
-    setAvailableOrganizations([])
     setShowCachedMessages(false)
     setShowTemplates(false)
     onClose()
@@ -349,53 +294,7 @@ export default function NewSessionModal({
     setShowTemplates(false)
   }
 
-  // 組織ベースのリポジトリ入力ハンドラー
-  const handleRepositoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setRepository(value)
-
-    if (value.trim() && selectedOrganization) {
-      // 組織履歴から検索
-      const orgSuggestions = OrganizationHistory.searchOrganizationRepositories(selectedOrganization, value)
-      // グローバル履歴からも検索（組織/リポジトリ形式）
-      const globalSuggestions = OrganizationHistory.getRepositorySuggestions(`${selectedOrganization}/${value}`)
-        .filter(repo => repo.startsWith(`${selectedOrganization}/`))
-        .map(repo => repo.substring(selectedOrganization.length + 1))
-
-      // 重複を除去してマージ
-      const allSuggestions = [...new Set([...orgSuggestions, ...globalSuggestions])]
-      setRepositorySuggestions(allSuggestions)
-      setShowRepositorySuggestions(allSuggestions.length > 0)
-    } else {
-      setShowRepositorySuggestions(false)
-    }
-  }
-
-  const handleRepositoryFocus = () => {
-    if (selectedOrganization) {
-      // 組織履歴を表示
-      const orgHistory = OrganizationHistory.getOrganizationHistory(selectedOrganization)
-      const suggestions = orgHistory.map(item => {
-        // 組織名を除いたリポジトリ名のみを表示
-        return item.repository.startsWith(`${selectedOrganization}/`)
-          ? item.repository.substring(selectedOrganization.length + 1)
-          : item.repository
-      })
-      setRepositorySuggestions(suggestions)
-      setShowRepositorySuggestions(suggestions.length > 0)
-    }
-  }
-
-  const handleRepositoryBlur = () => {
-    setTimeout(() => setShowRepositorySuggestions(false), 150)
-  }
-
-  const selectRepositorySuggestion = (suggestion: string) => {
-    setRepository(suggestion)
-    setShowRepositorySuggestions(false)
-  }
-
-  // 自由入力のリポジトリハンドラー
+  // リポジトリ入力ハンドラー
   const handleFreeFormRepositoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setFreeFormRepository(value)
@@ -563,70 +462,7 @@ export default function NewSessionModal({
             )}
           </div>
 
-          {sessionMode === 'repository' && availableOrganizations.length > 0 ? (
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="organization" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  組織
-                </label>
-                <select
-                  id="organization"
-                  value={selectedOrganization}
-                  onChange={handleOrganizationChange}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  disabled={isCreating}
-                  required
-                >
-                  <option value="">組織を選択してください</option>
-                  {availableOrganizations.map((org, index) => (
-                    <option key={index} value={org}>
-                      {org}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="relative">
-                <label htmlFor="repository" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  リポジトリ名
-                </label>
-                <input
-                  id="repository"
-                  type="text"
-                  value={repository}
-                  onChange={handleRepositoryChange}
-                  onFocus={handleRepositoryFocus}
-                  onBlur={handleRepositoryBlur}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="リポジトリ名を入力"
-                  disabled={isCreating || !selectedOrganization}
-                  required
-                />
-
-                {/* サジェストドロップダウン */}
-                {showRepositorySuggestions && repositorySuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg z-50 mt-1 max-h-48 overflow-y-auto">
-                    {repositorySuggestions.map((suggestion, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => selectRepositorySuggestion(suggestion)}
-                        className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm border-b border-gray-200 dark:border-gray-600 last:border-b-0"
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {selectedOrganization && repository && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    対象リポジトリ: <span className="font-mono">{selectedOrganization}/{repository}</span>
-                  </p>
-                )}
-              </div>
-            </div>
-          ) : sessionMode === 'repository' ? (
+          {sessionMode === 'repository' && (
             <div className="relative">
               <label htmlFor="freeFormRepository" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 対象リポジトリ
@@ -661,10 +497,10 @@ export default function NewSessionModal({
               )}
 
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                固定組織が設定されていないため、自由にリポジトリを指定できます。
+                owner/repository-name の形式で入力してください
               </p>
             </div>
-          ) : null}
+          )}
 
           {error && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
@@ -689,11 +525,7 @@ export default function NewSessionModal({
             <button
               type="submit"
               disabled={!initialMessage.trim() || isCreating || (
-                sessionMode === 'repository' && (
-                  availableOrganizations.length > 0
-                    ? (!selectedOrganization || !repository.trim())
-                    : !freeFormRepository.trim()
-                )
+                sessionMode === 'repository' && !freeFormRepository.trim()
               )}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-md transition-colors"
             >

@@ -186,45 +186,7 @@ async function handleProxyRequest(
     }
     headers.set('Content-Type', 'application/json');
     headers.set('Accept', 'application/json');
-    
-    // Add decrypted environment variables as headers if available
-    if (decryptedConfig.environmentVariables) {
-      Object.entries(decryptedConfig.environmentVariables as Record<string, unknown>).forEach(([key, value]) => {
-        headers.set(`X-Env-${key}`, String(value));
-      });
-    }
-    
-    // Add Bedrock settings as environment variables if available
-    if (decryptedConfig.bedrockSettings) {
-      const bedrockConfig = decryptedConfig.bedrockSettings as Record<string, unknown>;
-      
-      // Only add environment variables if Bedrock is enabled
-      if (bedrockConfig.enabled) {
-        headers.set('X-Env-CLAUDE_CODE_USE_BEDROCK', '1');
-        
-        // Add AWS credentials if configured
-        if (bedrockConfig.awsAccessKeyId) {
-          headers.set('X-Env-AWS_ACCESS_KEY_ID', String(bedrockConfig.awsAccessKeyId));
-        }
-        if (bedrockConfig.awsSecretAccessKey) {
-          headers.set('X-Env-AWS_SECRET_ACCESS_KEY', String(bedrockConfig.awsSecretAccessKey));
-        }
-        if (bedrockConfig.awsSessionToken) {
-          headers.set('X-Env-AWS_SESSION_TOKEN', String(bedrockConfig.awsSessionToken));
-        }
-        if (bedrockConfig.region) {
-          headers.set('X-Env-AWS_REGION', String(bedrockConfig.region));
-        }
-        if (bedrockConfig.modelName) {
-          headers.set('X-Env-ANTHROPIC_MODEL', String(bedrockConfig.modelName));
-        }
-        if (bedrockConfig.endpointUrl) {
-          headers.set('X-Env-AWS_ENDPOINT_URL', String(bedrockConfig.endpointUrl));
-        }
-      }
-    }
-    
-    
+
     // Add base URL override if available
     if (decryptedConfig.baseUrl) {
       headers.set('X-Base-URL', String(decryptedConfig.baseUrl));
