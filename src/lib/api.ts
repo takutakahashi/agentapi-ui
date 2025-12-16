@@ -1,6 +1,5 @@
 import { Chat, ChatListResponse } from '../types/chat'
-import { getDefaultProxySettings } from '../types/settings'
-import { ProfileManager } from '../utils/profileManager'
+import { loadFullGlobalSettings, getDefaultProxySettings } from '../types/settings'
 import { StatisticsData } from '../types/statistics'
 import { createAgentAPIProxyClientFromStorage } from './agentapi-proxy-client'
 
@@ -14,22 +13,15 @@ function getAPIConfig(): { baseURL: string; apiKey?: string } {
       apiKey: process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
     };
   }
-  
+
   try {
-    // Try to get proxy settings from current profile
-    const currentProfile = ProfileManager.getDefaultProfile();
-    if (currentProfile) {
-      return {
-        baseURL: currentProfile.agentApiProxy.endpoint || process.env.NEXT_PUBLIC_API_BASE_URL || `${window.location.protocol}//${window.location.host}/api/proxy`,
-        apiKey: currentProfile.agentApiProxy.apiKey || process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
-      };
-    }
-    
-    // Fall back to default proxy settings
-    const defaultProxySettings = getDefaultProxySettings();
+    // Get proxy settings from global settings
+    const globalSettings = loadFullGlobalSettings();
+    const proxySettings = globalSettings.agentApiProxy || getDefaultProxySettings();
+
     return {
-      baseURL: defaultProxySettings.endpoint || process.env.NEXT_PUBLIC_API_BASE_URL || `${window.location.protocol}//${window.location.host}/api/proxy`,
-      apiKey: defaultProxySettings.apiKey || process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
+      baseURL: proxySettings.endpoint || process.env.NEXT_PUBLIC_API_BASE_URL || `${window.location.protocol}//${window.location.host}/api/proxy`,
+      apiKey: proxySettings.apiKey || process.env.NEXT_PUBLIC_API_KEY || process.env.AGENTAPI_API_KEY,
     };
   } catch (error) {
     console.warn('Failed to load settings from storage for chat API, using fallback:', error);
@@ -183,8 +175,8 @@ export const chatApi = {
 }
 
 // AgentAPI Proxy client factory
-export function createAgentAPIClient(repoFullname?: string, profileId?: string) {
-  return createAgentAPIProxyClientFromStorage(repoFullname, profileId)
+export function createAgentAPIClient(repoFullname?: string) {
+  return createAgentAPIProxyClientFromStorage(repoFullname)
 }
 
 // Local API request for Next.js API routes

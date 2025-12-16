@@ -13,10 +13,16 @@ import {
   AgentListResponse,
   AgentListParams
 } from '../types/agentapi';
-import { loadGlobalSettings, getDefaultProxySettings, isSingleProfileModeEnabled } from '../types/settings';
-import { ProfileManager } from '../utils/profileManager';
-import { GitHubUser } from '../types/profile';
-import type { EncryptedData } from './encryption';
+import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory } from '../types/settings';
+
+// GitHubUser type (moved from profile.ts)
+export interface GitHubUser {
+  id: number;
+  login: string;
+  name?: string;
+  email?: string;
+  avatarUrl?: string;
+}
 
 // Define local AgentStatus type
 interface AgentStatus {
@@ -32,7 +38,6 @@ export interface AgentAPIProxyClientConfig {
   maxSessions?: number;
   sessionTimeout?: number;
   debug?: boolean;
-  profileId?: string;
 }
 
 export class AgentAPIProxyError extends Error {
@@ -57,9 +62,7 @@ export class AgentAPIProxyClient {
   private maxSessions: number;
   private sessionTimeout: number;
   private debug: boolean;
-  private profileId?: string;
-  private encryptedConfig?: EncryptedData | string;
-  
+
   constructor(config: AgentAPIProxyClientConfig) {
     this.baseURL = config.baseURL.replace(/\/$/, ''); // Remove trailing slash
     this.apiKey = config.apiKey;
@@ -67,62 +70,12 @@ export class AgentAPIProxyClient {
     this.maxSessions = config.maxSessions || 10;
     this.sessionTimeout = config.sessionTimeout || 300000; // 5 minutes
     this.debug = config.debug || false;
-    this.profileId = config.profileId;
-
-    // Load encrypted config if in single profile mode
-    if (isSingleProfileModeEnabled() && typeof window !== 'undefined') {
-      const storedEncrypted = localStorage.getItem('agentapi-encrypted-config');
-      console.log('[AgentAPIProxy] Single profile mode enabled, checking for encrypted config:', !!storedEncrypted);
-      if (storedEncrypted) {
-        try {
-          // Validate that the stored data is a valid string
-          if (typeof storedEncrypted !== 'string' || storedEncrypted.trim().length === 0) {
-            throw new Error('Encrypted config is not a valid string');
-          }
-          
-          // For encrypted config, we expect a base64 encoded string or JSON
-          const trimmedConfig = storedEncrypted.trim();
-          
-          // Try to parse as JSON first (for backward compatibility)
-          try {
-            this.encryptedConfig = JSON.parse(trimmedConfig);
-          } catch {
-            // If JSON parsing fails, it might be a base64 encoded encrypted string
-            // which is valid for encrypted config, so we store it as is
-            this.encryptedConfig = trimmedConfig;
-          }
-          
-          if (this.debug) {
-            console.log('[AgentAPIProxy] Successfully loaded encrypted config');
-          }
-        } catch (err) {
-          console.error('Failed to load encrypted config:', err);
-          
-          // Only clear the config if it's clearly invalid (not just a parsing error)
-          // Encrypted config can be a base64 string which is not JSON
-          if (typeof storedEncrypted !== 'string' || storedEncrypted.trim().length === 0) {
-            console.warn('Clearing invalid encrypted config from localStorage');
-            localStorage.removeItem('agentapi-encrypted-config');
-            this.encryptedConfig = undefined;
-          } else {
-            // Store as is - it might be valid encrypted data
-            this.encryptedConfig = storedEncrypted.trim();
-            console.log('[AgentAPIProxy] Stored encrypted config as string (possibly base64 encoded)');
-          }
-        }
-      }
-    } else if (isSingleProfileModeEnabled()) {
-      console.log('[AgentAPIProxy] Single profile mode enabled but no window (server-side)');
-    } else {
-      console.log('[AgentAPIProxy] Single profile mode not enabled');
-    }
 
     if (this.debug) {
       console.log('[AgentAPIProxy] Initialized with config:', {
         baseURL: this.baseURL,
         maxSessions: this.maxSessions,
-        sessionTimeout: this.sessionTimeout,
-        hasEncryptedConfig: !!this.encryptedConfig
+        sessionTimeout: this.sessionTimeout
       });
     }
   }
@@ -132,14 +85,6 @@ export class AgentAPIProxyClient {
     options: RequestInit = {},
     attempt = 1
   ): Promise<T> {
-    // Check if we're in single profile mode and should use the proxy API
-    const isSingleProfile = isSingleProfileModeEnabled();
-    
-    if (isSingleProfile && typeof window !== 'undefined') {
-      // Use the Next.js proxy API for single profile mode
-      return this.makeProxyRequest<T>(endpoint, options);
-    }
-    
     const url = `${this.baseURL}${endpoint}`;
     
     const defaultHeaders: HeadersInit = {
@@ -308,167 +253,15 @@ export class AgentAPIProxyClient {
     }
   }
 
-  private async makeProxyRequest<T>(
-    endpoint: string,
-    options: RequestInit = {},
-    includeEncryptedConfig = false
-  ): Promise<T> {
-    // Prepare the request body with encrypted config only when explicitly requested
-    let body = options.body;
-    
-    // Only add encrypted config for specific endpoints that require authentication
-    if (this.encryptedConfig && includeEncryptedConfig && options.method && 
-        options.method.toUpperCase() !== 'GET' && options.method.toUpperCase() !== 'HEAD') {
-      try {
-        const existingBody = body ? JSON.parse(body as string) : {};
-        body = JSON.stringify({
-          ...existingBody,
-          encryptedConfig: this.encryptedConfig
-        });
-      } catch (err) {
-        console.error('Failed to add encrypted config to request:', err);
-      }
-    }
-    
-    const proxyUrl = `/api/proxy${endpoint}`;
-    
-    if (this.debug) {
-      console.log(`[AgentAPIProxy] Proxy ${options.method || 'GET'} ${proxyUrl}`, {
-        hasEncryptedConfig: !!this.encryptedConfig,
-        bodyLength: typeof body === 'string' ? body.length : 0
-      });
-    }
-    
-    try {
-      const response = await fetch(proxyUrl, {
-        ...options,
-        body,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          ...options.headers
-        }
-      });
-      
-      // Get content type to determine how to handle response
-      const contentType = response.headers.get('content-type');
-      const isJsonResponse = contentType?.includes('application/json');
-      
-      if (!response.ok) {
-        let errorData: Record<string, unknown>;
-        
-        try {
-          if (isJsonResponse) {
-            errorData = await response.json();
-          } else {
-            const textData = await response.text();
-            errorData = {
-              error: 'Proxy request failed',
-              status: response.status,
-              details: textData
-            };
-          }
-        } catch (parseError) {
-          // If we can't parse the response at all, create a generic error
-          errorData = {
-            error: 'Proxy request failed',
-            status: response.status,
-            details: `Response parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`
-          };
-        }
-        
-        if (this.debug) {
-          console.error(`[AgentAPIProxy] Request failed:`, {
-            status: response.status,
-            statusText: response.statusText,
-            errorData,
-            url: proxyUrl,
-            contentType
-          });
-        }
-        
-        const errorObj = errorData as Record<string, unknown>;
-        const errorNested = errorObj.error as Record<string, unknown> | undefined;
-        
-        const errorCode = errorNested?.code || errorObj.code || 'PROXY_ERROR';
-        const errorMessage = errorNested?.message || errorObj.message || errorObj.error || `HTTP ${response.status}`;
-        const errorDetails = errorNested?.details || errorData;
-        
-        throw new AgentAPIProxyError(
-          response.status,
-          typeof errorCode === 'string' ? errorCode : 'PROXY_ERROR',
-          typeof errorMessage === 'string' ? errorMessage : `HTTP ${response.status}`,
-          errorDetails as Record<string, unknown>
-        );
-      }
-      
-      // Handle successful response
-      let data: unknown;
-      
-      try {
-        if (isJsonResponse) {
-          data = await response.json();
-        } else {
-          // If it's not JSON, try to parse as text and then JSON
-          const textData = await response.text();
-          try {
-            data = JSON.parse(textData);
-          } catch {
-            // If we can't parse as JSON, return the text as is
-            data = textData;
-          }
-        }
-      } catch (parseError) {
-        // If we can't parse the response, throw a meaningful error
-        throw new AgentAPIProxyError(
-          500,
-          'RESPONSE_PARSE_ERROR',
-          `Failed to parse response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`,
-          { originalError: parseError }
-        );
-      }
-      
-      if (this.debug) {
-        console.log(`[AgentAPIProxy] Proxy Response:`, { 
-          status: response.status,
-          statusText: response.statusText,
-          contentType,
-          dataKeys: typeof data === 'object' && data ? Object.keys(data) : 'not an object',
-          dataType: typeof data
-        });
-      }
-      
-      return data as T;
-    } catch (error) {
-      if (error instanceof AgentAPIProxyError) {
-        throw error;
-      }
-      
-      if (this.debug) {
-        console.error(`[AgentAPIProxy] Network error:`, {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          url: proxyUrl,
-          errorType: error instanceof Error ? error.constructor.name : typeof error
-        });
-      }
-      
-      throw new AgentAPIProxyError(
-        0,
-        'NETWORK_ERROR',
-        error instanceof Error ? error.message : 'Unknown proxy error'
-      );
-    }
-  }
-
   // High-level operations based on agentapi-proxy
-  
+
   /**
    * Start a new session
    */
   async start(sessionData?: Partial<CreateSessionRequest> | Record<string, unknown>): Promise<Session> {
     // Handle backward compatibility and new format
     let data: Partial<CreateSessionRequest>;
-    
+
     if (sessionData && (sessionData.environment || sessionData.tags || sessionData.metadata)) {
       // New format: sessionData contains environment, metadata, and/or tags
       data = {
@@ -483,37 +276,34 @@ export class AgentAPIProxyClient {
       };
     }
 
-    // Collect profile environment variables if profile is specified
-    if (this.profileId) {
-      try {
-        const profile = ProfileManager.getProfile(this.profileId);
-        if (profile && profile.environmentVariables) {
-          const profileEnvironment: Record<string, string> = {};
-          profile.environmentVariables.forEach(envVar => {
-            if (envVar.key && envVar.value) {
-              profileEnvironment[envVar.key] = envVar.value;
-            }
-          });
-          
-          if (Object.keys(profileEnvironment).length > 0) {
-            // Merge profile environment variables with session-specific ones
-            // Session-specific environment variables take precedence
-            data.environment = {
-              ...profileEnvironment,
-              ...(data.environment || {})
-            };
-            
-            if (this.debug) {
-              console.log(`[AgentAPIProxy] Merged ${Object.keys(profileEnvironment).length} environment variables from profile ${this.profileId}`);
-            }
+    // Collect global environment variables
+    try {
+      const globalSettings = loadFullGlobalSettings();
+      if (globalSettings.environmentVariables && globalSettings.environmentVariables.length > 0) {
+        const globalEnvironment: Record<string, string> = {};
+        globalSettings.environmentVariables.forEach(envVar => {
+          if (envVar.key && envVar.value) {
+            globalEnvironment[envVar.key] = envVar.value;
+          }
+        });
+
+        if (Object.keys(globalEnvironment).length > 0) {
+          // Merge global environment variables with session-specific ones
+          // Session-specific environment variables take precedence
+          data.environment = {
+            ...globalEnvironment,
+            ...(data.environment || {})
+          };
+
+          if (this.debug) {
+            console.log(`[AgentAPIProxy] Merged ${Object.keys(globalEnvironment).length} environment variables from global settings`);
           }
         }
-      } catch (error) {
-        console.error('[AgentAPIProxy] Failed to collect profile environment variables:', error);
-        // Continue with session creation even if profile env collection fails
       }
+    } catch (error) {
+      console.error('[AgentAPIProxy] Failed to collect global environment variables:', error);
+      // Continue with session creation even if global env collection fails
     }
-
 
     const session = await this.makeRequest<Session>('/start', {
       method: 'POST',
@@ -797,69 +587,16 @@ export class AgentAPIProxyClient {
   /**
    * Get GitHub OAuth URL for authentication
    */
-  async getGitHubAuthUrl(profileId: string): Promise<string> {
+  async getGitHubAuthUrl(): Promise<string> {
     try {
       const response = await this.makeRequest<{ authUrl: string }>('/auth/github/url', {
         method: 'POST',
-        body: JSON.stringify({ profileId })
+        body: JSON.stringify({})
       });
       return response.authUrl;
     } catch (error) {
       console.error('[AgentAPIProxy] Failed to get GitHub auth URL:', error);
       throw error;
-    }
-  }
-
-  /**
-   * Reload encrypted config from localStorage
-   */
-  reloadEncryptedConfig(): void {
-    if (!isSingleProfileModeEnabled() || typeof window === 'undefined') {
-      return;
-    }
-
-    const storedEncrypted = localStorage.getItem('agentapi-encrypted-config');
-    console.log('[AgentAPIProxy] Reloading encrypted config:', !!storedEncrypted);
-    
-    if (storedEncrypted) {
-      try {
-        // Validate that the stored data is a valid string
-        if (typeof storedEncrypted !== 'string' || storedEncrypted.trim().length === 0) {
-          throw new Error('Encrypted config is not a valid string');
-        }
-        
-        // For encrypted config, we expect a base64 encoded string or JSON
-        const trimmedConfig = storedEncrypted.trim();
-        
-        // Try to parse as JSON first (for backward compatibility)
-        try {
-          this.encryptedConfig = JSON.parse(trimmedConfig);
-        } catch {
-          // If JSON parsing fails, it might be a base64 encoded encrypted string
-          // which is valid for encrypted config, so we store it as is
-          this.encryptedConfig = trimmedConfig;
-        }
-        
-        if (this.debug) {
-          console.log('[AgentAPIProxy] Successfully reloaded encrypted config');
-        }
-      } catch (err) {
-        console.error('Failed to reload encrypted config:', err);
-        
-        // Only clear the config if it's clearly invalid (not just a parsing error)
-        // Encrypted config can be a base64 string which is not JSON
-        if (typeof storedEncrypted !== 'string' || storedEncrypted.trim().length === 0) {
-          console.warn('Clearing invalid encrypted config from localStorage');
-          localStorage.removeItem('agentapi-encrypted-config');
-          this.encryptedConfig = undefined;
-        } else {
-          // Store as is - it might be valid encrypted data
-          this.encryptedConfig = storedEncrypted.trim();
-          console.log('[AgentAPIProxy] Stored encrypted config as string (possibly base64 encoded)');
-        }
-      }
-    } else {
-      this.encryptedConfig = undefined;
     }
   }
 
@@ -873,7 +610,7 @@ export class AgentAPIProxyClient {
 
 
 // Utility functions to get proxy settings from browser storage
-export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profileId?: string): AgentAPIProxyClientConfig {
+export function getAgentAPIProxyConfigFromStorage(repoFullname?: string): AgentAPIProxyClientConfig {
   // Check if we're in a browser environment
   if (typeof window === 'undefined') {
     // Server-side rendering or Node.js environment - use environment variables
@@ -884,116 +621,46 @@ export function getAgentAPIProxyConfigFromStorage(repoFullname?: string, profile
       maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),
       sessionTimeout: parseInt(process.env.AGENTAPI_PROXY_SESSION_TIMEOUT || '300000'),
       debug: true, // Enable debug logging to diagnose proxy issues
-      profileId,
     };
   }
-  
-  let settings;
-  
+
   try {
-    // First, try to get settings from profile if profileId is provided
-    if (profileId) {
-      const profile = ProfileManager.getProfile(profileId);
-      if (profile) {
-        settings = {
-          agentApiProxy: profile.agentApiProxy,
-          environmentVariables: profile.environmentVariables
-        };
-        
-        // Mark profile as used (debounced to prevent excessive calls)
-        // ProfileManager.markProfileUsed(profileId);
-        
-        // Add repository to profile history if repoFullname is provided
-        if (repoFullname) {
-          ProfileManager.addRepositoryToProfile(profileId, repoFullname);
-        }
-      }
+    // Get settings from global settings
+    const globalSettings = loadFullGlobalSettings();
+    const proxySettings = globalSettings.agentApiProxy || getDefaultProxySettings();
+
+    // Add repository to history if repoFullname is provided
+    if (repoFullname) {
+      addRepositoryToHistory(repoFullname);
     }
-    
-    // If no profile settings found, check for current profile (including URL parameters)
-    if (!settings) {
-      const currentProfileId = ProfileManager.getCurrentProfileId();
-      if (currentProfileId) {
-        const profile = ProfileManager.getProfile(currentProfileId);
-        if (profile) {
-          settings = {
-            agentApiProxy: profile.agentApiProxy,
-            environmentVariables: profile.environmentVariables
-          };
-          
-          // Mark profile as used (debounced to prevent excessive calls)
-          // ProfileManager.markProfileUsed(currentProfileId);
-          
-          // Add repository to profile history if repoFullname is provided
-          if (repoFullname) {
-            ProfileManager.addRepositoryToProfile(currentProfileId, repoFullname);
-          }
-        }
-      }
-    }
-    
-    // If still no profile settings found, fall back to default profile
-    if (!settings) {
-      const defaultProfile = ProfileManager.getDefaultProfile();
-      if (defaultProfile) {
-        settings = {
-          agentApiProxy: defaultProfile.agentApiProxy,
-          environmentVariables: defaultProfile.environmentVariables
-        };
-        
-        // Mark default profile as used (debounced to prevent excessive calls)
-        // ProfileManager.markProfileUsed(defaultProfile.id);
-        
-        // Add repository to default profile history if repoFullname is provided
-        if (repoFullname) {
-          ProfileManager.addRepositoryToProfile(defaultProfile.id, repoFullname);
-        }
-      }
-    }
-    
-    // If still no settings, fall back to default proxy settings
-    if (!settings) {
-      const defaultProxySettings = getDefaultProxySettings();
-      const globalSettings = loadGlobalSettings();
-      settings = {
-        agentApiProxy: defaultProxySettings,
-        environmentVariables: globalSettings.environmentVariables
-      };
-    }
-    
+
     // Use proxy configuration
-    const baseURL = settings.agentApiProxy.enabled 
-      ? settings.agentApiProxy.endpoint 
-      : (typeof window !== 'undefined' 
-          ? `${window.location.protocol}//${window.location.host}/api/proxy`
-          : 'http://localhost:3000/api/proxy');
-    
-    const timeout = settings.agentApiProxy.enabled 
-      ? settings.agentApiProxy.timeout 
+    const baseURL = proxySettings.enabled
+      ? proxySettings.endpoint
+      : `${window.location.protocol}//${window.location.host}/api/proxy`;
+
+    const timeout = proxySettings.enabled
+      ? proxySettings.timeout
       : parseInt(process.env.AGENTAPI_TIMEOUT || '10000');
-    
+
     return {
       baseURL,
-      apiKey: settings.agentApiProxy.apiKey || process.env.AGENTAPI_API_KEY,
+      apiKey: proxySettings.apiKey || process.env.AGENTAPI_API_KEY,
       timeout,
       maxSessions: 10,
       sessionTimeout: 300000, // 5 minutes
       debug: true, // Enable debug logging to diagnose proxy issues
-      profileId,
     };
   } catch (error) {
     console.warn('Failed to load proxy settings from storage, using fallback:', error);
     // Fallback if storage access fails
     return {
-      baseURL: typeof window !== 'undefined' 
-        ? `${window.location.protocol}//${window.location.host}/api/proxy`
-        : 'http://localhost:3000/api/proxy',
+      baseURL: `${window.location.protocol}//${window.location.host}/api/proxy`,
       apiKey: process.env.AGENTAPI_API_KEY,
       timeout: parseInt(process.env.AGENTAPI_TIMEOUT || '10000'),
       maxSessions: parseInt(process.env.AGENTAPI_PROXY_MAX_SESSIONS || '10'),
       sessionTimeout: parseInt(process.env.AGENTAPI_PROXY_SESSION_TIMEOUT || '300000'),
       debug: true, // Enable debug logging to diagnose proxy issues
-      profileId,
     };
   }
 }
@@ -1004,8 +671,8 @@ export function createAgentAPIProxyClient(config: AgentAPIProxyClientConfig): Ag
 }
 
 // Factory function to create client using stored settings
-export function createAgentAPIProxyClientFromStorage(repoFullname?: string, profileId?: string): AgentAPIProxyClient {
-  const config = getAgentAPIProxyConfigFromStorage(repoFullname, profileId);
+export function createAgentAPIProxyClientFromStorage(repoFullname?: string): AgentAPIProxyClient {
+  const config = getAgentAPIProxyConfigFromStorage(repoFullname);
   return new AgentAPIProxyClient(config);
 }
 

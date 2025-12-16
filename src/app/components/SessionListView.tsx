@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Session, AgentStatus } from '../../types/agentapi'
-import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, AgentAPIProxyClient } from '../../lib/agentapi-proxy-client'
-import { ProfileManager } from '../../utils/profileManager'
+import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { useBackgroundAwareInterval } from '../hooks/usePageVisibility'
 import { formatRelativeTime } from '../../utils/timeUtils'
 import { truncateText } from '../../utils/textUtils'
@@ -29,11 +28,10 @@ interface SessionListViewProps {
 
 export default function SessionListView({ tagFilters, onSessionsUpdate, creatingSessions }: SessionListViewProps) {
   const router = useRouter()
-  
-  // Get current profile and create profile-aware clients
-  const [currentProfile, setCurrentProfile] = useState(() => ProfileManager.getDefaultProfile())
-  const [agentAPI, setAgentAPI] = useState(() => createAgentAPIProxyClientFromStorage(undefined, currentProfile?.id))
-  const [agentAPIProxy, setAgentAPIProxy] = useState(() => createAgentAPIProxyClientFromStorage(undefined, currentProfile?.id))
+
+  // Create global API clients
+  const [agentAPI] = useState(() => createAgentAPIProxyClientFromStorage())
+  const [agentAPIProxy] = useState(() => createAgentAPIProxyClientFromStorage())
   
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
@@ -253,157 +251,6 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Listen for profile changes and recreate clients
-  useEffect(() => {
-    const handleProfileChange = (event: CustomEvent) => {
-      const newProfileId = event.detail.profileId
-      const newProfile = ProfileManager.getProfile(newProfileId)
-      
-      if (newProfile && newProfile.id !== currentProfile?.id) {
-        setCurrentProfile(newProfile)
-        const newClient = createAgentAPIProxyClientFromStorage(undefined, newProfile.id)
-        setAgentAPI(newClient)
-        setAgentAPIProxy(newClient)
-        
-        // Helper function to extract user message
-        const extractUserMessageLocal = (combinedMessage: string) => {
-          const separator = '\n\n---\n\n'
-          const separatorIndex = combinedMessage.indexOf(separator)
-          
-          if (separatorIndex !== -1) {
-            return combinedMessage.substring(separatorIndex + separator.length).trim()
-          }
-          
-          return combinedMessage
-        }
-
-        // Helper function to get mock sessions
-        const getMockSessionsLocal = (): Session[] => []
-
-        // Helper function to fetch session statuses with specific client
-        const fetchSessionStatusesInitialWithClient = async (sessionList: Session[], client: AgentAPIProxyClient) => {
-          if (sessionList.length === 0 || !client) return
-          
-          try {
-            // セッション数を制限してAPIコールを削減（最新5セッションのみ）
-            const limitedSessions = sessionList.slice(0, 5)
-            
-            // 各セッションのエージェント状態を並列で取得
-            const statusPromises = limitedSessions.map(async (session) => {
-              try {
-                const status = await client.getSessionStatus(session.session_id)
-                return { sessionId: session.session_id, status }
-              } catch (err) {
-                console.warn(`Failed to fetch status for session ${session.session_id}:`, err)
-                // エラーの場合はセッションステータスからデフォルト値を推測
-                return {
-                  sessionId: session.session_id,
-                  status: {
-                    status: session.status === 'active' ? 'stable' : 'error',
-                    last_activity: session.updated_at,
-                    current_task: undefined
-                  } as AgentStatus
-                }
-              }
-            })
-            
-            const statusResults = await Promise.all(statusPromises)
-            const statusMap: { [sessionId: string]: AgentStatus } = {}
-            
-            // 制限されたセッションの結果を設定
-            statusResults.forEach(result => {
-              statusMap[result.sessionId] = result.status
-            })
-            
-            // 残りのセッションにはデフォルト値を設定（APIコールなし）
-            sessionList.slice(5).forEach(session => {
-              statusMap[session.session_id] = {
-                status: session.status === 'active' ? 'stable' : 'error',
-                last_activity: session.updated_at,
-                current_task: undefined
-              } as AgentStatus
-            })
-            
-            setSessionAgentStatus(statusMap)
-          } catch (err) {
-            console.warn('Failed to fetch initial session statuses with client:', err)
-          }
-        }
-
-        // Directly call fetchSessions with the new API client
-        const fetchSessionsWithNewAPI = async () => {
-          try {
-            setLoading(true)
-            setError(null)
-
-            const response = await newClient.search!({ limit: 1000 })
-            const sessionList = response.sessions || []
-            setSessions(sessionList)
-
-            // 各セッションの初期メッセージを取得
-            const messagePromises = sessionList.map(async (session) => {
-              try {
-                const messages = await newClient.getSessionMessages!(session.session_id, { limit: 10 })
-                const userMessages = messages.messages.filter(msg => msg.role === 'user')
-                if (userMessages.length > 0) {
-                  // システムプロンプトを除去したユーザーメッセージのみを取得
-                  const userMessage = extractUserMessageLocal(userMessages[0].content)
-                  return { sessionId: session.session_id, message: userMessage }
-                }
-              } catch (err) {
-                console.warn(`Failed to fetch messages for session ${session.session_id}:`, err)
-              }
-              return { sessionId: session.session_id, message: String(session.tags?.description || session.metadata?.description || 'No description available') }
-            })
-
-            const messageResults = await Promise.all(messagePromises)
-            const messageMap: { [sessionId: string]: string } = {}
-            messageResults.forEach(result => {
-              messageMap[result.sessionId] = result.message
-            })
-            setSessionMessages(messageMap)
-            
-            // 初期表示時にすぐにエージェントステータスを取得
-            if (sessionList.length > 0) {
-              await fetchSessionStatusesInitialWithClient(sessionList, newClient)
-            }
-          } catch (err) {
-            if (err instanceof AgentAPIProxyError) {
-              setError(`Failed to load sessions: ${err.message}`)
-            } else {
-              setError('An unexpected error occurred while loading sessions')
-            }
-            
-            // モックデータを使用
-            const mockSessions = getMockSessionsLocal()
-            setSessions(mockSessions)
-            
-            // モックセッションの初期メッセージを設定
-            const mockMessages: { [sessionId: string]: string } = {}
-            mockSessions.forEach(session => {
-              mockMessages[session.session_id] = String(session.metadata?.description || 'No description available')
-            })
-            setSessionMessages(mockMessages)
-            
-            // モックデータでもエージェントステータスを初期設定
-            if (mockSessions.length > 0) {
-              await fetchSessionStatusesInitialWithClient(mockSessions, newClient)
-            }
-          } finally {
-            setLoading(false)
-          }
-        }
-        
-        fetchSessionsWithNewAPI()
-      }
-    }
-
-    window.addEventListener('profileChanged', handleProfileChange as EventListener)
-    
-    return () => {
-      window.removeEventListener('profileChanged', handleProfileChange as EventListener)
-    }
-  }, [currentProfile?.id])
 
   const getMockSessions = (): Session[] => []
 

@@ -1,209 +1,202 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { SettingsFormData, getDefaultSettings, isSingleProfileModeEnabled } from '../../types/settings'
+import { loadFullGlobalSettings, saveFullGlobalSettings, GlobalSettings } from '../../types/settings'
 import type { EnvironmentVariable } from '../../types/settings'
 import BedrockSettingsComponent from '../../components/BedrockSettings'
 import { OneClickPushNotifications } from '../components/OneClickPushNotifications'
 
 export default function GlobalSettingsPage() {
-  const [settings, setSettings] = useState<SettingsFormData>(getDefaultSettings())
-  
+  const [settings, setSettings] = useState<GlobalSettings | null>(null)
+
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [decryptError, setDecryptError] = useState<string | null>(null)
-  
-  const isSingleProfile = isSingleProfileModeEnabled()
 
-  // Helper function to clear corrupted encrypted config
-  const clearEncryptedConfig = useCallback(() => {
-    try {
-      localStorage.removeItem('agentapi-encrypted-config')
-      console.log('Cleared corrupted encrypted config from localStorage')
-    } catch (error) {
-      console.error('Failed to clear encrypted config:', error)
-    }
-  }, [])
-  
-  const loadEncryptedSettings = useCallback(async () => {
-    if (!isSingleProfile) return
-    
-    try {
-      const encryptedConfig = localStorage.getItem('agentapi-encrypted-config')
-      if (!encryptedConfig) {
-        setDecryptError('暗号化された設定が見つかりません')
-        return
-      }
-      
-      // Validate encrypted config format
-      if (typeof encryptedConfig !== 'string' || encryptedConfig.trim().length === 0) {
-        console.error('Invalid encrypted config format:', encryptedConfig)
-        localStorage.removeItem('agentapi-encrypted-config')
-        setDecryptError('暗号化設定の形式が無効です。設定をクリアしました。')
-        return
-      }
-      
-      const response = await fetch('/api/decrypt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: encryptedConfig })
-      })
-      
-      if (!response.ok) {
-        throw new Error('復号化に失敗しました')
-      }
-      
-      const { decrypted } = await response.json()
-      
-      let decryptedJson
-      try {
-        const decryptedString = Buffer.from(decrypted, 'base64').toString('utf8')
-        decryptedJson = JSON.parse(decryptedString)
-      } catch (parseError) {
-        console.error('Failed to parse decrypted data:', parseError)
-        localStorage.removeItem('agentapi-encrypted-config')
-        setDecryptError('復号化されたデータの解析に失敗しました。設定をクリアしました。')
-        return
-      }
-      
-      // 復号化されたデータをテキストエリアに展開
-      if (decryptedJson.environmentVariables) {
-        const envVars = Object.entries(decryptedJson.environmentVariables).map(([key, value]) => ({
-          key,
-          value: String(value),
-          description: ''
-        }))
-        setSettings(prev => ({
-          ...prev,
-          environmentVariables: envVars
-        }))
-      }
-      
-      
-      if (decryptedJson.bedrockSettings) {
-        setSettings(prev => ({
-          ...prev,
-          bedrockSettings: decryptedJson.bedrockSettings
-        }))
-      }
-      
-      setDecryptError(null)
-    } catch (err) {
-      console.error('Failed to decrypt settings:', err)
-      setDecryptError('設定の復号化に失敗しました')
-    }
-  }, [isSingleProfile])
-
-  // Load encrypted settings on component mount
+  // Load settings on mount
   useEffect(() => {
-    if (isSingleProfile) {
-      loadEncryptedSettings()
-    }
-  }, [loadEncryptedSettings, isSingleProfile])
+    const globalSettings = loadFullGlobalSettings()
+    setSettings(globalSettings)
+  }, [])
 
-  const saveSettings = async () => {
+  const saveSettings = useCallback(async () => {
+    if (!settings) return
+
     try {
       setLoading(true)
       setError(null)
-      
-      // In single profile mode, only encrypt and save - never use agentapi-global-settings
-      if (isSingleProfile) {
-        try {
-          // Prepare settings data to encrypt
-          const settingsData = {
-            baseUrl: `${window.location.protocol}//${window.location.host}/api/proxy`,
-            bedrockSettings: settings.bedrockSettings,
-            environmentVariables: settings.environmentVariables.reduce((acc, env) => {
-              if (env.key) acc[env.key] = env.value
-              return acc
-            }, {} as Record<string, string>)
-          }
-          
-          // Convert settings to base64
-          const base64Data = Buffer.from(JSON.stringify(settingsData)).toString('base64')
-          
-          // Encrypt the settings
-          const encryptResponse = await fetch('/api/encrypt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              data: base64Data
-            })
-          })
-          
-          if (!encryptResponse.ok) {
-            throw new Error('Failed to encrypt settings')
-          }
-          
-          const { encrypted } = await encryptResponse.json()
-          
-          // Store only encrypted data in localStorage
-          localStorage.setItem('agentapi-encrypted-config', encrypted)
-        } catch (encryptError) {
-          console.error('Failed to encrypt settings:', encryptError)
-          setError('設定の暗号化に失敗しました')
-          return
-        }
-      } else {
-        // Non-single profile mode - this should not happen in this component
-        setError('Single profile mode以外では使用できません')
-        return
-      }
-      
+
+      saveFullGlobalSettings(settings)
+
       setSaved(true)
-      setTimeout(() => setSaved(false), 3000) // Clear saved message after 3 seconds
+      setTimeout(() => setSaved(false), 3000)
     } catch {
       setError('Failed to save global settings')
     } finally {
       setLoading(false)
     }
-  }
+  }, [settings])
 
 
   const addEnvironmentVariable = () => {
-    setSettings(prev => ({
+    if (!settings) return
+    setSettings(prev => prev ? ({
       ...prev,
       environmentVariables: [
         ...prev.environmentVariables,
         { key: '', value: '', description: '' }
       ]
-    }))
+    }) : null)
   }
 
   const updateEnvironmentVariable = (index: number, field: keyof EnvironmentVariable, value: string) => {
-    setSettings(prev => ({
+    if (!settings) return
+    setSettings(prev => prev ? ({
       ...prev,
-      environmentVariables: prev.environmentVariables.map((env, i) => 
+      environmentVariables: prev.environmentVariables.map((env, i) =>
         i === index ? { ...env, [field]: value } : env
       )
-    }))
+    }) : null)
   }
 
   const removeEnvironmentVariable = (index: number) => {
-    setSettings(prev => ({
+    if (!settings) return
+    setSettings(prev => prev ? ({
       ...prev,
       environmentVariables: prev.environmentVariables.filter((_, i) => i !== index)
-    }))
+    }) : null)
   }
 
+  const addFixedOrganization = () => {
+    if (!settings) return
+    setSettings(prev => prev ? ({
+      ...prev,
+      fixedOrganizations: [...prev.fixedOrganizations, '']
+    }) : null)
+  }
+
+  const updateFixedOrganization = (index: number, value: string) => {
+    if (!settings) return
+    setSettings(prev => prev ? ({
+      ...prev,
+      fixedOrganizations: prev.fixedOrganizations.map((org, i) =>
+        i === index ? value : org
+      )
+    }) : null)
+  }
+
+  const removeFixedOrganization = (index: number) => {
+    if (!settings) return
+    setSettings(prev => prev ? ({
+      ...prev,
+      fixedOrganizations: prev.fixedOrganizations.filter((_, i) => i !== index)
+    }) : null)
+  }
+
+  if (!settings) {
+    return (
+      <main className="min-h-dvh bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-dvh bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Settings (Single Profile Mode)
+            Settings
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-1">
-            Configure encrypted environment variables
-          </p>
-          <p className="text-sm text-gray-500 dark:text-gray-500">
-            Settings are encrypted and stored securely. No unencrypted data is saved to localStorage.
+            Configure global settings for AgentAPI UI
           </p>
         </div>
 
         <div className="space-y-8">
+          {/* AgentAPI Proxy Settings */}
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+              AgentAPI Proxy Settings
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Endpoint URL
+                </label>
+                <input
+                  type="text"
+                  value={settings.agentApiProxy.endpoint}
+                  onChange={(e) => setSettings(prev => prev ? ({
+                    ...prev,
+                    agentApiProxy: { ...prev.agentApiProxy, endpoint: e.target.value }
+                  }) : null)}
+                  placeholder="http://localhost:8080"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  API Key (optional)
+                </label>
+                <input
+                  type="password"
+                  value={settings.agentApiProxy.apiKey || ''}
+                  onChange={(e) => setSettings(prev => prev ? ({
+                    ...prev,
+                    agentApiProxy: { ...prev.agentApiProxy, apiKey: e.target.value }
+                  }) : null)}
+                  placeholder="Enter API key if required"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Fixed Organizations */}
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                Fixed Organizations
+              </h2>
+              <button
+                onClick={addFixedOrganization}
+                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                + Add Organization
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Organizations that will be available for selection when creating new sessions.
+            </p>
+
+            {settings.fixedOrganizations.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                No fixed organizations configured. Users can enter any repository.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {settings.fixedOrganizations.map((org, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={org}
+                      onChange={(e) => updateFixedOrganization(index, e.target.value)}
+                      placeholder="organization-name"
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <button
+                      onClick={() => removeFixedOrganization(index)}
+                      className="px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 border border-red-300 dark:border-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Environment Variables */}
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
@@ -217,6 +210,9 @@ export default function GlobalSettingsPage() {
                 + Add Variable
               </button>
             </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Environment variables to be passed to agent sessions.
+            </p>
 
             {settings.environmentVariables.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400 italic">
@@ -239,7 +235,7 @@ export default function GlobalSettingsPage() {
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Value
@@ -253,7 +249,7 @@ export default function GlobalSettingsPage() {
                         />
                       </div>
                     </div>
-                    
+
                     <div className="mt-3">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Description (optional)
@@ -280,35 +276,13 @@ export default function GlobalSettingsPage() {
             )}
           </div>
 
-          {/* Loading Status */}
-          {isSingleProfile && decryptError && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6 mb-8">
-              <h2 className="text-xl font-semibold text-red-900 dark:text-red-100 mb-2">
-                設定の読み込みエラー
-              </h2>
-              <p className="text-sm text-red-600 dark:text-red-400 mb-4">
-                {decryptError}
-              </p>
-              <button
-                onClick={() => {
-                  clearEncryptedConfig()
-                  setDecryptError(null)
-                  window.location.reload()
-                }}
-                className="px-4 py-2 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
-              >
-                暗号化設定をクリアして再読み込み
-              </button>
-            </div>
-          )}
-
           {/* Amazon Bedrock Settings */}
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
             <BedrockSettingsComponent
               settings={settings.bedrockSettings || { enabled: false }}
-              onChange={(bedrockSettings) => setSettings(prev => ({ ...prev, bedrockSettings }))}
+              onChange={(bedrockSettings) => setSettings(prev => prev ? ({ ...prev, bedrockSettings }) : null)}
               title="Amazon Bedrock Settings"
-              description="Configure Amazon Bedrock provider settings for Claude API access. These settings are encrypted and stored securely."
+              description="Configure Amazon Bedrock provider settings for Claude API access."
             />
           </div>
 
@@ -321,7 +295,7 @@ export default function GlobalSettingsPage() {
             <div className="flex items-center gap-4">
               {saved && (
                 <span className="text-sm text-green-600 dark:text-green-400">
-                  ✓ Global settings saved successfully
+                  Settings saved successfully
                 </span>
               )}
               {error && (
@@ -330,7 +304,7 @@ export default function GlobalSettingsPage() {
                 </span>
               )}
             </div>
-            
+
             <button
               onClick={saveSettings}
               disabled={loading}
@@ -339,7 +313,7 @@ export default function GlobalSettingsPage() {
               {loading && (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
               )}
-              {loading ? 'Saving...' : 'Save Global Settings'}
+              {loading ? 'Saving...' : 'Save Settings'}
             </button>
           </div>
         </div>

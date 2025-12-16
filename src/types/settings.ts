@@ -1,4 +1,21 @@
-import { MCPServerConfig } from './profile';
+import { MessageTemplate } from './messageTemplate';
+
+export interface MCPServerConfig {
+  id: string;
+  name: string;
+  endpoint: string;
+  enabled: boolean;
+  transport: 'stdio' | 'sse' | 'websocket';
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  timeout?: number;
+}
+
+export interface RepositoryHistoryItem {
+  repository: string;
+  lastUsed: Date;
+}
 
 export interface AgentApiProxySettings {
   endpoint: string
@@ -22,10 +39,14 @@ export interface RepositorySettings {
 }
 
 export interface GlobalSettings {
+  agentApiProxy: AgentApiProxySettings
   environmentVariables: EnvironmentVariable[]
   mcpServers: MCPServerConfig[]
   bedrockSettings?: BedrockSettings
-  singleProfileMode: boolean
+  repositoryHistory: RepositoryHistoryItem[]
+  fixedOrganizations: string[]
+  messageTemplates: MessageTemplate[]
+  githubAuth?: GitHubOAuthSettings
   created_at: string
   updated_at: string
 }
@@ -34,13 +55,6 @@ export interface SettingsFormData {
   environmentVariables: EnvironmentVariable[]
   mcpServers: MCPServerConfig[]
   bedrockSettings?: BedrockSettings
-}
-
-// Single Profile Mode settings
-export interface SingleProfileModeSettings {
-  globalApiKey: string
-  created_at: string
-  updated_at: string
 }
 
 // GitHub OAuth settings
@@ -73,78 +87,10 @@ export const getDefaultSettings = (): SettingsFormData => ({
   }
 })
 
-// Default Single Profile Mode settings
-export const getDefaultSingleProfileModeSettings = (): SingleProfileModeSettings => ({
-  globalApiKey: '',
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString()
-})
-
-// Single Profile Mode utilities
-export const loadSingleProfileModeSettings = (): SingleProfileModeSettings => {
-  if (typeof window === 'undefined') {
-    return getDefaultSingleProfileModeSettings()
-  }
-  
-  try {
-    const savedSettings = localStorage.getItem('agentapi-single-profile-mode')
-    if (savedSettings) {
-      const parsedSettings = JSON.parse(savedSettings)
-      return {
-        ...getDefaultSingleProfileModeSettings(),
-        ...parsedSettings
-      }
-    }
-  } catch (err) {
-    console.error('Failed to load single profile mode settings:', err)
-  }
-  return getDefaultSingleProfileModeSettings()
-}
-
-export const saveSingleProfileModeSettings = (settings: SingleProfileModeSettings): void => {
-  if (typeof window === 'undefined') {
-    console.warn('Cannot save single profile mode settings: localStorage not available (server-side)')
-    return
-  }
-  
-  try {
-    const updatedSettings = {
-      ...settings,
-      updated_at: new Date().toISOString()
-    }
-    localStorage.setItem('agentapi-single-profile-mode', JSON.stringify(updatedSettings))
-  } catch (err) {
-    console.error('Failed to save single profile mode settings:', err)
-    throw err
-  }
-}
-
-// Check if Single Profile Mode is enabled via environment variable
-export const isSingleProfileModeEnabled = (): boolean => {
-  return process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true'
-}
-
-// Check if Single Profile Mode is enabled via runtime config
-export const isSingleProfileModeEnabledAsync = async (): Promise<boolean> => {
-  if (typeof window === 'undefined') {
-    return process.env.SINGLE_PROFILE_MODE === 'true' || 
-           process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true'
-  }
-  
-  try {
-    const response = await fetch('/api/config')
-    const config = await response.json()
-    return config.singleProfileMode || false
-  } catch (error) {
-    console.error('Failed to fetch runtime config:', error)
-    return process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true'
-  }
-}
-
-// Get proxy settings with runtime single mode check
+// Get proxy settings
 export const getDefaultProxySettingsAsync = async (): Promise<AgentApiProxySettings> => {
   const endpoint = await getCurrentHostProxyUrlAsync()
-  
+
   return {
     endpoint,
     enabled: true,
@@ -356,4 +302,131 @@ const mergeSettings = (globalSettings: SettingsFormData, repoSettings: SettingsF
 // Get effective settings for display (what would actually be used)
 export const getEffectiveSettings = (repoFullname: string): SettingsFormData => {
   return loadRepositorySettings(repoFullname)
+}
+
+// Full global settings (with all fields)
+const FULL_GLOBAL_SETTINGS_KEY = 'agentapi-full-global-settings'
+
+export const getDefaultFullGlobalSettings = (): GlobalSettings => {
+  const now = new Date().toISOString()
+  return {
+    agentApiProxy: getDefaultProxySettings(),
+    environmentVariables: [],
+    mcpServers: [],
+    bedrockSettings: { enabled: false },
+    repositoryHistory: [],
+    fixedOrganizations: [],
+    messageTemplates: [],
+    created_at: now,
+    updated_at: now
+  }
+}
+
+export const loadFullGlobalSettings = (): GlobalSettings => {
+  if (typeof window === 'undefined') {
+    return getDefaultFullGlobalSettings()
+  }
+
+  try {
+    const savedSettings = localStorage.getItem(FULL_GLOBAL_SETTINGS_KEY)
+    if (savedSettings) {
+      const parsedSettings = JSON.parse(savedSettings)
+      // Convert repositoryHistory lastUsed to Date objects
+      if (parsedSettings.repositoryHistory) {
+        parsedSettings.repositoryHistory = parsedSettings.repositoryHistory.map(
+          (item: { repository: string; lastUsed: string | Date }) => ({
+            ...item,
+            lastUsed: new Date(item.lastUsed)
+          })
+        )
+      }
+      return {
+        ...getDefaultFullGlobalSettings(),
+        ...parsedSettings
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load full global settings:', err)
+  }
+  return getDefaultFullGlobalSettings()
+}
+
+export const saveFullGlobalSettings = (settings: GlobalSettings): void => {
+  if (typeof window === 'undefined') {
+    console.warn('Cannot save full global settings: localStorage not available (server-side)')
+    return
+  }
+
+  try {
+    // Convert repositoryHistory Date objects to ISO strings
+    const settingsToSave = {
+      ...settings,
+      repositoryHistory: settings.repositoryHistory.map(item => ({
+        ...item,
+        lastUsed: item.lastUsed instanceof Date ? item.lastUsed.toISOString() : item.lastUsed
+      })),
+      updated_at: new Date().toISOString()
+    }
+    localStorage.setItem(FULL_GLOBAL_SETTINGS_KEY, JSON.stringify(settingsToSave))
+  } catch (err) {
+    console.error('Failed to save full global settings:', err)
+    throw err
+  }
+}
+
+// Repository history utilities
+const MAX_REPOSITORY_HISTORY = 10
+
+export const addRepositoryToHistory = (repository: string): void => {
+  if (!repository.trim()) return
+
+  const settings = loadFullGlobalSettings()
+  const existingIndex = settings.repositoryHistory.findIndex(
+    item => item.repository === repository
+  )
+
+  const now = new Date()
+
+  if (existingIndex !== -1) {
+    settings.repositoryHistory[existingIndex].lastUsed = now
+  } else {
+    settings.repositoryHistory.unshift({
+      repository,
+      lastUsed: now
+    })
+  }
+
+  settings.repositoryHistory.sort((a, b) => b.lastUsed.getTime() - a.lastUsed.getTime())
+  settings.repositoryHistory = settings.repositoryHistory.slice(0, MAX_REPOSITORY_HISTORY)
+
+  saveFullGlobalSettings(settings)
+}
+
+export const getRepositoryHistory = (): RepositoryHistoryItem[] => {
+  const settings = loadFullGlobalSettings()
+  return settings.repositoryHistory
+}
+
+// Message template utilities
+export const getMessageTemplates = (): MessageTemplate[] => {
+  const settings = loadFullGlobalSettings()
+  return settings.messageTemplates
+}
+
+export const saveMessageTemplates = (templates: MessageTemplate[]): void => {
+  const settings = loadFullGlobalSettings()
+  settings.messageTemplates = templates
+  saveFullGlobalSettings(settings)
+}
+
+// GitHub Auth utilities
+export const getGitHubAuthSettings = (): GitHubOAuthSettings | undefined => {
+  const settings = loadFullGlobalSettings()
+  return settings.githubAuth
+}
+
+export const saveGitHubAuthSettings = (auth: GitHubOAuthSettings): void => {
+  const settings = loadFullGlobalSettings()
+  settings.githubAuth = auth
+  saveFullGlobalSettings(settings)
 }

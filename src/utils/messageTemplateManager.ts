@@ -1,5 +1,5 @@
 import { MessageTemplate, MessageTemplateInput } from '../types/messageTemplate';
-import { ProfileManager } from './profileManager';
+import { loadFullGlobalSettings, saveFullGlobalSettings } from '../types/settings';
 
 export class MessageTemplateManager {
   private static instance: MessageTemplateManager;
@@ -13,87 +13,69 @@ export class MessageTemplateManager {
     return MessageTemplateManager.instance;
   }
 
-  async getTemplatesForProfile(profileId: string): Promise<MessageTemplate[]> {
-    const profile = ProfileManager.getProfile(profileId);
-    if (!profile) {
-      return [];
-    }
-    return profile.messageTemplates || [];
+  async getTemplates(): Promise<MessageTemplate[]> {
+    const settings = loadFullGlobalSettings();
+    return settings.messageTemplates || [];
   }
 
-  async createTemplate(profileId: string, input: MessageTemplateInput): Promise<MessageTemplate> {
-    const profile = ProfileManager.getProfile(profileId);
-    if (!profile) {
-      throw new Error('Profile not found');
-    }
+  async createTemplate(input: MessageTemplateInput): Promise<MessageTemplate> {
+    const settings = loadFullGlobalSettings();
 
     const newTemplate: MessageTemplate = {
       id: this.generateId(),
-      profileId,
+      profileId: 'global', // Keep for backward compatibility
       name: input.name,
       content: input.content,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    if (!profile.messageTemplates) {
-      profile.messageTemplates = [];
+    if (!settings.messageTemplates) {
+      settings.messageTemplates = [];
     }
-    profile.messageTemplates.push(newTemplate);
+    settings.messageTemplates.push(newTemplate);
 
-    ProfileManager.updateProfile(profileId, {
-      messageTemplates: profile.messageTemplates,
-    });
+    saveFullGlobalSettings(settings);
 
     return newTemplate;
   }
 
-  async updateTemplate(profileId: string, templateId: string, input: Partial<MessageTemplateInput>): Promise<MessageTemplate> {
-    const profile = ProfileManager.getProfile(profileId);
-    if (!profile) {
-      throw new Error('Profile not found');
-    }
+  async updateTemplate(templateId: string, input: Partial<MessageTemplateInput>): Promise<MessageTemplate> {
+    const settings = loadFullGlobalSettings();
 
-    if (!profile.messageTemplates) {
+    if (!settings.messageTemplates) {
       throw new Error('No templates found');
     }
 
-    const templateIndex = profile.messageTemplates.findIndex(t => t.id === templateId);
+    const templateIndex = settings.messageTemplates.findIndex(t => t.id === templateId);
     if (templateIndex === -1) {
       throw new Error('Template not found');
     }
 
     const updatedTemplate: MessageTemplate = {
-      ...profile.messageTemplates[templateIndex],
+      ...settings.messageTemplates[templateIndex],
       ...(input.name && { name: input.name }),
       ...(input.content && { content: input.content }),
       updatedAt: new Date().toISOString(),
     };
 
-    profile.messageTemplates[templateIndex] = updatedTemplate;
+    settings.messageTemplates[templateIndex] = updatedTemplate;
 
-    ProfileManager.updateProfile(profileId, {
-      messageTemplates: profile.messageTemplates,
-    });
+    saveFullGlobalSettings(settings);
 
     return updatedTemplate;
   }
 
-  async deleteTemplate(profileId: string, templateId: string): Promise<void> {
-    const profile = ProfileManager.getProfile(profileId);
-    if (!profile) {
-      throw new Error('Profile not found');
-    }
+  async deleteTemplate(templateId: string): Promise<void> {
+    const settings = loadFullGlobalSettings();
 
-    if (!profile.messageTemplates) {
+    if (!settings.messageTemplates) {
       return;
     }
 
-    profile.messageTemplates = profile.messageTemplates.filter(t => t.id !== templateId);
+    settings.messageTemplates = settings.messageTemplates.filter(t => t.id !== templateId);
 
-    ProfileManager.updateProfile(profileId, {
-      messageTemplates: profile.messageTemplates,
-    });
+    saveFullGlobalSettings(settings);
   }
 
   private generateId(): string {

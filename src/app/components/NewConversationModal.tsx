@@ -5,7 +5,7 @@ import { agentAPI } from '../../lib/api'
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { SessionFilter, getFilterValuesForSessionCreation } from '../../lib/filter-utils'
 import { OrganizationHistory } from '../../utils/organizationHistory'
-import { ProfileManager } from '../../utils/profileManager'
+import { loadFullGlobalSettings, addRepositoryToHistory } from '../../types/settings'
 
 interface NewConversationModalProps {
   isOpen: boolean
@@ -30,7 +30,6 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
   const [error, setError] = useState<string | null>(null)
   const [repositorySuggestions, setRepositorySuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const [currentProfileId, setCurrentProfileId] = useState<string>('')
   
   // Initialize with current filter values
   const initializeFromFilters = useCallback(() => {
@@ -96,10 +95,10 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
   const handleRepositoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setRepository(value)
-    
-    if (value.trim() && currentProfileId) {
-      // プロファイル固有の履歴から検索
-      const suggestions = OrganizationHistory.getProfileRepositorySuggestions(currentProfileId, value)
+
+    if (value.trim()) {
+      // グローバルの履歴から検索
+      const suggestions = OrganizationHistory.getRepositorySuggestions(value)
       setRepositorySuggestions(suggestions)
       setShowSuggestions(suggestions.length > 0)
     } else {
@@ -108,12 +107,10 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
   }
 
   const handleRepositoryFocus = () => {
-    if (currentProfileId) {
-      // プロファイル固有の履歴を表示
-      const suggestions = OrganizationHistory.getProfileRepositorySuggestions(currentProfileId)
-      setRepositorySuggestions(suggestions)
-      setShowSuggestions(suggestions.length > 0)
-    }
+    // グローバルの履歴を表示
+    const suggestions = OrganizationHistory.getRepositorySuggestions()
+    setRepositorySuggestions(suggestions)
+    setShowSuggestions(suggestions.length > 0)
   }
 
   const handleRepositoryBlur = () => {
@@ -147,30 +144,18 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
       if (initialRepository) {
         setRepository(initialRepository)
       }
-      
-      // 現在のプロファイルを取得（現在のプロファイル -> デフォルトプロファイルの順）
-      let currentProfile = null
-      const currentProfileId = ProfileManager.getCurrentProfileId()
-      if (currentProfileId) {
-        currentProfile = ProfileManager.getProfile(currentProfileId)
-        setCurrentProfileId(currentProfileId)
-      } else {
-        currentProfile = ProfileManager.getDefaultProfile()
-        if (currentProfile) {
-          setCurrentProfileId(currentProfile.id)
-        }
-      }
-      
-      if (currentProfile) {
-        // Profile の環境変数をフォームに反映（フィルターからの値が優先）
-        if (envVars.length === 1 && !envVars[0].key && !envVars[0].value) {
-          const profileEnvVars = currentProfile.environmentVariables || []
-          if (profileEnvVars.length > 0) {
-            setEnvVars(profileEnvVars.map(envVar => ({ 
-              key: envVar.key || '', 
-              value: envVar.value || '' 
-            })))
-          }
+
+      // グローバル設定から環境変数を取得
+      const globalSettings = loadFullGlobalSettings()
+
+      // グローバル設定の環境変数をフォームに反映（フィルターからの値が優先）
+      if (envVars.length === 1 && !envVars[0].key && !envVars[0].value) {
+        const globalEnvVars = globalSettings.environmentVariables || []
+        if (globalEnvVars.length > 0) {
+          setEnvVars(globalEnvVars.map(envVar => ({
+            key: envVar.key || '',
+            value: envVar.value || ''
+          })))
         }
       }
     }
@@ -252,17 +237,16 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
         tags: sessionData.tags
       })
 
-      // プロファイル固有のリポジトリ履歴に追加
-      if (repository.trim() && currentProfileId) {
+      // グローバルリポジトリ履歴に追加
+      if (repository.trim()) {
         const repoName = repository.trim()
-        ProfileManager.addRepositoryToProfile(currentProfileId, repoName)
-        
-        // 組織/リポジトリ形式の場合、プロファイル固有の組織履歴にも追加
+        addRepositoryToHistory(repoName)
+
+        // 組織/リポジトリ形式の場合、組織履歴にも追加
         if (repoName.includes('/')) {
           const [organization] = repoName.split('/', 2)
           if (organization) {
-            OrganizationHistory.addRepositoryToOrganization(currentProfileId, organization, repoName)
-            console.log('Repository added to profile organization history from NewConversationModal:', { profileId: currentProfileId, organization, repository: repoName })
+            OrganizationHistory.addRepositoryToOrganization(organization, repoName)
           }
         }
       }
