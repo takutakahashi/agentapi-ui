@@ -5,7 +5,7 @@ import { agentAPI } from '../../lib/api'
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { SessionFilter, getFilterValuesForSessionCreation } from '../../lib/filter-utils'
 import { OrganizationHistory } from '../../utils/organizationHistory'
-import { loadFullGlobalSettings, addRepositoryToHistory } from '../../types/settings'
+import { addRepositoryToHistory } from '../../types/settings'
 
 interface NewConversationModalProps {
   isOpen: boolean
@@ -145,19 +145,6 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
         setRepository(initialRepository)
       }
 
-      // グローバル設定から環境変数を取得
-      const globalSettings = loadFullGlobalSettings()
-
-      // グローバル設定の環境変数をフォームに反映（フィルターからの値が優先）
-      if (envVars.length === 1 && !envVars[0].key && !envVars[0].value) {
-        const globalEnvVars = globalSettings.environmentVariables || []
-        if (globalEnvVars.length > 0) {
-          setEnvVars(globalEnvVars.map(envVar => ({
-            key: envVar.key || '',
-            value: envVar.value || ''
-          })))
-        }
-      }
     }
   }, [isOpen, currentFilters, initialRepository, initializeFromFilters])
 
