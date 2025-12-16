@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { MCPServerConfig } from '../types/profile'
+import { MCPServerConfig } from '../types/settings'
 
 interface MCPServerSettingsProps {
   mcpServers: MCPServerConfig[]
