@@ -75,6 +75,20 @@ spec:
           {{- end }}
             - name: NEXT_PUBLIC_ALLOWED_ORIGINS
               value: "https://{{ .Values.hostname }}"
+            # Application configuration (runtime settings)
+            {{- if .Values.oauthOnlyMode.enabled }}
+            - name: AUTH_MODE
+              value: "oauth_only"
+            {{- else }}
+            - name: AUTH_MODE
+              value: {{ .Values.config.authMode | quote }}
+            {{- end }}
+            - name: LOGIN_TITLE
+              value: {{ .Values.config.loginTitle | quote }}
+            - name: LOGIN_DESCRIPTION
+              value: {{ .Values.config.loginDescription | quote }}
+            - name: LOGIN_SUB_DESCRIPTION
+              value: {{ .Values.config.loginSubDescription | quote }}
           {{- if .Values.env }}
             {{- toYaml .Values.env | nindent 12 }}
           {{- end }}

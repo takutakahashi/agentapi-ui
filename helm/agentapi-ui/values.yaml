@@ -133,7 +133,7 @@ cookieEncryptionSecret:
   # Key within the secret that contains the cookie encryption secret
   secretKey: "cookie-encryption-secret"
 
-# OAuth Only Mode configuration
+# OAuth Only Mode configuration (deprecated, use config.authMode instead)
 # When enabled, uses the OAuth-only image variant which hides API key login
 oauthOnlyMode:
   # Enable OAuth only mode (uses -oauth image suffix)
@@ -142,6 +142,18 @@ oauthOnlyMode:
   proxyUrl: "http://localhost:8080"
   # Public AgentAPI Proxy URL for client-side (optional, defaults to proxyUrl)
   publicProxyUrl: ""
+
+# Application configuration (runtime settings via /api/config)
+config:
+  # Authentication mode: 'oauth_only' | 'api_key' | 'both'
+  # Note: If oauthOnlyMode.enabled is true, this will be overridden to 'oauth_only'
+  authMode: "both"
+  # Login page title
+  loginTitle: "AgentAPI UI"
+  # Login page description
+  loginDescription: "Enter your API key or sign in with GitHub to continue."
+  # Login page sub-description (shown only when API key form is visible)
+  loginSubDescription: "API key can be any valid authentication token for your AgentAPI service."
 
 # ConfigMap data
 configMap:
