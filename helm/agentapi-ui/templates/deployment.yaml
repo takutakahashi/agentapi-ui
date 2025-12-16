@@ -34,7 +34,9 @@ spec:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          {{- if .Values.singleProfileMode.enabled }}
+          {{- if .Values.oauthOnlyMode.enabled }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}{{ .Values.image.oauthOnlySuffix }}"
+          {{- else if .Values.singleProfileMode.enabled }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}{{ .Values.image.singleProfileSuffix }}"
           {{- else }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -67,7 +69,18 @@ spec:
                   name: {{ .Values.cookieEncryptionSecret.secretName }}
                   key: {{ .Values.cookieEncryptionSecret.secretKey }}
           {{- end }}
-          {{- if .Values.singleProfileMode.enabled }}
+          {{- if .Values.oauthOnlyMode.enabled }}
+            - name: SINGLE_PROFILE_MODE
+              value: "true"
+            - name: NEXT_PUBLIC_SINGLE_PROFILE_MODE
+              value: "true"
+            - name: NEXT_PUBLIC_OAUTH_ONLY_MODE
+              value: "true"
+            - name: AGENTAPI_PROXY_URL
+              value: {{ .Values.oauthOnlyMode.proxyUrl | quote }}
+            - name: NEXT_PUBLIC_AGENTAPI_PROXY_URL
+              value: {{ .Values.oauthOnlyMode.publicProxyUrl | default .Values.oauthOnlyMode.proxyUrl | quote }}
+          {{- else if .Values.singleProfileMode.enabled }}
             - name: SINGLE_PROFILE_MODE
               value: "true"
             - name: NEXT_PUBLIC_SINGLE_PROFILE_MODE
