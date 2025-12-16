@@ -11,6 +11,8 @@ image:
   tag: ""
   # Tag suffix for single profile mode images
   singleProfileSuffix: "-single-profile"
+  # Tag suffix for OAuth only mode images
+  oauthOnlySuffix: "-oauth"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -138,6 +140,16 @@ singleProfileMode:
   # Enable single profile mode
   enabled: false
   # AgentAPI Proxy URL for single profile mode
+  proxyUrl: "http://localhost:8080"
+  # Public AgentAPI Proxy URL for client-side (optional, defaults to proxyUrl)
+  publicProxyUrl: ""
+
+# OAuth Only Mode configuration
+# When enabled, uses the OAuth-only image variant which hides API key login
+oauthOnlyMode:
+  # Enable OAuth only mode (uses -oauth image suffix)
+  enabled: false
+  # AgentAPI Proxy URL for OAuth mode
   proxyUrl: "http://localhost:8080"
   # Public AgentAPI Proxy URL for client-side (optional, defaults to proxyUrl)
   publicProxyUrl: ""
