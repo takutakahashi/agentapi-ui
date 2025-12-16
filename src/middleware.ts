@@ -2,36 +2,30 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  // Check if single profile mode is enabled
-  const singleProfileMode = process.env.SINGLE_PROFILE_MODE === 'true' || 
-                            process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true'
-  
-  if (singleProfileMode) {
-    const pathname = request.nextUrl.pathname
-    
-    // Allow access to login page, API routes and static assets
-    if (
-      pathname.startsWith('/login') ||
-      pathname.startsWith('/api/') ||
-      pathname.startsWith('/_next/') ||
-      pathname.startsWith('/static/') ||
-      pathname === '/manifest.json' ||
-      pathname === '/favicon.ico' ||
-      pathname.startsWith('/icons/')
-    ) {
-      return NextResponse.next()
-    }
-    
-    // Check if user has auth token
-    const authToken = request.cookies.get('agentapi_token')
-    
-    if (!authToken) {
-      // If no auth token, redirect to login page
-      const loginUrl = new URL('/login', request.url)
-      return NextResponse.redirect(loginUrl)
-    }
+  const pathname = request.nextUrl.pathname
+
+  // Allow access to login page, API routes and static assets
+  if (
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/api/') ||
+    pathname.startsWith('/_next/') ||
+    pathname.startsWith('/static/') ||
+    pathname === '/manifest.json' ||
+    pathname === '/favicon.ico' ||
+    pathname.startsWith('/icons/')
+  ) {
+    return NextResponse.next()
   }
-  
+
+  // Check if user has auth token
+  const authToken = request.cookies.get('agentapi_token')
+
+  if (!authToken) {
+    // If no auth token, redirect to login page
+    const loginUrl = new URL('/login', request.url)
+    return NextResponse.redirect(loginUrl)
+  }
+
   return NextResponse.next()
 }
 

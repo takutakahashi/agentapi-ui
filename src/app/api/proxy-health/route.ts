@@ -23,23 +23,13 @@ export async function GET(request: NextRequest) {
     timestamp: new Date().toISOString(),
     environment: {
       AGENTAPI_PROXY_URL: PROXY_URL,
-      SINGLE_PROFILE_MODE: process.env.SINGLE_PROFILE_MODE,
       COOKIE_ENCRYPTION_SECRET_SET: !!process.env.COOKIE_ENCRYPTION_SECRET,
       COOKIE_ENCRYPTION_SECRET_LENGTH: process.env.COOKIE_ENCRYPTION_SECRET?.length || 0,
     },
     tests: {} as Record<string, unknown>
   };
 
-  // Test 1: Check if single profile mode is enabled
-  const singleProfileMode = process.env.SINGLE_PROFILE_MODE === 'true' || 
-                        process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true';
-  (diagnostics.tests as Record<string, unknown>).singleProfileMode = {
-    enabled: singleProfileMode,
-    status: singleProfileMode ? 'PASS' : 'FAIL',
-    message: singleProfileMode ? 'Single profile mode is enabled' : 'Single profile mode is not enabled'
-  };
-
-  // Test 2: Check API key from cookie
+  // Test 1: Check API key from cookie
   try {
     const apiKey = await getApiKeyFromCookie();
     (diagnostics.tests as Record<string, unknown>).apiKeyCookie = {

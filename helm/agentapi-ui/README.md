@@ -65,46 +65,9 @@ helm install agentapi-ui ./helm/agentapi-ui \
   --set cookieEncryptionSecret.secretKey=my-cookie-key
 ```
 
-### Single Profile Mode の設定
-
-Single Profile Modeを有効にすると、プロファイル切り替えUIが無効になり、単一のプロファイルとして動作します。
-
-#### 1. Single Profile Mode の有効化
-
-```yaml
-singleProfileMode:
-  enabled: true  # Single Profile Mode を有効化
-  proxyUrl: "http://agentapi-proxy:8080"  # AgentAPI Proxy の URL
-  publicProxyUrl: ""  # クライアントサイド用URL（省略可能、proxyUrlが使用される）
-```
-
-#### 2. カスタム設定でのインストール
-
-```bash
-helm install agentapi-ui ./helm/agentapi-ui \
-  --set singleProfileMode.enabled=true \
-  --set singleProfileMode.proxyUrl=http://my-proxy:8080 \
-  --set singleProfileMode.publicProxyUrl=http://my-public-proxy:8080
-```
-
-#### 3. Single Profile Mode で必要なシークレット
-
-Single Profile Mode を使用する場合は、Cookie暗号化シークレットも必要です：
-
-```bash
-# Cookie暗号化用の32バイト（64文字の16進数）キーを生成
-COOKIE_ENCRYPTION_SECRET=$(openssl rand -hex 32)
-
-# 暗号化キーと一緒にシークレットを作成
-kubectl create secret generic agentapi-ui-encryption \
-  --from-literal=encryption-key=$(openssl rand -base64 32) \
-  --from-literal=cookie-encryption-secret=$COOKIE_ENCRYPTION_SECRET
-```
-
 ### OAuth Only Mode の設定
 
 OAuth Only Modeを有効にすると、APIキーログインが無効になり、GitHub OAuth認証のみが表示されます。
-このモードは Single Profile Mode をベースにしており、OAuth認証が必須の環境向けです。
 
 #### 1. OAuth Only Mode の有効化
 
@@ -140,7 +103,6 @@ kubectl create secret generic agentapi-ui-encryption \
 
 #### 4. 注意事項
 
-- OAuth Only Mode と Single Profile Mode は排他的です。両方有効にした場合、OAuth Only Mode が優先されます。
 - OAuth Only Mode を使用するには、agentapi-proxy側でGitHub OAuthが設定されている必要があります。
 
 ### その他の設定

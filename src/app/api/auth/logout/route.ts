@@ -4,17 +4,6 @@ import { decryptCookie } from '@/lib/cookie-encryption';
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if single profile mode is enabled
-    const singleProfileMode = process.env.SINGLE_PROFILE_MODE === 'true' || 
-                              process.env.NEXT_PUBLIC_SINGLE_PROFILE_MODE === 'true';
-    
-    if (!singleProfileMode) {
-      return NextResponse.json(
-        { error: 'Single profile mode is not enabled' },
-        { status: 403 }
-      );
-    }
-
     // Check if this is a GitHub OAuth session
     const authToken = request.cookies.get('agentapi_token')?.value;
     if (authToken) {
