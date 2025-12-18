@@ -334,7 +334,7 @@ export default function NewSessionModal({
         }
       }}
     >
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-lg mx-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 w-full max-w-lg lg:max-w-2xl xl:max-w-3xl mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             新しいセッションを開始
@@ -404,7 +404,7 @@ export default function NewSessionModal({
                 onFocus={handleMessageFocus}
                 onBlur={handleMessageBlur}
                 placeholder="このセッションで何をしたいか説明してください..."
-                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white resize-y min-h-[120px] max-h-[300px] sm:min-h-[96px]"
+                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white resize-y min-h-[120px] sm:min-h-[100px] lg:min-h-[150px] xl:min-h-[180px] max-h-[50vh]"
                 rows={isMobile ? 6 : 4}
                 disabled={isCreating}
                 required
@@ -480,19 +480,30 @@ export default function NewSessionModal({
                 required
               />
 
-              {/* サジェストドロップダウン */}
+              {/* サジェストドロップダウン - 大画面でグリッド表示 */}
               {showFreeFormRepositorySuggestions && freeFormRepositorySuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg z-50 mt-1 max-h-48 overflow-y-auto">
-                  {freeFormRepositorySuggestions.map((suggestion, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      onClick={() => selectFreeFormRepositorySuggestion(suggestion)}
-                      className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm border-b border-gray-200 dark:border-gray-600 last:border-b-0"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
+                <div className="absolute top-full left-0 right-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl z-50 mt-1 max-h-64 lg:max-h-80 overflow-y-auto">
+                  <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">リポジトリ履歴</span>
+                  </div>
+                  <div className="p-2 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-2">
+                    {freeFormRepositorySuggestions.map((suggestion, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => selectFreeFormRepositorySuggestion(suggestion)}
+                        className="text-left px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-gray-900 dark:text-white font-mono text-sm rounded-md border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-700 transition-colors truncate"
+                        title={suggestion}
+                      >
+                        <span className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                          </svg>
+                          <span className="truncate">{suggestion}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -555,8 +566,8 @@ export default function NewSessionModal({
             }
           }}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl lg:max-w-4xl xl:max-w-5xl max-h-[85vh] overflow-hidden">
+            <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">テンプレートから選択</h2>
                 <button
@@ -570,12 +581,12 @@ export default function NewSessionModal({
               </div>
             </div>
 
-            <div className="overflow-y-auto max-h-[calc(80vh-8rem)]">
+            <div className="overflow-y-auto max-h-[calc(85vh-5rem)]">
               {/* Recent Messages Section */}
               {recentMessages.length > 0 && (
-                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                   <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">最近のメッセージ</h3>
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
                     {recentMessages.map((message, index) => (
                       <button
                         key={index}
@@ -583,7 +594,7 @@ export default function NewSessionModal({
                           setInitialMessage(message)
                           setShowTemplateModal(false)
                         }}
-                        className="w-full text-left px-3 py-2 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-md transition-colors"
+                        className="text-left px-3 py-2 bg-gray-50 dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors border border-transparent hover:border-blue-300 dark:hover:border-blue-700"
                       >
                         <div className="text-sm text-gray-900 dark:text-white line-clamp-2">
                           {message}
@@ -595,10 +606,10 @@ export default function NewSessionModal({
               )}
 
               {/* Templates Section */}
-              <div className="px-6 py-4">
+              <div className="px-4 sm:px-6 py-4">
                 <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">テンプレート</h3>
                 {templates.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
                     {templates.map((template) => (
                       <button
                         key={template.id}
@@ -606,24 +617,35 @@ export default function NewSessionModal({
                           setInitialMessage(template.content)
                           setShowTemplateModal(false)
                         }}
-                        className="w-full text-left px-3 py-3 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-md transition-colors"
+                        className="text-left px-4 py-3 bg-gray-50 dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-700"
                       >
-                        <div className="font-medium text-sm text-gray-900 dark:text-white">{template.name}</div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                        <div className="font-medium text-sm text-gray-900 dark:text-white flex items-center gap-2">
+                          <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <span className="truncate">{template.name}</span>
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mt-2 line-clamp-3">
                           {template.content}
                         </div>
                       </button>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                    <svg className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
                     <p className="text-sm">テンプレートがありません</p>
                     <a
                       href="/settings?tab=templates"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:underline inline-block"
+                      className="mt-3 inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
                     >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
                       テンプレートを作成
                     </a>
                   </div>
