@@ -4,6 +4,11 @@ import type { NextRequest } from 'next/server'
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
+  // Skip auth if DISABLE_AUTH is set
+  if (process.env.DISABLE_AUTH === 'true') {
+    return NextResponse.next()
+  }
+
   // Allow access to login page, API routes and static assets
   if (
     pathname.startsWith('/login') ||

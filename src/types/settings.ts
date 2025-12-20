@@ -1,5 +1,22 @@
 import { MessageTemplate } from './messageTemplate';
 
+// Settings type for routing
+export type SettingsType = 'personal' | 'team'
+
+// Personal settings (to be defined later)
+export interface PersonalSettings {
+  // Placeholder - will be defined later
+  [key: string]: unknown
+}
+
+// Team settings (to be defined later)
+export interface TeamSettings {
+  teamId?: string
+  teamName?: string
+  // Placeholder - will be defined later
+  [key: string]: unknown
+}
+
 export interface MCPServerConfig {
   id: string;
   name: string;
