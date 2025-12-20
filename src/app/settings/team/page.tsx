@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { SettingsData, RunbookRepositoryConfig, BedrockConfig } from '@/types/settings'
-import { RunbookSettings, BedrockSettings } from '@/components/settings'
+import { RunbookSettings, BedrockSettings, SettingsAccordion } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 
 export default function TeamSettingsPage() {
@@ -102,9 +102,21 @@ export default function TeamSettingsPage() {
         </div>
       )}
 
-      <RunbookSettings config={settings.runbook} onChange={handleRunbookChange} />
+      <SettingsAccordion
+        title="Runbook Repository"
+        description="Configure the repository containing your runbooks"
+        defaultOpen
+      >
+        <RunbookSettings config={settings.runbook} onChange={handleRunbookChange} />
+      </SettingsAccordion>
 
-      <BedrockSettings config={settings.bedrock} onChange={handleBedrockChange} showCredentials />
+      <SettingsAccordion
+        title="AI Settings"
+        description="Configure AI providers and models"
+        defaultOpen
+      >
+        <BedrockSettings config={settings.bedrock} onChange={handleBedrockChange} showCredentials />
+      </SettingsAccordion>
 
       <div className="flex justify-end">
         <button
