@@ -23,10 +23,10 @@ interface CreatingSession {
 interface SessionListViewProps {
   tagFilters: TagFilter
   onSessionsUpdate: () => void
-  creatingSessions: CreatingSession[]
+  creatingSessions?: CreatingSession[]
 }
 
-export default function SessionListView({ tagFilters, onSessionsUpdate, creatingSessions }: SessionListViewProps) {
+export default function SessionListView({ tagFilters, onSessionsUpdate, creatingSessions = [] }: SessionListViewProps) {
   const router = useRouter()
 
   // Create global API clients
