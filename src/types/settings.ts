@@ -12,7 +12,6 @@ export interface RunbookRepositoryConfig {
 
 // Bedrock 設定
 export interface BedrockConfig {
-  region: string;           // AWS リージョン
   modelId: string;          // モデル ID
 }
 
