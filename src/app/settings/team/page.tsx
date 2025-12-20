@@ -104,7 +104,7 @@ export default function TeamSettingsPage() {
 
       <RunbookSettings config={settings.runbook} onChange={handleRunbookChange} />
 
-      <BedrockSettings config={settings.bedrock} onChange={handleBedrockChange} />
+      <BedrockSettings config={settings.bedrock} onChange={handleBedrockChange} showCredentials />
 
       <div className="flex justify-end">
         <button

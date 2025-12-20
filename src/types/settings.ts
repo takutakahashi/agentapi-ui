@@ -13,6 +13,8 @@ export interface RunbookRepositoryConfig {
 // Bedrock 設定
 export interface BedrockConfig {
   modelId: string;          // モデル ID
+  accessKeyId?: string;     // AWS アクセスキー ID (チーム設定のみ)
+  secretAccessKey?: string; // AWS シークレットアクセスキー (チーム設定のみ)
 }
 
 // 設定データ（API で保存）
