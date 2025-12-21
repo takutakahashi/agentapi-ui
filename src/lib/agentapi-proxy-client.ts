@@ -13,7 +13,7 @@ import {
   AgentListResponse,
   AgentListParams
 } from '../types/agentapi';
-import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory } from '../types/settings';
+import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData } from '../types/settings';
 
 // GitHubUser type (moved from profile.ts)
 export interface GitHubUser {
@@ -568,6 +568,48 @@ export class AgentAPIProxyClient {
     } catch (error) {
       console.error('[AgentAPIProxy] Failed to get GitHub auth URL:', error);
       throw error;
+    }
+  }
+
+  // Settings operations
+
+  /**
+   * Get settings for a user or team
+   * @param name - User name or team name
+   */
+  async getSettings(name: string): Promise<SettingsData> {
+    try {
+      if (this.debug) {
+        console.log(`[AgentAPIProxy] Getting settings for: ${name}`);
+      }
+      return await this.makeRequest<SettingsData>(`/settings/${encodeURIComponent(name)}`);
+    } catch (error) {
+      // If settings don't exist (404), return empty settings
+      if (error instanceof AgentAPIProxyError && error.status === 404) {
+        if (this.debug) {
+          console.log(`[AgentAPIProxy] Settings not found for ${name}, returning empty settings`);
+        }
+        return {};
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Save settings for a user or team
+   * @param name - User name or team name
+   * @param data - Settings data to save
+   */
+  async saveSettings(name: string, data: SettingsData): Promise<void> {
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Saving settings for: ${name}`, data);
+    }
+    await this.makeRequest<void>(`/settings/${encodeURIComponent(name)}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Successfully saved settings for: ${name}`);
     }
   }
 

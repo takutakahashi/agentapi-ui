@@ -3,18 +3,33 @@ import { MessageTemplate } from './messageTemplate';
 // Settings type for routing
 export type SettingsType = 'personal' | 'team'
 
-// Personal settings (to be defined later)
-export interface PersonalSettings {
-  // Placeholder - will be defined later
-  [key: string]: unknown
+// Runbook リポジトリ設定
+export interface RunbookRepositoryConfig {
+  repositoryUrl: string;    // GitHub URL
+  branch: string;           // ブランチ名
+  directoryPath: string;    // ディレクトリパス
 }
 
-// Team settings (to be defined later)
-export interface TeamSettings {
+// Bedrock 設定
+export interface BedrockConfig {
+  modelId: string;          // モデル ID
+  accessKeyId?: string;     // AWS アクセスキー ID (チーム設定のみ)
+  secretAccessKey?: string; // AWS シークレットアクセスキー (チーム設定のみ)
+}
+
+// 設定データ（API で保存）
+export interface SettingsData {
+  runbook?: RunbookRepositoryConfig;
+  bedrock?: BedrockConfig;
+}
+
+// Personal settings
+export type PersonalSettings = SettingsData
+
+// Team settings
+export interface TeamSettings extends SettingsData {
   teamId?: string
   teamName?: string
-  // Placeholder - will be defined later
-  [key: string]: unknown
 }
 
 export interface MCPServerConfig {
