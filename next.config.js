@@ -10,6 +10,9 @@ const withPWA = require('next-pwa')({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: {
+    AGENTAPI_DEBUG: process.env.AGENTAPI_DEBUG || '',
+  },
   output: 'standalone',
   outputFileTracingIncludes: {
     '/': ['./public/**/*'],
