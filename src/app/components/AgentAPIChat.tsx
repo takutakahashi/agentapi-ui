@@ -219,9 +219,9 @@ export default function AgentAPIChat() {
               console.error('Failed to load session messages:', err);
               setIsConnected(false); // Only set disconnected on actual error
               if (err instanceof AgentAPIProxyError) {
-                setError(`Failed to load session messages: ${err.message} (Session: ${sessionId})`);
+                setError(`セッションメッセージの読み込みに失敗しました: ${err.message} (セッション: ${sessionId})`);
               } else {
-                setError(`Failed to connect to session ${sessionId}`);
+                setError(`セッション ${sessionId} への接続に失敗しました`);
               }
               return;
             }
@@ -234,9 +234,9 @@ export default function AgentAPIChat() {
           console.error('Failed to initialize chat:', err);
           setIsConnected(false);
           if (err instanceof AgentAPIProxyError) {
-            setError(`Failed to connect: ${err.message}`);
+            setError(`接続に失敗しました: ${err.message}`);
           } else {
-            setError('Failed to connect to AgentAPI Proxy');
+            setError('AgentAPI Proxyへの接続に失敗しました');
           }
         }
       };

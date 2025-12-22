@@ -25,7 +25,7 @@ export default function PersonalSettingsPage() {
         setSettings(data)
       } catch (err) {
         console.error('Failed to load personal settings:', err)
-        setError('Failed to load settings')
+        setError('設定の読み込みに失敗しました')
       } finally {
         setLoading(false)
       }
@@ -55,7 +55,7 @@ export default function PersonalSettingsPage() {
       setSuccess(true)
     } catch (err) {
       console.error('Failed to save personal settings:', err)
-      setError('Failed to save settings')
+      setError('設定の保存に失敗しました')
     } finally {
       setSaving(false)
     }

@@ -25,7 +25,7 @@ export default function TeamSettingsPage() {
         setSettings(data)
       } catch (err) {
         console.error('Failed to load team settings:', err)
-        setError('Failed to load settings')
+        setError('設定の読み込みに失敗しました')
       } finally {
         setLoading(false)
       }
@@ -55,7 +55,7 @@ export default function TeamSettingsPage() {
       setSuccess(true)
     } catch (err) {
       console.error('Failed to save team settings:', err)
-      setError('Failed to save settings')
+      setError('設定の保存に失敗しました')
     } finally {
       setSaving(false)
     }
