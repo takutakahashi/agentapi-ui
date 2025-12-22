@@ -66,9 +66,15 @@ export default function NewSessionPage() {
     }
   }
 
-  const createSessionInBackground = async (client: AgentAPIProxyClient, message: string, repo: string) => {
+  const createSession = async (
+    client: AgentAPIProxyClient,
+    message: string,
+    repo: string,
+    onStatusUpdate: (status: string) => void
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
-      console.log('Starting background session creation...')
+      console.log('Starting session creation...')
+      onStatusUpdate('セッションを作成中...')
 
       const tags: Record<string, string> = {}
       if (repo) {
@@ -89,6 +95,7 @@ export default function NewSessionPage() {
       })
       console.log('Session created:', session)
 
+      onStatusUpdate('エージェントの起動を待機中...')
       let retryCount = 0
       const maxRetries = 30
       const retryInterval = 1000
@@ -107,20 +114,30 @@ export default function NewSessionPage() {
 
         retryCount++
         if (retryCount >= maxRetries) {
-          throw new Error('セッションの準備がタイムアウトしました。しばらく待ってから再試行してください。')
+          return {
+            success: false,
+            error: 'セッションの準備がタイムアウトしました。しばらく待ってから再試行してください。'
+          }
         }
 
         await new Promise(resolve => setTimeout(resolve, retryInterval))
       }
 
+      onStatusUpdate('初期メッセージを送信中...')
       console.log(`Sending message to session ${session.session_id}:`, message)
       await client.sendSessionMessage(session.session_id, {
         content: message,
         type: 'user'
       })
       console.log('Message sent successfully')
+
+      return { success: true }
     } catch (err) {
-      console.error('Background session creation failed:', err)
+      console.error('Session creation failed:', err)
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'セッション作成に失敗しました'
+      }
     }
   }
 
@@ -139,36 +156,42 @@ export default function NewSessionPage() {
       }
     }
 
-    try {
-      setIsCreating(true)
-      setError(null)
-      setStatusMessage('セッションを作成中...')
+    setIsCreating(true)
+    setError(null)
+    setStatusMessage('セッションを作成中...')
 
-      const client = createAgentAPIClient()
-      const currentMessage = initialMessage.trim()
-      const currentRepository = sessionMode === 'chat' ? '' : freeFormRepository.trim()
+    const client = createAgentAPIClient()
+    const currentMessage = initialMessage.trim()
+    const currentRepository = sessionMode === 'chat' ? '' : freeFormRepository.trim()
 
-      InitialMessageCache.addMessage(currentMessage)
-      await recentMessagesManager.saveMessage(currentMessage)
+    InitialMessageCache.addMessage(currentMessage)
+    await recentMessagesManager.saveMessage(currentMessage)
 
-      if (currentRepository && sessionMode === 'repository') {
-        console.log('Adding repository to history before session creation:', { currentRepository })
-        try {
-          addRepositoryToHistory(currentRepository)
-          console.log('Repository added to history successfully (pre-session)')
-        } catch (error) {
-          console.error('Failed to add repository to history (pre-session):', error)
-        }
+    if (currentRepository && sessionMode === 'repository') {
+      console.log('Adding repository to history before session creation:', { currentRepository })
+      try {
+        addRepositoryToHistory(currentRepository)
+        console.log('Repository added to history successfully (pre-session)')
+      } catch (error) {
+        console.error('Failed to add repository to history (pre-session):', error)
       }
+    }
 
-      // バックグラウンドでセッション作成処理を開始
-      createSessionInBackground(client, currentMessage, currentRepository)
+    // セッション作成を待機
+    const result = await createSession(
+      client,
+      currentMessage,
+      currentRepository,
+      setStatusMessage
+    )
 
-      // すぐに /chats に遷移
+    if (result.success) {
+      // 成功したら /chats に遷移
       router.push('/chats')
-
-    } catch {
-      setError('セッション開始に失敗しました')
+    } else {
+      // 失敗したらエラーを表示
+      setError(result.error || 'セッション作成に失敗しました')
+      setStatusMessage('')
       setIsCreating(false)
     }
   }
