@@ -36,6 +36,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const [deletingSession, setDeletingSession] = useState<string | null>(null)
   const [sessionMessages, setSessionMessages] = useState<{ [sessionId: string]: string }>({})
   const [isMobile, setIsMobile] = useState(false)
@@ -296,12 +297,18 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
 
     try {
       setDeletingSession(sessionId)
+      setError(null)
+      setSuccess(null)
 
       await agentAPI.delete!(sessionId)
 
       // セッション一覧を更新
       fetchSessions()
       onSessionsUpdate()
+
+      // 成功メッセージを表示
+      setSuccess('セッションを削除しました')
+      setTimeout(() => setSuccess(null), 3000)
     } catch (err) {
       console.error('Failed to delete session:', err)
       setError('セッションの削除に失敗しました')
@@ -363,6 +370,12 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+          <p className="text-green-600 dark:text-green-400 text-sm">{success}</p>
         </div>
       )}
 
