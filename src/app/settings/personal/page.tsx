@@ -4,6 +4,19 @@ import { useState, useEffect } from 'react'
 import { SettingsData, RunbookRepositoryConfig, BedrockConfig } from '@/types/settings'
 import { RunbookSettings, BedrockSettings, SettingsAccordion } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
+import { useToast } from '@/contexts/ToastContext'
+
+interface UserInfo {
+  type: 'github' | 'api_key'
+  user?: {
+    id?: number
+    login?: string
+    name?: string
+    email?: string
+    avatar_url?: string
+    authenticated?: boolean
+  }
+}
 
 export default function PersonalSettingsPage() {
   const [settings, setSettings] = useState<SettingsData>({})
@@ -11,51 +24,72 @@ export default function PersonalSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
+  const { showToast } = useToast()
 
   useEffect(() => {
     const loadSettings = async () => {
-      // TODO: Get user name from context or auth
-      const name = 'default-user'
-      setUserName(name)
-
       try {
-        const client = createAgentAPIProxyClientFromStorage()
-        const data = await client.getSettings(name)
-        setSettings(data)
+        // Get user info from API
+        const userInfoResponse = await fetch('/api/user/info')
+        if (userInfoResponse.ok) {
+          const userInfo: UserInfo = await userInfoResponse.json()
+          if (userInfo.type === 'github' && userInfo.user?.login) {
+            setUserName(userInfo.user.login)
+          } else {
+            // Fallback for API key authentication
+            setUserName('default-user')
+          }
+        } else {
+          setUserName('default-user')
+        }
       } catch (err) {
-        console.error('Failed to load personal settings:', err)
-        setError('設定の読み込みに失敗しました')
-      } finally {
-        setLoading(false)
+        console.error('Failed to get user info:', err)
+        setUserName('default-user')
       }
     }
 
     loadSettings()
   }, [])
 
+  useEffect(() => {
+    const fetchSettings = async () => {
+      if (!userName) return
+
+      try {
+        const client = createAgentAPIProxyClientFromStorage()
+        const data = await client.getSettings(userName)
+        setSettings(data)
+      } catch (err) {
+        console.error('Failed to load personal settings:', err)
+        setError('Failed to load settings')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchSettings()
+  }, [userName])
+
   const handleRunbookChange = (config: RunbookRepositoryConfig) => {
     setSettings((prev) => ({ ...prev, runbook: config }))
-    setSuccess(false)
   }
 
   const handleBedrockChange = (config: BedrockConfig) => {
     setSettings((prev) => ({ ...prev, bedrock: config }))
-    setSuccess(false)
   }
 
   const handleSave = async () => {
     setSaving(true)
     setError(null)
-    setSuccess(false)
 
     try {
       const client = createAgentAPIProxyClientFromStorage()
       await client.saveSettings(userName, settings)
-      setSuccess(true)
+      showToast('Settings saved successfully!', 'success')
     } catch (err) {
       console.error('Failed to save personal settings:', err)
-      setError('設定の保存に失敗しました')
+      setError('Failed to save settings')
+      showToast('Failed to save settings', 'error')
     } finally {
       setSaving(false)
     }
@@ -87,18 +121,17 @@ export default function PersonalSettingsPage() {
         </h2>
         <p className="text-gray-600 dark:text-gray-400">
           Configure your personal preferences
+          {userName && userName !== 'default-user' && (
+            <span className="ml-2 text-sm text-blue-600 dark:text-blue-400">
+              ({userName})
+            </span>
+          )}
         </p>
       </div>
 
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-red-600 dark:text-red-400">{error}</p>
-        </div>
-      )}
-
-      {success && (
-        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-          <p className="text-green-600 dark:text-green-400">Settings saved successfully!</p>
         </div>
       )}
 

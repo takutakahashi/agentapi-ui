@@ -10,11 +10,15 @@ export interface RunbookRepositoryConfig {
   directoryPath: string;    // ディレクトリパス
 }
 
-// Bedrock 設定
+// Bedrock 設定 (OpenAPI仕様に準拠)
 export interface BedrockConfig {
-  modelId: string;          // モデル ID
-  accessKeyId?: string;     // AWS アクセスキー ID (チーム設定のみ)
-  secretAccessKey?: string; // AWS シークレットアクセスキー (チーム設定のみ)
+  enabled: boolean;           // Bedrock を有効にするか（必須）
+  region: string;             // AWS リージョン（必須）
+  model?: string;             // モデル ID（オプション、デフォルト: claude-sonnet-4-20250514）
+  access_key_id?: string;     // AWS アクセスキー ID（チーム設定のみ）
+  secret_access_key?: string; // AWS シークレットアクセスキー（チーム設定のみ）
+  role_arn?: string;          // IAM ロール ARN（オプション）
+  profile?: string;           // AWS プロファイル名（オプション）
 }
 
 // 設定データ（API で保存）

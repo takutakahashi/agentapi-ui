@@ -605,11 +605,27 @@ export class AgentAPIProxyClient {
       console.log(`[AgentAPIProxy] Saving settings for: ${name}`, data);
     }
     await this.makeRequest<void>(`/settings/${encodeURIComponent(name)}`, {
-      method: 'POST',
+      method: 'PUT',
       body: JSON.stringify(data),
     });
     if (this.debug) {
       console.log(`[AgentAPIProxy] Successfully saved settings for: ${name}`);
+    }
+  }
+
+  /**
+   * Delete settings for a user or team
+   * @param name - User name or team name
+   */
+  async deleteSettings(name: string): Promise<void> {
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Deleting settings for: ${name}`);
+    }
+    await this.makeRequest<void>(`/settings/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    });
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Successfully deleted settings for: ${name}`);
     }
   }
 
