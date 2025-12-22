@@ -591,9 +591,6 @@ export class AgentAPIProxyClient {
    */
   async getSettings(name: string): Promise<SettingsData> {
     try {
-      if (this.debug) {
-        console.log(`[AgentAPIProxy] Getting settings for: ${name}`);
-      }
       return await this.makeRequest<SettingsData>(`/settings/${encodeURIComponent(name)}`);
     } catch (error) {
       // If settings don't exist (404), return empty settings

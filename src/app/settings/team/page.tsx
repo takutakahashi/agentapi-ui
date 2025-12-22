@@ -5,12 +5,13 @@ import { SettingsData, RunbookRepositoryConfig, BedrockConfig } from '@/types/se
 import { RunbookSettings, BedrockSettings, SettingsAccordion } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
+import { UserInfo } from '@/types/user'
 
 export default function TeamSettingsPage() {
   const [settings, setSettings] = useState<SettingsData>({})
   const [teamName, setTeamName] = useState('')
-  const [teamNameInput, setTeamNameInput] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [availableTeams, setAvailableTeams] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isTeamLoaded, setIsTeamLoaded] = useState(false)
@@ -37,22 +38,47 @@ export default function TeamSettingsPage() {
     }
   }, [])
 
-  // Load saved team name from localStorage
+  // Load teams from user info
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedTeamName = localStorage.getItem('agentapi-last-team-name')
-      if (savedTeamName) {
-        setTeamNameInput(savedTeamName)
-        loadTeamSettings(savedTeamName)
+    const loadUserInfo = async () => {
+      try {
+        const userInfoResponse = await fetch('/api/user/info')
+        if (!userInfoResponse.ok) {
+          setError('ユーザー情報の取得に失敗しました')
+          setLoading(false)
+          return
+        }
+
+        const userInfo: UserInfo = await userInfoResponse.json()
+        const teams = userInfo.proxy?.teams || []
+
+        if (teams.length === 0) {
+          setError('所属しているチームがありません')
+          setLoading(false)
+          return
+        }
+
+        setAvailableTeams(teams)
+
+        // If only one team, auto-select it
+        if (teams.length === 1) {
+          loadTeamSettings(teams[0])
+        } else {
+          setLoading(false)
+        }
+      } catch (err) {
+        console.error('Failed to get user info:', err)
+        setError('ユーザー情報の取得に失敗しました')
+        setLoading(false)
       }
     }
+
+    loadUserInfo()
   }, [loadTeamSettings])
 
-  const handleLoadTeam = () => {
-    if (teamNameInput.trim()) {
-      // Save team name to localStorage
-      localStorage.setItem('agentapi-last-team-name', teamNameInput.trim())
-      loadTeamSettings(teamNameInput.trim())
+  const handleTeamSelect = (selectedTeam: string) => {
+    if (selectedTeam) {
+      loadTeamSettings(selectedTeam)
     }
   }
 
@@ -66,7 +92,7 @@ export default function TeamSettingsPage() {
 
   const handleSave = async () => {
     if (!teamName) {
-      setError('Please load a team first')
+      setError('Please select a team first')
       return
     }
 
@@ -86,6 +112,24 @@ export default function TeamSettingsPage() {
     }
   }
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            Team Settings
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            Configure settings for your team
+          </p>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -94,53 +138,51 @@ export default function TeamSettingsPage() {
         </h2>
         <p className="text-gray-600 dark:text-gray-400">
           Configure settings for your team
+          {teamName && (
+            <span className="ml-2 text-sm text-blue-600 dark:text-blue-400">
+              ({teamName})
+            </span>
+          )}
         </p>
-      </div>
-
-      {/* Team Selection */}
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Select Team
-        </h3>
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <input
-              type="text"
-              value={teamNameInput}
-              onChange={(e) => setTeamNameInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleLoadTeam()}
-              placeholder="org/team-slug (e.g., myorg/engineering)"
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Enter the team identifier in org/team-slug format
-            </p>
-          </div>
-          <button
-            onClick={handleLoadTeam}
-            disabled={loading || !teamNameInput.trim()}
-            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 h-fit"
-          >
-            {loading && (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-            )}
-            {loading ? 'Loading...' : 'Load'}
-          </button>
-        </div>
-
-        {teamName && isTeamLoaded && (
-          <div className="mt-3 flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            <span>Team loaded: {teamName}</span>
-          </div>
-        )}
       </div>
 
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-red-600 dark:text-red-400">{error}</p>
+        </div>
+      )}
+
+      {/* Team Selection - only show if multiple teams */}
+      {availableTeams.length > 1 && (
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Select Team
+          </h3>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <select
+                value={teamName}
+                onChange={(e) => handleTeamSelect(e.target.value)}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">チームを選択してください</option>
+                {availableTeams.map((team) => (
+                  <option key={team} value={team}>
+                    {team}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {teamName && isTeamLoaded && (
+            <div className="mt-3 flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span>Team loaded: {teamName}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -177,7 +219,7 @@ export default function TeamSettingsPage() {
         </>
       )}
 
-      {!isTeamLoaded && !loading && (
+      {!isTeamLoaded && availableTeams.length > 1 && (
         <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-8 text-center">
           <svg className="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -186,7 +228,7 @@ export default function TeamSettingsPage() {
             No Team Selected
           </h3>
           <p className="text-gray-600 dark:text-gray-400">
-            Enter your team identifier above to load and configure team settings.
+            Select a team from the dropdown above to configure team settings.
           </p>
         </div>
       )}
