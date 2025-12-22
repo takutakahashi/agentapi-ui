@@ -5,7 +5,6 @@ import { SettingsData, RunbookRepositoryConfig, BedrockConfig } from '@/types/se
 import { RunbookSettings, BedrockSettings, SettingsAccordion } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
-import { UserInfo } from '@/types/user'
 
 export default function PersonalSettingsPage() {
   const [settings, setSettings] = useState<SettingsData>({})
@@ -18,19 +17,11 @@ export default function PersonalSettingsPage() {
   useEffect(() => {
     const loadUserInfo = async () => {
       try {
-        const userInfoResponse = await fetch('/api/user/info')
-        if (!userInfoResponse.ok) {
-          setError('ユーザー情報の取得に失敗しました')
-          setLoading(false)
-          return
-        }
+        const client = createAgentAPIProxyClientFromStorage()
+        const proxyUserInfo = await client.getUserInfo()
 
-        const userInfo: UserInfo = await userInfoResponse.json()
-        // Priority: GitHub login > proxy username
-        if (userInfo.user?.login) {
-          setUserName(userInfo.user.login)
-        } else if (userInfo.proxy?.username) {
-          setUserName(userInfo.proxy.username)
+        if (proxyUserInfo.username) {
+          setUserName(proxyUserInfo.username)
         } else {
           setError('ユーザー情報の取得に失敗しました')
           setLoading(false)
