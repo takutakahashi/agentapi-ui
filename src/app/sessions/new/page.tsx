@@ -11,9 +11,11 @@ import { recentMessagesManager } from '../../../utils/recentMessagesManager'
 import { OrganizationHistory } from '../../../utils/organizationHistory'
 import { addRepositoryToHistory } from '../../../types/settings'
 import TopBar from '../../components/TopBar'
+import { useToast } from '../../../contexts/ToastContext'
 
 export default function NewSessionPage() {
   const router = useRouter()
+  const { showToast } = useToast()
   const [initialMessage, setInitialMessage] = useState('')
   const [freeFormRepository, setFreeFormRepository] = useState('')
   const [isCreating, setIsCreating] = useState(false)
@@ -107,6 +109,7 @@ export default function NewSessionPage() {
 
         retryCount++
         if (retryCount >= maxRetries) {
+          showToast('セッションの準備がタイムアウトしました', 'error')
           throw new Error('セッションの準備がタイムアウトしました。しばらく待ってから再試行してください。')
         }
 
@@ -119,8 +122,11 @@ export default function NewSessionPage() {
         type: 'user'
       })
       console.log('Message sent successfully')
+      showToast('セッションが正常に作成されました', 'success')
     } catch (err) {
       console.error('Background session creation failed:', err)
+      const errorMessage = err instanceof Error ? err.message : 'セッション作成に失敗しました'
+      showToast(errorMessage, 'error')
     }
   }
 

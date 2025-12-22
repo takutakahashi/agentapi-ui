@@ -7,6 +7,7 @@ import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../
 import { useBackgroundAwareInterval } from '../hooks/usePageVisibility'
 import { formatRelativeTime } from '../../utils/timeUtils'
 import { truncateText } from '../../utils/textUtils'
+import { useToast } from '../../contexts/ToastContext'
 
 interface TagFilter {
   [key: string]: string[]
@@ -28,6 +29,7 @@ interface SessionListViewProps {
 
 export default function SessionListView({ tagFilters, onSessionsUpdate, creatingSessions = [] }: SessionListViewProps) {
   const router = useRouter()
+  const { showToast } = useToast()
 
   // Create global API clients
   const [agentAPI] = useState(() => createAgentAPIProxyClientFromStorage())
@@ -127,12 +129,12 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
         await fetchSessionStatusesInitial(sessionList)
       }
     } catch (err) {
-      if (err instanceof AgentAPIProxyError) {
-        setError(`Failed to load sessions: ${err.message}`)
-      } else {
-        setError('An unexpected error occurred while loading sessions')
-      }
-      
+      const errorMessage = err instanceof AgentAPIProxyError
+        ? `セッション一覧の取得に失敗しました: ${err.message}`
+        : 'セッション一覧の取得中に予期せぬエラーが発生しました'
+      setError(errorMessage)
+      showToast(errorMessage, 'error')
+
       // モックデータを使用
       const mockSessions = getMockSessions()
       setSessions(mockSessions)
@@ -151,7 +153,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     } finally {
       setLoading(false)
     }
-  }, [agentAPI, fetchSessionStatusesInitial])
+  }, [agentAPI, fetchSessionStatusesInitial, showToast])
 
   const fetchSessionStatuses = useCallback(async () => {
     if (sessions.length === 0 || !agentAPIProxy) return
@@ -296,15 +298,18 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
 
     try {
       setDeletingSession(sessionId)
-      
+
       await agentAPI.delete!(sessionId)
 
       // セッション一覧を更新
       fetchSessions()
       onSessionsUpdate()
+      showToast('セッションを削除しました', 'success')
     } catch (err) {
       console.error('Failed to delete session:', err)
-      setError('セッションの削除に失敗しました')
+      const errorMessage = 'セッションの削除に失敗しました'
+      setError(errorMessage)
+      showToast(errorMessage, 'error')
     } finally {
       setDeletingSession(null)
     }
