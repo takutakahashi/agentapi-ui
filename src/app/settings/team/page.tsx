@@ -5,7 +5,6 @@ import { SettingsData, RunbookRepositoryConfig, BedrockConfig } from '@/types/se
 import { RunbookSettings, BedrockSettings, SettingsAccordion } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
-import { UserInfo } from '@/types/user'
 
 export default function TeamSettingsPage() {
   const [settings, setSettings] = useState<SettingsData>({})
@@ -42,15 +41,9 @@ export default function TeamSettingsPage() {
   useEffect(() => {
     const loadUserInfo = async () => {
       try {
-        const userInfoResponse = await fetch('/api/user/info')
-        if (!userInfoResponse.ok) {
-          setError('ユーザー情報の取得に失敗しました')
-          setLoading(false)
-          return
-        }
-
-        const userInfo: UserInfo = await userInfoResponse.json()
-        const teams = userInfo.proxy?.teams || []
+        const client = createAgentAPIProxyClientFromStorage()
+        const proxyUserInfo = await client.getUserInfo()
+        const teams = proxyUserInfo.teams || []
 
         if (teams.length === 0) {
           setError('所属しているチームがありません')
