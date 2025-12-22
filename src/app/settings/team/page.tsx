@@ -4,10 +4,8 @@ import { useState, useEffect } from 'react'
 import { SettingsData, RunbookRepositoryConfig, BedrockConfig } from '@/types/settings'
 import { RunbookSettings, BedrockSettings, SettingsAccordion } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
-import { useToast } from '@/contexts/ToastContext'
 
 export default function TeamSettingsPage() {
-  const { showToast } = useToast()
   const [settings, setSettings] = useState<SettingsData>({})
   const [teamName, setTeamName] = useState('')
   const [loading, setLoading] = useState(true)
@@ -27,16 +25,14 @@ export default function TeamSettingsPage() {
         setSettings(data)
       } catch (err) {
         console.error('Failed to load team settings:', err)
-        const errorMessage = '設定の読み込みに失敗しました'
-        setError(errorMessage)
-        showToast(errorMessage, 'error')
+        setError('設定の読み込みに失敗しました')
       } finally {
         setLoading(false)
       }
     }
 
     loadSettings()
-  }, [showToast])
+  }, [])
 
   const handleRunbookChange = (config: RunbookRepositoryConfig) => {
     setSettings((prev) => ({ ...prev, runbook: config }))
@@ -57,12 +53,9 @@ export default function TeamSettingsPage() {
       const client = createAgentAPIProxyClientFromStorage()
       await client.saveSettings(teamName, settings)
       setSuccess(true)
-      showToast('設定を保存しました', 'success')
     } catch (err) {
       console.error('Failed to save team settings:', err)
-      const errorMessage = '設定の保存に失敗しました'
-      setError(errorMessage)
-      showToast(errorMessage, 'error')
+      setError('設定の保存に失敗しました')
     } finally {
       setSaving(false)
     }

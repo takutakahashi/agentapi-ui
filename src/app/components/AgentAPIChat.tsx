@@ -11,7 +11,6 @@ import { messageTemplateManager } from '../../utils/messageTemplateManager';
 import { MessageTemplate } from '../../types/messageTemplate';
 import { recentMessagesManager } from '../../utils/recentMessagesManager';
 import { pushNotificationManager } from '../../utils/pushNotification';
-import { useToast } from '../../contexts/ToastContext';
 
 // Define local types for message and agent status
 interface Message {
@@ -167,7 +166,6 @@ function formatTextWithLinks(text: string): JSX.Element {
 export default function AgentAPIChat() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { showToast } = useToast();
   const sessionId = searchParams.get('session');
 
   // Create global API client
@@ -220,11 +218,11 @@ export default function AgentAPIChat() {
             } catch (err) {
               console.error('Failed to load session messages:', err);
               setIsConnected(false); // Only set disconnected on actual error
-              const errorMessage = err instanceof AgentAPIProxyError
-                ? `セッションメッセージの読み込みに失敗しました: ${err.message}`
-                : `セッション ${sessionId} への接続に失敗しました`;
-              setError(errorMessage);
-              showToast(errorMessage, 'error');
+              if (err instanceof AgentAPIProxyError) {
+                setError(`セッションメッセージの読み込みに失敗しました: ${err.message} (セッション: ${sessionId})`);
+              } else {
+                setError(`セッション ${sessionId} への接続に失敗しました`);
+              }
               return;
             }
           } else {
@@ -235,11 +233,11 @@ export default function AgentAPIChat() {
         } catch (err) {
           console.error('Failed to initialize chat:', err);
           setIsConnected(false);
-          const errorMessage = err instanceof AgentAPIProxyError
-            ? `接続に失敗しました: ${err.message}`
-            : 'AgentAPI Proxyへの接続に失敗しました';
-          setError(errorMessage);
-          showToast(errorMessage, 'error');
+          if (err instanceof AgentAPIProxyError) {
+            setError(`接続に失敗しました: ${err.message}`);
+          } else {
+            setError('AgentAPI Proxyへの接続に失敗しました');
+          }
         }
       };
 
@@ -247,7 +245,7 @@ export default function AgentAPIChat() {
       const timeoutId = setTimeout(initializeChat, 0);
       return () => clearTimeout(timeoutId);
     }
-  }, [sessionId, agentAPI, showToast]);
+  }, [sessionId, agentAPI]);
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -557,23 +555,20 @@ export default function AgentAPIChat() {
       }
     } catch (err) {
       console.error('Failed to send message:', err);
-      let errorMessage: string;
       if (err instanceof AgentAPIProxyError) {
         // Handle timeout errors specially
         if (err.code === 'TIMEOUT_ERROR') {
-          errorMessage = err.message;
+          setError(`${err.message}`);
         } else {
-          errorMessage = `メッセージ送信に失敗しました: ${err.message}`;
+          setError(`メッセージ送信に失敗しました: ${err.message} (セッション: ${sessionId})`);
         }
       } else {
-        errorMessage = `メッセージ送信に失敗しました: ${err instanceof Error ? err.message : '不明なエラー'}`;
+        setError(`メッセージ送信に失敗しました: ${err instanceof Error ? err.message : '不明なエラー'}`);
       }
-      setError(errorMessage);
-      showToast(errorMessage, 'error');
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, isLoading, isConnected, sessionId, agentStatus, loadRecentMessages, showToast]);
+  }, [inputValue, isLoading, isConnected, sessionId, agentStatus, loadRecentMessages]);
 
   const sendStopSignal = () => {
     // Send ESC key (raw message)
@@ -631,15 +626,15 @@ export default function AgentAPIChat() {
       router.push('/chats');
     } catch (err) {
       console.error('Failed to delete session:', err);
-      const errorMessage = err instanceof AgentAPIProxyError
-        ? `セッションの削除に失敗しました: ${err.message}`
-        : 'セッションの削除に失敗しました';
-      setError(errorMessage);
-      showToast(errorMessage, 'error');
+      if (err instanceof AgentAPIProxyError) {
+        setError(`セッションの削除に失敗しました: ${err.message}`);
+      } else {
+        setError('セッションの削除に失敗しました');
+      }
     } finally {
       setIsDeleting(false);
     }
-  }, [sessionId, router, showToast]);
+  }, [sessionId, router]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {

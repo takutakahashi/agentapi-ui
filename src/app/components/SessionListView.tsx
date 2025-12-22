@@ -7,7 +7,6 @@ import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../
 import { useBackgroundAwareInterval } from '../hooks/usePageVisibility'
 import { formatRelativeTime } from '../../utils/timeUtils'
 import { truncateText } from '../../utils/textUtils'
-import { useToast } from '../../contexts/ToastContext'
 
 interface TagFilter {
   [key: string]: string[]
@@ -29,7 +28,6 @@ interface SessionListViewProps {
 
 export default function SessionListView({ tagFilters, onSessionsUpdate, creatingSessions = [] }: SessionListViewProps) {
   const router = useRouter()
-  const { showToast } = useToast()
 
   // Create global API clients
   const [agentAPI] = useState(() => createAgentAPIProxyClientFromStorage())
@@ -129,11 +127,11 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
         await fetchSessionStatusesInitial(sessionList)
       }
     } catch (err) {
-      const errorMessage = err instanceof AgentAPIProxyError
-        ? `セッション一覧の取得に失敗しました: ${err.message}`
-        : 'セッション一覧の取得中に予期せぬエラーが発生しました'
-      setError(errorMessage)
-      showToast(errorMessage, 'error')
+      if (err instanceof AgentAPIProxyError) {
+        setError(`セッション一覧の取得に失敗しました: ${err.message}`)
+      } else {
+        setError('セッション一覧の取得中に予期せぬエラーが発生しました')
+      }
 
       // モックデータを使用
       const mockSessions = getMockSessions()
@@ -153,7 +151,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     } finally {
       setLoading(false)
     }
-  }, [agentAPI, fetchSessionStatusesInitial, showToast])
+  }, [agentAPI, fetchSessionStatusesInitial])
 
   const fetchSessionStatuses = useCallback(async () => {
     if (sessions.length === 0 || !agentAPIProxy) return
@@ -304,12 +302,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       // セッション一覧を更新
       fetchSessions()
       onSessionsUpdate()
-      showToast('セッションを削除しました', 'success')
     } catch (err) {
       console.error('Failed to delete session:', err)
-      const errorMessage = 'セッションの削除に失敗しました'
-      setError(errorMessage)
-      showToast(errorMessage, 'error')
+      setError('セッションの削除に失敗しました')
     } finally {
       setDeletingSession(null)
     }
