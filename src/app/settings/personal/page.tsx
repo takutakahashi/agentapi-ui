@@ -5,18 +5,7 @@ import { SettingsData, RunbookRepositoryConfig, BedrockConfig } from '@/types/se
 import { RunbookSettings, BedrockSettings, SettingsAccordion } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
-
-interface UserInfo {
-  type: 'github' | 'api_key'
-  user?: {
-    id?: number
-    login?: string
-    name?: string
-    email?: string
-    avatar_url?: string
-    authenticated?: boolean
-  }
-}
+import { UserInfo } from '@/types/user'
 
 export default function PersonalSettingsPage() {
   const [settings, setSettings] = useState<SettingsData>({})
@@ -33,10 +22,12 @@ export default function PersonalSettingsPage() {
         const userInfoResponse = await fetch('/api/user/info')
         if (userInfoResponse.ok) {
           const userInfo: UserInfo = await userInfoResponse.json()
-          if (userInfo.type === 'github' && userInfo.user?.login) {
+          // Priority: GitHub login > proxy username > 'default-user'
+          if (userInfo.user?.login) {
             setUserName(userInfo.user.login)
+          } else if (userInfo.proxy?.username) {
+            setUserName(userInfo.proxy.username)
           } else {
-            // Fallback for API key authentication
             setUserName('default-user')
           }
         } else {
