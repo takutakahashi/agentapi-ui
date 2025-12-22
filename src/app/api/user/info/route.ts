@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { decryptCookie } from '@/lib/cookie-encryption'
+import { createDefaultAgentAPIProxyClient } from '@/lib/agentapi-proxy-client'
+import { UserInfo, ProxyUserInfo } from '@/types/user'
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,6 +12,16 @@ export async function GET(request: NextRequest) {
         { error: 'Not authenticated' },
         { status: 401 }
       )
+    }
+
+    // agentapi-proxy から /user/info を取得
+    let proxyUserInfo: ProxyUserInfo | undefined
+    try {
+      const client = createDefaultAgentAPIProxyClient()
+      proxyUserInfo = await client.getUserInfo()
+    } catch (err) {
+      console.error('Failed to get user info from agentapi-proxy:', err)
+      // agentapi-proxy が /user/info をサポートしていない場合はフォールバック
     }
 
     try {
@@ -28,7 +40,7 @@ export async function GET(request: NextRequest) {
 
         if (response.ok) {
           const githubUser = await response.json()
-          return NextResponse.json({
+          const userInfo: UserInfo = {
             type: 'github',
             user: {
               id: githubUser.id,
@@ -36,8 +48,10 @@ export async function GET(request: NextRequest) {
               name: githubUser.name,
               email: githubUser.email,
               avatar_url: githubUser.avatar_url
-            }
-          })
+            },
+            proxy: proxyUserInfo
+          }
+          return NextResponse.json(userInfo)
         }
       }
     } catch (err) {
@@ -46,12 +60,14 @@ export async function GET(request: NextRequest) {
     }
 
     // APIキー認証の場合
-    return NextResponse.json({
-      type: 'api_key',
+    const userInfo: UserInfo = {
+      type: proxyUserInfo ? 'proxy' : 'api_key',
       user: {
         authenticated: true
-      }
-    })
+      },
+      proxy: proxyUserInfo
+    }
+    return NextResponse.json(userInfo)
   } catch (error) {
     console.error('User info error:', error)
     return NextResponse.json(

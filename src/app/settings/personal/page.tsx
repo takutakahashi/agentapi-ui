@@ -5,18 +5,7 @@ import { SettingsData, RunbookRepositoryConfig, BedrockConfig } from '@/types/se
 import { RunbookSettings, BedrockSettings, SettingsAccordion } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
-
-interface UserInfo {
-  type: 'github' | 'api_key'
-  user?: {
-    id?: number
-    login?: string
-    name?: string
-    email?: string
-    avatar_url?: string
-    authenticated?: boolean
-  }
-}
+import { UserInfo } from '@/types/user'
 
 export default function PersonalSettingsPage() {
   const [settings, setSettings] = useState<SettingsData>({})
@@ -27,28 +16,33 @@ export default function PersonalSettingsPage() {
   const { showToast } = useToast()
 
   useEffect(() => {
-    const loadSettings = async () => {
+    const loadUserInfo = async () => {
       try {
-        // Get user info from API
         const userInfoResponse = await fetch('/api/user/info')
-        if (userInfoResponse.ok) {
-          const userInfo: UserInfo = await userInfoResponse.json()
-          if (userInfo.type === 'github' && userInfo.user?.login) {
-            setUserName(userInfo.user.login)
-          } else {
-            // Fallback for API key authentication
-            setUserName('default-user')
-          }
+        if (!userInfoResponse.ok) {
+          setError('ユーザー情報の取得に失敗しました')
+          setLoading(false)
+          return
+        }
+
+        const userInfo: UserInfo = await userInfoResponse.json()
+        // Priority: GitHub login > proxy username
+        if (userInfo.user?.login) {
+          setUserName(userInfo.user.login)
+        } else if (userInfo.proxy?.username) {
+          setUserName(userInfo.proxy.username)
         } else {
-          setUserName('default-user')
+          setError('ユーザー情報の取得に失敗しました')
+          setLoading(false)
         }
       } catch (err) {
         console.error('Failed to get user info:', err)
-        setUserName('default-user')
+        setError('ユーザー情報の取得に失敗しました')
+        setLoading(false)
       }
     }
 
-    loadSettings()
+    loadUserInfo()
   }, [])
 
   useEffect(() => {
@@ -121,7 +115,7 @@ export default function PersonalSettingsPage() {
         </h2>
         <p className="text-gray-600 dark:text-gray-400">
           Configure your personal preferences
-          {userName && userName !== 'default-user' && (
+          {userName && (
             <span className="ml-2 text-sm text-blue-600 dark:text-blue-400">
               ({userName})
             </span>
@@ -135,34 +129,38 @@ export default function PersonalSettingsPage() {
         </div>
       )}
 
-      <SettingsAccordion
-        title="Runbook Repository"
-        description="Configure the repository containing your runbooks"
-        defaultOpen
-      >
-        <RunbookSettings config={settings.runbook} onChange={handleRunbookChange} />
-      </SettingsAccordion>
+      {userName && (
+        <>
+          <SettingsAccordion
+            title="Runbook Repository"
+            description="Configure the repository containing your runbooks"
+            defaultOpen
+          >
+            <RunbookSettings config={settings.runbook} onChange={handleRunbookChange} />
+          </SettingsAccordion>
 
-      <SettingsAccordion
-        title="AI Settings"
-        description="Configure AI providers and models"
-        defaultOpen
-      >
-        <BedrockSettings config={settings.bedrock} onChange={handleBedrockChange} />
-      </SettingsAccordion>
+          <SettingsAccordion
+            title="AI Settings"
+            description="Configure AI providers and models"
+            defaultOpen
+          >
+            <BedrockSettings config={settings.bedrock} onChange={handleBedrockChange} />
+          </SettingsAccordion>
 
-      <div className="flex justify-end">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-        >
-          {saving && (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-          )}
-          {saving ? 'Saving...' : 'Save'}
-        </button>
-      </div>
+          <div className="flex justify-end">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            >
+              {saving && (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              )}
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }

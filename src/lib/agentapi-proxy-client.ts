@@ -14,6 +14,7 @@ import {
   AgentListParams
 } from '../types/agentapi';
 import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData } from '../types/settings';
+import { ProxyUserInfo } from '../types/user';
 
 // GitHubUser type (moved from profile.ts)
 export interface GitHubUser {
@@ -556,6 +557,17 @@ export class AgentAPIProxyClient {
   }
 
   /**
+   * Get user info from agentapi-proxy
+   * Returns username and teams the user belongs to
+   */
+  async getUserInfo(): Promise<ProxyUserInfo> {
+    if (this.debug) {
+      console.log('[AgentAPIProxy] Getting user info');
+    }
+    return await this.makeRequest<ProxyUserInfo>('/user/info');
+  }
+
+  /**
    * Get GitHub OAuth URL for authentication
    */
   async getGitHubAuthUrl(): Promise<string> {
@@ -579,9 +591,6 @@ export class AgentAPIProxyClient {
    */
   async getSettings(name: string): Promise<SettingsData> {
     try {
-      if (this.debug) {
-        console.log(`[AgentAPIProxy] Getting settings for: ${name}`);
-      }
       return await this.makeRequest<SettingsData>(`/settings/${encodeURIComponent(name)}`);
     } catch (error) {
       // If settings don't exist (404), return empty settings
