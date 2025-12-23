@@ -119,7 +119,7 @@ export default function NewSessionModal({
         ...prev,
         status,
         errorMessage,
-        waitingProgress: status === 'waiting-agent' ? { current: 0, max: 30 } : undefined
+        waitingProgress: status === 'waiting-agent' ? { current: 0, max: 120 } : undefined
       }
     })
   }
@@ -188,7 +188,7 @@ export default function NewSessionModal({
       startWaitingCounter()
 
       let retryCount = 0
-      const maxRetries = 30 // 最大30回（30秒）待機
+      const maxRetries = 120 // 最大120回（2分）待機
       const retryInterval = 1000 // 1秒間隔
 
       while (retryCount < maxRetries) {

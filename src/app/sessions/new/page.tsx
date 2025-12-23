@@ -79,7 +79,7 @@ export default function NewSessionPage() {
         ...prev,
         status,
         errorMessage,
-        waitingProgress: status === 'waiting-agent' ? { current: 0, max: 30 } : undefined
+        waitingProgress: status === 'waiting-agent' ? { current: 0, max: 120 } : undefined
       }
     })
   }
@@ -144,7 +144,7 @@ export default function NewSessionPage() {
       startWaitingCounter()
 
       let retryCount = 0
-      const maxRetries = 30
+      const maxRetries = 120 // 最大120回（2分）待機
       const retryInterval = 1000
 
       while (retryCount < maxRetries) {

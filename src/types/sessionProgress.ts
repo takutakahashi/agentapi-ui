@@ -15,7 +15,7 @@ export interface SessionCreationProgress {
   startTime: Date;
   waitingProgress?: {
     current: number;  // 現在の待機秒数
-    max: number;      // 最大待機秒数 (30)
+    max: number;      // 最大待機秒数 (120)
   };
 }
 
