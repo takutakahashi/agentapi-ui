@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { SettingsData, RunbookRepositoryConfig, BedrockConfig } from '@/types/settings'
+import { SettingsData, RunbookRepositoryConfig, BedrockConfig, prepareSettingsForSave } from '@/types/settings'
 import { RunbookSettings, BedrockSettings, SettingsAccordion } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
@@ -69,7 +69,9 @@ export default function PersonalSettingsPage() {
 
     try {
       const client = createAgentAPIProxyClientFromStorage()
-      await client.saveSettings(userName, settings)
+      // 空の値を除外して保存
+      const preparedSettings = prepareSettingsForSave(settings)
+      await client.saveSettings(userName, preparedSettings)
       showToast('Settings saved successfully!', 'success')
     } catch (err) {
       console.error('Failed to save personal settings:', err)
