@@ -85,29 +85,6 @@ export interface GitHubOAuthSettings {
   updated_at: string
 }
 
-// マスクされた値（API から返される秘密情報）かどうかをチェック
-const isMaskedValue = (value: string | undefined): boolean => {
-  if (!value) return false
-  // *** で始まる値、または全て * の値はマスクされた値とみなす
-  return /^\*+$/.test(value) || value.startsWith('***')
-}
-
-// API から取得した設定データからマスクされた秘密情報を除外
-export const sanitizeSettingsFromAPI = (data: SettingsData): SettingsData => {
-  const sanitized: SettingsData = { ...data }
-
-  if (sanitized.bedrock) {
-    const bedrock = { ...sanitized.bedrock }
-    // マスクされた secret_access_key を除外
-    if (isMaskedValue(bedrock.secret_access_key)) {
-      delete bedrock.secret_access_key
-    }
-    sanitized.bedrock = bedrock
-  }
-
-  return sanitized
-}
-
 // 保存前に空の値を除外した設定データを作成
 export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
   const prepared: SettingsData = {}
@@ -152,8 +129,8 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
     if (data.bedrock.access_key_id?.trim()) {
       bedrock.access_key_id = data.bedrock.access_key_id.trim()
     }
-    // secret_access_key はマスクされた値でなく、かつ空でなければ含める
-    if (data.bedrock.secret_access_key?.trim() && !isMaskedValue(data.bedrock.secret_access_key)) {
+    // secret_access_key は空でなければ含める
+    if (data.bedrock.secret_access_key?.trim()) {
       bedrock.secret_access_key = data.bedrock.secret_access_key.trim()
     }
     // enabled と region がある場合は bedrock を含める

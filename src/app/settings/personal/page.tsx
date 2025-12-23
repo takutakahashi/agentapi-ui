@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { SettingsData, RunbookRepositoryConfig, BedrockConfig, sanitizeSettingsFromAPI, prepareSettingsForSave } from '@/types/settings'
+import { SettingsData, RunbookRepositoryConfig, BedrockConfig, prepareSettingsForSave } from '@/types/settings'
 import { RunbookSettings, BedrockSettings, SettingsAccordion } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
@@ -43,8 +43,7 @@ export default function PersonalSettingsPage() {
       try {
         const client = createAgentAPIProxyClientFromStorage()
         const data = await client.getSettings(userName)
-        // マスクされた秘密情報を除外
-        setSettings(sanitizeSettingsFromAPI(data))
+        setSettings(data)
       } catch (err) {
         console.error('Failed to load personal settings:', err)
         setError('Failed to load settings')
