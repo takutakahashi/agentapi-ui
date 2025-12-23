@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { SettingsData, RunbookRepositoryConfig, BedrockConfig } from '@/types/settings'
+import { SettingsData, RunbookRepositoryConfig, BedrockConfig, sanitizeSettingsFromAPI, prepareSettingsForSave } from '@/types/settings'
 import { RunbookSettings, BedrockSettings, SettingsAccordion } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
@@ -25,7 +25,8 @@ export default function TeamSettingsPage() {
     try {
       const client = createAgentAPIProxyClientFromStorage()
       const data = await client.getSettings(name)
-      setSettings(data)
+      // マスクされた秘密情報を除外
+      setSettings(sanitizeSettingsFromAPI(data))
       setTeamName(name)
       setIsTeamLoaded(true)
     } catch (err) {
@@ -94,7 +95,9 @@ export default function TeamSettingsPage() {
 
     try {
       const client = createAgentAPIProxyClientFromStorage()
-      await client.saveSettings(teamName, settings)
+      // 空の値を除外して保存
+      const preparedSettings = prepareSettingsForSave(settings)
+      await client.saveSettings(teamName, preparedSettings)
       showToast('Team settings saved successfully!', 'success')
     } catch (err) {
       console.error('Failed to save team settings:', err)

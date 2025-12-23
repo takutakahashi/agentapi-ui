@@ -85,6 +85,86 @@ export interface GitHubOAuthSettings {
   updated_at: string
 }
 
+// マスクされた値（API から返される秘密情報）かどうかをチェック
+const isMaskedValue = (value: string | undefined): boolean => {
+  if (!value) return false
+  // *** で始まる値、または全て * の値はマスクされた値とみなす
+  return /^\*+$/.test(value) || value.startsWith('***')
+}
+
+// API から取得した設定データからマスクされた秘密情報を除外
+export const sanitizeSettingsFromAPI = (data: SettingsData): SettingsData => {
+  const sanitized: SettingsData = { ...data }
+
+  if (sanitized.bedrock) {
+    const bedrock = { ...sanitized.bedrock }
+    // マスクされた secret_access_key を除外
+    if (isMaskedValue(bedrock.secret_access_key)) {
+      delete bedrock.secret_access_key
+    }
+    sanitized.bedrock = bedrock
+  }
+
+  return sanitized
+}
+
+// 保存前に空の値を除外した設定データを作成
+export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
+  const prepared: SettingsData = {}
+
+  // Runbook 設定の処理
+  if (data.runbook) {
+    const runbook: Partial<RunbookRepositoryConfig> = {}
+    if (data.runbook.repositoryUrl?.trim()) {
+      runbook.repositoryUrl = data.runbook.repositoryUrl.trim()
+    }
+    if (data.runbook.branch?.trim()) {
+      runbook.branch = data.runbook.branch.trim()
+    }
+    if (data.runbook.directoryPath?.trim()) {
+      runbook.directoryPath = data.runbook.directoryPath.trim()
+    }
+    // 少なくとも1つのフィールドがあれば runbook を含める
+    if (Object.keys(runbook).length > 0) {
+      prepared.runbook = runbook as RunbookRepositoryConfig
+    }
+  }
+
+  // Bedrock 設定の処理
+  if (data.bedrock) {
+    const bedrock: Partial<BedrockConfig> = {}
+    // enabled は常に含める（false も有効な値）
+    bedrock.enabled = data.bedrock.enabled
+    // region は必須
+    if (data.bedrock.region?.trim()) {
+      bedrock.region = data.bedrock.region.trim()
+    }
+    // オプションフィールドは空でなければ含める
+    if (data.bedrock.model?.trim()) {
+      bedrock.model = data.bedrock.model.trim()
+    }
+    if (data.bedrock.profile?.trim()) {
+      bedrock.profile = data.bedrock.profile.trim()
+    }
+    if (data.bedrock.role_arn?.trim()) {
+      bedrock.role_arn = data.bedrock.role_arn.trim()
+    }
+    if (data.bedrock.access_key_id?.trim()) {
+      bedrock.access_key_id = data.bedrock.access_key_id.trim()
+    }
+    // secret_access_key はマスクされた値でなく、かつ空でなければ含める
+    if (data.bedrock.secret_access_key?.trim() && !isMaskedValue(data.bedrock.secret_access_key)) {
+      bedrock.secret_access_key = data.bedrock.secret_access_key.trim()
+    }
+    // enabled と region がある場合は bedrock を含める
+    if (bedrock.enabled !== undefined && bedrock.region) {
+      prepared.bedrock = bedrock as BedrockConfig
+    }
+  }
+
+  return prepared
+}
+
 // Default settings
 export const getDefaultSettings = (): SettingsFormData => ({
   mcpServers: []
