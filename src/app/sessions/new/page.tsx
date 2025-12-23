@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createAgentAPIClient } from '../../../lib/api'
 import type { AgentAPIProxyClient } from '../../../lib/agentapi-proxy-client'
@@ -11,6 +11,8 @@ import { recentMessagesManager } from '../../../utils/recentMessagesManager'
 import { OrganizationHistory } from '../../../utils/organizationHistory'
 import { addRepositoryToHistory } from '../../../types/settings'
 import TopBar from '../../components/TopBar'
+import SessionCreationProgressModal from '../../components/SessionCreationProgressModal'
+import { SessionCreationProgress, SessionCreationStatus } from '../../../types/sessionProgress'
 
 export default function NewSessionPage() {
   const router = useRouter()
@@ -25,6 +27,9 @@ export default function NewSessionPage() {
   const [freeFormRepositorySuggestions, setFreeFormRepositorySuggestions] = useState<string[]>([])
   const [showFreeFormRepositorySuggestions, setShowFreeFormRepositorySuggestions] = useState(false)
   const [sessionMode, setSessionMode] = useState<'repository' | 'chat'>('repository')
+  const [showProgressModal, setShowProgressModal] = useState(false)
+  const [creationProgress, setCreationProgress] = useState<SessionCreationProgress | null>(null)
+  const waitingCounterRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     loadTemplates()
@@ -66,15 +71,55 @@ export default function NewSessionPage() {
     }
   }
 
+  // 進捗状態を更新するヘルパー関数
+  const updateProgress = (status: SessionCreationStatus, errorMessage?: string) => {
+    setCreationProgress(prev => {
+      if (!prev) return null
+      return {
+        ...prev,
+        status,
+        errorMessage,
+        waitingProgress: status === 'waiting-agent' ? { current: 0, max: 30 } : undefined
+      }
+    })
+  }
+
+  // waiting-agent のカウンターを開始
+  const startWaitingCounter = () => {
+    if (waitingCounterRef.current) {
+      clearInterval(waitingCounterRef.current)
+    }
+    waitingCounterRef.current = setInterval(() => {
+      setCreationProgress(prev => {
+        if (!prev || prev.status !== 'waiting-agent' || !prev.waitingProgress) return prev
+        const newCurrent = prev.waitingProgress.current + 1
+        if (newCurrent >= prev.waitingProgress.max) {
+          return prev
+        }
+        return {
+          ...prev,
+          waitingProgress: { ...prev.waitingProgress, current: newCurrent }
+        }
+      })
+    }, 1000)
+  }
+
+  // waiting-agent のカウンターを停止
+  const stopWaitingCounter = () => {
+    if (waitingCounterRef.current) {
+      clearInterval(waitingCounterRef.current)
+      waitingCounterRef.current = null
+    }
+  }
+
   const createSession = async (
     client: AgentAPIProxyClient,
     message: string,
-    repo: string,
-    onStatusUpdate: (status: string) => void
+    repo: string
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       console.log('Starting session creation...')
-      onStatusUpdate('セッションを作成中...')
+      updateProgress('creating')
 
       const tags: Record<string, string> = {}
       if (repo) {
@@ -95,7 +140,9 @@ export default function NewSessionPage() {
       })
       console.log('Session created:', session)
 
-      onStatusUpdate('エージェントの起動を待機中...')
+      updateProgress('waiting-agent')
+      startWaitingCounter()
+
       let retryCount = 0
       const maxRetries = 30
       const retryInterval = 1000
@@ -114,6 +161,8 @@ export default function NewSessionPage() {
 
         retryCount++
         if (retryCount >= maxRetries) {
+          stopWaitingCounter()
+          updateProgress('failed', 'セッションの準備がタイムアウトしました。しばらく待ってから再試行してください。')
           return {
             success: false,
             error: 'セッションの準備がタイムアウトしました。しばらく待ってから再試行してください。'
@@ -123,7 +172,9 @@ export default function NewSessionPage() {
         await new Promise(resolve => setTimeout(resolve, retryInterval))
       }
 
-      onStatusUpdate('初期メッセージを送信中...')
+      stopWaitingCounter()
+      updateProgress('sending-message')
+
       console.log(`Sending message to session ${session.session_id}:`, message)
       await client.sendSessionMessage(session.session_id, {
         content: message,
@@ -131,12 +182,16 @@ export default function NewSessionPage() {
       })
       console.log('Message sent successfully')
 
+      updateProgress('completed')
       return { success: true }
     } catch (err) {
       console.error('Session creation failed:', err)
+      stopWaitingCounter()
+      const errorMessage = err instanceof Error ? err.message : 'セッション作成に失敗しました'
+      updateProgress('failed', errorMessage)
       return {
         success: false,
-        error: err instanceof Error ? err.message : 'セッション作成に失敗しました'
+        error: errorMessage
       }
     }
   }
@@ -158,7 +213,7 @@ export default function NewSessionPage() {
 
     setIsCreating(true)
     setError(null)
-    setStatusMessage('セッションを作成中...')
+    setStatusMessage('')
 
     const client = createAgentAPIClient()
     const currentMessage = initialMessage.trim()
@@ -177,23 +232,44 @@ export default function NewSessionPage() {
       }
     }
 
+    // 進捗モーダルを表示
+    setCreationProgress({
+      status: 'creating',
+      message: currentMessage,
+      repository: currentRepository || undefined,
+      startTime: new Date()
+    })
+    setShowProgressModal(true)
+
     // セッション作成を待機
     const result = await createSession(
       client,
       currentMessage,
-      currentRepository,
-      setStatusMessage
+      currentRepository
     )
 
     if (result.success) {
-      // 成功したら /chats に遷移
-      router.push('/chats')
+      // 成功したら少し待ってから /chats に遷移
+      setTimeout(() => {
+        router.push('/chats')
+      }, 1500)
     } else {
-      // 失敗したらエラーを表示
-      setError(result.error || 'セッション作成に失敗しました')
-      setStatusMessage('')
+      // 失敗した場合はモーダルにエラーが表示される
       setIsCreating(false)
     }
+  }
+
+  const handleCloseProgressModal = () => {
+    stopWaitingCounter()
+    setShowProgressModal(false)
+    setCreationProgress(null)
+    setIsCreating(false)
+  }
+
+  const handleRetry = () => {
+    setShowProgressModal(false)
+    setCreationProgress(null)
+    setIsCreating(false)
   }
 
   const handleCancel = () => {
@@ -520,6 +596,16 @@ export default function NewSessionPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Session Creation Progress Modal */}
+      {showProgressModal && creationProgress && (
+        <SessionCreationProgressModal
+          isOpen={showProgressModal}
+          progress={creationProgress}
+          onClose={creationProgress.status === 'failed' ? handleCloseProgressModal : undefined}
+          onRetry={creationProgress.status === 'failed' ? handleRetry : undefined}
+        />
       )}
     </main>
   )
