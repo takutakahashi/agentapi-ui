@@ -13,7 +13,6 @@ export interface RunbookRepositoryConfig {
 // Bedrock 設定 (OpenAPI仕様に準拠)
 export interface BedrockConfig {
   enabled: boolean;           // Bedrock を有効にするか（必須）
-  region: string;             // AWS リージョン（必須）
   model?: string;             // モデル ID（オプション、デフォルト: claude-sonnet-4-20250514）
   access_key_id?: string;     // AWS アクセスキー ID（チーム設定のみ）
   secret_access_key?: string; // AWS シークレットアクセスキー（チーム設定のみ）
@@ -112,10 +111,6 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
     const bedrock: Partial<BedrockConfig> = {}
     // enabled は常に含める（false も有効な値）
     bedrock.enabled = data.bedrock.enabled
-    // region は必須
-    if (data.bedrock.region?.trim()) {
-      bedrock.region = data.bedrock.region.trim()
-    }
     // オプションフィールドは空でなければ含める
     if (data.bedrock.model?.trim()) {
       bedrock.model = data.bedrock.model.trim()
@@ -133,8 +128,8 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
     if (data.bedrock.secret_access_key?.trim()) {
       bedrock.secret_access_key = data.bedrock.secret_access_key.trim()
     }
-    // enabled と region がある場合は bedrock を含める
-    if (bedrock.enabled !== undefined && bedrock.region) {
+    // enabled がある場合は bedrock を含める
+    if (bedrock.enabled !== undefined) {
       prepared.bedrock = bedrock as BedrockConfig
     }
   }
