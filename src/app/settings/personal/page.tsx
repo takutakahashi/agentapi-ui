@@ -12,7 +12,18 @@ export default function PersonalSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isDebugMode, setIsDebugMode] = useState(false)
   const { showToast } = useToast()
+
+  // デバッグモードの判定
+  useEffect(() => {
+    if (process.env.AGENTAPI_DEBUG === 'true') {
+      setIsDebugMode(true)
+      return
+    }
+    const debugFlag = localStorage.getItem('agentapi_debug')
+    setIsDebugMode(debugFlag === 'true')
+  }, [])
 
   useEffect(() => {
     const loadUserInfo = async () => {
@@ -129,7 +140,7 @@ export default function PersonalSettingsPage() {
             description="Configure the repository containing your runbooks"
             defaultOpen
           >
-            <RunbookSettings config={settings.runbook} onChange={handleRunbookChange} />
+            <RunbookSettings config={settings.runbook} onChange={handleRunbookChange} disabled={!isDebugMode} />
           </SettingsAccordion>
 
           <SettingsAccordion
