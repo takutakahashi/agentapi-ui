@@ -9,6 +9,7 @@ interface BedrockSettingsProps {
 }
 
 const DEFAULT_MODEL = 'claude-sonnet-4-20250514'
+const RECOMMENDED_MODEL = 'global.anthropic.claude-sonnet-4-20250514-v1:0'
 
 export function BedrockSettings({ config, onChange, showCredentials = false }: BedrockSettingsProps) {
   const getDefaultConfig = (): BedrockConfig => ({
@@ -87,6 +88,19 @@ export function BedrockSettings({ config, onChange, showCredentials = false }: B
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
           Bedrock model ID (default: {DEFAULT_MODEL})
         </p>
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={() => handleChange('model', RECOMMENDED_MODEL)}
+            disabled={!isEnabled}
+            className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Claude Sonnet 4
+          </button>
+          <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+            Recommended
+          </span>
+        </div>
       </div>
 
       {/* AWS Credentials - Team settings only */}
