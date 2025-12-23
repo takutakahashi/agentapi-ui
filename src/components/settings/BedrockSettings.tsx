@@ -89,50 +89,6 @@ export function BedrockSettings({ config, onChange, showCredentials = false }: B
         </p>
       </div>
 
-      {/* AWS Profile (Optional) */}
-      <div>
-        <label
-          htmlFor="profile"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-        >
-          AWS Profile
-        </label>
-        <input
-          type="text"
-          id="profile"
-          value={config?.profile || ''}
-          onChange={(e) => handleChange('profile', e.target.value)}
-          placeholder="default"
-          disabled={!isEnabled}
-          className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-        />
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          AWS profile to use for authentication
-        </p>
-      </div>
-
-      {/* Role ARN (Optional) */}
-      <div>
-        <label
-          htmlFor="roleArn"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-        >
-          IAM Role ARN
-        </label>
-        <input
-          type="text"
-          id="roleArn"
-          value={config?.role_arn || ''}
-          onChange={(e) => handleChange('role_arn', e.target.value)}
-          placeholder="arn:aws:iam::123456789012:role/BedrockRole"
-          disabled={!isEnabled}
-          className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-        />
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          IAM role ARN to assume for Bedrock access
-        </p>
-      </div>
-
       {/* AWS Credentials - Team settings only */}
       {showCredentials && (
         <>

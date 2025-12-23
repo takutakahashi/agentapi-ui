@@ -16,8 +16,6 @@ export interface BedrockConfig {
   model?: string;             // モデル ID（オプション、デフォルト: claude-sonnet-4-20250514）
   access_key_id?: string;     // AWS アクセスキー ID（チーム設定のみ）
   secret_access_key?: string; // AWS シークレットアクセスキー（チーム設定のみ）
-  role_arn?: string;          // IAM ロール ARN（オプション）
-  profile?: string;           // AWS プロファイル名（オプション）
 }
 
 // 設定データ（API で保存）
@@ -114,12 +112,6 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
     // オプションフィールドは空でなければ含める
     if (data.bedrock.model?.trim()) {
       bedrock.model = data.bedrock.model.trim()
-    }
-    if (data.bedrock.profile?.trim()) {
-      bedrock.profile = data.bedrock.profile.trim()
-    }
-    if (data.bedrock.role_arn?.trim()) {
-      bedrock.role_arn = data.bedrock.role_arn.trim()
     }
     if (data.bedrock.access_key_id?.trim()) {
       bedrock.access_key_id = data.bedrock.access_key_id.trim()
