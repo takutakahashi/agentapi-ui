@@ -8,28 +8,11 @@ interface BedrockSettingsProps {
   showCredentials?: boolean // チーム設定の場合のみ true
 }
 
-// 利用可能な AWS リージョンリスト
-const AWS_REGIONS = [
-  { value: 'us-east-1', label: 'US East (N. Virginia)' },
-  { value: 'us-east-2', label: 'US East (Ohio)' },
-  { value: 'us-west-2', label: 'US West (Oregon)' },
-  { value: 'ap-northeast-1', label: 'Asia Pacific (Tokyo)' },
-  { value: 'ap-northeast-2', label: 'Asia Pacific (Seoul)' },
-  { value: 'ap-southeast-1', label: 'Asia Pacific (Singapore)' },
-  { value: 'ap-southeast-2', label: 'Asia Pacific (Sydney)' },
-  { value: 'ap-south-1', label: 'Asia Pacific (Mumbai)' },
-  { value: 'eu-central-1', label: 'Europe (Frankfurt)' },
-  { value: 'eu-west-1', label: 'Europe (Ireland)' },
-  { value: 'eu-west-2', label: 'Europe (London)' },
-  { value: 'eu-west-3', label: 'Europe (Paris)' },
-]
-
 const DEFAULT_MODEL = 'claude-sonnet-4-20250514'
 
 export function BedrockSettings({ config, onChange, showCredentials = false }: BedrockSettingsProps) {
   const getDefaultConfig = (): BedrockConfig => ({
     enabled: false,
-    region: 'us-east-1',
     model: DEFAULT_MODEL,
   })
 
@@ -82,32 +65,6 @@ export function BedrockSettings({ config, onChange, showCredentials = false }: B
             }`}
           />
         </button>
-      </div>
-
-      {/* Region Selection (Required) */}
-      <div>
-        <label
-          htmlFor="region"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-        >
-          Region <span className="text-red-500">*</span>
-        </label>
-        <select
-          id="region"
-          value={config?.region || 'us-east-1'}
-          onChange={(e) => handleChange('region', e.target.value)}
-          disabled={!isEnabled}
-          className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {AWS_REGIONS.map((region) => (
-            <option key={region.value} value={region.value}>
-              {region.label} ({region.value})
-            </option>
-          ))}
-        </select>
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          AWS region where Bedrock is available
-        </p>
       </div>
 
       {/* Model ID (Optional) */}
