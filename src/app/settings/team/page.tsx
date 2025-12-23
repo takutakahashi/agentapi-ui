@@ -14,7 +14,18 @@ export default function TeamSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isTeamLoaded, setIsTeamLoaded] = useState(false)
+  const [isDebugMode, setIsDebugMode] = useState(false)
   const { showToast } = useToast()
+
+  // デバッグモードの判定
+  useEffect(() => {
+    if (process.env.AGENTAPI_DEBUG === 'true') {
+      setIsDebugMode(true)
+      return
+    }
+    const debugFlag = localStorage.getItem('agentapi_debug')
+    setIsDebugMode(debugFlag === 'true')
+  }, [])
 
   const loadTeamSettings = useCallback(async (name: string) => {
     if (!name.trim()) return
@@ -188,7 +199,7 @@ export default function TeamSettingsPage() {
             description="Configure the repository containing your runbooks"
             defaultOpen
           >
-            <RunbookSettings config={settings.runbook} onChange={handleRunbookChange} />
+            <RunbookSettings config={settings.runbook} onChange={handleRunbookChange} disabled={!isDebugMode} />
           </SettingsAccordion>
 
           <SettingsAccordion

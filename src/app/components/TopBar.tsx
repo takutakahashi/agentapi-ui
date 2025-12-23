@@ -30,20 +30,8 @@ export default function TopBar({
   children
 }: TopBarProps) {
   const router = useRouter()
-  const [isDebugMode, setIsDebugMode] = useState(false)
   const [showPushNotificationPopover, setShowPushNotificationPopover] = useState(false)
   const popoverRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    // 環境変数が設定されている場合は常にtrue
-    if (process.env.AGENTAPI_DEBUG === 'true') {
-      setIsDebugMode(true)
-      return
-    }
-    // localStorageのフラグをチェック
-    const debugFlag = localStorage.getItem('agentapi_debug')
-    setIsDebugMode(debugFlag === 'true')
-  }, [])
 
   // ポップオーバー外クリックで閉じる
   useEffect(() => {
@@ -129,8 +117,8 @@ export default function TopBar({
               </div>
             )}
 
-            {/* 設定ボタン（デバッグモード時のみ表示） */}
-            {showSettingsButton && isDebugMode && (
+            {/* 設定ボタン */}
+            {showSettingsButton && (
               <button
                 onClick={() => router.push('/settings')}
                 className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
