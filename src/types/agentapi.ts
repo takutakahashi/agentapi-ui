@@ -185,6 +185,10 @@ export interface CreateSessionRequest {
   environment?: Record<string, string>;
   metadata?: Record<string, unknown>;
   tags?: Record<string, string>;
+  params?: {
+    github_token?: string;
+    [key: string]: unknown;
+  };
 }
 
 // Session message types
