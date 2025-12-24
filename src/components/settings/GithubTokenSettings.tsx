@@ -1,5 +1,7 @@
 'use client'
 
+import { LogoutButton } from './LogoutButton'
+
 interface GithubTokenSettingsProps {
   enabled: boolean
   onChange: (enabled: boolean) => void
@@ -45,9 +47,12 @@ export function GithubTokenSettings({ enabled, onChange }: GithubTokenSettingsPr
         When enabled, your GitHub OAuth token will be used to authenticate with GitHub APIs during agent sessions.
         This allows the agent to perform GitHub operations on your behalf.
       </p>
-      <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-md">
-        <strong>Note:</strong> After changing this setting, you need to logout and login again for the changes to take effect.
-      </p>
+      <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-md">
+        <p className="mb-2">
+          <strong>Note:</strong> After changing this setting, you need to logout and login again for the changes to take effect.
+        </p>
+        <LogoutButton />
+      </div>
     </div>
   )
 }

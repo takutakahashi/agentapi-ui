@@ -1,9 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { User, Users, ArrowLeft, LogOut } from 'lucide-react'
-import { useState } from 'react'
+import { usePathname } from 'next/navigation'
+import { User, Users, ArrowLeft } from 'lucide-react'
 
 const settingsNavItems = [
   {
@@ -20,25 +19,6 @@ const settingsNavItems = [
 
 export function SettingsSidebar() {
   const pathname = usePathname()
-  const router = useRouter()
-  const [loggingOut, setLoggingOut] = useState(false)
-
-  const handleLogout = async () => {
-    if (loggingOut) return
-    setLoggingOut(true)
-    try {
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-      })
-      if (response.ok) {
-        router.push('/login')
-      }
-    } catch (error) {
-      console.error('Logout failed:', error)
-    } finally {
-      setLoggingOut(false)
-    }
-  }
 
   return (
     <nav className="w-full md:w-64 flex-shrink-0">
@@ -72,16 +52,6 @@ export function SettingsSidebar() {
           )
         })}
       </ul>
-      <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-        <button
-          onClick={handleLogout}
-          disabled={loggingOut}
-          className="flex items-center gap-3 px-4 py-3 w-full rounded-lg transition-colors text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
-        >
-          <LogOut className="w-5 h-5" />
-          <span className="font-medium">{loggingOut ? 'Logging out...' : 'Logout'}</span>
-        </button>
-      </div>
     </nav>
   )
 }
