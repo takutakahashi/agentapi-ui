@@ -64,6 +64,7 @@ export interface GlobalSettings {
   repositoryHistory: RepositoryHistoryItem[]
   messageTemplates: MessageTemplate[]
   githubAuth?: GitHubOAuthSettings
+  sendGithubTokenOnSessionStart?: boolean  // デフォルト true（後方互換性のため）
   created_at: string
   updated_at: string
 }
@@ -350,6 +351,7 @@ export const getDefaultFullGlobalSettings = (): GlobalSettings => {
     mcpServers: [],
     repositoryHistory: [],
     messageTemplates: [],
+    sendGithubTokenOnSessionStart: true,  // デフォルトで有効
     created_at: now,
     updated_at: now
   }
@@ -461,5 +463,18 @@ export const getGitHubAuthSettings = (): GitHubOAuthSettings | undefined => {
 export const saveGitHubAuthSettings = (auth: GitHubOAuthSettings): void => {
   const settings = loadFullGlobalSettings()
   settings.githubAuth = auth
+  saveFullGlobalSettings(settings)
+}
+
+// GitHub Token on Session Start utilities
+export const getSendGithubTokenOnSessionStart = (): boolean => {
+  const settings = loadFullGlobalSettings()
+  // デフォルトは true（後方互換性のため）
+  return settings.sendGithubTokenOnSessionStart ?? true
+}
+
+export const setSendGithubTokenOnSessionStart = (enabled: boolean): void => {
+  const settings = loadFullGlobalSettings()
+  settings.sendGithubTokenOnSessionStart = enabled
   saveFullGlobalSettings(settings)
 }
