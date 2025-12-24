@@ -152,8 +152,12 @@ async function handleProxyRequest(
       }
     }
 
-    // Inject params.github_token for /start endpoint
-    if (path === 'start' && method === 'POST' && apiKey && body) {
+    // Inject params.github_token for /start endpoint (if enabled via header)
+    const injectGithubToken = request.headers.get('X-Inject-Github-Token');
+    // Default to true if header is not present (backward compatibility)
+    const shouldInjectToken = injectGithubToken !== 'false';
+
+    if (path === 'start' && method === 'POST' && apiKey && body && shouldInjectToken) {
       try {
         const bodyData = JSON.parse(body);
         bodyData.params = {
@@ -166,6 +170,8 @@ async function handleProxyRequest(
         // JSON parse failed, continue with original body
         debugLog('[API Proxy] Failed to inject params.github_token: body is not valid JSON');
       }
+    } else if (path === 'start' && method === 'POST' && !shouldInjectToken) {
+      debugLog('[API Proxy] Skipping params.github_token injection (disabled by user setting)');
     }
 
     // Prepare headers

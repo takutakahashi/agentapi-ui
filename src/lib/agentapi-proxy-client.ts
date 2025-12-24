@@ -13,7 +13,7 @@ import {
   AgentListResponse,
   AgentListParams
 } from '../types/agentapi';
-import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData } from '../types/settings';
+import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, getSendGithubTokenOnSessionStart } from '../types/settings';
 import { ProxyUserInfo } from '../types/user';
 
 // GitHubUser type (moved from profile.ts)
@@ -277,9 +277,15 @@ export class AgentAPIProxyClient {
       };
     }
 
+    // Check if GitHub token injection is enabled
+    const injectGithubToken = typeof window !== 'undefined' ? getSendGithubTokenOnSessionStart() : false;
+
     const session = await this.makeRequest<Session>('/start', {
       method: 'POST',
       body: JSON.stringify(data),
+      headers: {
+        'X-Inject-Github-Token': injectGithubToken ? 'true' : 'false'
+      }
     });
 
     if (this.debug) {

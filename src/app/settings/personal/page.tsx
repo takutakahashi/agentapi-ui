@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { SettingsData, RunbookRepositoryConfig, BedrockConfig, prepareSettingsForSave } from '@/types/settings'
-import { RunbookSettings, BedrockSettings, SettingsAccordion } from '@/components/settings'
+import { SettingsData, RunbookRepositoryConfig, BedrockConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart } from '@/types/settings'
+import { RunbookSettings, BedrockSettings, SettingsAccordion, GithubTokenSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -13,16 +13,19 @@ export default function PersonalSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isDebugMode, setIsDebugMode] = useState(false)
+  const [sendGithubToken, setSendGithubToken] = useState(false)
   const { showToast } = useToast()
 
-  // デバッグモードの判定
+  // デバッグモードの判定と GitHub Token 設定の読み込み
   useEffect(() => {
     if (process.env.AGENTAPI_DEBUG === 'true') {
       setIsDebugMode(true)
-      return
+    } else {
+      const debugFlag = localStorage.getItem('agentapi_debug')
+      setIsDebugMode(debugFlag === 'true')
     }
-    const debugFlag = localStorage.getItem('agentapi_debug')
-    setIsDebugMode(debugFlag === 'true')
+    // GitHub Token 設定を読み込み
+    setSendGithubToken(getSendGithubTokenOnSessionStart())
   }, [])
 
   useEffect(() => {
@@ -72,6 +75,11 @@ export default function PersonalSettingsPage() {
 
   const handleBedrockChange = (config: BedrockConfig) => {
     setSettings((prev) => ({ ...prev, bedrock: config }))
+  }
+
+  const handleGithubTokenChange = (enabled: boolean) => {
+    setSendGithubToken(enabled)
+    setSendGithubTokenOnSessionStart(enabled)
   }
 
   const handleSave = async () => {
@@ -149,6 +157,14 @@ export default function PersonalSettingsPage() {
             defaultOpen
           >
             <BedrockSettings config={settings.bedrock} onChange={handleBedrockChange} />
+          </SettingsAccordion>
+
+          <SettingsAccordion
+            title="Session Settings"
+            description="Configure session behavior"
+            defaultOpen
+          >
+            <GithubTokenSettings enabled={sendGithubToken} onChange={handleGithubTokenChange} />
           </SettingsAccordion>
 
           <div className="flex justify-end">
