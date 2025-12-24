@@ -278,7 +278,7 @@ export class AgentAPIProxyClient {
     }
 
     // Check if GitHub token injection is enabled
-    const injectGithubToken = typeof window !== 'undefined' ? getSendGithubTokenOnSessionStart() : true;
+    const injectGithubToken = typeof window !== 'undefined' ? getSendGithubTokenOnSessionStart() : false;
 
     const session = await this.makeRequest<Session>('/start', {
       method: 'POST',

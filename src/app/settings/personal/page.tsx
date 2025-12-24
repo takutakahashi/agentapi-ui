@@ -13,7 +13,7 @@ export default function PersonalSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isDebugMode, setIsDebugMode] = useState(false)
-  const [sendGithubToken, setSendGithubToken] = useState(true)
+  const [sendGithubToken, setSendGithubToken] = useState(false)
   const { showToast } = useToast()
 
   // デバッグモードの判定と GitHub Token 設定の読み込み
