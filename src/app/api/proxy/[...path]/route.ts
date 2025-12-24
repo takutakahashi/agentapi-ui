@@ -152,6 +152,22 @@ async function handleProxyRequest(
       }
     }
 
+    // Inject params.github_token for /start endpoint
+    if (path === 'start' && method === 'POST' && apiKey && body) {
+      try {
+        const bodyData = JSON.parse(body);
+        bodyData.params = {
+          ...bodyData.params,
+          github_token: apiKey
+        };
+        body = JSON.stringify(bodyData);
+        debugLog('[API Proxy] Injected params.github_token for /start endpoint');
+      } catch {
+        // JSON parse failed, continue with original body
+        debugLog('[API Proxy] Failed to inject params.github_token: body is not valid JSON');
+      }
+    }
+
     // Prepare headers
     const headers = new Headers();
     // Only add Authorization header for non-OAuth endpoints
