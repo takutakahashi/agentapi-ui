@@ -270,7 +270,7 @@ export default function TagFilterSidebar({
       {/* Mobile overlay */}
       {isVisible && onToggleVisibility && (
         <div
-          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-0"
+          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-[5]"
           onClick={onToggleVisibility}
         />
       )}
