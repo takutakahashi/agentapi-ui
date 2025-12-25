@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -7,13 +8,14 @@ interface Tab {
   label: string
   href: string
   icon?: React.ReactNode
+  requiresDebug?: boolean
 }
 
 interface NavigationTabsProps {
   className?: string
 }
 
-const tabs: Tab[] = [
+const allTabs: Tab[] = [
   {
     label: 'Sessions',
     href: '/chats',
@@ -31,17 +33,35 @@ const tabs: Tab[] = [
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
+    requiresDebug: true,
   },
 ]
 
+function isDebugEnabled(): boolean {
+  if (typeof window === 'undefined') return false
+  return localStorage.getItem('agentapi_debug') !== null
+}
+
 export default function NavigationTabs({ className = '' }: NavigationTabsProps) {
   const pathname = usePathname()
+  const [debugEnabled, setDebugEnabled] = useState(false)
+
+  useEffect(() => {
+    setDebugEnabled(isDebugEnabled())
+  }, [])
+
+  const tabs = allTabs.filter(tab => !tab.requiresDebug || debugEnabled)
 
   const isActive = (href: string) => {
     if (href === '/chats') {
       return pathname === '/chats' || pathname.startsWith('/chats/')
     }
     return pathname === href || pathname.startsWith(`${href}/`)
+  }
+
+  // Don't render if only one tab is visible
+  if (tabs.length <= 1) {
+    return null
   }
 
   return (
