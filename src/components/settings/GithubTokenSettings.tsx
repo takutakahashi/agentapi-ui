@@ -1,5 +1,7 @@
 'use client'
 
+import { LogoutButton } from './LogoutButton'
+
 interface GithubTokenSettingsProps {
   enabled: boolean
   onChange: (enabled: boolean) => void
@@ -18,10 +20,10 @@ export function GithubTokenSettings({ enabled, onChange }: GithubTokenSettingsPr
             htmlFor="githubTokenEnabled"
             className="block text-sm font-medium text-gray-700 dark:text-gray-300"
           >
-            Send GitHub Token on Session Start
+            Use GitHub OAuth Token
           </label>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Automatically inject your GitHub OAuth token when starting a new session
+            Use your GitHub OAuth token for agent sessions
           </p>
         </div>
         <button
@@ -42,9 +44,15 @@ export function GithubTokenSettings({ enabled, onChange }: GithubTokenSettingsPr
         </button>
       </div>
       <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-3 rounded-md">
-        When enabled, your GitHub OAuth token will be passed to the agent via <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">params.github_token</code> when starting a session.
-        This allows the agent to access GitHub APIs on your behalf.
+        When enabled, your GitHub OAuth token will be used to authenticate with GitHub APIs during agent sessions.
+        This allows the agent to perform GitHub operations on your behalf.
       </p>
+      <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-md">
+        <p className="mb-2">
+          <strong>Note:</strong> After changing this setting, you need to logout and login again for the changes to take effect.
+        </p>
+        <LogoutButton />
+      </div>
     </div>
   )
 }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { User, Users } from 'lucide-react'
+import { User, Users, ArrowLeft } from 'lucide-react'
 
 const settingsNavItems = [
   {
@@ -22,6 +22,15 @@ export function SettingsSidebar() {
 
   return (
     <nav className="w-full md:w-64 flex-shrink-0">
+      <div className="mb-4">
+        <Link
+          href="/chats"
+          className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span className="text-sm">Back to Chats</span>
+        </Link>
+      </div>
       <ul className="space-y-1">
         {settingsNavItems.map((item) => {
           const isActive = pathname === item.href
