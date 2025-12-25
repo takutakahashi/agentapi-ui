@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
+import { LogOut } from 'lucide-react'
 import { OneClickPushNotifications } from './OneClickPushNotifications'
 
 interface TopBarProps {
@@ -12,6 +13,7 @@ interface TopBarProps {
   onFilterToggle?: () => void
   showSettingsButton?: boolean
   showPushNotificationButton?: boolean
+  showLogoutButton?: boolean
   showNewSessionButton?: boolean
   onNewSession?: () => void
   children?: React.ReactNode
@@ -25,13 +27,32 @@ export default function TopBar({
   onFilterToggle,
   showSettingsButton = true,
   showPushNotificationButton = true,
+  showLogoutButton = true,
   showNewSessionButton = false,
   onNewSession,
   children
 }: TopBarProps) {
   const router = useRouter()
   const [showPushNotificationPopover, setShowPushNotificationPopover] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
   const popoverRef = useRef<HTMLDivElement>(null)
+
+  const handleLogout = async () => {
+    if (loggingOut) return
+    setLoggingOut(true)
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+      })
+      if (response.ok) {
+        router.push('/login')
+      }
+    } catch (error) {
+      console.error('Logout failed:', error)
+    } finally {
+      setLoggingOut(false)
+    }
+  }
 
   // ポップオーバー外クリックで閉じる
   useEffect(() => {
@@ -128,6 +149,18 @@ export default function TopBar({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
+              </button>
+            )}
+
+            {/* ログアウトボタン */}
+            {showLogoutButton && (
+              <button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="p-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors disabled:opacity-50"
+                title="ログアウト"
+              >
+                <LogOut className="w-5 h-5" />
               </button>
             )}
           </div>
