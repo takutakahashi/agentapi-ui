@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { agentAPI } from '../../lib/api'
+import NavigationTabs from './NavigationTabs'
 
 interface Tag {
   key: string
@@ -161,8 +162,13 @@ export default function TagFilterSidebar({
         ${isVisible ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="p-4">
+          {/* Navigation Tabs */}
+          <div className="mb-6">
+            <NavigationTabs />
+          </div>
+
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Tags
             </h2>
