@@ -21,13 +21,6 @@ on:
         required: false
         type: boolean
         default: false
-  push:
-    branches:
-      - 'claude/**'
-      - 'feature/**'
-      - 'fix/**'
-    paths:
-      - 'helm/**'
 
 env:
   REGISTRY: ghcr.io
