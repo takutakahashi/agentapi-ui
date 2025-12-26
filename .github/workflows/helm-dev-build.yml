@@ -159,17 +159,6 @@ jobs:
           echo "Chart version: ${CHART_VERSION}"
           echo "Image tag: ${IMAGE_TAG}"
 
-      - name: Validate YAML syntax
-        run: |
-          echo "Validating YAML syntax..."
-          for f in helm/agentapi-ui/*.yaml helm/agentapi-ui/templates/*.yaml; do
-            if [ -f "$f" ]; then
-              echo "Checking $f"
-              python3 -c "import yaml; yaml.safe_load(open('$f'))" || exit 1
-            fi
-          done
-          echo "YAML validation passed!"
-
       - name: Lint Helm chart
         run: |
           echo "Running Helm lint..."
