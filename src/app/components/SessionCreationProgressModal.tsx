@@ -23,7 +23,7 @@ export default function SessionCreationProgressModal({
   onClose,
   onRetry,
 }: SessionCreationProgressModalProps) {
-  const { status, message, repository, errorMessage, waitingProgress } = progress;
+  const { status, message, repository, errorMessage } = progress;
   const isFailed = status === 'failed';
   const isCompleted = status === 'completed';
   const currentStepIndex = getStepIndex(status);
@@ -62,9 +62,6 @@ export default function SessionCreationProgressModal({
     const step = SESSION_CREATION_STEPS[stepIndex];
 
     if (stepStatus === 'active') {
-      if (step.status === 'waiting-agent' && waitingProgress) {
-        return `${waitingProgress.current}/${waitingProgress.max}秒`;
-      }
       return step.activeLabel;
     }
     if (stepStatus === 'completed') {

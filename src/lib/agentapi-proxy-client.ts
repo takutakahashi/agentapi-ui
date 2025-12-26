@@ -271,12 +271,13 @@ export class AgentAPIProxyClient {
     // Handle backward compatibility and new format
     let data: Partial<CreateSessionRequest>;
 
-    if (sessionData && (sessionData.environment || sessionData.tags || sessionData.metadata)) {
-      // New format: sessionData contains environment, metadata, and/or tags
+    if (sessionData && (sessionData.environment || sessionData.tags || sessionData.metadata || sessionData.params)) {
+      // New format: sessionData contains environment, metadata, tags, and/or params
       data = {
         environment: sessionData.environment as Record<string, string> | undefined,
         metadata: sessionData.metadata as Record<string, unknown> | undefined || { source: 'agentapi-ui' },
-        tags: sessionData.tags as Record<string, string> | undefined
+        tags: sessionData.tags as Record<string, string> | undefined,
+        params: sessionData.params as { message?: string; github_token?: string; [key: string]: unknown } | undefined
       };
     } else {
       // Backward compatibility: sessionData is just metadata
