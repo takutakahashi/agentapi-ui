@@ -6,6 +6,7 @@ import TagFilterSidebar from '../components/TagFilterSidebar'
 import SessionListView from '../components/SessionListView'
 import TopBar from '../components/TopBar'
 import FloatingNewSessionButton from '../components/FloatingNewSessionButton'
+import NavigationTabs from '../components/NavigationTabs'
 
 interface TagFilter {
   [key: string]: string[]
@@ -27,7 +28,12 @@ export default function ChatsPage() {
         showFilterButton={true}
         showSettingsButton={true}
         onFilterToggle={() => setSidebarVisible(!sidebarVisible)}
-      />
+      >
+        {/* Mobile Navigation Tabs */}
+        <div className="md:hidden">
+          <NavigationTabs />
+        </div>
+      </TopBar>
 
       <div className="flex">
         {/* フィルタサイドバー */}
