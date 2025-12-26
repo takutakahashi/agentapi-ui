@@ -61,10 +61,7 @@ jobs:
       - name: Generate image tag
         id: image_tag
         run: |
-          BRANCH_NAME="${{ steps.git_ref.outputs.ref }}"
-          BRANCH_NAME="${BRANCH_NAME#refs/heads/}"
-          SAFE_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9._-]/-/g' | cut -c1-50)
-          TAG="${{ steps.commit.outputs.sha }}-${SAFE_BRANCH}"
+          TAG="${{ steps.commit.outputs.full_sha }}-dev"
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
           echo "Generated image tag: ${TAG}"
 
@@ -85,7 +82,6 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ steps.image_tag.outputs.tag }}
-            type=raw,value=${{ steps.commit.outputs.sha }}-dev
             type=raw,value=latest-dev
 
       - name: Build and push Docker image
@@ -126,6 +122,7 @@ jobs:
         id: commit
         run: |
           echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "full_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
       - name: Set up Helm
         uses: azure/setup-helm@v3
@@ -143,15 +140,11 @@ jobs:
           SUFFIX="${{ inputs.chart_version_suffix || '-dev' }}"
           CHART_VERSION="${BASE_VERSION}${SUFFIX}.${{ steps.commit.outputs.sha }}"
 
-          # Generate image tag
-          BRANCH_NAME="${{ steps.git_ref.outputs.ref }}"
-          BRANCH_NAME="${BRANCH_NAME#refs/heads/}"
-          SAFE_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9._-]/-/g' | cut -c1-50)
-
+          # Generate image tag (use full SHA to match docker-dev.yaml format)
           if [ "${{ needs.build-image.outputs.image_tag }}" != "" ]; then
             IMAGE_TAG="${{ needs.build-image.outputs.image_tag }}"
           else
-            IMAGE_TAG="${{ steps.commit.outputs.sha }}-${SAFE_BRANCH}"
+            IMAGE_TAG="${{ steps.commit.outputs.full_sha }}-dev"
           fi
 
           echo "chart_version=${CHART_VERSION}" >> $GITHUB_OUTPUT
