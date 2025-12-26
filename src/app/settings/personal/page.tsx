@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { SettingsData, RunbookRepositoryConfig, BedrockConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart } from '@/types/settings'
-import { RunbookSettings, BedrockSettings, SettingsAccordion, GithubTokenSettings } from '@/components/settings'
+import { RunbookSettings, BedrockSettings, SettingsAccordion, GithubTokenSettings, ExperimentalSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -80,6 +80,15 @@ export default function PersonalSettingsPage() {
   const handleGithubTokenChange = (enabled: boolean) => {
     setSendGithubToken(enabled)
     setSendGithubTokenOnSessionStart(enabled)
+  }
+
+  const handleExperimentalChange = (enabled: boolean) => {
+    setIsDebugMode(enabled)
+    if (enabled) {
+      localStorage.setItem('agentapi_debug', 'true')
+    } else {
+      localStorage.removeItem('agentapi_debug')
+    }
   }
 
   const handleSave = async () => {
@@ -165,6 +174,14 @@ export default function PersonalSettingsPage() {
             defaultOpen
           >
             <GithubTokenSettings enabled={sendGithubToken} onChange={handleGithubTokenChange} />
+          </SettingsAccordion>
+
+          <SettingsAccordion
+            title="Experimental"
+            description="Enable experimental features"
+            defaultOpen
+          >
+            <ExperimentalSettings enabled={isDebugMode} onChange={handleExperimentalChange} />
           </SettingsAccordion>
 
           <div className="flex justify-end">
