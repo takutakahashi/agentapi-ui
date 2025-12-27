@@ -154,11 +154,14 @@ export interface RateLimitInfo {
   reset: number;
 }
 
+// Session status types based on agentapi-proxy OpenAPI specification
+export type SessionStatus = 'creating' | 'starting' | 'active' | 'unhealthy' | 'stopped' | 'unknown';
+
 // Session types for agentapi-proxy
 export interface Session {
   session_id: string;
   user_id: string;
-  status: 'active' | 'inactive' | 'error';
+  status: SessionStatus;
   created_at: string;
   updated_at: string;
   environment?: Record<string, string>;

@@ -129,9 +129,11 @@ export default function SessionFilterSidebar({
 
   const statusOptions = [
     { value: 'all' as const, label: 'All Statuses' },
+    { value: 'creating' as const, label: '作成中' },
+    { value: 'starting' as const, label: '起動中' },
     { value: 'active' as const, label: 'Active' },
-    { value: 'inactive' as const, label: 'Inactive' },
-    { value: 'error' as const, label: 'Error' },
+    { value: 'unhealthy' as const, label: 'Unhealthy' },
+    { value: 'stopped' as const, label: 'Stopped' },
   ]
 
   return (

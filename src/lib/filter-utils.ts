@@ -179,7 +179,7 @@ export function parseFiltersFromURL(searchParams: URLSearchParams): SessionFilte
   let status: Session['status'] | undefined
 
   for (const [key, value] of searchParams.entries()) {
-    if (key === 'status' && ['active', 'inactive', 'error'].includes(value)) {
+    if (key === 'status' && ['creating', 'starting', 'active', 'unhealthy', 'stopped', 'unknown'].includes(value)) {
       status = value as Session['status']
     } else if (key.startsWith('tags.')) {
       const tagKey = key.replace('tags.', '')
