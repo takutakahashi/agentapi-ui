@@ -177,10 +177,9 @@ jobs:
             --set ingress.className=nginx \
             --debug > /dev/null
 
-          echo "Testing with OAuth only mode..."
+          echo "Testing with OAuth only mode (config.authMode)..."
           helm template agentapi-ui helm/agentapi-ui \
-            --set oauthOnlyMode.enabled=true \
-            --set oauthOnlyMode.proxyUrl=http://proxy:8080 \
+            --set config.authMode=oauth_only \
             --debug > /dev/null
 
           echo "Testing with HPA enabled..."

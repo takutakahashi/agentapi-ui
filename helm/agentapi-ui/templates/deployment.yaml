@@ -34,11 +34,7 @@ spec:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          {{- if .Values.oauthOnlyMode.enabled }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}{{ .Values.image.oauthOnlySuffix }}"
-          {{- else }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
