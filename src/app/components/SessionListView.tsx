@@ -206,23 +206,6 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   // バックグラウンド対応の定期更新フック
   const statusPollingControl = useBackgroundAwareInterval(fetchSessionStatuses, 10000, false)
 
-  const getAgentStatusDisplayInfo = (agentStatus: AgentStatus | undefined) => {
-    if (!agentStatus) {
-      return { text: 'Unknown', colorClass: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200' }
-    }
-    
-    switch (agentStatus.status) {
-      case 'stable':
-        return { text: 'Available', colorClass: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' }
-      case 'running':
-        return { text: 'Running', colorClass: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' }
-      case 'error':
-        return { text: 'Error', colorClass: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' }
-      default:
-        return { text: 'Unknown', colorClass: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200' }
-    }
-  }
-
   useEffect(() => {
     fetchSessions()
   }, [fetchSessions])
@@ -340,6 +323,62 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       case 'completed': return '完了'
       case 'failed': return '失敗'
       default: return '処理中...'
+    }
+  }
+
+  // セッションが新規かどうかを判定（作成から2分以内）
+  const isNewSession = (createdAt: string) => {
+    const created = new Date(createdAt)
+    const now = new Date()
+    const diffMs = now.getTime() - created.getTime()
+    return diffMs < 2 * 60 * 1000 // 2分以内
+  }
+
+  // セッションの表示用説明を取得
+  const getSessionDescription = (session: Session) => {
+    const description = session.tags?.description ||
+                       sessionMessages[session.session_id] ||
+                       session.metadata?.description
+
+    if (description && description !== 'No description available') {
+      return description
+    }
+
+    // 新規セッションでメッセージがまだ取得できていない場合
+    if (isNewSession(session.created_at)) {
+      return '読み込み中...'
+    }
+
+    return 'No description available'
+  }
+
+  // エージェントステータスの表示情報を取得（新規セッション考慮）
+  const getAgentStatusForSession = (session: Session) => {
+    const agentStatus = sessionAgentStatus[session.session_id]
+    const isNew = isNewSession(session.created_at)
+
+    // ステータスが取得できていない場合
+    if (!agentStatus) {
+      if (isNew) {
+        return { status: 'preparing' as const, colorClass: 'bg-orange-500 animate-pulse', text: '準備中' }
+      }
+      return { status: 'unknown' as const, colorClass: 'bg-gray-400', text: 'Unknown' }
+    }
+
+    // 新規セッションでerrorの場合は「準備中」として扱う
+    if (agentStatus.status === 'error' && isNew) {
+      return { status: 'preparing' as const, colorClass: 'bg-orange-500 animate-pulse', text: '準備中' }
+    }
+
+    switch (agentStatus.status) {
+      case 'stable':
+        return { status: 'stable' as const, colorClass: 'bg-green-500', text: 'Available' }
+      case 'running':
+        return { status: 'running' as const, colorClass: 'bg-yellow-500 animate-pulse', text: 'Running' }
+      case 'error':
+        return { status: 'error' as const, colorClass: 'bg-red-500', text: 'Error' }
+      default:
+        return { status: 'unknown' as const, colorClass: 'bg-gray-400', text: 'Unknown' }
     }
   }
 
@@ -542,26 +581,49 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
           {filteredSessions.length > 0 && (
             <div>
               <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
-                {paginatedSessions.map((session) => (
+                {paginatedSessions.map((session) => {
+                  const isNew = isNewSession(session.created_at)
+                  const agentStatusInfo = getAgentStatusForSession(session)
+                  const description = getSessionDescription(session)
+
+                  return (
                   <div
                     key={session.session_id}
-                    className="px-3 py-4 sm:px-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                    className={`px-3 py-4 sm:px-4 transition-colors ${
+                      isNew
+                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20'
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                    }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
                       <div className="flex-1 min-w-0">
                         {/* タイトルとステータス */}
                         <div className="flex items-start gap-3 mb-2">
-                          <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white leading-5 sm:leading-6">
-                            {truncateText(String(session.tags?.description || sessionMessages[session.session_id] || session.metadata?.description || 'No description available'), isMobile ? 60 : 80)}
+                          {/* 新規セッションの場合はスピナーを表示 */}
+                          {isNew && agentStatusInfo.status === 'preparing' && (
+                            <div className="flex-shrink-0 mt-0.5">
+                              <svg className="animate-spin h-4 w-4 text-orange-500" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                            </div>
+                          )}
+                          <h3 className={`text-sm sm:text-base font-medium leading-5 sm:leading-6 ${
+                            description === '読み込み中...'
+                              ? 'text-gray-500 dark:text-gray-400 italic'
+                              : 'text-gray-900 dark:text-white'
+                          }`}>
+                            {truncateText(String(description), isMobile ? 60 : 80)}
                           </h3>
-                          {sessionAgentStatus[session.session_id] && (
-                            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                              sessionAgentStatus[session.session_id].status === 'running'
-                                ? 'bg-yellow-500 animate-pulse'
-                                : sessionAgentStatus[session.session_id].status === 'stable'
-                                ? 'bg-green-500'
-                                : 'bg-red-500'
-                            }`} title={`Agent: ${getAgentStatusDisplayInfo(sessionAgentStatus[session.session_id]).text}`} />
+                          <div
+                            className={`w-3 h-3 rounded-full flex-shrink-0 ${agentStatusInfo.colorClass}`}
+                            title={`Agent: ${agentStatusInfo.text}`}
+                          />
+                          {/* 新規セッションバッジ */}
+                          {isNew && (
+                            <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                              {agentStatusInfo.status === 'preparing' ? '準備中' : '新規'}
+                            </span>
                           )}
                         </div>
 
@@ -695,7 +757,8 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                       </div>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
 
               {/* Pagination */}
               {totalPages > 1 && (
