@@ -44,8 +44,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=${{ github.event.inputs.tag || 'dev' }}
-            type=raw,value=${{ github.sha }}-dev
+            type=raw,value=${{ github.event.inputs.tag || 'dev' }}-oauth
+            type=raw,value=${{ github.sha }}-dev-oauth
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -54,6 +54,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_OAUTH_ONLY_MODE=true
+            VALIDATE_API_KEY_WITH_PROXY=true
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
