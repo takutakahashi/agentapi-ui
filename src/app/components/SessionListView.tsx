@@ -357,17 +357,25 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     const agentStatus = sessionAgentStatus[session.session_id]
     const isNew = isNewSession(session.created_at)
 
+    // セッションが作成中または起動中の場合は、そのステータスを優先表示
+    if (session.status === 'creating') {
+      return { status: 'creating' as const, colorClass: 'bg-blue-500 animate-pulse', text: '作成中' }
+    }
+    if (session.status === 'starting') {
+      return { status: 'starting' as const, colorClass: 'bg-indigo-500 animate-pulse', text: '起動中' }
+    }
+
     // ステータスが取得できていない場合
     if (!agentStatus) {
       if (isNew) {
-        return { status: 'preparing' as const, colorClass: 'bg-orange-500 animate-pulse', text: '準備中' }
+        return { status: 'preparing' as const, colorClass: 'bg-blue-500 animate-pulse', text: '準備中' }
       }
       return { status: 'unknown' as const, colorClass: 'bg-gray-400', text: 'Unknown' }
     }
 
     // 新規セッションでerrorの場合は「準備中」として扱う
     if (agentStatus.status === 'error' && isNew) {
-      return { status: 'preparing' as const, colorClass: 'bg-orange-500 animate-pulse', text: '準備中' }
+      return { status: 'preparing' as const, colorClass: 'bg-blue-500 animate-pulse', text: '準備中' }
     }
 
     switch (agentStatus.status) {
@@ -590,7 +598,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                   <div
                     key={session.session_id}
                     className={`px-3 py-4 sm:px-4 transition-colors ${
-                      isNew
+                      session.status === 'creating' || session.status === 'starting'
+                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/30 dark:hover:to-indigo-900/30 border-l-4 border-blue-500'
+                        : isNew
                         ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20'
                         : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
                     }`}
@@ -599,10 +609,14 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                       <div className="flex-1 min-w-0">
                         {/* タイトルとステータス */}
                         <div className="flex items-start gap-3 mb-2">
-                          {/* 新規セッションの場合はスピナーを表示 */}
-                          {isNew && agentStatusInfo.status === 'preparing' && (
+                          {/* 作成中/起動中/準備中セッションの場合はスピナーを表示 */}
+                          {(session.status === 'creating' || session.status === 'starting' || (isNew && agentStatusInfo.status === 'preparing')) && (
                             <div className="flex-shrink-0 mt-0.5">
-                              <svg className="animate-spin h-4 w-4 text-orange-500" fill="none" viewBox="0 0 24 24">
+                              <svg className={`animate-spin h-4 w-4 ${
+                                session.status === 'creating' || session.status === 'starting'
+                                  ? 'text-blue-500'
+                                  : 'text-blue-500'
+                              }`} fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                               </svg>
@@ -619,10 +633,24 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                             className={`w-3 h-3 rounded-full flex-shrink-0 ${agentStatusInfo.colorClass}`}
                             title={`Agent: ${agentStatusInfo.text}`}
                           />
-                          {/* 新規セッションバッジ */}
-                          {isNew && (
-                            <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
-                              {agentStatusInfo.status === 'preparing' ? '準備中' : '新規'}
+                          {/* 新規セッション/作成中/起動中バッジ */}
+                          {(isNew || session.status === 'creating' || session.status === 'starting') && (
+                            <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${
+                              session.status === 'creating'
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                : session.status === 'starting'
+                                ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200'
+                                : agentStatusInfo.status === 'preparing'
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                            }`}>
+                              {session.status === 'creating'
+                                ? '作成中'
+                                : session.status === 'starting'
+                                ? '起動中'
+                                : agentStatusInfo.status === 'preparing'
+                                ? '準備中'
+                                : '新規'}
                             </span>
                           )}
                         </div>

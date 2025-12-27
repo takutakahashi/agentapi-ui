@@ -1,14 +1,14 @@
 import { Chat } from '../../types/chat'
-import { Session } from '../../types/agentapi'
+import { Session, SessionStatus } from '../../types/agentapi'
 
 interface StatusBadgeProps {
-  status: Chat['status'] | Session['status']
+  status: Chat['status'] | Session['status'] | SessionStatus
   variant?: 'green' | 'yellow' | 'red' | 'gray'
   className?: string
 }
 
 export default function StatusBadge({ status, className = '' }: StatusBadgeProps) {
-  const getStatusConfig = (status: Chat['status'] | Session['status']) => {
+  const getStatusConfig = (status: Chat['status'] | Session['status'] | SessionStatus) => {
     switch (status) {
       // Chat statuses
       case 'running':
@@ -51,7 +51,23 @@ export default function StatusBadge({ status, className = '' }: StatusBadgeProps
           icon: '⏹️',
           label: 'Cancelled'
         }
-      // Session statuses
+      // Session statuses (API specification)
+      case 'creating':
+        return {
+          bg: 'bg-blue-100 dark:bg-blue-900 animate-pulse',
+          text: 'text-blue-800 dark:text-blue-200 font-semibold',
+          border: 'border-blue-300 dark:border-blue-600 border-2',
+          icon: '🔵',
+          label: '作成中'
+        }
+      case 'starting':
+        return {
+          bg: 'bg-indigo-100 dark:bg-indigo-900 animate-pulse',
+          text: 'text-indigo-800 dark:text-indigo-200 font-semibold',
+          border: 'border-indigo-300 dark:border-indigo-600 border-2',
+          icon: '🚀',
+          label: '起動中'
+        }
       case 'active':
         return {
           bg: 'bg-green-100 dark:bg-green-900',
@@ -60,22 +76,23 @@ export default function StatusBadge({ status, className = '' }: StatusBadgeProps
           icon: '🟢',
           label: 'Active'
         }
-      case 'inactive':
-        return {
-          bg: 'bg-gray-100 dark:bg-gray-800',
-          text: 'text-gray-800 dark:text-gray-200',
-          border: 'border-gray-200 dark:border-gray-600',
-          icon: '⚪',
-          label: 'Inactive'
-        }
-      case 'error':
+      case 'unhealthy':
         return {
           bg: 'bg-red-100 dark:bg-red-900',
           text: 'text-red-800 dark:text-red-200',
           border: 'border-red-200 dark:border-red-700',
           icon: '🔴',
-          label: 'Error'
+          label: 'Unhealthy'
         }
+      case 'stopped':
+        return {
+          bg: 'bg-gray-100 dark:bg-gray-800',
+          text: 'text-gray-600 dark:text-gray-400',
+          border: 'border-gray-200 dark:border-gray-600',
+          icon: '⏹️',
+          label: 'Stopped'
+        }
+      case 'unknown':
       default:
         return {
           bg: 'bg-gray-100 dark:bg-gray-800',
