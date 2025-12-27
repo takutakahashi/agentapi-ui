@@ -15,10 +15,7 @@ RUN bun install --frozen-lockfile --production
 FROM base AS builder
 COPY . .
 RUN bun install --frozen-lockfile
-ARG NEXT_PUBLIC_OAUTH_ONLY_MODE=false
-ARG VALIDATE_API_KEY_WITH_PROXY=true
-RUN NEXT_PUBLIC_OAUTH_ONLY_MODE=${NEXT_PUBLIC_OAUTH_ONLY_MODE} \
-    bun run build
+RUN bun run build
 
 # Production stage
 FROM oven/bun:1.2.11-debian AS runner

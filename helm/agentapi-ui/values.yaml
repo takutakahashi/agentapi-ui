@@ -9,8 +9,6 @@ image:
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
-  # Tag suffix for OAuth only mode images
-  oauthOnlySuffix: "-oauth"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -133,10 +131,10 @@ cookieEncryptionSecret:
   # Key within the secret that contains the cookie encryption secret
   secretKey: "cookie-encryption-secret"
 
-# OAuth Only Mode configuration (deprecated, use config.authMode instead)
-# When enabled, uses the OAuth-only image variant which hides API key login
+# OAuth Only Mode configuration
+# When enabled, sets AUTH_MODE to oauth_only and configures proxy URLs
 oauthOnlyMode:
-  # Enable OAuth only mode (uses -oauth image suffix)
+  # Enable OAuth only mode
   enabled: false
   # AgentAPI Proxy URL for OAuth mode
   proxyUrl: "http://localhost:8080"
