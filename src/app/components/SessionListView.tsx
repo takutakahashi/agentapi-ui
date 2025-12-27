@@ -223,8 +223,8 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     return false
   }, [creatingSessions, sessions, sessionAgentStatus])
 
-  // 起動中のセッションがある場合は5秒、ない場合は10秒
-  const pollingInterval = hasActiveSession ? 5000 : 10000
+  // 起動中のセッションがある場合は3秒、ない場合は10秒
+  const pollingInterval = hasActiveSession ? 3000 : 10000
 
   // バックグラウンド対応の定期更新フック
   const statusPollingControl = useBackgroundAwareInterval(fetchSessionStatuses, pollingInterval, false)
