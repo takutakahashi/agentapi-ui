@@ -221,7 +221,10 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
       await agentAPI.start!({
         environment: sessionData.environment,
         metadata: sessionData.metadata,
-        tags: sessionData.tags
+        tags: sessionData.tags,
+        params: {
+          message: description.trim()
+        }
       })
 
       // グローバルリポジトリ履歴に追加

@@ -186,6 +186,7 @@ export interface CreateSessionRequest {
   metadata?: Record<string, unknown>;
   tags?: Record<string, string>;
   params?: {
+    message?: string;
     github_token?: string;
     [key: string]: unknown;
   };
