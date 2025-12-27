@@ -57,17 +57,20 @@ export function useBackgroundAwareInterval(
   const callbackRef = useRef(callback);
   callbackRef.current = callback;
 
+  // 現在のdelayを保持するref
+  const delayRef = useRef(delay);
+
   const start = useCallback(() => {
     if (intervalIdRef.current) return; // 既に動作中の場合は何もしない
-    
+
     if (immediate) {
       callbackRef.current();
     }
-    
-    const id = setInterval(() => callbackRef.current(), delay);
+
+    const id = setInterval(() => callbackRef.current(), delayRef.current);
     intervalIdRef.current = id;
     setIsRunning(true);
-  }, [immediate, delay]);
+  }, [immediate]);
 
   const stop = useCallback(() => {
     if (intervalIdRef.current) {
@@ -93,6 +96,22 @@ export function useBackgroundAwareInterval(
       intervalIdRef.current = null;
     }
   }, [isVisible, isRunning, start]);
+
+  // delayが変更された場合にインターバルを再起動
+  useEffect(() => {
+    if (delayRef.current !== delay && intervalIdRef.current) {
+      delayRef.current = delay;
+      // 実行中の場合のみ再起動
+      if (isRunning) {
+        clearInterval(intervalIdRef.current);
+        intervalIdRef.current = null;
+        const id = setInterval(() => callbackRef.current(), delay);
+        intervalIdRef.current = id;
+      }
+    } else {
+      delayRef.current = delay;
+    }
+  }, [delay, isRunning]);
 
   // コンポーネントのアンマウント時にクリーンアップ
   useEffect(() => {

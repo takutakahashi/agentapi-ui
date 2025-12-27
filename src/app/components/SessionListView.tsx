@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Session, AgentStatus } from '../../types/agentapi'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
@@ -156,11 +156,11 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
 
   const fetchSessionStatuses = useCallback(async () => {
     if (sessions.length === 0 || !agentAPIProxy) return
-    
+
     try {
       // セッション数を制限してAPIコールを削減（最新5セッションのみ）
       const limitedSessions = sessions.slice(0, 5)
-      
+
       // 各セッションのエージェント状態を並列で取得
       const statusPromises = limitedSessions.map(async (session) => {
         try {
@@ -179,15 +179,15 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
           }
         }
       })
-      
+
       const statusResults = await Promise.all(statusPromises)
       const statusMap: { [sessionId: string]: AgentStatus } = {}
-      
+
       // 制限されたセッションの結果を設定
       statusResults.forEach(result => {
         statusMap[result.sessionId] = result.status
       })
-      
+
       // 残りのセッションにはデフォルト値を設定（APIコールなし）
       sessions.slice(5).forEach(session => {
         statusMap[session.session_id] = {
@@ -196,15 +196,38 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
           current_task: undefined
         } as AgentStatus
       })
-      
+
       setSessionAgentStatus(statusMap)
     } catch (err) {
       console.warn('Failed to fetch session statuses:', err)
     }
   }, [sessions, agentAPIProxy])
 
+  // 起動中のセッションがあるかどうかを判定
+  const hasActiveSession = useMemo(() => {
+    // 作成中のセッションがある場合
+    if (creatingSessions.some(s => s.status !== 'completed' && s.status !== 'failed')) {
+      return true
+    }
+
+    // セッションが作成中または起動中の場合
+    if (sessions.some(s => s.status === 'creating' || s.status === 'starting')) {
+      return true
+    }
+
+    // エージェントが実行中のセッションがある場合
+    if (Object.values(sessionAgentStatus).some(status => status.status === 'running')) {
+      return true
+    }
+
+    return false
+  }, [creatingSessions, sessions, sessionAgentStatus])
+
+  // 起動中のセッションがある場合は5秒、ない場合は10秒
+  const pollingInterval = hasActiveSession ? 5000 : 10000
+
   // バックグラウンド対応の定期更新フック
-  const statusPollingControl = useBackgroundAwareInterval(fetchSessionStatuses, 10000, false)
+  const statusPollingControl = useBackgroundAwareInterval(fetchSessionStatuses, pollingInterval, false)
 
   useEffect(() => {
     fetchSessions()
