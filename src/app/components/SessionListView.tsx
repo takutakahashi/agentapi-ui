@@ -206,23 +206,6 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   // バックグラウンド対応の定期更新フック
   const statusPollingControl = useBackgroundAwareInterval(fetchSessionStatuses, 10000, false)
 
-  const getAgentStatusDisplayInfo = (agentStatus: AgentStatus | undefined) => {
-    if (!agentStatus) {
-      return { text: 'Unknown', colorClass: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200' }
-    }
-    
-    switch (agentStatus.status) {
-      case 'stable':
-        return { text: 'Available', colorClass: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' }
-      case 'running':
-        return { text: 'Running', colorClass: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' }
-      case 'error':
-        return { text: 'Error', colorClass: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' }
-      default:
-        return { text: 'Unknown', colorClass: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200' }
-    }
-  }
-
   useEffect(() => {
     fetchSessions()
   }, [fetchSessions])
@@ -343,6 +326,62 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     }
   }
 
+  // セッションが新規かどうかを判定（作成から2分以内）
+  const isNewSession = (createdAt: string) => {
+    const created = new Date(createdAt)
+    const now = new Date()
+    const diffMs = now.getTime() - created.getTime()
+    return diffMs < 2 * 60 * 1000 // 2分以内
+  }
+
+  // セッションの表示用説明を取得
+  const getSessionDescription = (session: Session) => {
+    const description = session.tags?.description ||
+                       sessionMessages[session.session_id] ||
+                       session.metadata?.description
+
+    if (description && description !== 'No description available') {
+      return description
+    }
+
+    // 新規セッションでメッセージがまだ取得できていない場合
+    if (isNewSession(session.created_at)) {
+      return '読み込み中...'
+    }
+
+    return 'No description available'
+  }
+
+  // エージェントステータスの表示情報を取得（新規セッション考慮）
+  const getAgentStatusForSession = (session: Session) => {
+    const agentStatus = sessionAgentStatus[session.session_id]
+    const isNew = isNewSession(session.created_at)
+
+    // ステータスが取得できていない場合
+    if (!agentStatus) {
+      if (isNew) {
+        return { status: 'preparing' as const, colorClass: 'bg-orange-500 animate-pulse', text: '準備中' }
+      }
+      return { status: 'unknown' as const, colorClass: 'bg-gray-400', text: 'Unknown' }
+    }
+
+    // 新規セッションでerrorの場合は「準備中」として扱う
+    if (agentStatus.status === 'error' && isNew) {
+      return { status: 'preparing' as const, colorClass: 'bg-orange-500 animate-pulse', text: '準備中' }
+    }
+
+    switch (agentStatus.status) {
+      case 'stable':
+        return { status: 'stable' as const, colorClass: 'bg-green-500', text: 'Available' }
+      case 'running':
+        return { status: 'running' as const, colorClass: 'bg-yellow-500 animate-pulse', text: 'Running' }
+      case 'error':
+        return { status: 'error' as const, colorClass: 'bg-red-500', text: 'Error' }
+      default:
+        return { status: 'unknown' as const, colorClass: 'bg-gray-400', text: 'Unknown' }
+    }
+  }
+
   const getStatusColor = (status: CreatingSession['status']) => {
     switch (status) {
       case 'creating': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
@@ -395,59 +434,124 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       {/* 作成中セッション */}
       {creatingSessions.length > 0 && (
         <div className="space-y-4">
-          <h4 className="text-md font-medium text-gray-700 dark:text-gray-300">
-            作成中のセッション ({creatingSessions.length})
-          </h4>
+          <div className="flex items-center gap-2">
+            <h4 className="text-md font-medium text-gray-700 dark:text-gray-300">
+              作成中のセッション ({creatingSessions.length})
+            </h4>
+            <div className="flex items-center gap-1">
+              <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+              <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></span>
+              <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></span>
+            </div>
+          </div>
           {creatingSessions.map((creatingSession) => (
             <div
               key={creatingSession.id}
-              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6"
+              className={`relative overflow-hidden rounded-lg p-6 ${
+                creatingSession.status === 'failed'
+                  ? 'bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-700'
+                  : creatingSession.status === 'completed'
+                  ? 'bg-green-50 dark:bg-green-900/20 border-2 border-green-300 dark:border-green-700'
+                  : 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-300 dark:border-blue-600'
+              }`}
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
+              {/* 作成中のアニメーションボーダー */}
+              {creatingSession.status !== 'completed' && creatingSession.status !== 'failed' && (
+                <div className="absolute inset-0 rounded-lg overflow-hidden pointer-events-none">
+                  <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-transparent via-blue-200/30 dark:via-blue-500/20 to-transparent"></div>
+                </div>
+              )}
+
+              <div className="relative flex items-start gap-4">
+                {/* 左側のスピナー/アイコン */}
+                <div className="flex-shrink-0">
+                  {creatingSession.status === 'failed' ? (
+                    <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
+                      <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </div>
+                  ) : creatingSession.status === 'completed' ? (
+                    <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
+                      <svg className="h-6 w-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+                      <svg className="animate-spin h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    </div>
+                  )}
+                </div>
+
+                {/* コンテンツ */}
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-2">
-                    <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(creatingSession.status)}`}>
+                    <span className={`inline-flex items-center px-3 py-1.5 text-sm font-semibold rounded-full ${getStatusColor(creatingSession.status)}`}>
+                      {creatingSession.status !== 'completed' && creatingSession.status !== 'failed' && (
+                        <svg className="animate-spin -ml-0.5 mr-2 h-3 w-3" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      )}
                       {getStatusText(creatingSession.status)}
                     </span>
                     <span className="text-sm text-gray-500 dark:text-gray-400">
                       {formatRelativeTime(creatingSession.startTime.toISOString())}
                     </span>
                   </div>
-                  
+
+                  {/* プログレスステップ表示 */}
+                  {creatingSession.status !== 'completed' && creatingSession.status !== 'failed' && (
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className={`h-1.5 flex-1 rounded-full ${
+                        creatingSession.status === 'creating' || creatingSession.status === 'waiting-agent' || creatingSession.status === 'sending-message'
+                          ? 'bg-blue-500'
+                          : 'bg-gray-200 dark:bg-gray-700'
+                      }`}></div>
+                      <div className={`h-1.5 flex-1 rounded-full ${
+                        creatingSession.status === 'waiting-agent' || creatingSession.status === 'sending-message'
+                          ? 'bg-blue-500'
+                          : 'bg-gray-200 dark:bg-gray-700'
+                      }`}></div>
+                      <div className={`h-1.5 flex-1 rounded-full ${
+                        creatingSession.status === 'sending-message'
+                          ? 'bg-blue-500'
+                          : 'bg-gray-200 dark:bg-gray-700'
+                      }`}></div>
+                    </div>
+                  )}
+
                   <div className="mb-2">
-                    <p className="text-gray-900 dark:text-white">
+                    <p className="text-gray-900 dark:text-white font-medium">
                       {truncateText(creatingSession.message)}
                     </p>
                   </div>
 
                   {/* リポジトリタグ */}
                   {creatingSession.repository && (
-                    <div className="flex flex-wrap gap-2 mb-3">
+                    <div className="flex flex-wrap gap-2">
                       <span className="inline-flex items-center px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-full">
-                        repository: {creatingSession.repository}
+                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                        </svg>
+                        {creatingSession.repository}
                       </span>
                     </div>
                   )}
-                </div>
 
-                {/* ステータスアイコン */}
-                {creatingSession.status === 'failed' ? (
-                  <div className="ml-4">
-                    <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span className="text-sm font-medium">セットアップに失敗しました</span>
+                  {/* 失敗時のエラーメッセージ */}
+                  {creatingSession.status === 'failed' && (
+                    <div className="mt-3 p-3 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                      <p className="text-sm text-red-700 dark:text-red-300 font-medium">
+                        セッションの作成に失敗しました。再度お試しください。
+                      </p>
                     </div>
-                  </div>
-                ) : creatingSession.status !== 'completed' ? (
-                  <div className="ml-4">
-                    <svg className="animate-spin h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  </div>
-                ) : null}
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -477,26 +581,49 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
           {filteredSessions.length > 0 && (
             <div>
               <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
-                {paginatedSessions.map((session) => (
+                {paginatedSessions.map((session) => {
+                  const isNew = isNewSession(session.created_at)
+                  const agentStatusInfo = getAgentStatusForSession(session)
+                  const description = getSessionDescription(session)
+
+                  return (
                   <div
                     key={session.session_id}
-                    className="px-3 py-4 sm:px-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                    className={`px-3 py-4 sm:px-4 transition-colors ${
+                      isNew
+                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20'
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                    }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
                       <div className="flex-1 min-w-0">
                         {/* タイトルとステータス */}
                         <div className="flex items-start gap-3 mb-2">
-                          <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white leading-5 sm:leading-6">
-                            {truncateText(String(session.tags?.description || sessionMessages[session.session_id] || session.metadata?.description || 'No description available'), isMobile ? 60 : 80)}
+                          {/* 新規セッションの場合はスピナーを表示 */}
+                          {isNew && agentStatusInfo.status === 'preparing' && (
+                            <div className="flex-shrink-0 mt-0.5">
+                              <svg className="animate-spin h-4 w-4 text-orange-500" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                            </div>
+                          )}
+                          <h3 className={`text-sm sm:text-base font-medium leading-5 sm:leading-6 ${
+                            description === '読み込み中...'
+                              ? 'text-gray-500 dark:text-gray-400 italic'
+                              : 'text-gray-900 dark:text-white'
+                          }`}>
+                            {truncateText(String(description), isMobile ? 60 : 80)}
                           </h3>
-                          {sessionAgentStatus[session.session_id] && (
-                            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                              sessionAgentStatus[session.session_id].status === 'running'
-                                ? 'bg-yellow-500 animate-pulse'
-                                : sessionAgentStatus[session.session_id].status === 'stable'
-                                ? 'bg-green-500'
-                                : 'bg-red-500'
-                            }`} title={`Agent: ${getAgentStatusDisplayInfo(sessionAgentStatus[session.session_id]).text}`} />
+                          <div
+                            className={`w-3 h-3 rounded-full flex-shrink-0 ${agentStatusInfo.colorClass}`}
+                            title={`Agent: ${agentStatusInfo.text}`}
+                          />
+                          {/* 新規セッションバッジ */}
+                          {isNew && (
+                            <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                              {agentStatusInfo.status === 'preparing' ? '準備中' : '新規'}
+                            </span>
                           )}
                         </div>
 
@@ -630,7 +757,8 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                       </div>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
 
               {/* Pagination */}
               {totalPages > 1 && (
