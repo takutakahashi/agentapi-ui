@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { SettingsData, RunbookRepositoryConfig, BedrockConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart } from '@/types/settings'
-import { RunbookSettings, BedrockSettings, SettingsAccordion, GithubTokenSettings, ExperimentalSettings } from '@/components/settings'
+import { SettingsData, RunbookRepositoryConfig, BedrockConfig, APIMCPServerConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart } from '@/types/settings'
+import { RunbookSettings, BedrockSettings, SettingsAccordion, GithubTokenSettings, ExperimentalSettings, MCPServerSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -75,6 +75,10 @@ export default function PersonalSettingsPage() {
 
   const handleBedrockChange = (config: BedrockConfig) => {
     setSettings((prev) => ({ ...prev, bedrock: config }))
+  }
+
+  const handleMCPServersChange = (servers: Record<string, APIMCPServerConfig>) => {
+    setSettings((prev) => ({ ...prev, mcp_servers: servers }))
   }
 
   const handleGithubTokenChange = (enabled: boolean) => {
@@ -166,6 +170,14 @@ export default function PersonalSettingsPage() {
             defaultOpen
           >
             <BedrockSettings config={settings.bedrock} onChange={handleBedrockChange} />
+          </SettingsAccordion>
+
+          <SettingsAccordion
+            title="MCP Servers"
+            description="Configure Model Context Protocol servers"
+            defaultOpen
+          >
+            <MCPServerSettings servers={settings.mcp_servers} onChange={handleMCPServersChange} />
           </SettingsAccordion>
 
           <SettingsAccordion
