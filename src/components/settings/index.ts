@@ -1,7 +1,7 @@
-export { RunbookSettings } from './RunbookSettings'
 export { BedrockSettings } from './BedrockSettings'
 export { SettingsAccordion } from './SettingsAccordion'
 export { GithubTokenSettings } from './GithubTokenSettings'
 export { LogoutButton } from './LogoutButton'
 export { ExperimentalSettings } from './ExperimentalSettings'
 export { MCPServerSettings } from './MCPServerSettings'
+export { MarketplaceSettings } from './MarketplaceSettings'

@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { SettingsData, RunbookRepositoryConfig, BedrockConfig, APIMCPServerConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart } from '@/types/settings'
-import { RunbookSettings, BedrockSettings, SettingsAccordion, GithubTokenSettings, ExperimentalSettings, MCPServerSettings } from '@/components/settings'
+import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart } from '@/types/settings'
+import { BedrockSettings, SettingsAccordion, GithubTokenSettings, ExperimentalSettings, MCPServerSettings, MarketplaceSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -69,8 +69,8 @@ export default function PersonalSettingsPage() {
     fetchSettings()
   }, [userName])
 
-  const handleRunbookChange = (config: RunbookRepositoryConfig) => {
-    setSettings((prev) => ({ ...prev, runbook: config }))
+  const handleMarketplacesChange = (marketplaces: Record<string, MarketplaceConfig>) => {
+    setSettings((prev) => ({ ...prev, marketplaces }))
   }
 
   const handleBedrockChange = (config: BedrockConfig) => {
@@ -157,11 +157,11 @@ export default function PersonalSettingsPage() {
       {userName && (
         <>
           <SettingsAccordion
-            title="Runbook Repository"
-            description="Configure the repository containing your runbooks"
+            title="Marketplace"
+            description="Configure plugin marketplaces (Experimental)"
             defaultOpen
           >
-            <RunbookSettings config={settings.runbook} onChange={handleRunbookChange} disabled={!isDebugMode} />
+            <MarketplaceSettings marketplaces={settings.marketplaces} onChange={handleMarketplacesChange} disabled={!isDebugMode} />
           </SettingsAccordion>
 
           <SettingsAccordion

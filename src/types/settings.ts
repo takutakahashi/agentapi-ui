@@ -3,11 +3,10 @@ import { MessageTemplate } from './messageTemplate';
 // Settings type for routing
 export type SettingsType = 'personal' | 'team'
 
-// Runbook リポジトリ設定
-export interface RunbookRepositoryConfig {
-  repositoryUrl: string;    // GitHub URL
-  branch: string;           // ブランチ名
-  directoryPath: string;    // ディレクトリパス
+// Marketplace 設定 (OpenAPI仕様準拠)
+export interface MarketplaceConfig {
+  url: string;                    // Git repository URL (必須)
+  enabled_plugins?: string[];     // 有効化されたプラグイン名
 }
 
 // Bedrock 設定 (OpenAPI仕様に準拠)
@@ -40,9 +39,9 @@ export interface APIMCPServerResponse {
 
 // 設定データ（API で保存）
 export interface SettingsData {
-  runbook?: RunbookRepositoryConfig;
   bedrock?: BedrockConfig;
   mcp_servers?: Record<string, APIMCPServerConfig>;
+  marketplaces?: Record<string, MarketplaceConfig>;
 }
 
 // Personal settings
@@ -107,24 +106,6 @@ export interface GitHubOAuthSettings {
 // 保存前に空の値を除外した設定データを作成
 export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
   const prepared: SettingsData = {}
-
-  // Runbook 設定の処理
-  if (data.runbook) {
-    const runbook: Partial<RunbookRepositoryConfig> = {}
-    if (data.runbook.repositoryUrl?.trim()) {
-      runbook.repositoryUrl = data.runbook.repositoryUrl.trim()
-    }
-    if (data.runbook.branch?.trim()) {
-      runbook.branch = data.runbook.branch.trim()
-    }
-    if (data.runbook.directoryPath?.trim()) {
-      runbook.directoryPath = data.runbook.directoryPath.trim()
-    }
-    // 少なくとも1つのフィールドがあれば runbook を含める
-    if (Object.keys(runbook).length > 0) {
-      prepared.runbook = runbook as RunbookRepositoryConfig
-    }
-  }
 
   // Bedrock 設定の処理
   if (data.bedrock) {
@@ -204,6 +185,33 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
     }
     if (Object.keys(mcpServers).length > 0) {
       prepared.mcp_servers = mcpServers
+    }
+  }
+
+  // Marketplaces 設定の処理
+  if (data.marketplaces) {
+    const marketplaces: Record<string, MarketplaceConfig> = {}
+    for (const [name, marketplace] of Object.entries(data.marketplaces)) {
+      if (name.trim() && marketplace.url?.trim()) {
+        const cleanMarketplace: MarketplaceConfig = {
+          url: marketplace.url.trim()
+        }
+
+        // enabled_plugins の処理（空文字列を除外）
+        if (marketplace.enabled_plugins && marketplace.enabled_plugins.length > 0) {
+          const filteredPlugins = marketplace.enabled_plugins
+            .map(p => p.trim())
+            .filter(p => p)
+          if (filteredPlugins.length > 0) {
+            cleanMarketplace.enabled_plugins = filteredPlugins
+          }
+        }
+
+        marketplaces[name.trim()] = cleanMarketplace
+      }
+    }
+    if (Object.keys(marketplaces).length > 0) {
+      prepared.marketplaces = marketplaces
     }
   }
 
