@@ -18,10 +18,31 @@ export interface BedrockConfig {
   secret_access_key?: string; // AWS シークレットアクセスキー（チーム設定のみ）
 }
 
+// API用のMCPサーバー設定（OpenAPI仕様準拠）
+export interface APIMCPServerConfig {
+  type: 'stdio' | 'http' | 'sse';
+  command?: string;                   // stdio用コマンド
+  url?: string;                       // http/sse用URL
+  args?: string[];                    // stdio用コマンド引数
+  env?: Record<string, string>;       // 環境変数
+  headers?: Record<string, string>;   // http/sse用ヘッダー
+}
+
+// APIレスポンス用（セキュリティ対策：env/headersは値を含まない）
+export interface APIMCPServerResponse {
+  type: 'stdio' | 'http' | 'sse';
+  command?: string;
+  url?: string;
+  args?: string[];
+  env_keys?: string[];      // 環境変数キーのみ
+  header_keys?: string[];   // ヘッダーキーのみ
+}
+
 // 設定データ（API で保存）
 export interface SettingsData {
   runbook?: RunbookRepositoryConfig;
   bedrock?: BedrockConfig;
+  mcp_servers?: Record<string, APIMCPServerConfig>;
 }
 
 // Personal settings
@@ -124,6 +145,65 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
     // enabled がある場合は bedrock を含める
     if (bedrock.enabled !== undefined) {
       prepared.bedrock = bedrock as BedrockConfig
+    }
+  }
+
+  // MCP Servers 設定の処理
+  if (data.mcp_servers) {
+    const mcpServers: Record<string, APIMCPServerConfig> = {}
+    for (const [name, server] of Object.entries(data.mcp_servers)) {
+      if (name.trim() && server.type) {
+        const cleanServer: APIMCPServerConfig = { type: server.type }
+
+        // タイプ別フィールドの処理
+        if (server.type === 'stdio') {
+          if (server.command?.trim()) {
+            cleanServer.command = server.command.trim()
+          }
+          if (server.args && server.args.length > 0) {
+            const filteredArgs = server.args.filter(a => a.trim())
+            if (filteredArgs.length > 0) {
+              cleanServer.args = filteredArgs
+            }
+          }
+        } else {
+          // http または sse
+          if (server.url?.trim()) {
+            cleanServer.url = server.url.trim()
+          }
+          if (server.headers && Object.keys(server.headers).length > 0) {
+            // 空のキーや値を除外
+            const cleanHeaders: Record<string, string> = {}
+            for (const [key, value] of Object.entries(server.headers)) {
+              if (key.trim() && value.trim()) {
+                cleanHeaders[key.trim()] = value.trim()
+              }
+            }
+            if (Object.keys(cleanHeaders).length > 0) {
+              cleanServer.headers = cleanHeaders
+            }
+          }
+        }
+
+        // 環境変数（共通）
+        if (server.env && Object.keys(server.env).length > 0) {
+          // 空のキーや値を除外
+          const cleanEnv: Record<string, string> = {}
+          for (const [key, value] of Object.entries(server.env)) {
+            if (key.trim() && value.trim()) {
+              cleanEnv[key.trim()] = value.trim()
+            }
+          }
+          if (Object.keys(cleanEnv).length > 0) {
+            cleanServer.env = cleanEnv
+          }
+        }
+
+        mcpServers[name.trim()] = cleanServer
+      }
+    }
+    if (Object.keys(mcpServers).length > 0) {
+      prepared.mcp_servers = mcpServers
     }
   }
 

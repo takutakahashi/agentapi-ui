@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { SettingsData, RunbookRepositoryConfig, BedrockConfig, prepareSettingsForSave } from '@/types/settings'
-import { RunbookSettings, BedrockSettings, SettingsAccordion } from '@/components/settings'
+import { SettingsData, RunbookRepositoryConfig, BedrockConfig, APIMCPServerConfig, prepareSettingsForSave } from '@/types/settings'
+import { RunbookSettings, BedrockSettings, SettingsAccordion, MCPServerSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -92,6 +92,10 @@ export default function TeamSettingsPage() {
 
   const handleBedrockChange = (config: BedrockConfig) => {
     setSettings((prev) => ({ ...prev, bedrock: config }))
+  }
+
+  const handleMCPServersChange = (servers: Record<string, APIMCPServerConfig>) => {
+    setSettings((prev) => ({ ...prev, mcp_servers: servers }))
   }
 
   const handleSave = async () => {
@@ -208,6 +212,14 @@ export default function TeamSettingsPage() {
             defaultOpen
           >
             <BedrockSettings config={settings.bedrock} onChange={handleBedrockChange} showCredentials />
+          </SettingsAccordion>
+
+          <SettingsAccordion
+            title="MCP Servers"
+            description="Configure Model Context Protocol servers for the team"
+            defaultOpen
+          >
+            <MCPServerSettings servers={settings.mcp_servers} onChange={handleMCPServersChange} />
           </SettingsAccordion>
 
           <div className="flex justify-end">
