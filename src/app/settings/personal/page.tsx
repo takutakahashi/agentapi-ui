@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, GithubTokenSettings, ExperimentalSettings, MCPServerSettings, MarketplaceSettings, OfficialPluginsSettings } from '@/components/settings'
+import { BedrockSettings, SettingsAccordion, GithubTokenSettings, ExperimentalSettings, MCPServerSettings, MarketplaceSettings, PluginSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -73,8 +73,8 @@ export default function PersonalSettingsPage() {
     setSettings((prev) => ({ ...prev, marketplaces }))
   }
 
-  const handleOfficialPluginsChange = (plugins: string[]) => {
-    setSettings((prev) => ({ ...prev, enabled_official_plugins: plugins }))
+  const handlePluginsChange = (plugins: string[]) => {
+    setSettings((prev) => ({ ...prev, enabled_plugins: plugins }))
   }
 
   const handleBedrockChange = (config: BedrockConfig) => {
@@ -169,11 +169,16 @@ export default function PersonalSettingsPage() {
           </SettingsAccordion>
 
           <SettingsAccordion
-            title="Official Plugins"
-            description="Enable official plugins from claude-plugins-official (Experimental)"
+            title="Plugins"
+            description="Enable plugins from official and registered marketplaces (Experimental)"
             defaultOpen
           >
-            <OfficialPluginsSettings plugins={settings.enabled_official_plugins} onChange={handleOfficialPluginsChange} disabled={!isDebugMode} />
+            <PluginSettings
+              enabledPlugins={settings.enabled_plugins}
+              availableMarketplaces={Object.keys(settings.marketplaces || {})}
+              onChange={handlePluginsChange}
+              disabled={!isDebugMode}
+            />
           </SettingsAccordion>
 
           <SettingsAccordion

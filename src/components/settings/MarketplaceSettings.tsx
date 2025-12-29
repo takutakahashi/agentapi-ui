@@ -16,7 +16,7 @@ interface EditingMarketplace {
 }
 
 // URLからリポジトリ名を抽出
-const extractRepoNameFromUrl = (url: string): string => {
+export const extractRepoNameFromUrl = (url: string): string => {
   try {
     // .git suffix を除去
     const cleanUrl = url.replace(/\.git$/, '')
@@ -35,7 +35,6 @@ const extractRepoNameFromUrl = (url: string): string => {
 
 const getDefaultMarketplaceConfig = (): MarketplaceConfig => ({
   url: '',
-  enabled_plugins: [],
 })
 
 export function MarketplaceSettings({ marketplaces, onChange, disabled = false }: MarketplaceSettingsProps) {
@@ -96,10 +95,6 @@ export function MarketplaceSettings({ marketplaces, onChange, disabled = false }
     setEditingMarketplace(null)
   }
 
-  const getPluginCount = (config: MarketplaceConfig) => {
-    return config.enabled_plugins?.length || 0
-  }
-
   return (
     <div className="space-y-4">
       {disabled && (
@@ -137,11 +132,6 @@ export function MarketplaceSettings({ marketplaces, onChange, disabled = false }
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 truncate">
                       {config.url || 'No URL configured'}
                     </p>
-                    {getPluginCount(config) > 0 && (
-                      <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                        Enabled plugins: {config.enabled_plugins?.join(', ')}
-                      </p>
-                    )}
                   </div>
                   <div className="flex gap-2 ml-4">
                     <button
@@ -210,7 +200,6 @@ interface MarketplaceModalProps {
 
 function MarketplaceModal({ marketplace, existingNames, onSave, onClose }: MarketplaceModalProps) {
   const [url, setUrl] = useState(marketplace.config.url || '')
-  const [pluginsText, setPluginsText] = useState(marketplace.config.enabled_plugins?.join('\n') || '')
   const [error, setError] = useState<string | null>(null)
 
   // URLから抽出されるリポジトリ名をリアルタイムで表示
@@ -239,12 +228,6 @@ function MarketplaceModal({ marketplace, existingNames, onSave, onClose }: Marke
     // 設定を構築
     const config: MarketplaceConfig = {
       url: url.trim(),
-    }
-
-    // プラグインの処理
-    const plugins = pluginsText.split('\n').map(p => p.trim()).filter(p => p)
-    if (plugins.length > 0) {
-      config.enabled_plugins = plugins
     }
 
     onSave(config)
@@ -294,23 +277,6 @@ function MarketplaceModal({ marketplace, existingNames, onSave, onClose }: Marke
             )}
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Git repository URL containing the marketplace plugins
-            </p>
-          </div>
-
-          {/* Enabled Plugins */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Enabled Plugins (one per line)
-            </label>
-            <textarea
-              value={pluginsText}
-              onChange={(e) => setPluginsText(e.target.value)}
-              placeholder={"plugin-1\nplugin-2\nplugin-3"}
-              rows={4}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-            />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              List the plugin names you want to enable from this marketplace
             </p>
           </div>
         </div>
