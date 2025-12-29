@@ -6,7 +6,6 @@ export type SettingsType = 'personal' | 'team'
 // Marketplace 設定 (OpenAPI仕様準拠)
 export interface MarketplaceConfig {
   url: string;                    // Git repository URL (必須)
-  enabled_plugins?: string[];     // 有効化されたプラグイン名
 }
 
 // Bedrock 設定 (OpenAPI仕様に準拠)
@@ -42,7 +41,7 @@ export interface SettingsData {
   bedrock?: BedrockConfig;
   mcp_servers?: Record<string, APIMCPServerConfig>;
   marketplaces?: Record<string, MarketplaceConfig>;
-  enabled_official_plugins?: string[];  // claude-plugins-official から有効にする公式プラグイン名のリスト
+  enabled_plugins?: string[];  // "plugin@marketplace" 形式のプラグインリスト (例: "commit@claude-plugins-official")
 }
 
 // Personal settings
@@ -195,35 +194,23 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
     const marketplaces: Record<string, MarketplaceConfig> = {}
     for (const [name, marketplace] of Object.entries(data.marketplaces)) {
       if (name.trim() && marketplace.url?.trim()) {
-        const cleanMarketplace: MarketplaceConfig = {
+        marketplaces[name.trim()] = {
           url: marketplace.url.trim()
         }
-
-        // enabled_plugins の処理（空文字列を除外）
-        if (marketplace.enabled_plugins && marketplace.enabled_plugins.length > 0) {
-          const filteredPlugins = marketplace.enabled_plugins
-            .map(p => p.trim())
-            .filter(p => p)
-          if (filteredPlugins.length > 0) {
-            cleanMarketplace.enabled_plugins = filteredPlugins
-          }
-        }
-
-        marketplaces[name.trim()] = cleanMarketplace
       }
     }
     // 空のオブジェクトでも送信（サーバー側で削除を反映するため）
     prepared.marketplaces = marketplaces
   }
 
-  // enabled_official_plugins の処理
-  // data.enabled_official_plugins が存在する場合は、空でも送信する（削除を反映するため）
-  if (data.enabled_official_plugins !== undefined) {
-    const filteredPlugins = data.enabled_official_plugins
+  // enabled_plugins の処理 ("plugin@marketplace" 形式)
+  // data.enabled_plugins が存在する場合は、空でも送信する（削除を反映するため）
+  if (data.enabled_plugins !== undefined) {
+    const filteredPlugins = data.enabled_plugins
       .map(p => p.trim())
       .filter(p => p)
     // 空の配列でも送信（サーバー側で削除を反映するため）
-    prepared.enabled_official_plugins = filteredPlugins
+    prepared.enabled_plugins = filteredPlugins
   }
 
   return prepared
