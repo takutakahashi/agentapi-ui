@@ -189,7 +189,8 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
   }
 
   // Marketplaces 設定の処理
-  if (data.marketplaces) {
+  // data.marketplaces が存在する場合は、空でも送信する（削除を反映するため）
+  if (data.marketplaces !== undefined) {
     const marketplaces: Record<string, MarketplaceConfig> = {}
     for (const [name, marketplace] of Object.entries(data.marketplaces)) {
       if (name.trim() && marketplace.url?.trim()) {
@@ -210,9 +211,8 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
         marketplaces[name.trim()] = cleanMarketplace
       }
     }
-    if (Object.keys(marketplaces).length > 0) {
-      prepared.marketplaces = marketplaces
-    }
+    // 空のオブジェクトでも送信（サーバー側で削除を反映するため）
+    prepared.marketplaces = marketplaces
   }
 
   return prepared
