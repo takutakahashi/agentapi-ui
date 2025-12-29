@@ -10,9 +10,27 @@ interface MarketplaceSettingsProps {
 }
 
 interface EditingMarketplace {
-  name: string
+  originalName: string  // 編集時の元の名前（新規は空）
   config: MarketplaceConfig
   isNew: boolean
+}
+
+// URLからリポジトリ名を抽出
+const extractRepoNameFromUrl = (url: string): string => {
+  try {
+    // .git suffix を除去
+    const cleanUrl = url.replace(/\.git$/, '')
+    // URL からパスの最後の部分を取得
+    const urlObj = new URL(cleanUrl)
+    const pathParts = urlObj.pathname.split('/').filter(p => p)
+    // 最後の部分がリポジトリ名
+    return pathParts[pathParts.length - 1] || ''
+  } catch {
+    // URL パース失敗時はパスとして解釈を試みる
+    const cleanUrl = url.replace(/\.git$/, '')
+    const parts = cleanUrl.split('/').filter(p => p)
+    return parts[parts.length - 1] || ''
+  }
 }
 
 const getDefaultMarketplaceConfig = (): MarketplaceConfig => ({
@@ -29,7 +47,7 @@ export function MarketplaceSettings({ marketplaces, onChange, disabled = false }
   const handleAdd = () => {
     if (disabled) return
     setEditingMarketplace({
-      name: '',
+      originalName: '',
       config: getDefaultMarketplaceConfig(),
       isNew: true,
     })
@@ -41,7 +59,7 @@ export function MarketplaceSettings({ marketplaces, onChange, disabled = false }
     const config = marketplaces?.[name]
     if (config) {
       setEditingMarketplace({
-        name,
+        originalName: name,
         config: { ...config },
         isNew: false,
       })
@@ -58,12 +76,13 @@ export function MarketplaceSettings({ marketplaces, onChange, disabled = false }
     }
   }
 
-  const handleModalSave = (name: string, config: MarketplaceConfig) => {
+  const handleModalSave = (config: MarketplaceConfig) => {
     const newMarketplaces = { ...marketplaces }
+    const name = extractRepoNameFromUrl(config.url)
 
-    // 名前が変更された場合は古いエントリを削除
-    if (editingMarketplace && !editingMarketplace.isNew && editingMarketplace.name !== name) {
-      delete newMarketplaces[editingMarketplace.name]
+    // 名前が変更された場合（URL変更時）は古いエントリを削除
+    if (editingMarketplace && !editingMarketplace.isNew && editingMarketplace.originalName !== name) {
+      delete newMarketplaces[editingMarketplace.originalName]
     }
 
     newMarketplaces[name] = config
@@ -173,7 +192,7 @@ export function MarketplaceSettings({ marketplaces, onChange, disabled = false }
       {isModalOpen && editingMarketplace && (
         <MarketplaceModal
           marketplace={editingMarketplace}
-          existingNames={Object.keys(marketplaces || {})}
+          existingNames={Object.keys(marketplaces || {}).filter(n => n !== editingMarketplace.originalName)}
           onSave={handleModalSave}
           onClose={handleModalClose}
         />
@@ -185,33 +204,35 @@ export function MarketplaceSettings({ marketplaces, onChange, disabled = false }
 interface MarketplaceModalProps {
   marketplace: EditingMarketplace
   existingNames: string[]
-  onSave: (name: string, config: MarketplaceConfig) => void
+  onSave: (config: MarketplaceConfig) => void
   onClose: () => void
 }
 
 function MarketplaceModal({ marketplace, existingNames, onSave, onClose }: MarketplaceModalProps) {
-  const [name, setName] = useState(marketplace.name)
   const [url, setUrl] = useState(marketplace.config.url || '')
   const [pluginsText, setPluginsText] = useState(marketplace.config.enabled_plugins?.join('\n') || '')
   const [error, setError] = useState<string | null>(null)
 
+  // URLから抽出されるリポジトリ名をリアルタイムで表示
+  const extractedName = extractRepoNameFromUrl(url)
+
   const handleSave = () => {
     setError(null)
 
-    // バリデーション
-    if (!name.trim()) {
-      setError('Marketplace name is required')
-      return
-    }
-
-    // 名前の重複チェック（新規または名前変更時）
-    if ((marketplace.isNew || marketplace.name !== name.trim()) && existingNames.includes(name.trim())) {
-      setError('A marketplace with this name already exists')
-      return
-    }
-
     if (!url.trim()) {
       setError('URL is required')
+      return
+    }
+
+    const repoName = extractRepoNameFromUrl(url.trim())
+    if (!repoName) {
+      setError('Could not extract repository name from URL')
+      return
+    }
+
+    // 名前の重複チェック
+    if (existingNames.includes(repoName)) {
+      setError(`A marketplace with the name "${repoName}" already exists`)
       return
     }
 
@@ -226,7 +247,7 @@ function MarketplaceModal({ marketplace, existingNames, onSave, onClose }: Marke
       config.enabled_plugins = plugins
     }
 
-    onSave(name.trim(), config)
+    onSave(config)
   }
 
   return (
@@ -254,20 +275,6 @@ function MarketplaceModal({ marketplace, existingNames, onSave, onClose }: Marke
             </div>
           )}
 
-          {/* Marketplace Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Marketplace Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., my-marketplace"
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
           {/* URL */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -280,6 +287,11 @@ function MarketplaceModal({ marketplace, existingNames, onSave, onClose }: Marke
               placeholder="https://github.com/org/marketplace-plugins"
               className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            {extractedName && (
+              <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                Marketplace name: <span className="font-medium">{extractedName}</span>
+              </p>
+            )}
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Git repository URL containing the marketplace plugins
             </p>
