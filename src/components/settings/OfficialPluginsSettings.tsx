@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 interface OfficialPluginsSettingsProps {
   plugins: string[] | undefined
@@ -9,21 +9,41 @@ interface OfficialPluginsSettingsProps {
 }
 
 export function OfficialPluginsSettings({ plugins, onChange, disabled = false }: OfficialPluginsSettingsProps) {
-  const [pluginsText, setPluginsText] = useState('')
+  const [newPluginName, setNewPluginName] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
-  // plugins 配列からテキストを生成
-  useEffect(() => {
-    setPluginsText(plugins?.join('\n') || '')
-  }, [plugins])
+  const pluginList = plugins || []
 
-  const handleTextChange = (text: string) => {
-    setPluginsText(text)
-    // テキストを配列に変換して onChange を呼び出す
-    const pluginArray = text.split('\n').map(p => p.trim()).filter(p => p)
-    onChange(pluginArray)
+  const handleAdd = () => {
+    if (disabled) return
+    setError(null)
+
+    const trimmed = newPluginName.trim()
+    if (!trimmed) {
+      setError('Plugin name is required')
+      return
+    }
+
+    if (pluginList.includes(trimmed)) {
+      setError('This plugin is already added')
+      return
+    }
+
+    onChange([...pluginList, trimmed])
+    setNewPluginName('')
   }
 
-  const pluginCount = plugins?.filter(p => p.trim()).length || 0
+  const handleDelete = (pluginName: string) => {
+    if (disabled) return
+    onChange(pluginList.filter(p => p !== pluginName))
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleAdd()
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -39,41 +59,79 @@ export function OfficialPluginsSettings({ plugins, onChange, disabled = false }:
       )}
 
       <div className={disabled ? "opacity-60" : ""}>
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
-          <div className="flex items-start gap-2">
-            <svg className="w-5 h-5 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div className="text-sm text-blue-700 dark:text-blue-300">
-              <p className="font-medium">Official Plugins</p>
-              <p className="mt-1">
-                These are plugins from the <code className="bg-blue-100 dark:bg-blue-800 px-1 py-0.5 rounded text-xs">claude-plugins-official</code> marketplace.
-              </p>
-            </div>
+        {/* Plugin List */}
+        {pluginList.length === 0 ? (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <p>No official plugins enabled</p>
+            <p className="text-sm mt-1">Add plugins from the claude-plugins-official marketplace</p>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-2">
+            {pluginList.map((pluginName) => (
+              <div
+                key={pluginName}
+                className="flex items-center justify-between border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-3 bg-white dark:bg-gray-800"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🔌</span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {pluginName}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(pluginName)}
+                  disabled={disabled}
+                  className={`text-sm font-medium ${
+                    disabled
+                      ? 'text-gray-400 cursor-not-allowed'
+                      : 'text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300'
+                  }`}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Enabled Official Plugins (one per line)
-            {pluginCount > 0 && (
-              <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                ({pluginCount} plugin{pluginCount !== 1 ? 's' : ''} configured)
-              </span>
-            )}
-          </label>
-          <textarea
-            value={pluginsText}
-            onChange={(e) => handleTextChange(e.target.value)}
-            disabled={disabled}
-            placeholder={"plugin-1\nplugin-2\nplugin-3"}
-            rows={6}
-            className={`w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm ${
-              disabled ? 'cursor-not-allowed' : ''
-            }`}
-          />
+        {/* Add Plugin Input */}
+        <div className="mt-4">
+          {error && (
+            <div className="mb-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newPluginName}
+              onChange={(e) => {
+                setNewPluginName(e.target.value)
+                setError(null)
+              }}
+              onKeyDown={handleKeyDown}
+              disabled={disabled}
+              placeholder="Enter plugin name"
+              className={`flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                disabled ? 'cursor-not-allowed' : ''
+              }`}
+            />
+            <button
+              type="button"
+              onClick={handleAdd}
+              disabled={disabled || !newPluginName.trim()}
+              className={`px-4 py-2 rounded-md transition-colors ${
+                disabled || !newPluginName.trim()
+                  ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
+            >
+              + Add
+            </button>
+          </div>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Enter the names of official plugins you want to enable, one per line.
+            Enter the name of an official plugin from claude-plugins-official
           </p>
         </div>
       </div>
