@@ -42,6 +42,7 @@ export interface SettingsData {
   bedrock?: BedrockConfig;
   mcp_servers?: Record<string, APIMCPServerConfig>;
   marketplaces?: Record<string, MarketplaceConfig>;
+  enabled_official_plugins?: string[];  // claude-plugins-official から有効にする公式プラグイン名のリスト
 }
 
 // Personal settings
@@ -213,6 +214,16 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
     }
     // 空のオブジェクトでも送信（サーバー側で削除を反映するため）
     prepared.marketplaces = marketplaces
+  }
+
+  // enabled_official_plugins の処理
+  // data.enabled_official_plugins が存在する場合は、空でも送信する（削除を反映するため）
+  if (data.enabled_official_plugins !== undefined) {
+    const filteredPlugins = data.enabled_official_plugins
+      .map(p => p.trim())
+      .filter(p => p)
+    // 空の配列でも送信（サーバー側で削除を反映するため）
+    prepared.enabled_official_plugins = filteredPlugins
   }
 
   return prepared

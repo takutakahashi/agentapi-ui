@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, prepareSettingsForSave } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, MCPServerSettings, MarketplaceSettings } from '@/components/settings'
+import { BedrockSettings, SettingsAccordion, MCPServerSettings, MarketplaceSettings, OfficialPluginsSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -88,6 +88,10 @@ export default function TeamSettingsPage() {
 
   const handleMarketplacesChange = (marketplaces: Record<string, MarketplaceConfig>) => {
     setSettings((prev) => ({ ...prev, marketplaces }))
+  }
+
+  const handleOfficialPluginsChange = (plugins: string[]) => {
+    setSettings((prev) => ({ ...prev, enabled_official_plugins: plugins }))
   }
 
   const handleBedrockChange = (config: BedrockConfig) => {
@@ -204,6 +208,14 @@ export default function TeamSettingsPage() {
             defaultOpen
           >
             <MarketplaceSettings marketplaces={settings.marketplaces} onChange={handleMarketplacesChange} disabled={!isDebugMode} />
+          </SettingsAccordion>
+
+          <SettingsAccordion
+            title="Official Plugins"
+            description="Enable official plugins from claude-plugins-official (Experimental)"
+            defaultOpen
+          >
+            <OfficialPluginsSettings plugins={settings.enabled_official_plugins} onChange={handleOfficialPluginsChange} disabled={!isDebugMode} />
           </SettingsAccordion>
 
           <SettingsAccordion
