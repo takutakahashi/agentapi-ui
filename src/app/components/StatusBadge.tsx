@@ -1,105 +1,137 @@
-import { Chat } from '../../types/chat'
-import { Session, SessionStatus } from '../../types/agentapi'
+import {
+  RefreshCw,
+  CheckCircle,
+  XCircle,
+  Pause,
+  StopCircle,
+  Circle,
+  Loader2,
+  Rocket,
+  AlertCircle,
+  HelpCircle,
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Chat } from "../../types/chat"
+import { Session, SessionStatus } from "../../types/agentapi"
 
 interface StatusBadgeProps {
-  status: Chat['status'] | Session['status'] | SessionStatus
-  variant?: 'green' | 'yellow' | 'red' | 'gray'
+  status: Chat["status"] | Session["status"] | SessionStatus
+  variant?: "green" | "yellow" | "red" | "gray"
   className?: string
 }
 
-export default function StatusBadge({ status, className = '' }: StatusBadgeProps) {
-  const getStatusConfig = (status: Chat['status'] | Session['status'] | SessionStatus) => {
+type StatusConfig = {
+  bg: string
+  text: string
+  border: string
+  icon: React.ReactNode
+  label: string
+  animate?: boolean
+}
+
+export default function StatusBadge({
+  status,
+  className = "",
+}: StatusBadgeProps) {
+  const getStatusConfig = (
+    status: Chat["status"] | Session["status"] | SessionStatus
+  ): StatusConfig => {
+    const iconSize = "h-3.5 w-3.5"
+
     switch (status) {
       // Chat statuses
-      case 'running':
+      case "running":
         return {
-          bg: 'bg-yellow-100 dark:bg-yellow-900 animate-pulse',
-          text: 'text-yellow-800 dark:text-yellow-200 font-semibold',
-          border: 'border-yellow-200 dark:border-yellow-700 border-2',
-          icon: '🔄',
-          label: 'Running'
+          bg: "bg-warning/10",
+          text: "text-warning-foreground dark:text-warning",
+          border: "border-warning/30",
+          icon: <RefreshCw className={cn(iconSize, "animate-spin")} />,
+          label: "Running",
+          animate: true,
         }
-      case 'completed':
+      case "completed":
         return {
-          bg: 'bg-green-100 dark:bg-green-900',
-          text: 'text-green-800 dark:text-green-200',
-          border: 'border-green-200 dark:border-green-700',
-          icon: '✅',
-          label: 'Completed'
+          bg: "bg-success/10",
+          text: "text-success",
+          border: "border-success/30",
+          icon: <CheckCircle className={iconSize} />,
+          label: "Completed",
         }
-      case 'failed':
+      case "failed":
         return {
-          bg: 'bg-red-100 dark:bg-red-900',
-          text: 'text-red-800 dark:text-red-200',
-          border: 'border-red-200 dark:border-red-700',
-          icon: '❌',
-          label: 'Failed'
+          bg: "bg-destructive/10",
+          text: "text-destructive",
+          border: "border-destructive/30",
+          icon: <XCircle className={iconSize} />,
+          label: "Failed",
         }
-      case 'pending':
+      case "pending":
         return {
-          bg: 'bg-gray-100 dark:bg-gray-800',
-          text: 'text-gray-800 dark:text-gray-200',
-          border: 'border-gray-200 dark:border-gray-600',
-          icon: '⏸️',
-          label: 'Pending'
+          bg: "bg-muted",
+          text: "text-muted-foreground",
+          border: "border-border",
+          icon: <Pause className={iconSize} />,
+          label: "Pending",
         }
-      case 'cancelled':
+      case "cancelled":
         return {
-          bg: 'bg-gray-100 dark:bg-gray-800',
-          text: 'text-gray-600 dark:text-gray-400',
-          border: 'border-gray-200 dark:border-gray-600',
-          icon: '⏹️',
-          label: 'Cancelled'
+          bg: "bg-muted",
+          text: "text-muted-foreground",
+          border: "border-border",
+          icon: <StopCircle className={iconSize} />,
+          label: "Cancelled",
         }
       // Session statuses (API specification)
-      case 'creating':
+      case "creating":
         return {
-          bg: 'bg-blue-100 dark:bg-blue-900 animate-pulse',
-          text: 'text-blue-800 dark:text-blue-200 font-semibold',
-          border: 'border-blue-300 dark:border-blue-600 border-2',
-          icon: '🔵',
-          label: '作成中'
+          bg: "bg-primary/10",
+          text: "text-primary",
+          border: "border-primary/30",
+          icon: <Loader2 className={cn(iconSize, "animate-spin")} />,
+          label: "Creating",
+          animate: true,
         }
-      case 'starting':
+      case "starting":
         return {
-          bg: 'bg-indigo-100 dark:bg-indigo-900 animate-pulse',
-          text: 'text-indigo-800 dark:text-indigo-200 font-semibold',
-          border: 'border-indigo-300 dark:border-indigo-600 border-2',
-          icon: '🚀',
-          label: '起動中'
+          bg: "bg-primary/10",
+          text: "text-primary",
+          border: "border-primary/30",
+          icon: <Rocket className={cn(iconSize, "animate-pulse")} />,
+          label: "Starting",
+          animate: true,
         }
-      case 'active':
+      case "active":
         return {
-          bg: 'bg-green-100 dark:bg-green-900',
-          text: 'text-green-800 dark:text-green-200',
-          border: 'border-green-200 dark:border-green-700',
-          icon: '🟢',
-          label: 'Active'
+          bg: "bg-success/10",
+          text: "text-success",
+          border: "border-success/30",
+          icon: <Circle className={cn(iconSize, "fill-success")} />,
+          label: "Active",
         }
-      case 'unhealthy':
+      case "unhealthy":
         return {
-          bg: 'bg-red-100 dark:bg-red-900',
-          text: 'text-red-800 dark:text-red-200',
-          border: 'border-red-200 dark:border-red-700',
-          icon: '🔴',
-          label: 'Unhealthy'
+          bg: "bg-destructive/10",
+          text: "text-destructive",
+          border: "border-destructive/30",
+          icon: <AlertCircle className={iconSize} />,
+          label: "Unhealthy",
         }
-      case 'stopped':
+      case "stopped":
         return {
-          bg: 'bg-gray-100 dark:bg-gray-800',
-          text: 'text-gray-600 dark:text-gray-400',
-          border: 'border-gray-200 dark:border-gray-600',
-          icon: '⏹️',
-          label: 'Stopped'
+          bg: "bg-muted",
+          text: "text-muted-foreground",
+          border: "border-border",
+          icon: <StopCircle className={iconSize} />,
+          label: "Stopped",
         }
-      case 'unknown':
+      case "unknown":
       default:
         return {
-          bg: 'bg-gray-100 dark:bg-gray-800',
-          text: 'text-gray-800 dark:text-gray-200',
-          border: 'border-gray-200 dark:border-gray-600',
-          icon: '❓',
-          label: 'Unknown'
+          bg: "bg-muted",
+          text: "text-muted-foreground",
+          border: "border-border",
+          icon: <HelpCircle className={iconSize} />,
+          label: "Unknown",
         }
     }
   }
@@ -108,10 +140,18 @@ export default function StatusBadge({ status, className = '' }: StatusBadgeProps
 
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${config.bg} ${config.text} ${config.border} ${className}`}
+      role="status"
+      aria-label={`Status: ${config.label}`}
+      className={cn(
+        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
+        config.bg,
+        config.text,
+        config.border,
+        className
+      )}
     >
-      <span className="mr-1">{config.icon}</span>
-      {config.label}
+      {config.icon}
+      <span>{config.label}</span>
     </span>
   )
 }
