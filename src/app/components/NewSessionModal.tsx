@@ -327,27 +327,28 @@ export default function NewSessionModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      className="modal-overlay animate-fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           handleClose()
         }
       }}
     >
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 w-full max-w-lg lg:max-w-2xl xl:max-w-3xl mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
+      <div className="modal-content max-w-lg lg:max-w-2xl xl:max-w-3xl mx-4 max-h-[90vh] overflow-y-auto animate-scale-in scrollbar-thin">
+        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 sm:px-6 py-4 flex justify-between items-center z-10">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             新しいセッションを開始
           </h2>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            className="btn-ghost p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
+        <div className="p-4 sm:p-6">
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -554,25 +555,26 @@ export default function NewSessionModal({
             </button>
           </div>
         </form>
+        </div>
       </div>
 
       {/* Template Selection Modal */}
       {showTemplateModal && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4"
+          className="modal-overlay animate-fade-in z-[60]"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowTemplateModal(false)
             }
           }}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl lg:max-w-4xl xl:max-w-5xl max-h-[85vh] overflow-hidden">
-            <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="modal-content max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-4 max-h-[85vh] overflow-hidden animate-scale-in">
+            <div className="sticky top-0 bg-white dark:bg-gray-800 px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 z-10">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">テンプレートから選択</h2>
                 <button
                   onClick={() => setShowTemplateModal(false)}
-                  className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                  className="btn-ghost p-2 rounded-lg text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
