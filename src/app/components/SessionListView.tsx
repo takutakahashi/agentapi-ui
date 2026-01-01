@@ -209,45 +209,49 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       const response = await agentAPI.search!({ limit: 1000 })
       const newSessionList = response.sessions || []
 
-      // 新しいセッションが追加されたかチェック
-      const existingIds = new Set(sessions.map(s => s.session_id))
-      const addedSessions = newSessionList.filter(s => !existingIds.has(s.session_id))
+      // 現在のセッション一覧を取得して差分をチェック（setSessionsのコールバック形式を使用）
+      setSessions(prevSessions => {
+        const existingIds = new Set(prevSessions.map(s => s.session_id))
+        const addedSessions = newSessionList.filter(s => !existingIds.has(s.session_id))
 
-      // セッション一覧を更新
-      setSessions(newSessionList)
+        // 新規セッションのみメッセージを取得（非同期で実行）
+        if (addedSessions.length > 0) {
+          // 即時実行関数で非同期処理を実行
+          (async () => {
+            const messagePromises = addedSessions.map(async (session) => {
+              try {
+                const messages = await agentAPI.getSessionMessages!(session.session_id, { limit: 10 })
+                const userMessages = messages.messages.filter(msg => msg.role === 'user')
+                if (userMessages.length > 0) {
+                  const userMessage = extractUserMessage(userMessages[0].content)
+                  return { sessionId: session.session_id, message: userMessage }
+                }
+              } catch (err) {
+                console.warn(`Failed to fetch messages for session ${session.session_id}:`, err)
+              }
+              return { sessionId: session.session_id, message: String(session.tags?.description || session.metadata?.description || 'No description available') }
+            })
 
-      // 新規セッションのみメッセージを取得
-      if (addedSessions.length > 0) {
-        const messagePromises = addedSessions.map(async (session) => {
-          try {
-            const messages = await agentAPI.getSessionMessages!(session.session_id, { limit: 10 })
-            const userMessages = messages.messages.filter(msg => msg.role === 'user')
-            if (userMessages.length > 0) {
-              const userMessage = extractUserMessage(userMessages[0].content)
-              return { sessionId: session.session_id, message: userMessage }
-            }
-          } catch (err) {
-            console.warn(`Failed to fetch messages for session ${session.session_id}:`, err)
-          }
-          return { sessionId: session.session_id, message: String(session.tags?.description || session.metadata?.description || 'No description available') }
-        })
+            const messageResults = await Promise.all(messagePromises)
+            setSessionMessages(prev => {
+              const updated = { ...prev }
+              messageResults.forEach(result => {
+                updated[result.sessionId] = result.message
+              })
+              return updated
+            })
 
-        const messageResults = await Promise.all(messagePromises)
-        setSessionMessages(prev => {
-          const updated = { ...prev }
-          messageResults.forEach(result => {
-            updated[result.sessionId] = result.message
-          })
-          return updated
-        })
+            // 新規セッションのエージェントステータスを取得
+            await fetchSessionStatusesInitial(addedSessions)
+          })()
+        }
 
-        // 新規セッションのエージェントステータスを取得
-        await fetchSessionStatusesInitial(addedSessions)
-      }
+        return newSessionList
+      })
     } catch (err) {
       console.warn('Failed to refresh sessions:', err)
     }
-  }, [agentAPI, sessions, fetchSessionStatusesInitial])
+  }, [agentAPI, fetchSessionStatusesInitial])
 
   // 起動中のセッションがあるかどうかを判定
   const hasActiveSession = useMemo(() => {
