@@ -26,7 +26,6 @@ export default function NewSessionPage() {
   const [showTemplateModal, setShowTemplateModal] = useState(false)
   const [freeFormRepositorySuggestions, setFreeFormRepositorySuggestions] = useState<string[]>([])
   const [showFreeFormRepositorySuggestions, setShowFreeFormRepositorySuggestions] = useState(false)
-  const [sessionMode, setSessionMode] = useState<'repository' | 'chat'>('repository')
   const [showProgressModal, setShowProgressModal] = useState(false)
   const [creationProgress, setCreationProgress] = useState<SessionCreationProgress | null>(null)
 
@@ -134,25 +133,18 @@ export default function NewSessionPage() {
       return
     }
 
-    if (sessionMode === 'repository') {
-      if (!freeFormRepository.trim()) {
-        setError('リポジトリを指定してください')
-        return
-      }
-    }
-
     setIsCreating(true)
     setError(null)
     setStatusMessage('')
 
     const client = createAgentAPIClient()
     const currentMessage = initialMessage.trim()
-    const currentRepository = sessionMode === 'chat' ? '' : freeFormRepository.trim()
+    const currentRepository = freeFormRepository.trim()
 
     InitialMessageCache.addMessage(currentMessage)
     await recentMessagesManager.saveMessage(currentMessage)
 
-    if (currentRepository && sessionMode === 'repository') {
+    if (currentRepository) {
       console.log('Adding repository to history before session creation:', { currentRepository })
       try {
         addRepositoryToHistory(currentRepository)
@@ -259,49 +251,6 @@ export default function NewSessionPage() {
 
           {/* フォーム */}
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
-            {/* セッションタイプ */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                セッションタイプ
-              </label>
-              <div className="flex flex-wrap gap-4">
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="radio"
-                    name="sessionMode"
-                    value="repository"
-                    checked={sessionMode === 'repository'}
-                    onChange={(e) => setSessionMode(e.target.value as 'repository' | 'chat')}
-                    className="mr-2 text-blue-600 focus:ring-blue-500"
-                    disabled={isCreating}
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    リポジトリ連携
-                  </span>
-                </label>
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="radio"
-                    name="sessionMode"
-                    value="chat"
-                    checked={sessionMode === 'chat'}
-                    onChange={(e) => setSessionMode(e.target.value as 'repository' | 'chat')}
-                    className="mr-2 text-blue-600 focus:ring-blue-500"
-                    disabled={isCreating}
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    チャットモード
-                  </span>
-                </label>
-              </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                {sessionMode === 'repository'
-                  ? 'リポジトリに接続してコード作業を行います'
-                  : 'リポジトリに接続せず、一般的なチャットを行います'
-                }
-              </p>
-            </div>
-
             {/* 初期メッセージ */}
             <div className="relative">
               <label htmlFor="initialMessage" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -332,56 +281,53 @@ export default function NewSessionPage() {
             </div>
 
             {/* リポジトリ入力 */}
-            {sessionMode === 'repository' && (
-              <div className="relative">
-                <label htmlFor="freeFormRepository" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  対象リポジトリ
-                </label>
-                <input
-                  id="freeFormRepository"
-                  type="text"
-                  value={freeFormRepository}
-                  onChange={handleFreeFormRepositoryChange}
-                  onFocus={handleFreeFormRepositoryFocus}
-                  onBlur={handleFreeFormRepositoryBlur}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-base"
-                  placeholder="例: owner/repository-name"
-                  disabled={isCreating}
-                  required
-                />
+            <div className="relative">
+              <label htmlFor="freeFormRepository" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                対象リポジトリ
+              </label>
+              <input
+                id="freeFormRepository"
+                type="text"
+                value={freeFormRepository}
+                onChange={handleFreeFormRepositoryChange}
+                onFocus={handleFreeFormRepositoryFocus}
+                onBlur={handleFreeFormRepositoryBlur}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-base"
+                placeholder="例: owner/repository-name"
+                disabled={isCreating}
+              />
 
-                {/* サジェストドロップダウン */}
-                {showFreeFormRepositorySuggestions && freeFormRepositorySuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl z-50 mt-1 max-h-80 overflow-y-auto">
-                    <div className="p-3 border-b border-gray-200 dark:border-gray-700">
-                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">リポジトリ履歴</span>
-                    </div>
-                    <div className="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                      {freeFormRepositorySuggestions.map((suggestion, index) => (
-                        <button
-                          key={index}
-                          type="button"
-                          onClick={() => selectFreeFormRepositorySuggestion(suggestion)}
-                          className="text-left px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-gray-900 dark:text-white font-mono text-sm rounded-md border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-700 transition-colors break-all"
-                          title={suggestion}
-                        >
-                          <span className="flex items-center gap-2">
-                            <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                            </svg>
-                            <span className="break-all">{suggestion}</span>
-                          </span>
-                        </button>
-                      ))}
-                    </div>
+              {/* サジェストドロップダウン */}
+              {showFreeFormRepositorySuggestions && freeFormRepositorySuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl z-50 mt-1 max-h-80 overflow-y-auto">
+                  <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">リポジトリ履歴</span>
                   </div>
-                )}
+                  <div className="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {freeFormRepositorySuggestions.map((suggestion, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => selectFreeFormRepositorySuggestion(suggestion)}
+                        className="text-left px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-gray-900 dark:text-white font-mono text-sm rounded-md border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-700 transition-colors break-all"
+                        title={suggestion}
+                      >
+                        <span className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                          </svg>
+                          <span className="break-all">{suggestion}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                  owner/repository-name の形式で入力してください
-                </p>
-              </div>
-            )}
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                リポジトリを指定しない場合は一般的なチャットになります
+              </p>
+            </div>
 
             {/* エラー表示 */}
             {error && (
@@ -408,9 +354,7 @@ export default function NewSessionPage() {
               </button>
               <button
                 type="submit"
-                disabled={!initialMessage.trim() || isCreating || (
-                  sessionMode === 'repository' && !freeFormRepository.trim()
-                )}
+                disabled={!initialMessage.trim() || isCreating}
                 className="px-6 py-3 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center"
               >
                 {isCreating ? (
