@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { decryptCookie } from '@/lib/cookie-encryption';
+import { decryptApiKey } from '@/lib/cookie-auth';
 import {
   hashToken,
   getCachedRepositories,
@@ -123,24 +123,14 @@ export async function GET(request: NextRequest): Promise<NextResponse<Repository
       );
     }
 
-    // Try to extract GitHub access token from the cookie
+    // Try to decrypt the cookie to get the token
     let accessToken: string | null = null;
 
     try {
-      const decryptedData = decryptCookie(authToken);
-      console.log('[GitHub Repositories] Cookie decrypted successfully');
-      const sessionData = JSON.parse(decryptedData);
-      console.log('[GitHub Repositories] Session data keys:', Object.keys(sessionData));
-
-      if (sessionData.sessionId && sessionData.accessToken) {
-        accessToken = sessionData.accessToken;
-        console.log('[GitHub Repositories] GitHub access token found');
-      } else {
-        console.log('[GitHub Repositories] No GitHub OAuth session (sessionId or accessToken missing)');
-      }
+      accessToken = decryptApiKey(authToken);
+      console.log('[GitHub Repositories] Cookie decrypted successfully, token length:', accessToken?.length);
     } catch (decryptError) {
-      // Not a GitHub OAuth session, return empty result gracefully
-      console.log('[GitHub Repositories] Cookie decryption failed (likely API key auth):', decryptError);
+      console.log('[GitHub Repositories] Cookie decryption failed:', decryptError);
       return NextResponse.json({
         repositories: [],
         cached: false,
@@ -148,8 +138,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<Repository
     }
 
     if (!accessToken) {
-      // API key auth, no GitHub token available
-      console.log('[GitHub Repositories] No access token, returning empty result');
+      console.log('[GitHub Repositories] No access token after decryption');
       return NextResponse.json({
         repositories: [],
         cached: false,
