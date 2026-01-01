@@ -203,6 +203,52 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     }
   }, [sessions, agentAPIProxy])
 
+  // 軽量版のセッション一覧リフレッシュ関数（新規セッションのみメッセージを取得）
+  const refreshSessions = useCallback(async () => {
+    try {
+      const response = await agentAPI.search!({ limit: 1000 })
+      const newSessionList = response.sessions || []
+
+      // 新しいセッションが追加されたかチェック
+      const existingIds = new Set(sessions.map(s => s.session_id))
+      const addedSessions = newSessionList.filter(s => !existingIds.has(s.session_id))
+
+      // セッション一覧を更新
+      setSessions(newSessionList)
+
+      // 新規セッションのみメッセージを取得
+      if (addedSessions.length > 0) {
+        const messagePromises = addedSessions.map(async (session) => {
+          try {
+            const messages = await agentAPI.getSessionMessages!(session.session_id, { limit: 10 })
+            const userMessages = messages.messages.filter(msg => msg.role === 'user')
+            if (userMessages.length > 0) {
+              const userMessage = extractUserMessage(userMessages[0].content)
+              return { sessionId: session.session_id, message: userMessage }
+            }
+          } catch (err) {
+            console.warn(`Failed to fetch messages for session ${session.session_id}:`, err)
+          }
+          return { sessionId: session.session_id, message: String(session.tags?.description || session.metadata?.description || 'No description available') }
+        })
+
+        const messageResults = await Promise.all(messagePromises)
+        setSessionMessages(prev => {
+          const updated = { ...prev }
+          messageResults.forEach(result => {
+            updated[result.sessionId] = result.message
+          })
+          return updated
+        })
+
+        // 新規セッションのエージェントステータスを取得
+        await fetchSessionStatusesInitial(addedSessions)
+      }
+    } catch (err) {
+      console.warn('Failed to refresh sessions:', err)
+    }
+  }, [agentAPI, sessions, fetchSessionStatusesInitial])
+
   // 起動中のセッションがあるかどうかを判定
   const hasActiveSession = useMemo(() => {
     // 作成中のセッションがある場合
@@ -226,8 +272,14 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   // 起動中のセッションがある場合は3秒、ない場合は10秒
   const pollingInterval = hasActiveSession ? 3000 : 10000
 
+  // セッション一覧のポーリング間隔（作成中セッションがある場合は5秒、それ以外は30秒）
+  const sessionListPollingInterval = creatingSessions.some(s => s.status !== 'completed' && s.status !== 'failed') ? 5000 : 30000
+
   // バックグラウンド対応の定期更新フック
   const statusPollingControl = useBackgroundAwareInterval(fetchSessionStatuses, pollingInterval, false)
+
+  // セッション一覧の定期更新フック
+  const sessionListPollingControl = useBackgroundAwareInterval(refreshSessions, sessionListPollingInterval, false)
 
   useEffect(() => {
     fetchSessions()
@@ -240,11 +292,23 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     } else {
       statusPollingControl.stop()
     }
-    
+
     return () => {
       statusPollingControl.stop()
     }
   }, [sessions.length, statusPollingControl])
+
+  // セッション一覧を定期的に更新
+  useEffect(() => {
+    // 初回ロード完了後にセッション一覧のポーリングを開始
+    if (!loading) {
+      sessionListPollingControl.start()
+    }
+
+    return () => {
+      sessionListPollingControl.stop()
+    }
+  }, [loading, sessionListPollingControl])
 
 
   useEffect(() => {
