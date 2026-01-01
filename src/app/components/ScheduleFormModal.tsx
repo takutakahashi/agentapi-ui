@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Schedule, CreateScheduleRequest, COMMON_TIMEZONES } from '../../types/schedule'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import CronExpressionInput from './CronExpressionInput'
-import { OrganizationHistory } from '../../utils/organizationHistory'
+import RepositorySearchInput from './RepositorySearchInput'
 
 interface ScheduleFormModalProps {
   isOpen: boolean
@@ -28,8 +28,6 @@ export default function ScheduleFormModal({
   const [timezone, setTimezone] = useState('Asia/Tokyo')
   const [message, setMessage] = useState('')
   const [repository, setRepository] = useState('')
-  const [repositorySuggestions, setRepositorySuggestions] = useState<string[]>([])
-  const [showRepositorySuggestions, setShowRepositorySuggestions] = useState(false)
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -103,34 +101,6 @@ export default function ScheduleFormModal({
     } catch {
       return ''
     }
-  }
-
-  const handleRepositoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setRepository(value)
-
-    if (value.trim()) {
-      const suggestions = OrganizationHistory.getRepositorySuggestions(value)
-      setRepositorySuggestions(suggestions)
-      setShowRepositorySuggestions(suggestions.length > 0)
-    } else {
-      setShowRepositorySuggestions(false)
-    }
-  }
-
-  const handleRepositoryFocus = () => {
-    const suggestions = OrganizationHistory.getRepositorySuggestions()
-    setRepositorySuggestions(suggestions)
-    setShowRepositorySuggestions(suggestions.length > 0)
-  }
-
-  const handleRepositoryBlur = () => {
-    setTimeout(() => setShowRepositorySuggestions(false), 150)
-  }
-
-  const selectRepositorySuggestion = (suggestion: string) => {
-    setRepository(suggestion)
-    setShowRepositorySuggestions(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -335,38 +305,16 @@ export default function ScheduleFormModal({
           </div>
 
           {/* Repository */}
-          <div className="relative">
+          <div>
             <label htmlFor="repository" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               リポジトリ
             </label>
-            <input
+            <RepositorySearchInput
               id="repository"
-              type="text"
               value={repository}
-              onChange={handleRepositoryChange}
-              onFocus={handleRepositoryFocus}
-              onBlur={handleRepositoryBlur}
-              placeholder="例: owner/repository-name"
+              onChange={setRepository}
               disabled={isSubmitting}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
             />
-
-            {/* Repository Suggestions */}
-            {showRepositorySuggestions && repositorySuggestions.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-40 overflow-y-auto">
-                {repositorySuggestions.map((suggestion, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => selectRepositorySuggestion(suggestion)}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white font-mono"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            )}
-
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               owner/repository-name の形式で入力してください
             </p>

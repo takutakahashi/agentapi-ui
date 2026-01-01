@@ -7,9 +7,9 @@ import { InitialMessageCache } from '../../utils/initialMessageCache'
 import { messageTemplateManager } from '../../utils/messageTemplateManager'
 import { MessageTemplate } from '../../types/messageTemplate'
 import { recentMessagesManager } from '../../utils/recentMessagesManager'
-import { OrganizationHistory } from '../../utils/organizationHistory'
 import { addRepositoryToHistory } from '../../types/settings'
 import SessionCreationProgressModal from './SessionCreationProgressModal'
+import RepositorySearchInput from './RepositorySearchInput'
 import { SessionCreationProgress, SessionCreationStatus } from '../../types/sessionProgress'
 
 interface NewSessionModalProps {
@@ -41,8 +41,6 @@ export default function NewSessionModal({
   const [showTemplates, setShowTemplates] = useState(false)
   const [recentMessages, setRecentMessages] = useState<string[]>([])
   const [showTemplateModal, setShowTemplateModal] = useState(false)
-  const [freeFormRepositorySuggestions, setFreeFormRepositorySuggestions] = useState<string[]>([])
-  const [showFreeFormRepositorySuggestions, setShowFreeFormRepositorySuggestions] = useState(false)
   const [showProgressModal, setShowProgressModal] = useState(false)
   const [creationProgress, setCreationProgress] = useState<SessionCreationProgress | null>(null)
 
@@ -283,37 +281,6 @@ export default function NewSessionModal({
     setShowTemplates(false)
   }
 
-  // リポジトリ入力ハンドラー
-  const handleFreeFormRepositoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setFreeFormRepository(value)
-
-    if (value.trim()) {
-      // グローバル履歴から検索
-      const suggestions = OrganizationHistory.getRepositorySuggestions(value)
-      setFreeFormRepositorySuggestions(suggestions)
-      setShowFreeFormRepositorySuggestions(suggestions.length > 0)
-    } else {
-      setShowFreeFormRepositorySuggestions(false)
-    }
-  }
-
-  const handleFreeFormRepositoryFocus = () => {
-    // グローバル履歴を表示
-    const suggestions = OrganizationHistory.getRepositorySuggestions()
-    setFreeFormRepositorySuggestions(suggestions)
-    setShowFreeFormRepositorySuggestions(suggestions.length > 0)
-  }
-
-  const handleFreeFormRepositoryBlur = () => {
-    setTimeout(() => setShowFreeFormRepositorySuggestions(false), 150)
-  }
-
-  const selectFreeFormRepositorySuggestion = (suggestion: string) => {
-    setFreeFormRepository(suggestion)
-    setShowFreeFormRepositorySuggestions(false)
-  }
-
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
@@ -409,49 +376,16 @@ export default function NewSessionModal({
             )}
           </div>
 
-          <div className="relative">
+          <div>
             <label htmlFor="freeFormRepository" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               対象リポジトリ
             </label>
-            <input
+            <RepositorySearchInput
               id="freeFormRepository"
-              type="text"
               value={freeFormRepository}
-              onChange={handleFreeFormRepositoryChange}
-              onFocus={handleFreeFormRepositoryFocus}
-              onBlur={handleFreeFormRepositoryBlur}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              placeholder="例: owner/repository-name"
+              onChange={setFreeFormRepository}
               disabled={isCreating}
             />
-
-            {/* サジェストドロップダウン - 大画面でグリッド表示 */}
-            {showFreeFormRepositorySuggestions && freeFormRepositorySuggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl z-50 mt-1 max-h-64 lg:max-h-80 overflow-y-auto">
-                <div className="p-2 border-b border-gray-200 dark:border-gray-700">
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">リポジトリ履歴</span>
-                </div>
-                <div className="p-2 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-2">
-                  {freeFormRepositorySuggestions.map((suggestion, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      onClick={() => selectFreeFormRepositorySuggestion(suggestion)}
-                      className="text-left px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-gray-900 dark:text-white font-mono text-sm rounded-md border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-700 transition-colors break-all"
-                      title={suggestion}
-                    >
-                      <span className="flex items-center gap-2">
-                        <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                        </svg>
-                        <span className="break-all">{suggestion}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               リポジトリを指定しない場合は一般的なチャットになります
             </p>
