@@ -109,8 +109,10 @@ function filterRepositories(repositories: GitHubRepository[], query: string): Gi
 export async function GET(request: NextRequest): Promise<NextResponse<RepositoryListResponse | RepositoryListError>> {
   try {
     const authToken = request.cookies.get('agentapi_token')?.value;
+    console.log('[GitHub Repositories] Cookie exists:', !!authToken);
 
     if (!authToken) {
+      console.log('[GitHub Repositories] No auth token found');
       return NextResponse.json(
         {
           error: 'Not authenticated',
@@ -126,13 +128,19 @@ export async function GET(request: NextRequest): Promise<NextResponse<Repository
 
     try {
       const decryptedData = decryptCookie(authToken);
+      console.log('[GitHub Repositories] Cookie decrypted successfully');
       const sessionData = JSON.parse(decryptedData);
+      console.log('[GitHub Repositories] Session data keys:', Object.keys(sessionData));
 
       if (sessionData.sessionId && sessionData.accessToken) {
         accessToken = sessionData.accessToken;
+        console.log('[GitHub Repositories] GitHub access token found');
+      } else {
+        console.log('[GitHub Repositories] No GitHub OAuth session (sessionId or accessToken missing)');
       }
-    } catch {
+    } catch (decryptError) {
       // Not a GitHub OAuth session, return empty result gracefully
+      console.log('[GitHub Repositories] Cookie decryption failed (likely API key auth):', decryptError);
       return NextResponse.json({
         repositories: [],
         cached: false,
@@ -141,6 +149,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<Repository
 
     if (!accessToken) {
       // API key auth, no GitHub token available
+      console.log('[GitHub Repositories] No access token, returning empty result');
       return NextResponse.json({
         repositories: [],
         cached: false,
@@ -150,6 +159,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<Repository
     const tokenHash = hashToken(accessToken);
     const searchParams = request.nextUrl.searchParams;
     const query = searchParams.get('q') || '';
+    console.log('[GitHub Repositories] Query:', query);
 
     // Check cache first
     let repositories = getCachedRepositories(tokenHash);
@@ -157,9 +167,12 @@ export async function GET(request: NextRequest): Promise<NextResponse<Repository
 
     if (repositories) {
       cached = true;
+      console.log('[GitHub Repositories] Cache hit, repos count:', repositories.length);
     } else {
       // Fetch from GitHub API
+      console.log('[GitHub Repositories] Cache miss, fetching from GitHub API...');
       repositories = await fetchAllRepositories(accessToken);
+      console.log('[GitHub Repositories] Fetched repos count:', repositories.length);
       setCachedRepositories(tokenHash, repositories);
     }
 

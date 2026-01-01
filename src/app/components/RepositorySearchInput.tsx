@@ -32,6 +32,16 @@ export default function RepositorySearchInput({
     error: githubError,
   } = useGitHubRepositories(value, { enabled: showDropdown });
 
+  // Debug logging
+  console.log('[RepositorySearchInput] State:', {
+    value,
+    showDropdown,
+    localSuggestions: localSuggestions.length,
+    githubRepos: githubRepos.length,
+    isLoadingGitHub,
+    githubError,
+  });
+
   // Update local suggestions when value changes
   const updateLocalSuggestions = useCallback((query: string) => {
     const suggestions = OrganizationHistory.getRepositorySuggestions(query || undefined);

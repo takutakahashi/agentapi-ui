@@ -38,6 +38,7 @@ export function useGitHubRepositories(
   const debouncedQuery = useDebounce(query, debounceMs);
 
   const fetchRepositories = useCallback(async (searchQuery: string) => {
+    console.log('[useGitHubRepositories] Fetching repositories, query:', searchQuery);
     setIsLoading(true);
     setError(null);
 
@@ -47,10 +48,14 @@ export function useGitHubRepositories(
         params.set('q', searchQuery);
       }
 
-      const response = await fetch(`/api/github/repositories?${params.toString()}`);
+      const url = `/api/github/repositories?${params.toString()}`;
+      console.log('[useGitHubRepositories] Fetching URL:', url);
+      const response = await fetch(url);
+      console.log('[useGitHubRepositories] Response status:', response.status);
 
       if (!response.ok) {
         const errorData: RepositoryListError = await response.json();
+        console.log('[useGitHubRepositories] Error response:', errorData);
         // NO_GITHUB_TOKEN with empty repos means API key auth - not an error
         if (errorData.code === 'NO_GITHUB_TOKEN' && response.status === 401) {
           setRepositories([]);
@@ -61,9 +66,11 @@ export function useGitHubRepositories(
       }
 
       const data: RepositoryListResponse = await response.json();
+      console.log('[useGitHubRepositories] Success, repos count:', data.repositories.length, 'cached:', data.cached);
       setRepositories(data.repositories);
       setIsCached(data.cached);
     } catch (err) {
+      console.error('[useGitHubRepositories] Fetch error:', err);
       if (err instanceof Error) {
         setError(err.message);
       } else {
