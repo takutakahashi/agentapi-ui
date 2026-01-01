@@ -11,6 +11,7 @@ import { messageTemplateManager } from '../../utils/messageTemplateManager';
 import { MessageTemplate } from '../../types/messageTemplate';
 import { recentMessagesManager } from '../../utils/recentMessagesManager';
 import { pushNotificationManager } from '../../utils/pushNotification';
+import ShareSessionButton from './ShareSessionButton';
 
 // Define local types for message and agent status
 interface Message {
@@ -769,6 +770,11 @@ export default function AgentAPIChat() {
                   {claudeLoginUrls.length}
                 </span>
               </button>
+            )}
+
+            {/* Share Session Button */}
+            {sessionId && agentAPI && (
+              <ShareSessionButton sessionId={sessionId} agentAPI={agentAPI} />
             )}
 
             {/* Settings Navigation Button */}

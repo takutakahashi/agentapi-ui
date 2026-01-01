@@ -44,6 +44,8 @@ export const config = {
      * - favicon.ico (favicon file)
      * - manifest.json (PWA manifest)
      * - icons/ (icon files)
+     *
+     * Note: /s/* (shared session pages) requires authentication
      */
     '/((?!api|_next/static|_next/image|favicon.ico|manifest.json|icons/).*)',
   ],
