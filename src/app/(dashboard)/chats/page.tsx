@@ -2,11 +2,9 @@
 
 import { MessageSquare, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useRouter } from "next/navigation"
+import { NewSessionDialog } from "@/components/session/new-session-dialog"
 
 export default function ChatsPage() {
-  const router = useRouter()
-
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4">
       <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
@@ -18,10 +16,14 @@ export default function ChatsPage() {
           Choose a session from the sidebar or create a new one
         </p>
       </div>
-      <Button className="mt-4" onClick={() => router.push("/chats")}>
-        <Plus className="h-4 w-4 mr-2" />
-        New Session
-      </Button>
+      <NewSessionDialog
+        trigger={
+          <Button className="mt-4">
+            <Plus className="h-4 w-4 mr-2" />
+            New Session
+          </Button>
+        }
+      />
     </div>
   )
 }

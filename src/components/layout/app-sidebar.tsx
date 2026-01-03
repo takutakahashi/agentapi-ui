@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { usePathname } from "next/navigation"
 import {
   Calendar,
   BarChart3,
@@ -29,6 +29,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { SessionList } from "@/components/session/session-list"
+import { NewSessionDialog } from "@/components/session/new-session-dialog"
 
 const navItems = [
   {
@@ -49,7 +50,6 @@ const navItems = [
 ]
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const router = useRouter()
   const pathname = usePathname()
   const [searchQuery, setSearchQuery] = React.useState("")
 
@@ -62,13 +62,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <span>AgentAPI</span>
           </div>
         </div>
-        <Button
-          className="w-full justify-start gap-2"
-          onClick={() => router.push("/chats")}
-        >
-          <Plus className="h-4 w-4" />
-          New Session
-        </Button>
+        <NewSessionDialog
+          trigger={
+            <Button className="w-full justify-start gap-2">
+              <Plus className="h-4 w-4" />
+              New Session
+            </Button>
+          }
+        />
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <SidebarInput
