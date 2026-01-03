@@ -48,3 +48,4 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/package-lock.json
+.serena/

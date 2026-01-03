@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { LogOut } from 'lucide-react'
 import { OneClickPushNotifications } from './OneClickPushNotifications'
+import { useTeamScope } from '../../contexts/TeamScopeContext'
 
 interface TopBarProps {
   title: string
@@ -34,8 +35,34 @@ export default function TopBar({
 }: TopBarProps) {
   const router = useRouter()
   const [showPushNotificationPopover, setShowPushNotificationPopover] = useState(false)
+  const [showTeamDropdown, setShowTeamDropdown] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const popoverRef = useRef<HTMLDivElement>(null)
+  const teamDropdownRef = useRef<HTMLDivElement>(null)
+
+  const { selectedTeam, availableTeams, selectTeam, setAvailableTeams, isLoading: isTeamLoading } = useTeamScope()
+
+  // Fetch user info to get available teams
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const response = await fetch('/api/user/info')
+        if (response.ok) {
+          const userInfo = await response.json()
+          if (userInfo.proxy?.teams && Array.isArray(userInfo.proxy.teams)) {
+            setAvailableTeams(userInfo.proxy.teams)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch user info for teams:', error)
+      }
+    }
+
+    // Only fetch if we don't have teams yet
+    if (availableTeams.length === 0) {
+      fetchUserInfo()
+    }
+  }, [availableTeams.length, setAvailableTeams])
 
   const handleLogout = async () => {
     if (loggingOut) return
@@ -60,16 +87,30 @@ export default function TopBar({
       if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
         setShowPushNotificationPopover(false)
       }
+      if (teamDropdownRef.current && !teamDropdownRef.current.contains(event.target as Node)) {
+        setShowTeamDropdown(false)
+      }
     }
 
-    if (showPushNotificationPopover) {
+    if (showPushNotificationPopover || showTeamDropdown) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showPushNotificationPopover])
+  }, [showPushNotificationPopover, showTeamDropdown])
+
+  // Get display name for the current selection
+  const getDisplayName = () => {
+    if (isTeamLoading) return '...'
+    if (selectedTeam) {
+      // Show short form: team-slug (without org/)
+      const parts = selectedTeam.split('/')
+      return parts.length > 1 ? parts[1] : selectedTeam
+    }
+    return 'Personal'
+  }
 
   return (
     <div className="sticky top-0 z-40 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 relative">
@@ -114,6 +155,94 @@ export default function TopBar({
                 <span className="hidden sm:inline">新しいセッション</span>
                 <span className="sm:hidden">新規</span>
               </button>
+            )}
+
+            {/* チーム選択ドロップダウン */}
+            {availableTeams.length > 0 && (
+              <div className="relative" ref={teamDropdownRef}>
+                <button
+                  onClick={() => setShowTeamDropdown(!showTeamDropdown)}
+                  className="inline-flex items-center px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
+                  title="スコープを選択"
+                >
+                  {selectedTeam ? (
+                    <svg className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4 mr-2 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  )}
+                  <span className="hidden sm:inline max-w-24 truncate">{getDisplayName()}</span>
+                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* チーム選択ドロップダウンメニュー */}
+                {showTeamDropdown && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
+                    <div className="py-1">
+                      <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        スコープを選択
+                      </div>
+                      
+                      {/* Personal option */}
+                      <button
+                        onClick={() => {
+                          selectTeam(null)
+                          setShowTeamDropdown(false)
+                        }}
+                        className={`w-full flex items-center px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                          !selectedTeam ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'
+                        }`}
+                      >
+                        <svg className="w-4 h-4 mr-3 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span>Personal</span>
+                        {!selectedTeam && (
+                          <svg className="w-4 h-4 ml-auto text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+
+                      {/* Divider */}
+                      <div className="my-1 border-t border-gray-200 dark:border-gray-700"></div>
+
+                      <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Teams
+                      </div>
+
+                      {/* Team options */}
+                      {availableTeams.map((team) => (
+                        <button
+                          key={team}
+                          onClick={() => {
+                            selectTeam(team)
+                            setShowTeamDropdown(false)
+                          }}
+                          className={`w-full flex items-center px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                            selectedTeam === team ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'
+                          }`}
+                        >
+                          <svg className="w-4 h-4 mr-3 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                          <span className="truncate">{team}</span>
+                          {selectedTeam === team && (
+                            <svg className="w-4 h-4 ml-auto flex-shrink-0 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* プッシュ通知ボタン */}

@@ -16,6 +16,7 @@ import SessionCard from './SessionCard'
 import LoadingSpinner from './LoadingSpinner'
 import NewConversationModal from './NewConversationModal'
 import SessionFilterSidebar from './SessionFilterSidebar'
+import { useTeamScope } from '../../contexts/TeamScopeContext'
 
 interface PageState {
   page: number
@@ -25,6 +26,7 @@ interface PageState {
 export default function ConversationList() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { getScopeParams, selectedTeam } = useTeamScope()
 
   // Extract repository from query parameters
   const repositoryParam = searchParams.get('repository')
@@ -65,10 +67,14 @@ export default function ConversationList() {
       setLoading(true)
       setError(null)
 
+      // Get scope parameters for filtering
+      const scopeParams = getScopeParams()
+
       // Fetch all sessions (or a large number) to enable client-side filtering
       // TODO: When backend supports metadata filtering, add those params here
       const params: SessionListParams = {
         limit: 1000, // Fetch many sessions for client-side filtering
+        ...scopeParams,
       }
 
       const response = await agentAPI.search(params)
@@ -85,11 +91,12 @@ export default function ConversationList() {
     } finally {
       setLoading(false)
     }
-  }, [agentAPI])
+  }, [agentAPI, getScopeParams])
 
+  // Refetch sessions when team scope changes
   useEffect(() => {
     fetchSessions()
-  }, [fetchSessions])
+  }, [fetchSessions, selectedTeam])
 
   const getMockSessions = (): Session[] => []
 
