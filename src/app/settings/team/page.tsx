@@ -54,19 +54,21 @@ export default function TeamSettingsPage() {
       try {
         const client = createAgentAPIProxyClientFromStorage()
         const proxyUserInfo = await client.getUserInfo()
-        const teams = proxyUserInfo.teams || []
+        const teamsData = proxyUserInfo.teams || []
 
-        if (teams.length === 0) {
+        if (teamsData.length === 0) {
           setError('所属しているチームがありません')
           setLoading(false)
           return
         }
 
-        setAvailableTeams(teams)
+        // Transform TeamInfo objects to team IDs (format: "org/team-slug")
+        const teamIds = teamsData.map((team) => `${team.organization}/${team.team_slug}`)
+        setAvailableTeams(teamIds)
 
         // If only one team, auto-select it
-        if (teams.length === 1) {
-          loadTeamSettings(teams[0])
+        if (teamIds.length === 1) {
+          loadTeamSettings(teamIds[0])
         } else {
           setLoading(false)
         }

@@ -50,7 +50,11 @@ export default function TopBar({
         if (response.ok) {
           const userInfo = await response.json()
           if (userInfo.proxy?.teams && Array.isArray(userInfo.proxy.teams)) {
-            setAvailableTeams(userInfo.proxy.teams)
+            // Transform TeamInfo objects to team IDs (format: "org/team-slug")
+            const teamIds = userInfo.proxy.teams.map((team: { organization: string; team_slug: string }) =>
+              `${team.organization}/${team.team_slug}`
+            )
+            setAvailableTeams(teamIds)
           }
         }
       } catch (error) {
