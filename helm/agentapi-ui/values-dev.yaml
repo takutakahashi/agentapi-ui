@@ -1,0 +1,47 @@
+# Development environment values for agentapi-ui.
+# Usage: helm install -f values.yaml -f values-dev.yaml agentapi-ui ./agentapi-ui
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/takutakahashi/agentapi-ui
+  pullPolicy: Always
+  tag: "dev"
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  tls:
+    - secretName: agentapi-ui-dev-tls
+      hosts:
+        - agentapi-ui-dev.example.com
+
+# Hostname configuration
+hostname: "agentapi-ui-dev.example.com"
+
+# Resources for dev environment (smaller than production)
+resources:
+  limits:
+    cpu: 300m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+# Disable autoscaling for dev
+autoscaling:
+  enabled: false
+
+# OAuth Only Mode configuration for dev
+oauthOnlyMode:
+  enabled: true
+  proxyUrl: "http://agentapi-proxy:8080"
+  publicProxyUrl: ""
+
+# Application configuration for dev
+config:
+  authMode: "oauth_only"
+  loginTitle: "AgentAPI UI (Dev)"
+  loginDescription: "Development environment - Sign in with GitHub to continue."
