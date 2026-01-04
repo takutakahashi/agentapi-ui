@@ -26,7 +26,7 @@ interface PageState {
 export default function ConversationList() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const { getScopeParams, selectedTeam } = useTeamScope()
+  const { selectedTeam } = useTeamScope()
 
   // Extract repository from query parameters
   const repositoryParam = searchParams.get('repository')
@@ -67,8 +67,12 @@ export default function ConversationList() {
       setLoading(true)
       setError(null)
 
-      // Get scope parameters for filtering
-      const scopeParams = getScopeParams()
+      // Compute scope parameters directly from selectedTeam to avoid stale closure
+      const scopeParams: { scope: 'user' | 'team'; team_id?: string } = selectedTeam
+        ? { scope: 'team', team_id: selectedTeam }
+        : { scope: 'user' }
+
+      console.log('[ConversationList] Fetching sessions with scope params:', scopeParams)
 
       // Fetch all sessions (or a large number) to enable client-side filtering
       // TODO: When backend supports metadata filtering, add those params here
@@ -78,6 +82,7 @@ export default function ConversationList() {
       }
 
       const response = await agentAPI.search(params)
+      console.log('[ConversationList] Received sessions:', response.sessions?.length || 0)
       setAllSessions(response.sessions || [])
     } catch (err) {
       if (err instanceof AgentAPIProxyError) {
@@ -85,13 +90,13 @@ export default function ConversationList() {
       } else {
         setError('An unexpected error occurred while loading sessions')
       }
-      
+
       // Set mock data for demo purposes when API is not available
       setAllSessions(getMockSessions())
     } finally {
       setLoading(false)
     }
-  }, [agentAPI, getScopeParams])
+  }, [agentAPI, selectedTeam])
 
   // Refetch sessions when team scope changes
   useEffect(() => {
@@ -132,8 +137,12 @@ export default function ConversationList() {
       // Get current filter values to use as default parameters for new session
       const { metadata, environment } = getFilterValuesForSessionCreation(sessionFilters)
 
-      // Get scope parameters for team/user scope
-      const scopeParams = getScopeParams()
+      // Compute scope parameters directly from selectedTeam
+      const scopeParams: { scope: 'user' | 'team'; team_id?: string } = selectedTeam
+        ? { scope: 'team', team_id: selectedTeam }
+        : { scope: 'user' }
+
+      console.log('[ConversationList] Creating session with scope params:', scopeParams)
 
       await agentAPI.start({
         metadata: {
