@@ -296,6 +296,8 @@ export class AgentAPIProxyClient {
     // Check if GitHub token injection is enabled
     const injectGithubToken = typeof window !== 'undefined' ? getSendGithubTokenOnSessionStart() : false;
 
+    console.log('[AgentAPIProxy] Starting session with data:', JSON.stringify(data, null, 2));
+
     const session = await this.makeRequest<Session>('/start', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -303,6 +305,8 @@ export class AgentAPIProxyClient {
         'X-Inject-Github-Token': injectGithubToken ? 'true' : 'false'
       }
     });
+
+    console.log('[AgentAPIProxy] Session created:', JSON.stringify(session, null, 2));
 
     if (this.debug) {
       console.log(`[AgentAPIProxy] Started session: ${session.session_id}`);
