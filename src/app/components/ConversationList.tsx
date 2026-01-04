@@ -132,6 +132,9 @@ export default function ConversationList() {
       // Get current filter values to use as default parameters for new session
       const { metadata, environment } = getFilterValuesForSessionCreation(sessionFilters)
 
+      // Get scope parameters for team/user scope
+      const scopeParams = getScopeParams()
+
       await agentAPI.start({
         metadata: {
           ...metadata,
@@ -142,7 +145,8 @@ export default function ConversationList() {
         },
         params: {
           message: quickStartMessage.trim()
-        }
+        },
+        ...scopeParams
       })
 
       setQuickStartMessage('')
