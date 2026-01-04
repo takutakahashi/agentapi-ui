@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Session, SessionListParams } from '../../types/agentapi'
+import { Session } from '../../types/agentapi'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import {
   extractFilterGroups,
@@ -48,11 +48,24 @@ export default function ConversationList() {
   const [deletingSession, setDeletingSession] = useState<string | null>(null)
   const [sidebarVisible, setSidebarVisible] = useState(false)
 
-  // Extract filter groups from all sessions
-  const filterGroups = extractFilterGroups(allSessions)
-  
-  // Apply filters to get filtered sessions
-  const filteredSessions = applySessionFilters(allSessions, sessionFilters)
+  // Apply scope filter first (frontend filtering based on selectedTeam)
+  const scopeFilteredSessions = useMemo(() => {
+    return allSessions.filter(session => {
+      if (selectedTeam) {
+        // チームスコープの場合: scope='team' かつ team_id が一致するセッションのみ
+        return session.scope === 'team' && session.team_id === selectedTeam
+      } else {
+        // ユーザースコープの場合: scope='user' またはスコープ未設定のセッションのみ
+        return !session.scope || session.scope === 'user'
+      }
+    })
+  }, [allSessions, selectedTeam])
+
+  // Extract filter groups from scope-filtered sessions
+  const filterGroups = extractFilterGroups(scopeFilteredSessions)
+
+  // Apply additional filters to get filtered sessions
+  const filteredSessions = applySessionFilters(scopeFilteredSessions, sessionFilters)
   
   // Apply pagination to filtered sessions
   const paginatedSessions = filteredSessions.slice(
@@ -67,21 +80,10 @@ export default function ConversationList() {
       setLoading(true)
       setError(null)
 
-      // Compute scope parameters directly from selectedTeam to avoid stale closure
-      const scopeParams: { scope: 'user' | 'team'; team_id?: string } = selectedTeam
-        ? { scope: 'team', team_id: selectedTeam }
-        : { scope: 'user' }
+      // Fetch all sessions without scope parameters (filtering done on frontend)
+      console.log('[ConversationList] Fetching all sessions (frontend filtering)')
 
-      console.log('[ConversationList] Fetching sessions with scope params:', scopeParams)
-
-      // Fetch all sessions (or a large number) to enable client-side filtering
-      // TODO: When backend supports metadata filtering, add those params here
-      const params: SessionListParams = {
-        limit: 1000, // Fetch many sessions for client-side filtering
-        ...scopeParams,
-      }
-
-      const response = await agentAPI.search(params)
+      const response = await agentAPI.search({ limit: 1000 })
       console.log('[ConversationList] Received sessions:', response.sessions?.length || 0)
       setAllSessions(response.sessions || [])
     } catch (err) {
@@ -96,12 +98,12 @@ export default function ConversationList() {
     } finally {
       setLoading(false)
     }
-  }, [agentAPI, selectedTeam])
+  }, [agentAPI])
 
-  // Refetch sessions when team scope changes
+  // Fetch sessions on mount
   useEffect(() => {
     fetchSessions()
-  }, [fetchSessions, selectedTeam])
+  }, [fetchSessions])
 
   const getMockSessions = (): Session[] => []
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Session, AgentStatus, SessionListParams } from '../../types/agentapi'
+import { Session, AgentStatus } from '../../types/agentapi'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { useBackgroundAwareInterval } from '../hooks/usePageVisibility'
 import { formatRelativeTime } from '../../utils/timeUtils'
@@ -98,19 +98,10 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       setLoading(true)
       setError(null)
 
-      // Compute scope parameters directly from selectedTeam
-      const scopeParams: { scope: 'user' | 'team'; team_id?: string } = selectedTeam
-        ? { scope: 'team', team_id: selectedTeam }
-        : { scope: 'user' }
+      // Fetch all sessions without scope parameters (filtering done on frontend)
+      console.log('[SessionListView] Fetching all sessions (frontend filtering)')
 
-      console.log('[SessionListView] Fetching sessions with scope params:', scopeParams)
-
-      const params: SessionListParams = {
-        limit: 1000,
-        ...scopeParams,
-      }
-
-      const response = await agentAPI.search!(params)
+      const response = await agentAPI.search!({ limit: 1000 })
       const sessionList = response.sessions || []
       setSessions(sessionList)
 
@@ -166,7 +157,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     } finally {
       setLoading(false)
     }
-  }, [agentAPI, fetchSessionStatusesInitial, selectedTeam])
+  }, [agentAPI, fetchSessionStatusesInitial])
 
   const fetchSessionStatuses = useCallback(async () => {
     if (sessions.length === 0 || !agentAPIProxy) return
@@ -275,17 +266,30 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
 
   const getMockSessions = (): Session[] => []
 
+  // スコープフィルタを適用してセッションをフィルタリング
+  const scopeFilteredSessions = useMemo(() => {
+    return sessions.filter(session => {
+      if (selectedTeam) {
+        // チームスコープの場合: scope='team' かつ team_id が一致するセッションのみ
+        return session.scope === 'team' && session.team_id === selectedTeam
+      } else {
+        // ユーザースコープの場合: scope='user' またはスコープ未設定のセッションのみ
+        return !session.scope || session.scope === 'user'
+      }
+    })
+  }, [sessions, selectedTeam])
+
   // タグフィルタを適用してセッションをフィルタリング
-  const filteredSessions = sessions.filter(session => {
+  const filteredSessions = scopeFilteredSessions.filter(session => {
     return Object.entries(tagFilters).every(([tagKey, selectedValues]) => {
       if (selectedValues.length === 0) return true
-      
+
       // First check tags field
       const sessionTagValue = session.tags?.[tagKey]
       if (sessionTagValue && selectedValues.includes(sessionTagValue)) {
         return true
       }
-      
+
       // Fallback to metadata for backward compatibility
       const sessionMetadataValue = session.metadata?.[tagKey]
       return sessionMetadataValue && selectedValues.includes(String(sessionMetadataValue))
