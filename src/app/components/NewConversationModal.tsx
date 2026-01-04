@@ -21,7 +21,7 @@ interface EnvironmentVariable {
 }
 
 export default function NewConversationModal({ isOpen, onClose, onSuccess, currentFilters, initialRepository }: NewConversationModalProps) {
-  const { getScopeParams } = useTeamScope()
+  const { selectedTeam } = useTeamScope()
   const [description, setDescription] = useState('')
   const [userId, setUserId] = useState('current-user')
   const [repository, setRepository] = useState('')
@@ -219,8 +219,12 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
         tags: Object.keys(tags).length > 0 ? tags : undefined
       }
 
-      // Get scope parameters for team/user scope
-      const scopeParams = getScopeParams()
+      // Compute scope parameters directly from selectedTeam
+      const scopeParams: { scope: 'user' | 'team'; team_id?: string } = selectedTeam
+        ? { scope: 'team', team_id: selectedTeam }
+        : { scope: 'user' }
+
+      console.log('[NewConversationModal] Creating session with scope params:', scopeParams)
 
       const agentAPI = createAgentAPIProxyClientFromStorage()
       await agentAPI.start({
