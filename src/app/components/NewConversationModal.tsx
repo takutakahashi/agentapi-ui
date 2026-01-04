@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { agentAPI } from '../../lib/api'
-import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
+import { AgentAPIProxyError, createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
+import { useTeamScope } from '../../contexts/TeamScopeContext'
 import { SessionFilter, getFilterValuesForSessionCreation } from '../../lib/filter-utils'
 import { OrganizationHistory } from '../../utils/organizationHistory'
 import { addRepositoryToHistory } from '../../types/settings'
@@ -21,6 +21,7 @@ interface EnvironmentVariable {
 }
 
 export default function NewConversationModal({ isOpen, onClose, onSuccess, currentFilters, initialRepository }: NewConversationModalProps) {
+  const { selectedTeam } = useTeamScope()
   const [description, setDescription] = useState('')
   const [userId, setUserId] = useState('current-user')
   const [repository, setRepository] = useState('')
@@ -217,14 +218,23 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
         tags: Object.keys(tags).length > 0 ? tags : undefined
       }
-      
-      await agentAPI.start!({
+
+      // Compute scope parameters directly from selectedTeam
+      const scopeParams: { scope: 'user' | 'team'; team_id?: string } = selectedTeam
+        ? { scope: 'team', team_id: selectedTeam }
+        : { scope: 'user' }
+
+      console.log('[NewConversationModal] Creating session with scope params:', scopeParams)
+
+      const agentAPI = createAgentAPIProxyClientFromStorage()
+      await agentAPI.start({
         environment: sessionData.environment,
         metadata: sessionData.metadata,
         tags: sessionData.tags,
         params: {
           message: description.trim()
-        }
+        },
+        ...scopeParams
       })
 
       // グローバルリポジトリ履歴に追加

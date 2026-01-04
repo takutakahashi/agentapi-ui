@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '../contexts/ThemeContext'
+import { TeamScopeProvider } from '../contexts/TeamScopeContext'
 import { ToastProvider } from '../contexts/ToastContext'
 import { ToastContainer } from '../components/Toast'
 import { Analytics } from '@vercel/analytics/react'
@@ -53,12 +54,14 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <ThemeProvider>
-          <ToastProvider>
-            {children}
-            <ToastContainer />
-            <PushNotificationAutoInit />
-            <Analytics />
-          </ToastProvider>
+          <TeamScopeProvider>
+            <ToastProvider>
+              {children}
+              <ToastContainer />
+              <PushNotificationAutoInit />
+              <Analytics />
+            </ToastProvider>
+          </TeamScopeProvider>
         </ThemeProvider>
       </body>
     </html>

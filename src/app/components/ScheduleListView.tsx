@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Schedule, ScheduleStatus } from '../../types/schedule'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import ScheduleCard from './ScheduleCard'
+import { useTeamScope } from '../../contexts/TeamScopeContext'
 
 interface ScheduleListViewProps {
   statusFilter: ScheduleStatus | null
@@ -16,6 +17,7 @@ export default function ScheduleListView({
   onScheduleEdit,
   onSchedulesUpdate,
 }: ScheduleListViewProps) {
+  const { getScopeParams, selectedTeam } = useTeamScope()
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -25,10 +27,14 @@ export default function ScheduleListView({
       setLoading(true)
       setError(null)
 
+      // Get scope parameters for filtering
+      const scopeParams = getScopeParams()
+
       const client = createAgentAPIProxyClientFromStorage()
-      const response = await client.getSchedules(
-        statusFilter ? { status: statusFilter } : undefined
-      )
+      const response = await client.getSchedules({
+        ...(statusFilter ? { status: statusFilter } : {}),
+        ...scopeParams,
+      })
 
       setSchedules(response.schedules || [])
     } catch (err) {
@@ -37,11 +43,12 @@ export default function ScheduleListView({
     } finally {
       setLoading(false)
     }
-  }, [statusFilter])
+  }, [statusFilter, getScopeParams])
 
+  // Refetch schedules when team scope changes
   useEffect(() => {
     fetchSchedules()
-  }, [fetchSchedules])
+  }, [fetchSchedules, selectedTeam])
 
   const handleDelete = async (scheduleId: string) => {
     try {

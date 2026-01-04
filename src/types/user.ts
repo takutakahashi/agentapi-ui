@@ -1,4 +1,5 @@
 // agentapi-proxy /user/info から取得するユーザー情報
+// teams は "org/team-slug" 形式の文字列配列
 export interface ProxyUserInfo {
   username: string
   teams: string[]

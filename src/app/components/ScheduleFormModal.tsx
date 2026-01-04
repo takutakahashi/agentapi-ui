@@ -5,6 +5,7 @@ import { Schedule, CreateScheduleRequest, COMMON_TIMEZONES } from '../../types/s
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import CronExpressionInput from './CronExpressionInput'
 import { OrganizationHistory } from '../../utils/organizationHistory'
+import { useTeamScope } from '../../contexts/TeamScopeContext'
 
 interface ScheduleFormModalProps {
   isOpen: boolean
@@ -21,6 +22,7 @@ export default function ScheduleFormModal({
   onSuccess,
   editingSchedule,
 }: ScheduleFormModalProps) {
+  const { getScopeParams } = useTeamScope()
   const [name, setName] = useState('')
   const [executionType, setExecutionType] = useState<ExecutionType>('recurring')
   const [cronExpr, setCronExpr] = useState('')
@@ -157,6 +159,9 @@ export default function ScheduleFormModal({
 
       const client = createAgentAPIProxyClientFromStorage()
 
+      // Get scope parameters from context
+      const scopeParams = getScopeParams()
+
       const scheduleData: CreateScheduleRequest = {
         name: name.trim(),
         timezone,
@@ -164,6 +169,7 @@ export default function ScheduleFormModal({
           params: message.trim() ? { message: message.trim() } : undefined,
           tags: repository.trim() ? { repository: repository.trim() } : undefined,
         },
+        ...scopeParams,
       }
 
       if (executionType === 'recurring') {

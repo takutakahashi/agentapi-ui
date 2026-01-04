@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { decryptCookie } from '@/lib/cookie-encryption'
-import { createDefaultAgentAPIProxyClient } from '@/lib/agentapi-proxy-client'
+import { getApiKeyFromCookie } from '@/lib/cookie-auth'
+import { AgentAPIProxyClient } from '@/lib/agentapi-proxy-client'
 import { UserInfo, ProxyUserInfo } from '@/types/user'
 
 export async function GET(request: NextRequest) {
@@ -17,8 +18,16 @@ export async function GET(request: NextRequest) {
     // agentapi-proxy から /user/info を取得
     let proxyUserInfo: ProxyUserInfo | undefined
     try {
-      const client = createDefaultAgentAPIProxyClient()
-      proxyUserInfo = await client.getUserInfo()
+      // Get API key from cookie for authentication
+      const apiKey = await getApiKeyFromCookie()
+      if (apiKey) {
+        const client = new AgentAPIProxyClient({
+          baseURL: process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080',
+          apiKey: apiKey,
+          debug: true,
+        })
+        proxyUserInfo = await client.getUserInfo()
+      }
     } catch (err) {
       console.error('Failed to get user info from agentapi-proxy:', err)
       // agentapi-proxy が /user/info をサポートしていない場合はフォールバック

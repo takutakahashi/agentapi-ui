@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart } from '@/types/settings'
 import { BedrockSettings, SettingsAccordion, GithubTokenSettings, ExperimentalSettings, MCPServerSettings, MarketplaceSettings, PluginSettings } from '@/components/settings'
+import { OneClickPushNotifications } from '@/app/components/OneClickPushNotifications'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -203,6 +204,14 @@ export default function PersonalSettingsPage() {
             defaultOpen
           >
             <GithubTokenSettings enabled={sendGithubToken} onChange={handleGithubTokenChange} />
+          </SettingsAccordion>
+
+          <SettingsAccordion
+            title="Push Notifications"
+            description="Configure push notification settings"
+            defaultOpen
+          >
+            <OneClickPushNotifications />
           </SettingsAccordion>
 
           <SettingsAccordion
