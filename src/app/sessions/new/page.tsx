@@ -13,8 +13,10 @@ import { addRepositoryToHistory } from '../../../types/settings'
 import TopBar from '../../components/TopBar'
 import SessionCreationProgressModal from '../../components/SessionCreationProgressModal'
 import { SessionCreationProgress, SessionCreationStatus } from '../../../types/sessionProgress'
+import { useTeamScope } from '../../../contexts/TeamScopeContext'
 
 export default function NewSessionPage() {
+  const { selectedTeam } = useTeamScope()
   const router = useRouter()
   const [initialMessage, setInitialMessage] = useState('')
   const [freeFormRepository, setFreeFormRepository] = useState('')
@@ -100,6 +102,13 @@ export default function NewSessionPage() {
         environment.REPOSITORY = repo
       }
 
+      // Compute scope parameters directly from selectedTeam
+      const scopeParams: { scope: 'user' | 'team'; team_id?: string } = selectedTeam
+        ? { scope: 'team', team_id: selectedTeam }
+        : { scope: 'user' }
+
+      console.log('[NewSessionPage] Creating session with scope params:', scopeParams)
+
       const session = await client.start({
         environment,
         metadata: {
@@ -108,7 +117,8 @@ export default function NewSessionPage() {
         tags: Object.keys(tags).length > 0 ? tags : undefined,
         params: {
           message: message
-        }
+        },
+        ...scopeParams
       })
       console.log('Session created with initial message:', session)
 
