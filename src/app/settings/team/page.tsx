@@ -54,9 +54,9 @@ export default function TeamSettingsPage() {
       try {
         const client = createAgentAPIProxyClientFromStorage()
         const proxyUserInfo = await client.getUserInfo()
-        const teams = proxyUserInfo.teams || []
+        const teams = proxyUserInfo?.teams || []
 
-        if (teams.length === 0) {
+        if (!Array.isArray(teams) || teams.length === 0) {
           setError('所属しているチームがありません')
           setLoading(false)
           return

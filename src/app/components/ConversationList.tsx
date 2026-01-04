@@ -16,6 +16,7 @@ import SessionCard from './SessionCard'
 import LoadingSpinner from './LoadingSpinner'
 import NewConversationModal from './NewConversationModal'
 import SessionFilterSidebar from './SessionFilterSidebar'
+import { useTeamScope } from '../../contexts/TeamScopeContext'
 
 interface PageState {
   page: number
@@ -25,6 +26,7 @@ interface PageState {
 export default function ConversationList() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { selectedTeam } = useTeamScope()
 
   // Extract repository from query parameters
   const repositoryParam = searchParams.get('repository')
@@ -65,13 +67,22 @@ export default function ConversationList() {
       setLoading(true)
       setError(null)
 
+      // Compute scope parameters directly from selectedTeam to avoid stale closure
+      const scopeParams: { scope: 'user' | 'team'; team_id?: string } = selectedTeam
+        ? { scope: 'team', team_id: selectedTeam }
+        : { scope: 'user' }
+
+      console.log('[ConversationList] Fetching sessions with scope params:', scopeParams)
+
       // Fetch all sessions (or a large number) to enable client-side filtering
       // TODO: When backend supports metadata filtering, add those params here
       const params: SessionListParams = {
         limit: 1000, // Fetch many sessions for client-side filtering
+        ...scopeParams,
       }
 
       const response = await agentAPI.search(params)
+      console.log('[ConversationList] Received sessions:', response.sessions?.length || 0)
       setAllSessions(response.sessions || [])
     } catch (err) {
       if (err instanceof AgentAPIProxyError) {
@@ -79,17 +90,18 @@ export default function ConversationList() {
       } else {
         setError('An unexpected error occurred while loading sessions')
       }
-      
+
       // Set mock data for demo purposes when API is not available
       setAllSessions(getMockSessions())
     } finally {
       setLoading(false)
     }
-  }, [agentAPI])
+  }, [agentAPI, selectedTeam])
 
+  // Refetch sessions when team scope changes
   useEffect(() => {
     fetchSessions()
-  }, [fetchSessions])
+  }, [fetchSessions, selectedTeam])
 
   const getMockSessions = (): Session[] => []
 
@@ -125,6 +137,13 @@ export default function ConversationList() {
       // Get current filter values to use as default parameters for new session
       const { metadata, environment } = getFilterValuesForSessionCreation(sessionFilters)
 
+      // Compute scope parameters directly from selectedTeam
+      const scopeParams: { scope: 'user' | 'team'; team_id?: string } = selectedTeam
+        ? { scope: 'team', team_id: selectedTeam }
+        : { scope: 'user' }
+
+      console.log('[ConversationList] Creating session with scope params:', scopeParams)
+
       await agentAPI.start({
         metadata: {
           ...metadata,
@@ -135,7 +154,8 @@ export default function ConversationList() {
         },
         params: {
           message: quickStartMessage.trim()
-        }
+        },
+        ...scopeParams
       })
 
       setQuickStartMessage('')

@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Session, AgentStatus } from '../../types/agentapi'
+import { Session, AgentStatus, SessionListParams } from '../../types/agentapi'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { useBackgroundAwareInterval } from '../hooks/usePageVisibility'
 import { formatRelativeTime } from '../../utils/timeUtils'
 import { truncateText } from '../../utils/textUtils'
+import { useTeamScope } from '../../contexts/TeamScopeContext'
 
 interface TagFilter {
   [key: string]: string[]
@@ -28,6 +29,7 @@ interface SessionListViewProps {
 
 export default function SessionListView({ tagFilters, onSessionsUpdate, creatingSessions = [] }: SessionListViewProps) {
   const router = useRouter()
+  const { selectedTeam } = useTeamScope()
 
   // Create global API clients
   const [agentAPI] = useState(() => createAgentAPIProxyClientFromStorage())
@@ -96,7 +98,19 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       setLoading(true)
       setError(null)
 
-      const response = await agentAPI.search!({ limit: 1000 })
+      // Compute scope parameters directly from selectedTeam
+      const scopeParams: { scope: 'user' | 'team'; team_id?: string } = selectedTeam
+        ? { scope: 'team', team_id: selectedTeam }
+        : { scope: 'user' }
+
+      console.log('[SessionListView] Fetching sessions with scope params:', scopeParams)
+
+      const params: SessionListParams = {
+        limit: 1000,
+        ...scopeParams,
+      }
+
+      const response = await agentAPI.search!(params)
       const sessionList = response.sessions || []
       setSessions(sessionList)
 
@@ -152,7 +166,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     } finally {
       setLoading(false)
     }
-  }, [agentAPI, fetchSessionStatusesInitial])
+  }, [agentAPI, fetchSessionStatusesInitial, selectedTeam])
 
   const fetchSessionStatuses = useCallback(async () => {
     if (sessions.length === 0 || !agentAPIProxy) return

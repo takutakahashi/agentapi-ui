@@ -11,6 +11,7 @@ import { OrganizationHistory } from '../../utils/organizationHistory'
 import { addRepositoryToHistory } from '../../types/settings'
 import SessionCreationProgressModal from './SessionCreationProgressModal'
 import { SessionCreationProgress, SessionCreationStatus } from '../../types/sessionProgress'
+import { useTeamScope } from '../../contexts/TeamScopeContext'
 
 interface NewSessionModalProps {
   isOpen: boolean
@@ -29,6 +30,7 @@ export default function NewSessionModal({
   onSessionStatusUpdate,
   onSessionCompleted
 }: NewSessionModalProps) {
+  const { getScopeParams } = useTeamScope()
   const [initialMessage, setInitialMessage] = useState('')
   const [freeFormRepository, setFreeFormRepository] = useState('')
   const [isCreating, setIsCreating] = useState(false)
@@ -141,6 +143,9 @@ export default function NewSessionModal({
         environment.REPOSITORY = repo
       }
 
+      // Get scope parameters from context
+      const scopeParams = getScopeParams()
+
       // セッションを作成（初期メッセージを params.message で送信）
       const session = await client.start({
         environment,
@@ -150,7 +155,8 @@ export default function NewSessionModal({
         tags: Object.keys(tags).length > 0 ? tags : undefined,
         params: {
           message: message
-        }
+        },
+        ...scopeParams
       })
       console.log('Session created with initial message:', session)
 

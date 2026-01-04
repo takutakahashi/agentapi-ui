@@ -157,6 +157,9 @@ export interface RateLimitInfo {
 // Session status types based on agentapi-proxy OpenAPI specification
 export type SessionStatus = 'creating' | 'starting' | 'active' | 'unhealthy' | 'stopped' | 'unknown';
 
+// Resource scope types for team support
+export type ResourceScope = 'user' | 'team';
+
 // Session types for agentapi-proxy
 export interface Session {
   session_id: string;
@@ -167,6 +170,8 @@ export interface Session {
   environment?: Record<string, string>;
   metadata?: Record<string, unknown>;
   tags?: Record<string, string>;
+  scope?: ResourceScope;
+  team_id?: string;
 }
 
 export interface SessionListParams {
@@ -174,6 +179,8 @@ export interface SessionListParams {
   status?: Session['status'];
   page?: number;
   limit?: number;
+  scope?: ResourceScope;
+  team_id?: string;
 }
 
 export interface SessionListResponse {
@@ -193,6 +200,8 @@ export interface CreateSessionRequest {
     github_token?: string;
     [key: string]: unknown;
   };
+  scope?: ResourceScope;
+  team_id?: string;
 }
 
 // Session message types

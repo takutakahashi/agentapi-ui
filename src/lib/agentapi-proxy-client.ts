@@ -276,13 +276,15 @@ export class AgentAPIProxyClient {
     // Handle backward compatibility and new format
     let data: Partial<CreateSessionRequest>;
 
-    if (sessionData && (sessionData.environment || sessionData.tags || sessionData.metadata || sessionData.params)) {
-      // New format: sessionData contains environment, metadata, tags, and/or params
+    if (sessionData && (sessionData.environment || sessionData.tags || sessionData.metadata || sessionData.params || sessionData.scope || sessionData.team_id)) {
+      // New format: sessionData contains environment, metadata, tags, params, scope, and/or team_id
       data = {
         environment: sessionData.environment as Record<string, string> | undefined,
         metadata: sessionData.metadata as Record<string, unknown> | undefined || { source: 'agentapi-ui' },
         tags: sessionData.tags as Record<string, string> | undefined,
-        params: sessionData.params as { message?: string; github_token?: string; [key: string]: unknown } | undefined
+        params: sessionData.params as { message?: string; github_token?: string; [key: string]: unknown } | undefined,
+        scope: sessionData.scope as CreateSessionRequest['scope'],
+        team_id: sessionData.team_id as string | undefined
       };
     } else {
       // Backward compatibility: sessionData is just metadata
@@ -294,6 +296,8 @@ export class AgentAPIProxyClient {
     // Check if GitHub token injection is enabled
     const injectGithubToken = typeof window !== 'undefined' ? getSendGithubTokenOnSessionStart() : false;
 
+    console.log('[AgentAPIProxy] Starting session with data:', JSON.stringify(data, null, 2));
+
     const session = await this.makeRequest<Session>('/start', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -301,6 +305,8 @@ export class AgentAPIProxyClient {
         'X-Inject-Github-Token': injectGithubToken ? 'true' : 'false'
       }
     });
+
+    console.log('[AgentAPIProxy] Session created:', JSON.stringify(session, null, 2));
 
     if (this.debug) {
       console.log(`[AgentAPIProxy] Started session: ${session.session_id}`);
@@ -319,6 +325,8 @@ export class AgentAPIProxyClient {
     if (params?.limit) searchParams.set('limit', params.limit.toString());
     if (params?.status) searchParams.set('status', params.status);
     if (params?.user_id) searchParams.set('user_id', params.user_id);
+    if (params?.scope) searchParams.set('scope', params.scope);
+    if (params?.team_id) searchParams.set('team_id', params.team_id);
 
     const endpoint = `/search${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
     const result = await this.makeRequest<SessionListResponse>(endpoint);
@@ -634,6 +642,8 @@ export class AgentAPIProxyClient {
     if (params?.status) searchParams.set('status', params.status);
     if (params?.page) searchParams.set('page', params.page.toString());
     if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.scope) searchParams.set('scope', params.scope);
+    if (params?.team_id) searchParams.set('team_id', params.team_id);
 
     const endpoint = `/schedules${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
     const result = await this.makeRequest<ScheduleListResponse>(endpoint);

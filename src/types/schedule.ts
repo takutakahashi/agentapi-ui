@@ -1,3 +1,5 @@
+import { ResourceScope } from './agentapi';
+
 // Schedule status types
 export type ScheduleStatus = 'active' | 'paused' | 'completed';
 
@@ -27,6 +29,8 @@ export interface Schedule {
   created_at: string;
   updated_at: string;
   user_id?: string;
+  scope?: ResourceScope;
+  team_id?: string;
 }
 
 // Create schedule request
@@ -36,6 +40,8 @@ export interface CreateScheduleRequest {
   cron_expr?: string;
   timezone?: string;
   session_config?: ScheduleSessionConfig;
+  scope?: ResourceScope;
+  team_id?: string;
 }
 
 // Update schedule request
@@ -53,6 +59,8 @@ export interface ScheduleListParams {
   status?: ScheduleStatus;
   page?: number;
   limit?: number;
+  scope?: ResourceScope;
+  team_id?: string;
 }
 
 // Schedule list response
