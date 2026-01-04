@@ -3,7 +3,6 @@
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { LogOut } from 'lucide-react'
-import { OneClickPushNotifications } from './OneClickPushNotifications'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
 
 interface TopBarProps {
@@ -13,7 +12,6 @@ interface TopBarProps {
   filterButtonText?: string
   onFilterToggle?: () => void
   showSettingsButton?: boolean
-  showPushNotificationButton?: boolean
   showLogoutButton?: boolean
   showNewSessionButton?: boolean
   onNewSession?: () => void
@@ -27,17 +25,14 @@ export default function TopBar({
   filterButtonText = 'フィルタを表示',
   onFilterToggle,
   showSettingsButton = true,
-  showPushNotificationButton = true,
   showLogoutButton = true,
   showNewSessionButton = false,
   onNewSession,
   children
 }: TopBarProps) {
   const router = useRouter()
-  const [showPushNotificationPopover, setShowPushNotificationPopover] = useState(false)
   const [showTeamDropdown, setShowTeamDropdown] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
-  const popoverRef = useRef<HTMLDivElement>(null)
   const teamDropdownRef = useRef<HTMLDivElement>(null)
 
   const { selectedTeam, availableTeams, selectTeam, setAvailableTeams, isLoading: isTeamLoading } = useTeamScope()
@@ -81,25 +76,22 @@ export default function TopBar({
     }
   }
 
-  // ポップオーバー外クリックで閉じる
+  // ドロップダウン外クリックで閉じる
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
-        setShowPushNotificationPopover(false)
-      }
       if (teamDropdownRef.current && !teamDropdownRef.current.contains(event.target as Node)) {
         setShowTeamDropdown(false)
       }
     }
 
-    if (showPushNotificationPopover || showTeamDropdown) {
+    if (showTeamDropdown) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showPushNotificationPopover, showTeamDropdown])
+  }, [showTeamDropdown])
 
   // Get display name for the current selection
   const getDisplayName = () => {
@@ -240,28 +232,6 @@ export default function TopBar({
                         </button>
                       ))}
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* プッシュ通知ボタン */}
-            {showPushNotificationButton && (
-              <div className="relative" ref={popoverRef}>
-                <button
-                  onClick={() => setShowPushNotificationPopover(!showPushNotificationPopover)}
-                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
-                  title="プッシュ通知"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                </button>
-
-                {/* プッシュ通知ポップオーバー */}
-                {showPushNotificationPopover && (
-                  <div className="absolute right-0 mt-2 w-80 z-50">
-                    <OneClickPushNotifications />
                   </div>
                 )}
               </div>
