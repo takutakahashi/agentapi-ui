@@ -8,7 +8,7 @@ interface BedrockSettingsProps {
   showCredentials?: boolean // チーム設定の場合のみ true
 }
 
-const DEFAULT_MODEL = 'claude-sonnet-4-20250514'
+const DEFAULT_MODEL = 'global.anthropic.claude-sonnet-4-5-20250929-v1:0'
 const RECOMMENDED_MODEL = 'global.anthropic.claude-sonnet-4-20250514-v1:0'
 
 export function BedrockSettings({ config, onChange, showCredentials = false }: BedrockSettingsProps) {

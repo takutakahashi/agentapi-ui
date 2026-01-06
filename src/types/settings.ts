@@ -11,7 +11,7 @@ export interface MarketplaceConfig {
 // Bedrock 設定 (OpenAPI仕様に準拠)
 export interface BedrockConfig {
   enabled: boolean;           // Bedrock を有効にするか（必須）
-  model?: string;             // モデル ID（オプション、デフォルト: claude-sonnet-4-20250514）
+  model?: string;             // モデル ID（オプション、デフォルト: global.anthropic.claude-sonnet-4-5-20250929-v1:0）
   access_key_id?: string;     // AWS アクセスキー ID（チーム設定のみ）
   secret_access_key?: string; // AWS シークレットアクセスキー（チーム設定のみ）
 }
