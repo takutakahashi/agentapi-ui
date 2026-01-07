@@ -96,6 +96,10 @@ spec:
               value: {{ .Values.pwa.shortName | quote }}
             - name: PWA_DESCRIPTION
               value: {{ .Values.pwa.description | quote }}
+            {{- if .Values.pwa.iconUrl }}
+            - name: PWA_ICON_URL
+              value: {{ .Values.pwa.iconUrl | quote }}
+            {{- end }}
           {{- if .Values.env }}
             {{- toYaml .Values.env | nindent 12 }}
           {{- end }}

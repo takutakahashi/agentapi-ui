@@ -164,6 +164,9 @@ pwa:
   shortName: "AgentAPI"
   # App description
   description: "User interface for AgentAPI - AI agent conversation management"
+  # Custom icon URL (optional, leave empty to use default icons)
+  # Example: "https://example.com/icon.png"
+  iconUrl: ""
 
 # ConfigMap data
 configMap:
