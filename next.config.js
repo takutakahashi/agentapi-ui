@@ -6,6 +6,9 @@ const withPWA = require('next-pwa')({
   fallbacks: {
     document: '/offline',
   },
+  // manifest.json の自動生成を無効化（manifest.ts を使用）
+  publicExcludes: ['!manifest.json'],
+  buildExcludes: [/manifest\.json$/],
 })
 
 /** @type {import('next').NextConfig} */
