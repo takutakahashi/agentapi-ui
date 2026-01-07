@@ -85,6 +85,13 @@ spec:
               value: {{ .Values.config.loginDescription | quote }}
             - name: LOGIN_SUB_DESCRIPTION
               value: {{ .Values.config.loginSubDescription | quote }}
+            # PWA configuration
+            - name: PWA_APP_NAME
+              value: {{ .Values.pwa.appName | quote }}
+            - name: PWA_SHORT_NAME
+              value: {{ .Values.pwa.shortName | quote }}
+            - name: PWA_DESCRIPTION
+              value: {{ .Values.pwa.description | quote }}
           {{- if .Values.env }}
             {{- toYaml .Values.env | nindent 12 }}
           {{- end }}
