@@ -32,6 +32,7 @@ export function useConfig(): UseConfigReturn {
           loginDescription: data.loginDescription ?? DEFAULT_CONFIG.loginDescription,
           loginSubDescription: data.loginSubDescription ?? DEFAULT_CONFIG.loginSubDescription,
           oauthProviders: data.oauthProviders ?? DEFAULT_CONFIG.oauthProviders,
+          faviconUrl: data.faviconUrl ?? DEFAULT_CONFIG.faviconUrl,
         });
       } catch (err) {
         setError(err instanceof Error ? err : new Error('Unknown error'));

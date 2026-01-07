@@ -7,6 +7,7 @@ import { ToastProvider } from '../contexts/ToastContext'
 import { ToastContainer } from '../components/Toast'
 import { Analytics } from '@vercel/analytics/react'
 import { PushNotificationAutoInit } from './components/PushNotificationAutoInit'
+import { DynamicFavicon } from './components/DynamicFavicon'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -58,6 +59,7 @@ export default function RootLayout({
               {children}
               <ToastContainer />
               <PushNotificationAutoInit />
+              <DynamicFavicon />
               <Analytics />
             </ToastProvider>
           </TeamScopeProvider>
