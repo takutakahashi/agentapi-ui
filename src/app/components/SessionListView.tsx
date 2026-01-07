@@ -217,10 +217,15 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     }
   }, [sessions, agentAPIProxy])
 
+  // 作成中のセッション（propsから渡されたもの）があるかどうかを判定
+  const hasCreatingSessions = useMemo(() => {
+    return creatingSessions.some(s => s.status !== 'completed' && s.status !== 'failed')
+  }, [creatingSessions])
+
   // 起動中のセッションがあるかどうかを判定
   const hasActiveSession = useMemo(() => {
     // 作成中のセッションがある場合
-    if (creatingSessions.some(s => s.status !== 'completed' && s.status !== 'failed')) {
+    if (hasCreatingSessions) {
       return true
     }
 
@@ -235,13 +240,16 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     }
 
     return false
-  }, [creatingSessions, sessions, sessionAgentStatus])
+  }, [hasCreatingSessions, sessions, sessionAgentStatus])
 
   // 起動中のセッションがある場合は3秒、ない場合は10秒
   const pollingInterval = hasActiveSession ? 3000 : 10000
 
   // バックグラウンド対応の定期更新フック
   const statusPollingControl = useBackgroundAwareInterval(fetchSessionStatuses, pollingInterval, false)
+
+  // 作成中のセッションがある場合はセッション一覧も定期的に更新
+  const sessionPollingControl = useBackgroundAwareInterval(fetchSessions, pollingInterval, false)
 
   useEffect(() => {
     fetchSessions()
@@ -254,11 +262,24 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     } else {
       statusPollingControl.stop()
     }
-    
+
     return () => {
       statusPollingControl.stop()
     }
   }, [sessions.length, statusPollingControl])
+
+  // 作成中のセッションがある場合はセッション一覧を定期的に更新
+  useEffect(() => {
+    if (hasCreatingSessions) {
+      sessionPollingControl.start()
+    } else {
+      sessionPollingControl.stop()
+    }
+
+    return () => {
+      sessionPollingControl.stop()
+    }
+  }, [hasCreatingSessions, sessionPollingControl])
 
 
   useEffect(() => {
