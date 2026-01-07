@@ -268,9 +268,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     }
   }, [sessions.length, statusPollingControl])
 
-  // 作成中のセッションがある場合はセッション一覧を定期的に更新
+  // 作成中・起動中のセッションがある場合はセッション一覧を定期的に更新
   useEffect(() => {
-    if (hasCreatingSessions) {
+    if (hasActiveSession) {
       sessionPollingControl.start()
     } else {
       sessionPollingControl.stop()
@@ -279,7 +279,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     return () => {
       sessionPollingControl.stop()
     }
-  }, [hasCreatingSessions, sessionPollingControl])
+  }, [hasActiveSession, sessionPollingControl])
 
 
   useEffect(() => {
