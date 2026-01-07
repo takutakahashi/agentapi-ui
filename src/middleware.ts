@@ -16,6 +16,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/_next/') ||
     pathname.startsWith('/static/') ||
     pathname === '/manifest.json' ||
+    pathname === '/manifest.webmanifest' ||
     pathname === '/favicon.ico' ||
     pathname.startsWith('/icons/')
   ) {
@@ -42,11 +43,12 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - manifest.json (PWA manifest)
+     * - manifest.json (PWA manifest - legacy)
+     * - manifest.webmanifest (PWA manifest - dynamic)
      * - icons/ (icon files)
      *
      * Note: /s/* (shared session pages) requires authentication
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|manifest.json|icons/).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|manifest.json|manifest.webmanifest|icons/).*)',
   ],
 }

@@ -13,7 +13,6 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'AgentAPI UI',
   description: 'User interface for AgentAPI - AI agent conversation management',
-  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
