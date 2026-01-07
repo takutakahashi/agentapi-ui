@@ -153,6 +153,15 @@ config:
   # Login page sub-description (shown only when API key form is visible)
   loginSubDescription: "API key can be any valid authentication token for your AgentAPI service."
 
+# PWA (Progressive Web App) configuration
+pwa:
+  # App name shown when installing PWA
+  appName: "AgentAPI UI"
+  # Short name shown on home screen
+  shortName: "AgentAPI"
+  # App description
+  description: "User interface for AgentAPI - AI agent conversation management"
+
 # ConfigMap data
 configMap:
   data: {}
