@@ -152,6 +152,9 @@ config:
   loginDescription: "Enter your API key or sign in with GitHub to continue."
   # Login page sub-description (shown only when API key form is visible)
   loginSubDescription: "API key can be any valid authentication token for your AgentAPI service."
+  # Custom favicon URL (optional, leave empty to use default favicon)
+  # Example: "https://example.com/favicon.ico"
+  faviconUrl: ""
 
 # PWA (Progressive Web App) configuration
 pwa:

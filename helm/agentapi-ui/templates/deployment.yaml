@@ -85,6 +85,10 @@ spec:
               value: {{ .Values.config.loginDescription | quote }}
             - name: LOGIN_SUB_DESCRIPTION
               value: {{ .Values.config.loginSubDescription | quote }}
+            {{- if .Values.config.faviconUrl }}
+            - name: FAVICON_URL
+              value: {{ .Values.config.faviconUrl | quote }}
+            {{- end }}
             # PWA configuration
             - name: PWA_APP_NAME
               value: {{ .Values.pwa.appName | quote }}
