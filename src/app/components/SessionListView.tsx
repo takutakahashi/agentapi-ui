@@ -242,8 +242,19 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     return false
   }, [hasCreatingSessions, sessions, sessionAgentStatus])
 
-  // 起動中のセッションがある場合は3秒、ない場合は10秒
-  const pollingInterval = hasActiveSession ? 3000 : 10000
+  // 作成中・起動中のセッションがある場合（エージェント running は除く）
+  const needsSessionRefresh = useMemo(() => {
+    if (hasCreatingSessions) {
+      return true
+    }
+    if (sessions.some(s => s.status === 'creating' || s.status === 'starting')) {
+      return true
+    }
+    return false
+  }, [hasCreatingSessions, sessions])
+
+  // 起動中のセッションがある場合は7秒、ない場合は10秒
+  const pollingInterval = hasActiveSession ? 7000 : 10000
 
   // バックグラウンド対応の定期更新フック
   const statusPollingControl = useBackgroundAwareInterval(fetchSessionStatuses, pollingInterval, false)
@@ -268,9 +279,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     }
   }, [sessions.length, statusPollingControl])
 
-  // 作成中・起動中のセッションがある場合はセッション一覧を定期的に更新
+  // 作成中・起動中のセッションがある場合はセッション一覧を定期的に更新（エージェント running 時は除く）
   useEffect(() => {
-    if (hasActiveSession) {
+    if (needsSessionRefresh) {
       sessionPollingControl.start()
     } else {
       sessionPollingControl.stop()
@@ -279,7 +290,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     return () => {
       sessionPollingControl.stop()
     }
-  }, [hasActiveSession, sessionPollingControl])
+  }, [needsSessionRefresh, sessionPollingControl])
 
 
   useEffect(() => {
