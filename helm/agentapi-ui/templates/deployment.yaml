@@ -90,15 +90,17 @@ spec:
               value: {{ .Values.config.faviconUrl | quote }}
             {{- end }}
             # PWA configuration
+            {{- if .Values.pwa }}
             - name: PWA_APP_NAME
-              value: {{ .Values.pwa.appName | quote }}
+              value: {{ .Values.pwa.appName | default "AgentAPI UI" | quote }}
             - name: PWA_SHORT_NAME
-              value: {{ .Values.pwa.shortName | quote }}
+              value: {{ .Values.pwa.shortName | default "AgentAPI" | quote }}
             - name: PWA_DESCRIPTION
-              value: {{ .Values.pwa.description | quote }}
+              value: {{ .Values.pwa.description | default "AgentAPI UI" | quote }}
             {{- if .Values.pwa.iconUrl }}
             - name: PWA_ICON_URL
               value: {{ .Values.pwa.iconUrl | quote }}
+            {{- end }}
             {{- end }}
           {{- if .Values.env }}
             {{- toYaml .Values.env | nindent 12 }}
