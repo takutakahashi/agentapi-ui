@@ -11,6 +11,7 @@ import { messageTemplateManager } from '../../utils/messageTemplateManager';
 import { MessageTemplate } from '../../types/messageTemplate';
 import { recentMessagesManager } from '../../utils/recentMessagesManager';
 import { pushNotificationManager } from '../../utils/pushNotification';
+import { getEnterKeyBehavior } from '../../types/settings';
 import ShareSessionButton from './ShareSessionButton';
 
 // Define local types for message and agent status
@@ -672,9 +673,16 @@ export default function AgentAPIChat() {
   }, [sessionId, router]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
+    if (e.key === 'Enter') {
+      const enterKeyBehavior = getEnterKeyBehavior();
+      // 'send' モード: Enter で送信、Shift+Enter で改行
+      // 'newline' モード: Enter で改行、Shift+Enter で送信
+      const shouldSend = enterKeyBehavior === 'send' ? !e.shiftKey : e.shiftKey;
+
+      if (shouldSend) {
+        e.preventDefault();
+        sendMessage();
+      }
     }
   };
 

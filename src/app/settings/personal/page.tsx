@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, GithubTokenSettings, ExperimentalSettings, MCPServerSettings, MarketplaceSettings, PluginSettings } from '@/components/settings'
+import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior } from '@/types/settings'
+import { BedrockSettings, SettingsAccordion, GithubTokenSettings, ExperimentalSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings } from '@/components/settings'
 import { OneClickPushNotifications } from '@/app/components/OneClickPushNotifications'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
@@ -15,6 +15,7 @@ export default function PersonalSettingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [isDebugMode, setIsDebugMode] = useState(false)
   const [sendGithubToken, setSendGithubToken] = useState(false)
+  const [enterKeyBehavior, setEnterKeyBehaviorState] = useState<EnterKeyBehavior>('send')
   const { showToast } = useToast()
 
   // デバッグモードの判定と GitHub Token 設定の読み込み
@@ -27,6 +28,8 @@ export default function PersonalSettingsPage() {
     }
     // GitHub Token 設定を読み込み
     setSendGithubToken(getSendGithubTokenOnSessionStart())
+    // Enter キー設定を読み込み
+    setEnterKeyBehaviorState(getEnterKeyBehavior())
   }, [])
 
   useEffect(() => {
@@ -89,6 +92,11 @@ export default function PersonalSettingsPage() {
   const handleGithubTokenChange = (enabled: boolean) => {
     setSendGithubToken(enabled)
     setSendGithubTokenOnSessionStart(enabled)
+  }
+
+  const handleEnterKeyBehaviorChange = (behavior: EnterKeyBehavior) => {
+    setEnterKeyBehaviorState(behavior)
+    setEnterKeyBehavior(behavior)
   }
 
   const handleExperimentalChange = (enabled: boolean) => {
@@ -203,7 +211,12 @@ export default function PersonalSettingsPage() {
             description="Configure session behavior"
             defaultOpen
           >
-            <GithubTokenSettings enabled={sendGithubToken} onChange={handleGithubTokenChange} />
+            <div className="space-y-6">
+              <KeyBindingSettings enterKeyBehavior={enterKeyBehavior} onChange={handleEnterKeyBehaviorChange} />
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                <GithubTokenSettings enabled={sendGithubToken} onChange={handleGithubTokenChange} />
+              </div>
+            </div>
           </SettingsAccordion>
 
           <SettingsAccordion

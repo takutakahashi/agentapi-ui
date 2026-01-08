@@ -78,6 +78,9 @@ export interface AgentApiProxySettings {
   useAsGithubToken?: boolean
 }
 
+// Enter キーの動作設定
+export type EnterKeyBehavior = 'send' | 'newline'
+
 export interface GlobalSettings {
   agentApiProxy: AgentApiProxySettings
   mcpServers: MCPServerConfig[]
@@ -85,6 +88,7 @@ export interface GlobalSettings {
   messageTemplates: MessageTemplate[]
   githubAuth?: GitHubOAuthSettings
   sendGithubTokenOnSessionStart?: boolean  // デフォルト true
+  enterKeyBehavior?: EnterKeyBehavior  // デフォルト 'send' (Enter で送信、Shift+Enter で改行)
   created_at: string
   updated_at: string
 }
@@ -562,5 +566,18 @@ export const getSendGithubTokenOnSessionStart = (): boolean => {
 export const setSendGithubTokenOnSessionStart = (enabled: boolean): void => {
   const settings = loadFullGlobalSettings()
   settings.sendGithubTokenOnSessionStart = enabled
+  saveFullGlobalSettings(settings)
+}
+
+// Enter Key Behavior utilities
+export const getEnterKeyBehavior = (): EnterKeyBehavior => {
+  const settings = loadFullGlobalSettings()
+  // デフォルトは 'send' (Enter で送信、Shift+Enter で改行)
+  return settings.enterKeyBehavior ?? 'send'
+}
+
+export const setEnterKeyBehavior = (behavior: EnterKeyBehavior): void => {
+  const settings = loadFullGlobalSettings()
+  settings.enterKeyBehavior = behavior
   saveFullGlobalSettings(settings)
 }
