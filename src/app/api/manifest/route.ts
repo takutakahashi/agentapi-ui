@@ -1,14 +1,14 @@
-import type { MetadataRoute } from 'next'
+import { NextResponse } from 'next/server'
 
 /**
- * PWA マニフェストを動的に生成
+ * PWA マニフェストを動的に生成する API ルート
  * 環境変数で以下の設定が可能:
  * - PWA_APP_NAME: アプリ名
  * - PWA_SHORT_NAME: 短縮名
  * - PWA_DESCRIPTION: 説明
  * - PWA_ICON_URL: カスタムアイコン URL (設定時はすべてのサイズでこの URL を使用)
  */
-export default function manifest(): MetadataRoute.Manifest {
+export async function GET() {
   const appName = process.env.PWA_APP_NAME
     || process.env.NEXT_PUBLIC_PWA_APP_NAME
     || 'AgentAPI UI'
@@ -25,7 +25,7 @@ export default function manifest(): MetadataRoute.Manifest {
   const customIconUrl = process.env.PWA_ICON_URL
 
   // アイコン設定を生成
-  const icons: MetadataRoute.Manifest['icons'] = customIconUrl
+  const icons = customIconUrl
     ? [
         {
           src: customIconUrl,
@@ -89,7 +89,7 @@ export default function manifest(): MetadataRoute.Manifest {
         },
       ]
 
-  return {
+  const manifest = {
     name: appName,
     short_name: shortName,
     description: description,
@@ -101,4 +101,11 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/',
     icons,
   }
+
+  return NextResponse.json(manifest, {
+    headers: {
+      'Content-Type': 'application/manifest+json',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    },
+  })
 }

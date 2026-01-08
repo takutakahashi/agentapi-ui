@@ -41,6 +41,9 @@ export async function GET() {
     || process.env.NEXT_PUBLIC_LOGIN_SUB_DESCRIPTION
     || DEFAULT_CONFIG.loginSubDescription;
 
+  // カスタム favicon URL を取得
+  const faviconUrl = process.env.FAVICON_URL || null;
+
   return NextResponse.json({
     // 認証設定
     authMode,
@@ -49,7 +52,9 @@ export async function GET() {
     loginSubDescription,
     oauthProviders: DEFAULT_CONFIG.oauthProviders,
     // Push通知設定
-    vapidPublicKey: (vapidPublicKey && /^[A-Za-z0-9_-]+$/.test(vapidPublicKey)) ? vapidPublicKey : null
+    vapidPublicKey: (vapidPublicKey && /^[A-Za-z0-9_-]+$/.test(vapidPublicKey)) ? vapidPublicKey : null,
+    // カスタマイズ設定
+    faviconUrl,
   }, {
     headers: {
       'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',

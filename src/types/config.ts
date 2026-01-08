@@ -16,6 +16,8 @@ export interface AppConfig {
   loginSubDescription: string;
   /** 有効なOAuthプロバイダー */
   oauthProviders: string[];
+  /** カスタム favicon URL */
+  faviconUrl: string | null;
 }
 
 /** デフォルト設定 */
@@ -25,4 +27,5 @@ export const DEFAULT_CONFIG: AppConfig = {
   loginDescription: 'Enter your API key or sign in with GitHub to continue.',
   loginSubDescription: 'API key can be any valid authentication token for your AgentAPI service.',
   oauthProviders: ['github'],
+  faviconUrl: null,
 };
