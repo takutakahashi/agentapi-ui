@@ -6,9 +6,20 @@ const tagLength = 16;
 const ivLength = 16;
 const keyLength = 32;
 
-// 環境変数から暗号化キーを取得、または自動生成
+// 環境変数から暗号化キーを取得（必須）
 function getEncryptionKey(): Buffer {
-  const secret = process.env.COOKIE_SECRET || process.env.NEXT_PUBLIC_COOKIE_SECRET || 'default-secret-key-for-development-only';
+  const secret = process.env.COOKIE_SECRET || process.env.NEXT_PUBLIC_COOKIE_SECRET;
+  if (!secret) {
+    throw new Error(
+      'COOKIE_SECRET or NEXT_PUBLIC_COOKIE_SECRET environment variable is required. ' +
+      'Please set a secure secret key (at least 32 characters) for cookie encryption.'
+    );
+  }
+  if (secret.length < 32) {
+    throw new Error(
+      'COOKIE_SECRET must be at least 32 characters long for secure encryption.'
+    );
+  }
   const salt = Buffer.from('agentapi-ui-cookie-salt', 'utf8');
   return scryptSync(secret, salt, keyLength);
 }
