@@ -87,8 +87,9 @@ export default function ShareSessionButton({ sessionId, agentAPI }: ShareSession
     if (!shareStatus) return;
 
     const fullUrl = `${window.location.origin}${shareStatus.share_url}`;
+    const content = `セッションID: ${sessionId}\n${fullUrl}`;
     try {
-      await navigator.clipboard.writeText(fullUrl);
+      await navigator.clipboard.writeText(content);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
