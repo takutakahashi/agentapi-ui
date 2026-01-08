@@ -453,50 +453,84 @@ export default function AgentAPIChat() {
     const uniqueClaudeUrls = Array.from(new Set(allClaudeLoginUrls));
     setClaudeLoginUrls(uniqueClaudeUrls);
     
-    // 新しいClaude Login URLが検出され、まだポップアップを表示していない場合
+    // Claude Login URLが検出された場合
+    // 該当メッセージの後にメッセージがあれば、既に対応済みなのでポップアップを表示しない
     if (uniqueClaudeUrls.length > 0 && !loginPopupShown) {
-      setShowLoginPopup(true);
-      setLoginPopupShown(true);
+      const claudeUrlIndex = messages.findIndex(message =>
+        message.role === 'agent' && extractClaudeLoginUrls(message.content).length > 0
+      );
+      const hasMessagesAfter = claudeUrlIndex !== -1 && claudeUrlIndex < messages.length - 1;
+
+      if (hasMessagesAfter) {
+        setLoginPopupShown(true);
+      } else {
+        setShowLoginPopup(true);
+        setLoginPopupShown(true);
+      }
     }
-    
+
     // "Invalid API Key" または "Invalid API key" メッセージの検出
-    const hasInvalidApiKey = messages.some(message => 
-      message.role === 'agent' && (
-        message.content.includes('Invalid API Key') || 
-        message.content.includes('Invalid API key')
-      )
-    );
-    
-    if (hasInvalidApiKey && !authPromptShown) {
-      // 認証ポップアップを表示
-      setShowAuthPrompt(true);
-      setAuthPromptShown(true);
+    // 該当メッセージの後にメッセージがあれば、既に対応済みなのでポップアップを表示しない
+    if (!authPromptShown) {
+      const invalidApiKeyIndex = messages.findIndex(message =>
+        message.role === 'agent' && (
+          message.content.includes('Invalid API Key') ||
+          message.content.includes('Invalid API key')
+        )
+      );
+
+      if (invalidApiKeyIndex !== -1) {
+        const hasMessagesAfter = invalidApiKeyIndex < messages.length - 1;
+
+        if (hasMessagesAfter) {
+          setAuthPromptShown(true);
+        } else {
+          setShowAuthPrompt(true);
+          setAuthPromptShown(true);
+        }
+      }
     }
-    
+
     // "Select login method" メッセージの検出
-    const hasSelectLoginMethod = messages.some(message => 
-      message.role === 'agent' && message.content.includes('Select login method')
-    );
-    
-    if (hasSelectLoginMethod && !loginMethodPopupShown) {
-      // ログイン方法選択ポップアップを表示
-      setShowLoginMethodSelect(true);
-      setLoginMethodPopupShown(true);
+    // 該当メッセージの後にメッセージがあれば、既に対応済みなのでポップアップを表示しない
+    if (!loginMethodPopupShown) {
+      const selectLoginMethodIndex = messages.findIndex(message =>
+        message.role === 'agent' && message.content.includes('Select login method')
+      );
+
+      if (selectLoginMethodIndex !== -1) {
+        const hasMessagesAfter = selectLoginMethodIndex < messages.length - 1;
+
+        if (hasMessagesAfter) {
+          setLoginMethodPopupShown(true);
+        } else {
+          setShowLoginMethodSelect(true);
+          setLoginMethodPopupShown(true);
+        }
+      }
     }
-    
+
     // "Login successful" メッセージの検出
-    const hasLoginSuccessful = messages.some(message => 
-      message.role === 'agent' && message.content.includes('Login successful')
-    );
-    
-    if (hasLoginSuccessful && !loginSuccessShown) {
-      // 認証成功ポップアップを表示し、自動的にrawメッセージを送信
-      setShowLoginSuccess(true);
-      setLoginSuccessShown(true);
-      // 少し遅延してrawメッセージを送信
-      setTimeout(() => {
-        sendMessage('raw', '\r');
-      }, 1500);
+    // 該当メッセージの後にメッセージがあれば、既に認証フローが完了しているのでポップアップを表示しない
+    if (!loginSuccessShown) {
+      const loginSuccessIndex = messages.findIndex(message =>
+        message.role === 'agent' && message.content.includes('Login successful')
+      );
+
+      if (loginSuccessIndex !== -1) {
+        const hasMessagesAfter = loginSuccessIndex < messages.length - 1;
+
+        if (hasMessagesAfter) {
+          setLoginSuccessShown(true);
+        } else {
+          setShowLoginSuccess(true);
+          setLoginSuccessShown(true);
+          // 少し遅延してrawメッセージを送信
+          setTimeout(() => {
+            sendMessage('raw', '\r');
+          }, 1500);
+        }
+      }
     }
     
     prevMessagesLengthRef.current = currentLength;
