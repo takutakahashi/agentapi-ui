@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { Webhook, WebhookStatus, WebhookType } from '../../types/webhook'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import WebhookCard from './WebhookCard'
-import SecretModal from './SecretModal'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
 
 interface WebhookListViewProps {
@@ -24,7 +23,6 @@ export default function WebhookListView({
   const [webhooks, setWebhooks] = useState<Webhook[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [newSecret, setNewSecret] = useState<string | null>(null)
 
   const fetchWebhooks = useCallback(async () => {
     try {
@@ -85,8 +83,7 @@ export default function WebhookListView({
   const handleRegenerateSecret = async (webhookId: string) => {
     try {
       const client = createAgentAPIProxyClientFromStorage()
-      const result = await client.regenerateWebhookSecret(webhookId)
-      setNewSecret(result.secret)
+      await client.regenerateWebhookSecret(webhookId)
       // Refresh to get updated webhook data
       await fetchWebhooks()
       onWebhooksUpdate?.()
@@ -175,13 +172,6 @@ export default function WebhookListView({
           />
         ))}
       </div>
-
-      {/* Secret Modal */}
-      <SecretModal
-        isOpen={!!newSecret}
-        secret={newSecret || ''}
-        onClose={() => setNewSecret(null)}
-      />
     </div>
   )
 }
