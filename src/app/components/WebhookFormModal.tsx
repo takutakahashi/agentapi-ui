@@ -49,7 +49,6 @@ export default function WebhookFormModal({
   const [name, setName] = useState('')
   const [allowedEvents, setAllowedEvents] = useState<string[]>([])
   const [allowedRepositories, setAllowedRepositories] = useState('')
-  const [enterpriseUrl, setEnterpriseUrl] = useState('')
   const [triggers, setTriggers] = useState<TriggerFormData[]>([{ ...emptyTrigger }])
   const [repositorySuggestions, setRepositorySuggestions] = useState<string[]>([])
   const [showRepositorySuggestions, setShowRepositorySuggestions] = useState(false)
@@ -66,7 +65,6 @@ export default function WebhookFormModal({
       setName(editingWebhook.name)
       setAllowedEvents(editingWebhook.github?.allowed_events || [])
       setAllowedRepositories(editingWebhook.github?.allowed_repositories?.join(', ') || '')
-      setEnterpriseUrl(editingWebhook.github?.enterprise_url || '')
 
       if (editingWebhook.triggers && editingWebhook.triggers.length > 0) {
         setTriggers(
@@ -109,7 +107,6 @@ export default function WebhookFormModal({
     setName('')
     setAllowedEvents([])
     setAllowedRepositories('')
-    setEnterpriseUrl('')
     setTriggers([{ ...emptyTrigger }])
     setError(null)
     setExpandedTrigger(0)
@@ -274,7 +271,6 @@ export default function WebhookFormModal({
         name: name.trim(),
         type: 'github',
         github: {
-          enterprise_url: enterpriseUrl.trim() || undefined,
           allowed_events: allowedEvents.length > 0 ? allowedEvents : undefined,
           allowed_repositories: repoList.length > 0 ? repoList : undefined,
         },
@@ -345,22 +341,6 @@ export default function WebhookFormModal({
                 disabled={isSubmitting}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 required
-              />
-            </div>
-
-            {/* Enterprise URL */}
-            <div>
-              <label htmlFor="enterpriseUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                GitHub Enterprise URL
-              </label>
-              <input
-                id="enterpriseUrl"
-                type="url"
-                value={enterpriseUrl}
-                onChange={(e) => setEnterpriseUrl(e.target.value)}
-                placeholder="https://github.example.com (空欄でgithub.com)"
-                disabled={isSubmitting}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               />
             </div>
           </div>
