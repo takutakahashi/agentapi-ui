@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -55,9 +55,21 @@ function isDebugEnabled(): boolean {
 export default function NavigationTabs({ className = '' }: NavigationTabsProps) {
   const pathname = usePathname()
   const [debugEnabled, setDebugEnabled] = useState(false)
+  const [isOpen, setIsOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setDebugEnabled(isDebugEnabled())
+  }, [])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   const tabs = allTabs.filter(tab => !tab.requiresDebug || debugEnabled)
@@ -69,32 +81,62 @@ export default function NavigationTabs({ className = '' }: NavigationTabsProps) 
     return pathname === href || pathname.startsWith(`${href}/`)
   }
 
+  const currentTab = tabs.find(tab => isActive(tab.href)) || tabs[0]
+
   // Don't render if only one tab is visible
   if (tabs.length <= 1) {
     return null
   }
 
   return (
-    <div className={`flex space-x-1 p-1 bg-gray-100 dark:bg-gray-700 rounded-lg ${className}`}>
-      {tabs.map((tab) => {
-        const active = isActive(tab.href)
-        return (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            className={`
-              flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors
-              ${active
-                ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
-                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-600'
-              }
-            `}
-          >
-            {tab.icon}
-            <span>{tab.label}</span>
-          </Link>
-        )
-      })}
+    <div className={`relative ${className}`} ref={dropdownRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          {currentTab?.icon}
+          <span className="text-gray-900 dark:text-white">{currentTab?.label}</span>
+        </div>
+        <svg
+          className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg overflow-hidden">
+          {tabs.map((tab) => {
+            const active = isActive(tab.href)
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                onClick={() => setIsOpen(false)}
+                className={`
+                  flex items-center gap-2 px-4 py-2.5 text-sm transition-colors
+                  ${active
+                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }
+                `}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+                {active && (
+                  <svg className="w-4 h-4 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </Link>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
