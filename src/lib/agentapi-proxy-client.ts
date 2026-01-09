@@ -22,6 +22,14 @@ import {
   TriggerScheduleResponse
 } from '../types/schedule';
 import {
+  Webhook,
+  WebhookListParams,
+  WebhookListResponse,
+  CreateWebhookRequest,
+  UpdateWebhookRequest,
+  RegenerateSecretResponse
+} from '../types/webhook';
+import {
   CreateShareResponse,
   ShareStatus,
   RevokeShareResponse
@@ -857,6 +865,113 @@ export class AgentAPIProxyClient {
 
     if (this.debug) {
       console.log(`[AgentAPIProxy] Revoked share for session ${sessionId}:`, result);
+    }
+
+    return result;
+  }
+
+  // Webhook operations
+
+  /**
+   * Create a new webhook
+   */
+  async createWebhook(data: CreateWebhookRequest): Promise<Webhook> {
+    if (this.debug) {
+      console.log('[AgentAPIProxy] Creating webhook:', data);
+    }
+
+    const webhook = await this.makeRequest<Webhook>('/webhooks', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Created webhook: ${webhook.id}`);
+    }
+
+    return webhook;
+  }
+
+  /**
+   * Get list of webhooks
+   */
+  async getWebhooks(params?: WebhookListParams): Promise<WebhookListResponse> {
+    const searchParams = new URLSearchParams();
+
+    if (params?.type) searchParams.set('type', params.type);
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.scope) searchParams.set('scope', params.scope);
+    if (params?.team_id) searchParams.set('team_id', params.team_id);
+
+    const endpoint = `/webhooks${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const result = await this.makeRequest<WebhookListResponse>(endpoint);
+
+    return {
+      ...result,
+      webhooks: result.webhooks || []
+    };
+  }
+
+  /**
+   * Get a specific webhook by ID
+   */
+  async getWebhook(webhookId: string): Promise<Webhook> {
+    return this.makeRequest<Webhook>(`/webhooks/${webhookId}`);
+  }
+
+  /**
+   * Update a webhook
+   */
+  async updateWebhook(webhookId: string, data: UpdateWebhookRequest): Promise<Webhook> {
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Updating webhook ${webhookId}:`, data);
+    }
+
+    const webhook = await this.makeRequest<Webhook>(`/webhooks/${webhookId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Updated webhook: ${webhook.id}`);
+    }
+
+    return webhook;
+  }
+
+  /**
+   * Delete a webhook
+   */
+  async deleteWebhook(webhookId: string): Promise<void> {
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Deleting webhook: ${webhookId}`);
+    }
+
+    await this.makeRequest<void>(`/webhooks/${webhookId}`, {
+      method: 'DELETE',
+    });
+
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Deleted webhook: ${webhookId}`);
+    }
+  }
+
+  /**
+   * Regenerate webhook secret
+   */
+  async regenerateWebhookSecret(webhookId: string): Promise<RegenerateSecretResponse> {
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Regenerating secret for webhook: ${webhookId}`);
+    }
+
+    const result = await this.makeRequest<RegenerateSecretResponse>(`/webhooks/${webhookId}/regenerate-secret`, {
+      method: 'POST',
+    });
+
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Regenerated secret for webhook ${webhookId}`);
     }
 
     return result;
