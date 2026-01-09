@@ -109,39 +109,51 @@ export default function WebhookCard({
 
       {/* Webhook Info */}
       <div className="space-y-2 text-sm">
-        {/* Webhook URL & Secret - Copy buttons only */}
-        <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
+        {/* Webhook URL & Secret - Copy buttons */}
+        <div className="flex items-center gap-2">
           {webhook.webhook_url && (
             <button
               onClick={handleCopyWebhookUrl}
-              className="flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              className={`flex items-center gap-1 px-3 py-1.5 text-sm rounded transition-colors ${
+                copiedUrl
+                  ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+              }`}
               title="URLをコピー"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
               {copiedUrl ? (
-                <span className="text-green-500">コピー済み</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
               ) : (
-                <span>URL</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </svg>
               )}
+              {copiedUrl ? 'コピー済み' : 'URLをコピー'}
             </button>
           )}
 
           {webhook.secret && (
             <button
               onClick={handleCopySecret}
-              className="flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              className={`flex items-center gap-1 px-3 py-1.5 text-sm rounded transition-colors ${
+                copiedSecret
+                  ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+              }`}
               title="Secretをコピー"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-              </svg>
               {copiedSecret ? (
-                <span className="text-green-500">コピー済み</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
               ) : (
-                <span>Secret</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </svg>
               )}
+              {copiedSecret ? 'コピー済み' : 'Secretをコピー'}
             </button>
           )}
         </div>
