@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, GithubTokenSettings, ExperimentalSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings } from '@/components/settings'
+import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior } from '@/types/settings'
+import { BedrockSettings, SettingsAccordion, GithubTokenSettings, ExperimentalSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings } from '@/components/settings'
 import { OneClickPushNotifications } from '@/app/components/OneClickPushNotifications'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
@@ -83,6 +83,14 @@ export default function PersonalSettingsPage() {
 
   const handleBedrockChange = (config: BedrockConfig) => {
     setSettings((prev) => ({ ...prev, bedrock: config }))
+  }
+
+  const handleClaudeOAuthChange = (token: string, authMode: AuthMode) => {
+    setSettings((prev) => ({
+      ...prev,
+      claude_code_oauth_token: token,
+      auth_mode: authMode,
+    }))
   }
 
   const handleMCPServersChange = (servers: Record<string, APIMCPServerConfig>) => {
@@ -195,7 +203,19 @@ export default function PersonalSettingsPage() {
             description="Configure AI providers and models"
             defaultOpen
           >
-            <BedrockSettings config={settings.bedrock} onChange={handleBedrockChange} />
+            <div className="space-y-6">
+              <ClaudeOAuthSettings
+                hasToken={settings.has_claude_code_oauth_token ?? false}
+                authMode={settings.auth_mode}
+                onChange={handleClaudeOAuthChange}
+              />
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                  Bedrock Settings
+                </h4>
+                <BedrockSettings config={settings.bedrock} onChange={handleBedrockChange} />
+              </div>
+            </div>
           </SettingsAccordion>
 
           <SettingsAccordion

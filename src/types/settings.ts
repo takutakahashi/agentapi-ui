@@ -36,12 +36,18 @@ export interface APIMCPServerResponse {
   header_keys?: string[];   // ヘッダーキーのみ
 }
 
+// 認証モード
+export type AuthMode = 'oauth' | 'bedrock';
+
 // 設定データ（API で保存）
 export interface SettingsData {
   bedrock?: BedrockConfig;
   mcp_servers?: Record<string, APIMCPServerConfig>;
   marketplaces?: Record<string, MarketplaceConfig>;
   enabled_plugins?: string[];  // "plugin@marketplace" 形式のプラグインリスト (例: "commit@claude-plugins-official")
+  claude_code_oauth_token?: string;  // Claude Code OAuth トークン（保存時のみ使用）
+  has_claude_code_oauth_token?: boolean;  // OAuth トークンが設定されているか（読み取り時のみ）
+  auth_mode?: AuthMode;  // 認証モード（oauth または bedrock）
 }
 
 // Personal settings
@@ -215,6 +221,17 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
       .filter(p => p)
     // 空の配列でも送信（サーバー側で削除を反映するため）
     prepared.enabled_plugins = filteredPlugins
+  }
+
+  // Claude Code OAuth Token の処理
+  // 空文字列でも送信する（トークンの削除を反映するため）
+  if (data.claude_code_oauth_token !== undefined) {
+    prepared.claude_code_oauth_token = data.claude_code_oauth_token
+  }
+
+  // Auth Mode の処理
+  if (data.auth_mode) {
+    prepared.auth_mode = data.auth_mode
   }
 
   return prepared
