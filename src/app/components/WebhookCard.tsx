@@ -158,8 +158,21 @@ export default function WebhookCard({
           )}
         </div>
 
-        {/* GitHub Events */}
-        {webhook.github?.allowed_events && webhook.github.allowed_events.length > 0 && (
+        {/* Signature Settings */}
+        {webhook.signature_type && (
+          <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <span>
+              署名: {webhook.signature_type.toUpperCase()}
+              {webhook.signature_header && ` (${webhook.signature_header})`}
+            </span>
+          </div>
+        )}
+
+        {/* GitHub Events - Only for github type */}
+        {webhook.type === 'github' && webhook.github?.allowed_events && webhook.github.allowed_events.length > 0 && (
           <div className="flex items-start gap-2 text-gray-600 dark:text-gray-400">
             <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -177,8 +190,8 @@ export default function WebhookCard({
           </div>
         )}
 
-        {/* Allowed Repositories */}
-        {webhook.github?.allowed_repositories && webhook.github.allowed_repositories.length > 0 && (
+        {/* Allowed Repositories - Only for github type */}
+        {webhook.type === 'github' && webhook.github?.allowed_repositories && webhook.github.allowed_repositories.length > 0 && (
           <div className="flex items-start gap-2 text-gray-600 dark:text-gray-400">
             <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
@@ -193,6 +206,18 @@ export default function WebhookCard({
                 </span>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* JSONPath Conditions Count - For custom webhooks */}
+        {webhook.type === 'custom' && webhook.triggers && webhook.triggers.length > 0 && (
+          <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+            </svg>
+            <span>
+              JSONPath条件: {webhook.triggers.reduce((sum, trigger) => sum + (trigger.conditions.jsonpath?.length || 0), 0)}件
+            </span>
           </div>
         )}
 
