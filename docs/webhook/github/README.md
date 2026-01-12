@@ -4,7 +4,7 @@ GitHub Webhook 機能を使うと、GitHub からのイベント（プルリク�
 
 ## 初期メッセージテンプレートで使える変数
 
-GitHub Webhook の初期メッセージテンプレートは、Go Template 形式を使用しています。`&#123;&#123;` と `}}` で囲まれた変数名を使用して、webhook ペイロードから値を取得できます。
+GitHub Webhook の初期メッセージテンプレートは、Go Template 形式を使用しています。`{{` と `}}` で囲まれた変数名を使用して、webhook ペイロードから値を取得できます。
 
 ### 基本構文
 
@@ -17,87 +17,335 @@ GitHub Webhook の初期メッセージテンプレートは、Go Template 形�
 
 ### 共通フィールド（すべてのイベントで利用可能）
 
-| 変数 | 説明 | 例 |
-|------|------|-----|
-| `&#123;&#123;.action&#125;&#125;` | イベントのアクション | `opened`, `closed`, `synchronize` |
-| `&#123;&#123;.repository.Name&#125;&#125;` | リポジトリ名 | `agentapi-ui` |
-| `&#123;&#123;.repository.FullName&#125;&#125;` | オーナー/リポジトリ名 | `coder/agentapi-ui` |
-| `&#123;&#123;.repository.HTMLURL&#125;&#125;` | リポジトリのURL | `https://github.com/coder/agentapi-ui` |
-| `&#123;&#123;.sender.Login&#125;&#125;` | イベント送信者のユーザー名 | `octocat` |
-| `&#123;&#123;.sender.HTMLURL&#125;&#125;` | 送信者のプロフィールURL | `https://github.com/octocat` |
+{% raw %}
+<table>
+<thead>
+<tr>
+<th>変数</th>
+<th>説明</th>
+<th>例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{{.action}}</code></td>
+<td>イベントのアクション</td>
+<td><code>opened</code>, <code>closed</code>, <code>synchronize</code></td>
+</tr>
+<tr>
+<td><code>{{.repository.Name}}</code></td>
+<td>リポジトリ名</td>
+<td><code>agentapi-ui</code></td>
+</tr>
+<tr>
+<td><code>{{.repository.FullName}}</code></td>
+<td>オーナー/リポジトリ名</td>
+<td><code>coder/agentapi-ui</code></td>
+</tr>
+<tr>
+<td><code>{{.repository.HTMLURL}}</code></td>
+<td>リポジトリのURL</td>
+<td><code>https://github.com/coder/agentapi-ui</code></td>
+</tr>
+<tr>
+<td><code>{{.sender.Login}}</code></td>
+<td>イベント送信者のユーザー名</td>
+<td><code>octocat</code></td>
+</tr>
+<tr>
+<td><code>{{.sender.HTMLURL}}</code></td>
+<td>送信者のプロフィールURL</td>
+<td><code>https://github.com/octocat</code></td>
+</tr>
+</tbody>
+</table>
+{% endraw %}
+
 
 ### Pull Request イベント
 
 `pull_request` イベントで使える変数：
 
-| 変数 | 説明 | 例 |
-|------|------|-----|
-| `&#123;&#123;.pull_request.Number&#125;&#125;` | プルリクエスト番号 | `123` |
-| `&#123;&#123;.pull_request.Title&#125;&#125;` | プルリクエストのタイトル | `Fix: Update user validation` |
-| `&#123;&#123;.pull_request.Body&#125;&#125;` | プルリクエストの説明 | `This PR fixes...` |
-| `&#123;&#123;.pull_request.State&#125;&#125;` | プルリクエストの状態 | `open`, `closed` |
-| `&#123;&#123;.pull_request.HTMLURL&#125;&#125;` | プルリクエストのURL | `https://github.com/org/repo/pull/123` |
-| `&#123;&#123;.pull_request.User.Login&#125;&#125;` | プルリクエスト作成者 | `octocat` |
-| `&#123;&#123;.pull_request.Head.Ref&#125;&#125;` | ソースブランチ名 | `feature/new-feature` |
-| `&#123;&#123;.pull_request.Head.SHA&#125;&#125;` | ソースブランチのコミットSHA | `abc123def456...` |
-| `&#123;&#123;.pull_request.Base.Ref&#125;&#125;` | ターゲットブランチ名 | `main` |
-| `&#123;&#123;.pull_request.Base.SHA&#125;&#125;` | ターゲットブランチのコミットSHA | `def456abc123...` |
-| `&#123;&#123;.pull_request.Draft&#125;&#125;` | ドラフトかどうか | `true`, `false` |
-| `&#123;&#123;.pull_request.Merged&#125;&#125;` | マージ済みかどうか | `true`, `false` |
-| `&#123;&#123;.pull_request.Mergeable&#125;&#125;` | マージ可能かどうか | `true`, `false` |
+{% raw %}
+<table>
+<thead>
+<tr>
+<th>変数</th>
+<th>説明</th>
+<th>例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{{.pull_request.Number}}</code></td>
+<td>プルリクエスト番号</td>
+<td><code>123</code></td>
+</tr>
+<tr>
+<td><code>{{.pull_request.Title}}</code></td>
+<td>プルリクエストのタイトル</td>
+<td><code>Fix: Update user validation</code></td>
+</tr>
+<tr>
+<td><code>{{.pull_request.Body}}</code></td>
+<td>プルリクエストの説明</td>
+<td><code>This PR fixes...</code></td>
+</tr>
+<tr>
+<td><code>{{.pull_request.State}}</code></td>
+<td>プルリクエストの状態</td>
+<td><code>open</code>, <code>closed</code></td>
+</tr>
+<tr>
+<td><code>{{.pull_request.HTMLURL}}</code></td>
+<td>プルリクエストのURL</td>
+<td><code>https://github.com/org/repo/pull/123</code></td>
+</tr>
+<tr>
+<td><code>{{.pull_request.User.Login}}</code></td>
+<td>プルリクエスト作成者</td>
+<td><code>octocat</code></td>
+</tr>
+<tr>
+<td><code>{{.pull_request.Head.Ref}}</code></td>
+<td>ソースブランチ名</td>
+<td><code>feature/new-feature</code></td>
+</tr>
+<tr>
+<td><code>{{.pull_request.Head.SHA}}</code></td>
+<td>ソースブランチのコミットSHA</td>
+<td><code>abc123def456...</code></td>
+</tr>
+<tr>
+<td><code>{{.pull_request.Base.Ref}}</code></td>
+<td>ターゲットブランチ名</td>
+<td><code>main</code></td>
+</tr>
+<tr>
+<td><code>{{.pull_request.Base.SHA}}</code></td>
+<td>ターゲットブランチのコミットSHA</td>
+<td><code>def456abc123...</code></td>
+</tr>
+<tr>
+<td><code>{{.pull_request.Draft}}</code></td>
+<td>ドラフトかどうか</td>
+<td><code>true</code>, <code>false</code></td>
+</tr>
+<tr>
+<td><code>{{.pull_request.Merged}}</code></td>
+<td>マージ済みかどうか</td>
+<td><code>true</code>, <code>false</code></td>
+</tr>
+<tr>
+<td><code>{{.pull_request.Mergeable}}</code></td>
+<td>マージ可能かどうか</td>
+<td><code>true</code>, <code>false</code></td>
+</tr>
+</tbody>
+</table>
+{% endraw %}
+
 
 ### Issues イベント
 
 `issues` イベントで使える変数：
 
-| 変数 | 説明 | 例 |
-|------|------|-----|
-| `&#123;&#123;.issue.Number&#125;&#125;` | Issue 番号 | `456` |
-| `&#123;&#123;.issue.Title&#125;&#125;` | Issue のタイトル | `Bug: Login fails` |
-| `&#123;&#123;.issue.Body&#125;&#125;` | Issue の本文 | `Steps to reproduce...` |
-| `&#123;&#123;.issue.State&#125;&#125;` | Issue の状態 | `open`, `closed` |
-| `&#123;&#123;.issue.HTMLURL&#125;&#125;` | Issue のURL | `https://github.com/org/repo/issues/456` |
-| `&#123;&#123;.issue.User.Login&#125;&#125;` | Issue 作成者 | `octocat` |
-| `&#123;&#123;.issue.Assignee.Login&#125;&#125;` | アサインされたユーザー | `reviewer1` |
+{% raw %}
+<table>
+<thead>
+<tr>
+<th>変数</th>
+<th>説明</th>
+<th>例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{{.issue.Number}}</code></td>
+<td>Issue 番号</td>
+<td><code>456</code></td>
+</tr>
+<tr>
+<td><code>{{.issue.Title}}</code></td>
+<td>Issue のタイトル</td>
+<td><code>Bug: Login fails</code></td>
+</tr>
+<tr>
+<td><code>{{.issue.Body}}</code></td>
+<td>Issue の本文</td>
+<td><code>Steps to reproduce...</code></td>
+</tr>
+<tr>
+<td><code>{{.issue.State}}</code></td>
+<td>Issue の状態</td>
+<td><code>open</code>, <code>closed</code></td>
+</tr>
+<tr>
+<td><code>{{.issue.HTMLURL}}</code></td>
+<td>Issue のURL</td>
+<td><code>https://github.com/org/repo/issues/456</code></td>
+</tr>
+<tr>
+<td><code>{{.issue.User.Login}}</code></td>
+<td>Issue 作成者</td>
+<td><code>octocat</code></td>
+</tr>
+<tr>
+<td><code>{{.issue.Assignee.Login}}</code></td>
+<td>アサインされたユーザー</td>
+<td><code>reviewer1</code></td>
+</tr>
+</tbody>
+</table>
+{% endraw %}
+
 
 ### Issue Comment イベント
 
 `issue_comment` イベントで使える変数：
 
-| 変数 | 説明 | 例 |
-|------|------|-----|
-| `&#123;&#123;.comment.Body&#125;&#125;` | コメントの本文 | `Looks good to me!` |
-| `&#123;&#123;.comment.HTMLURL&#125;&#125;` | コメントのURL | `https://github.com/org/repo/issues/456#comment-123` |
-| `&#123;&#123;.comment.User.Login&#125;&#125;` | コメント投稿者 | `octocat` |
-| `&#123;&#123;.issue.Number&#125;&#125;` | Issue/PR 番号 | `456` |
-| `&#123;&#123;.issue.Title&#125;&#125;` | Issue/PR のタイトル | `Bug: Login fails` |
+{% raw %}
+<table>
+<thead>
+<tr>
+<th>変数</th>
+<th>説明</th>
+<th>例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{{.comment.Body}}</code></td>
+<td>コメントの本文</td>
+<td><code>Looks good to me!</code></td>
+</tr>
+<tr>
+<td><code>{{.comment.HTMLURL}}</code></td>
+<td>コメントのURL</td>
+<td><code>https://github.com/org/repo/issues/456#comment-123</code></td>
+</tr>
+<tr>
+<td><code>{{.comment.User.Login}}</code></td>
+<td>コメント投稿者</td>
+<td><code>octocat</code></td>
+</tr>
+<tr>
+<td><code>{{.issue.Number}}</code></td>
+<td>Issue/PR 番号</td>
+<td><code>456</code></td>
+</tr>
+<tr>
+<td><code>{{.issue.Title}}</code></td>
+<td>Issue/PR のタイトル</td>
+<td><code>Bug: Login fails</code></td>
+</tr>
+</tbody>
+</table>
+{% endraw %}
+
 
 ### Pull Request Review イベント
 
 `pull_request_review` イベントで使える変数：
 
-| 変数 | 説明 | 例 |
-|------|------|-----|
-| `&#123;&#123;.review.Body&#125;&#125;` | レビューコメント | `Overall looks good...` |
-| `&#123;&#123;.review.State&#125;&#125;` | レビューの状態 | `approved`, `changes_requested`, `commented` |
-| `&#123;&#123;.review.HTMLURL&#125;&#125;` | レビューのURL | `https://github.com/org/repo/pull/123#review-456` |
-| `&#123;&#123;.review.User.Login&#125;&#125;` | レビュアー | `reviewer1` |
-| `&#123;&#123;.pull_request.Number&#125;&#125;` | プルリクエスト番号 | `123` |
-| `&#123;&#123;.pull_request.Title&#125;&#125;` | プルリクエストのタイトル | `Fix: Update user validation` |
+{% raw %}
+<table>
+<thead>
+<tr>
+<th>変数</th>
+<th>説明</th>
+<th>例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{{.review.Body}}</code></td>
+<td>レビューコメント</td>
+<td><code>Overall looks good...</code></td>
+</tr>
+<tr>
+<td><code>{{.review.State}}</code></td>
+<td>レビューの状態</td>
+<td><code>approved</code>, <code>changes_requested</code>, <code>commented</code></td>
+</tr>
+<tr>
+<td><code>{{.review.HTMLURL}}</code></td>
+<td>レビューのURL</td>
+<td><code>https://github.com/org/repo/pull/123#review-456</code></td>
+</tr>
+<tr>
+<td><code>{{.review.User.Login}}</code></td>
+<td>レビュアー</td>
+<td><code>reviewer1</code></td>
+</tr>
+<tr>
+<td><code>{{.pull_request.Number}}</code></td>
+<td>プルリクエスト番号</td>
+<td><code>123</code></td>
+</tr>
+<tr>
+<td><code>{{.pull_request.Title}}</code></td>
+<td>プルリクエストのタイトル</td>
+<td><code>Fix: Update user validation</code></td>
+</tr>
+</tbody>
+</table>
+{% endraw %}
+
 
 ### Push イベント
 
 `push` イベントで使える変数：
 
-| 変数 | 説明 | 例 |
-|------|------|-----|
-| `&#123;&#123;.ref&#125;&#125;` | ブランチ参照 | `refs/heads/main` |
-| `&#123;&#123;.before&#125;&#125;` | プッシュ前のコミットSHA | `abc123...` |
-| `&#123;&#123;.after&#125;&#125;` | プッシュ後のコミットSHA | `def456...` |
-| `&#123;&#123;.commits&#125;&#125;` | コミットの配列 | `[...]` |
-| `&#123;&#123;.head_commit.Message&#125;&#125;` | 最新コミットメッセージ | `Fix bug in user service` |
-| `&#123;&#123;.head_commit.Author.Name&#125;&#125;` | コミット作成者名 | `John Doe` |
-| `&#123;&#123;.pusher.Name&#125;&#125;` | プッシュしたユーザー名 | `octocat` |
+{% raw %}
+<table>
+<thead>
+<tr>
+<th>変数</th>
+<th>説明</th>
+<th>例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{{.ref}}</code></td>
+<td>ブランチ参照</td>
+<td><code>refs/heads/main</code></td>
+</tr>
+<tr>
+<td><code>{{.before}}</code></td>
+<td>プッシュ前のコミットSHA</td>
+<td><code>abc123...</code></td>
+</tr>
+<tr>
+<td><code>{{.after}}</code></td>
+<td>プッシュ後のコミットSHA</td>
+<td><code>def456...</code></td>
+</tr>
+<tr>
+<td><code>{{.commits}}</code></td>
+<td>コミットの配列</td>
+<td><code>[...]</code></td>
+</tr>
+<tr>
+<td><code>{{.head_commit.Message}}</code></td>
+<td>最新コミットメッセージ</td>
+<td><code>Fix bug in user service</code></td>
+</tr>
+<tr>
+<td><code>{{.head_commit.Author.Name}}</code></td>
+<td>コミット作成者名</td>
+<td><code>John Doe</code></td>
+</tr>
+<tr>
+<td><code>{{.pusher.Name}}</code></td>
+<td>プッシュしたユーザー名</td>
+<td><code>octocat</code></td>
+</tr>
+</tbody>
+</table>
+{% endraw %}
+
 
 ## 実用例
 
@@ -297,7 +545,7 @@ Webhook の Delivery Record 機能を使って、実際に受信したペイロ�
 
 ### 3. 存在しないフィールドに注意
 
-すべてのフィールドが常に存在するわけではありません。オプショナルなフィールド（例: `&#123;&#123;.issue.Assignee.Login&#125;&#125;`）を使う場合は、条件分岐を使用することを検討してください。
+すべてのフィールドが常に存在するわけではありません。オプショナルなフィールド（例: `{{.issue.Assignee.Login}}`）を使う場合は、条件分岐を使用することを検討してください。
 
 {% raw %}
 ```
