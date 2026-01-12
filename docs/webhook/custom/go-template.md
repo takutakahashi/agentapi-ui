@@ -6,16 +6,52 @@ Go Template は、Go 言語の標準テンプレートエンジンを使用し�
 
 ### 基本構文
 
-Go Template では、`&#123;&#123;` と `}}` で囲まれた部分がテンプレート式として評価されます。
+Go Template では、`{{` と `}}` で囲まれた部分がテンプレート式として評価されます。
 
-| 構文 | 説明 | 例 |
-|------|------|-----|
-| `&#123;&#123;.field&#125;&#125;` | フィールドへのアクセス | `&#123;&#123;.event&#125;&#125;` |
-| `&#123;&#123;.field.subfield&#125;&#125;` | ネストされたフィールド | `&#123;&#123;.event.type&#125;&#125;` |
-| `&#123;&#123;index .array 0&#125;&#125;` | 配列要素へのアクセス | `&#123;&#123;index .tags 0&#125;&#125;` |
-| `&#123;&#123;eq .a .b&#125;&#125;` | 等価比較 | `&#123;&#123;eq .event.type "alert"&#125;&#125;` |
-| `&#123;&#123;and .a .b&#125;&#125;` | AND 演算 | `&#123;&#123;and (eq .a 1) (eq .b 2)&#125;&#125;` |
-| `&#123;&#123;or .a .b&#125;&#125;` | OR 演算 | `&#123;&#123;or (eq .a 1) (eq .b 2)&#125;&#125;` |
+{% raw %}
+<table>
+<thead>
+<tr>
+<th>構文</th>
+<th>説明</th>
+<th>例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{{.field}}</code></td>
+<td>フィールドへのアクセス</td>
+<td><code>{{.event}}</code></td>
+</tr>
+<tr>
+<td><code>{{.field.subfield}}</code></td>
+<td>ネストされたフィールド</td>
+<td><code>{{.event.type}}</code></td>
+</tr>
+<tr>
+<td><code>{{index .array 0}}</code></td>
+<td>配列要素へのアクセス</td>
+<td><code>{{index .tags 0}}</code></td>
+</tr>
+<tr>
+<td><code>{{eq .a .b}}</code></td>
+<td>等価比較</td>
+<td><code>{{eq .event.type "alert"}}</code></td>
+</tr>
+<tr>
+<td><code>{{and .a .b}}</code></td>
+<td>AND 演算</td>
+<td><code>{{and (eq .a 1) (eq .b 2)}}</code></td>
+</tr>
+<tr>
+<td><code>{{or .a .b}}</code></td>
+<td>OR 演算</td>
+<td><code>{{or (eq .a 1) (eq .b 2)}}</code></td>
+</tr>
+</tbody>
+</table>
+{% endraw %}
+
 
 ### 例: 基本的なペイロード
 
@@ -36,13 +72,45 @@ Go Template では、`&#123;&#123;` と `}}` で囲まれた部分がテンプ�
 
 **アクセス例**:
 
-| Go Template | 取得される値 | 説明 |
-|------------|------------|------|
-| `&#123;&#123;.event.type&#125;&#125;` | `"alert"` | event オブジェクトの type フィールド |
-| `&#123;&#123;.event.severity&#125;&#125;` | `"critical"` | event オブジェクトの severity フィールド |
-| `&#123;&#123;.service.name&#125;&#125;` | `"api-server"` | service オブジェクトの name フィールド |
-| `&#123;&#123;index .tags 0&#125;&#125;` | `"production"` | tags 配列の最初の要素 |
-| `&#123;&#123;index .tags 1&#125;&#125;` | `"urgent"` | tags 配列の2番目の要素 |
+{% raw %}
+<table>
+<thead>
+<tr>
+<th>Go Template</th>
+<th>取得される値</th>
+<th>説明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{{.event.type}}</code></td>
+<td><code>"alert"</code></td>
+<td>event オブジェクトの type フィールド</td>
+</tr>
+<tr>
+<td><code>{{.event.severity}}</code></td>
+<td><code>"critical"</code></td>
+<td>event オブジェクトの severity フィールド</td>
+</tr>
+<tr>
+<td><code>{{.service.name}}</code></td>
+<td><code>"api-server"</code></td>
+<td>service オブジェクトの name フィールド</td>
+</tr>
+<tr>
+<td><code>{{index .tags 0}}</code></td>
+<td><code>"production"</code></td>
+<td>tags 配列の最初の要素</td>
+</tr>
+<tr>
+<td><code>{{index .tags 1}}</code></td>
+<td><code>"urgent"</code></td>
+<td>tags 配列の2番目の要素</td>
+</tr>
+</tbody>
+</table>
+{% endraw %}
+
 
 ## 条件の基本構造
 
@@ -62,14 +130,50 @@ Go Template では、`&#123;&#123;` と `}}` で囲まれた部分がテンプ�
 
 Go Template では、以下の比較関数が使用できます：
 
-| 関数 | 説明 | 使用例 |
-|------|------|---------|
-| `eq` | 等しい | `&#123;&#123;eq .status "active"&#125;&#125;` |
-| `ne` | 等しくない | `&#123;&#123;ne .status "inactive"&#125;&#125;` |
-| `lt` | より小さい | `&#123;&#123;lt .value 100&#125;&#125;` |
-| `le` | 以下 | `&#123;&#123;le .value 100&#125;&#125;` |
-| `gt` | より大きい | `&#123;&#123;gt .value 100&#125;&#125;` |
-| `ge` | 以上 | `&#123;&#123;ge .value 100&#125;&#125;` |
+{% raw %}
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>説明</th>
+<th>使用例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>eq</code></td>
+<td>等しい</td>
+<td><code>{{eq .status "active"}}</code></td>
+</tr>
+<tr>
+<td><code>ne</code></td>
+<td>等しくない</td>
+<td><code>{{ne .status "inactive"}}</code></td>
+</tr>
+<tr>
+<td><code>lt</code></td>
+<td>より小さい</td>
+<td><code>{{lt .value 100}}</code></td>
+</tr>
+<tr>
+<td><code>le</code></td>
+<td>以下</td>
+<td><code>{{le .value 100}}</code></td>
+</tr>
+<tr>
+<td><code>gt</code></td>
+<td>より大きい</td>
+<td><code>{{gt .value 100}}</code></td>
+</tr>
+<tr>
+<td><code>ge</code></td>
+<td>以上</td>
+<td><code>{{ge .value 100}}</code></td>
+</tr>
+</tbody>
+</table>
+{% endraw %}
+
 
 ## 論理演算
 
