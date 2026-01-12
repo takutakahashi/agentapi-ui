@@ -1,12 +1,11 @@
 # カスタム Webhook
 
-Custom Webhook 機能を使うと、GitHub 以外の任意のサービスからの Webhook を受け取り、AI エージェントと連携できます。JSONPath を使った柔軟な条件設定により、様々なユースケースに対応できます。
+Custom Webhook 機能を使うと、GitHub 以外の任意のサービスからの Webhook を受け取り、AI エージェントと連携できます。Go Template を使った柔軟な条件設定により、様々なユースケースに対応できます。
 
 ## このセクションで学ぶこと
 
 - Custom Webhook の基本的な仕組み
-- JSONPath を使った条件設定
-- 演算子の使い方
+- Go Template を使った条件設定
 - 署名検証の設定
 - 実用的な設定例
 
@@ -15,7 +14,7 @@ Custom Webhook 機能を使うと、GitHub 以外の任意のサービスから�
 GitHub Webhook は GitHub 特化型の条件設定を提供していますが、他のサービスには対応していません。Custom Webhook を使うことで：
 
 ✅ **任意の JSON 構造に対応**: どんなペイロード形式でも処理可能
-✅ **柔軟な条件評価**: JSONPath で複雑な条件を記述
+✅ **柔軟な条件評価**: Go Template で複雑な条件を記述
 ✅ **複数のサービスに対応**: Slack、Datadog、PagerDuty など
 ✅ **標準的な署名検証**: HMAC による安全な通信
 
@@ -44,13 +43,7 @@ Custom Webhook は以下の要素で構成されます：
       "priority": 10,
       "enabled": true,
       "conditions": {
-        "jsonpath": [
-          {
-            "path": "$.event.type",
-            "operator": "eq",
-            "value": "alert"
-          }
-        ]
+        "go_template": "{{eq .event.type \"alert\"}}"
       },
       "session_config": {
         "initial_message_template": "アラート: {{.event.message}}",
@@ -70,7 +63,7 @@ Custom Webhook は以下の要素で構成されます：
 | `name` | Webhook の識別名 |
 | `type` | `custom` を指定 |
 | `triggers` | トリガー条件の配列（複数設定可能） |
-| `triggers[].conditions.jsonpath` | JSONPath 条件の配列 |
+| `triggers[].conditions.go_template` | Go Template 条件式 |
 | `triggers[].session_config` | セッション設定とテンプレート |
 
 ## クイックスタート
@@ -122,18 +115,16 @@ curl -X POST https://agentapi.example.com/hooks/custom/webhook-abc-123 \
 
 ## 次のステップ
 
-- [概要と仕組み](overview.md) - Custom Webhook の詳細な説明
-- [JSONPath 条件の書き方](jsonpath.md) - 条件設定の基礎
-- [演算子リファレンス](operators.md) - 利用可能な演算子一覧
+- [Go Template 条件の書き方](go-template.md) - 条件設定の基礎
 - [署名検証の設定](signature.md) - セキュリティ設定
 
 ## よくある質問
 
 **Q: GitHub Webhook と Custom Webhook の違いは？**
-A: GitHub Webhook は GitHub 専用の条件設定を提供します。Custom Webhook は JSONPath を使って任意の JSON 構造に対応できます。
+A: GitHub Webhook は GitHub 専用の条件設定を提供します。Custom Webhook は Go Template を使って任意の JSON 構造に対応できます。
 
 **Q: 複数の条件を設定できますか？**
-A: はい、JSONPath 条件を配列で複数指定できます。すべての条件が満たされた場合（AND 条件）にトリガーが発火します。
+A: はい、Go Template 内で複数の条件を組み合わせて記述できます。
 
 **Q: 署名検証は必須ですか？**
 A: はい、セキュリティのため署名検証が必須です。HMAC-SHA256 による検証を推奨します。
@@ -143,6 +134,4 @@ A: 最大 1MB までのペイロードを受け付けます。
 
 ## まとめ
 
-Custom Webhook を使うことで、GitHub 以外の任意のサービスと agentapi-proxy を連携できます。JSONPath による柔軟な条件設定と、標準的な署名検証により、安全で強力な統合が実現できます。
-
-次のページで、Custom Webhook の仕組みを詳しく見ていきましょう。
+Custom Webhook を使うことで、GitHub 以外の任意のサービスと agentapi-proxy を連携できます。Go Template による柔軟な条件設定と、標準的な署名検証により、安全で強力な統合が実現できます。
