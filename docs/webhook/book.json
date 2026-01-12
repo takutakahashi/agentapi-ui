@@ -1,0 +1,11 @@
+{
+  "title": "agentapi-ui Webhook ガイド",
+  "description": "agentapi-proxy を使った Webhook の完全ガイド",
+  "language": "ja",
+  "gitbook": "3.2.3",
+  "root": ".",
+  "structure": {
+    "readme": "README.md",
+    "summary": "SUMMARY.md"
+  }
+}
