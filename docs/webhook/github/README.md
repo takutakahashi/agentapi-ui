@@ -9,17 +9,14 @@ GitHub Webhook の初期メッセージテンプレートは、Go Template 形�
 ### 基本構文
 
 {% raw %}
-{% raw %}
 ```
 {{.フィールド名}}
 {{.オブジェクト名.フィールド名}}
 ```
 {% endraw %}
-{% endraw %}
 
 ### 共通フィールド（すべてのイベントで利用可能）
 
-{% raw %}
 | 変数 | 説明 | 例 |
 |------|------|-----|
 | `&#123;&#123;.action&#125;&#125;` | イベントのアクション | `opened`, `closed`, `synchronize` |
@@ -28,13 +25,11 @@ GitHub Webhook の初期メッセージテンプレートは、Go Template 形�
 | `&#123;&#123;.repository.HTMLURL&#125;&#125;` | リポジトリのURL | `https://github.com/coder/agentapi-ui` |
 | `&#123;&#123;.sender.Login&#125;&#125;` | イベント送信者のユーザー名 | `octocat` |
 | `&#123;&#123;.sender.HTMLURL&#125;&#125;` | 送信者のプロフィールURL | `https://github.com/octocat` |
-{% endraw %}
 
 ### Pull Request イベント
 
 `pull_request` イベントで使える変数：
 
-{% raw %}
 | 変数 | 説明 | 例 |
 |------|------|-----|
 | `&#123;&#123;.pull_request.Number&#125;&#125;` | プルリクエスト番号 | `123` |
@@ -50,13 +45,11 @@ GitHub Webhook の初期メッセージテンプレートは、Go Template 形�
 | `&#123;&#123;.pull_request.Draft&#125;&#125;` | ドラフトかどうか | `true`, `false` |
 | `&#123;&#123;.pull_request.Merged&#125;&#125;` | マージ済みかどうか | `true`, `false` |
 | `&#123;&#123;.pull_request.Mergeable&#125;&#125;` | マージ可能かどうか | `true`, `false` |
-{% endraw %}
 
 ### Issues イベント
 
 `issues` イベントで使える変数：
 
-{% raw %}
 | 変数 | 説明 | 例 |
 |------|------|-----|
 | `&#123;&#123;.issue.Number&#125;&#125;` | Issue 番号 | `456` |
@@ -66,13 +59,11 @@ GitHub Webhook の初期メッセージテンプレートは、Go Template 形�
 | `&#123;&#123;.issue.HTMLURL&#125;&#125;` | Issue のURL | `https://github.com/org/repo/issues/456` |
 | `&#123;&#123;.issue.User.Login&#125;&#125;` | Issue 作成者 | `octocat` |
 | `&#123;&#123;.issue.Assignee.Login&#125;&#125;` | アサインされたユーザー | `reviewer1` |
-{% endraw %}
 
 ### Issue Comment イベント
 
 `issue_comment` イベントで使える変数：
 
-{% raw %}
 | 変数 | 説明 | 例 |
 |------|------|-----|
 | `&#123;&#123;.comment.Body&#125;&#125;` | コメントの本文 | `Looks good to me!` |
@@ -80,13 +71,11 @@ GitHub Webhook の初期メッセージテンプレートは、Go Template 形�
 | `&#123;&#123;.comment.User.Login&#125;&#125;` | コメント投稿者 | `octocat` |
 | `&#123;&#123;.issue.Number&#125;&#125;` | Issue/PR 番号 | `456` |
 | `&#123;&#123;.issue.Title&#125;&#125;` | Issue/PR のタイトル | `Bug: Login fails` |
-{% endraw %}
 
 ### Pull Request Review イベント
 
 `pull_request_review` イベントで使える変数：
 
-{% raw %}
 | 変数 | 説明 | 例 |
 |------|------|-----|
 | `&#123;&#123;.review.Body&#125;&#125;` | レビューコメント | `Overall looks good...` |
@@ -95,13 +84,11 @@ GitHub Webhook の初期メッセージテンプレートは、Go Template 形�
 | `&#123;&#123;.review.User.Login&#125;&#125;` | レビュアー | `reviewer1` |
 | `&#123;&#123;.pull_request.Number&#125;&#125;` | プルリクエスト番号 | `123` |
 | `&#123;&#123;.pull_request.Title&#125;&#125;` | プルリクエストのタイトル | `Fix: Update user validation` |
-{% endraw %}
 
 ### Push イベント
 
 `push` イベントで使える変数：
 
-{% raw %}
 | 変数 | 説明 | 例 |
 |------|------|-----|
 | `&#123;&#123;.ref&#125;&#125;` | ブランチ参照 | `refs/heads/main` |
@@ -111,11 +98,8 @@ GitHub Webhook の初期メッセージテンプレートは、Go Template 形�
 | `&#123;&#123;.head_commit.Message&#125;&#125;` | 最新コミットメッセージ | `Fix bug in user service` |
 | `&#123;&#123;.head_commit.Author.Name&#125;&#125;` | コミット作成者名 | `John Doe` |
 | `&#123;&#123;.pusher.Name&#125;&#125;` | プッシュしたユーザー名 | `octocat` |
-{% endraw %}
 
 ## 実用例
-
-{% raw %}
 
 ### 例 1: Pull Request のレビュー依頼
 
@@ -127,7 +111,6 @@ Created by: @{{.pull_request.User.Login}}
 Branch: {{.pull_request.Head.Ref}} → {{.pull_request.Base.Ref}}
 URL: {{.pull_request.HTMLURL}}
 ```
-{% endraw %}
 {% endraw %}
 
 **出力例:**
@@ -142,7 +125,6 @@ URL: https://github.com/coder/agentapi-ui/pull/123
 ### 例 2: Issue のトリアージ
 
 {% raw %}
-{% raw %}
 ```
 New issue #{{.issue.Number}}: {{.issue.Title}}
 
@@ -152,7 +134,6 @@ URL: {{.issue.HTMLURL}}
 
 Please review and add appropriate labels.
 ```
-{% endraw %}
 {% endraw %}
 
 **出力例:**
@@ -169,7 +150,6 @@ Please review and add appropriate labels.
 ### 例 3: Pull Request Review コメント
 
 {% raw %}
-{% raw %}
 ```
 @{{.review.User.Login}} reviewed PR #{{.pull_request.Number}}: {{.review.State}}
 
@@ -178,7 +158,6 @@ Review: {{.review.HTMLURL}}
 
 Please address the feedback and update the PR.
 ```
-{% endraw %}
 {% endraw %}
 
 **出力例:**
@@ -196,7 +175,6 @@ Please address the feedback and update the PR.
 Go Template では条件分岐も使用できます：
 
 {% raw %}
-{% raw %}
 ```
 {{if .pull_request.Draft}}
 Draft PR #{{.pull_request.Number}} by @{{.pull_request.User.Login}}
@@ -207,11 +185,9 @@ Review "{{.pull_request.Title}}" at {{.pull_request.HTMLURL}}
 {{end}}
 ```
 {% endraw %}
-{% endraw %}
 
 ### 例 5: 配列要素へのアクセス
 
-{% raw %}
 {% raw %}
 ```
 Latest commit: {{.head_commit.Message}}
@@ -222,7 +198,6 @@ Pushed to: {{.ref}}
 Repository: {{.repository.FullName}}
 ```
 {% endraw %}
-{% endraw %}
 
 ## ベストプラクティス
 
@@ -232,29 +207,24 @@ Repository: {{.repository.FullName}}
 
 ✅ **良い例:**
 {% raw %}
-{% raw %}
 ```
 Review PR #{{.pull_request.Number}}: "{{.pull_request.Title}}"
 Check code quality, test coverage, and documentation.
 URL: {{.pull_request.HTMLURL}}
 ```
 {% endraw %}
-{% endraw %}
 
 ❌ **悪い例:**
-{% raw %}
 {% raw %}
 ```
 PR {{.pull_request.Number}}
 ```
-{% endraw %}
 {% endraw %}
 
 ### 2. 必要な情報を含める
 
 エージェントが作業を完了するために必要な情報をすべて含めましょう。
 
-{% raw %}
 {% raw %}
 ```
 PR #{{.pull_request.Number}} by @{{.pull_request.User.Login}}
@@ -269,13 +239,11 @@ Tasks:
 4. Add review comments if needed
 ```
 {% endraw %}
-{% endraw %}
 
 ### 3. URLを含める
 
 エージェントが直接アクセスできるよう、関連するURLを含めましょう。
 
-{% raw %}
 {% raw %}
 ```
 {{.pull_request.HTMLURL}}
@@ -283,20 +251,17 @@ Tasks:
 {{.repository.HTMLURL}}
 ```
 {% endraw %}
-{% endraw %}
 
 ### 4. コンテキストを提供
 
 リポジトリ名やユーザー名など、コンテキスト情報を含めましょう。
 
 {% raw %}
-{% raw %}
 ```
 Repository: {{.repository.FullName}}
 Author: @{{.sender.Login}}
 Action: {{.action}}
 ```
-{% endraw %}
 {% endraw %}
 
 ## デバッグのコツ
@@ -307,29 +272,23 @@ Action: {{.action}}
 
 **ステップ 1:**
 {% raw %}
-{% raw %}
 ```
 PR #{{.pull_request.Number}}
 ```
 {% endraw %}
-{% endraw %}
 
 **ステップ 2:**
-{% raw %}
 {% raw %}
 ```
 PR #{{.pull_request.Number}}: {{.pull_request.Title}}
 ```
 {% endraw %}
-{% endraw %}
 
 **ステップ 3:**
-{% raw %}
 {% raw %}
 ```
 Review PR #{{.pull_request.Number}}: "{{.pull_request.Title}}" in {{.repository.FullName}}
 ```
-{% endraw %}
 {% endraw %}
 
 ### 2. Delivery Record を確認
@@ -338,9 +297,8 @@ Webhook の Delivery Record 機能を使って、実際に受信したペイロ�
 
 ### 3. 存在しないフィールドに注意
 
-すべてのフィールドが常に存在するわけではありません。オプショナルなフィールドを使う場合は、条件分岐を使用することを検討してください。
+すべてのフィールドが常に存在するわけではありません。オプショナルなフィールド（例: `&#123;&#123;.issue.Assignee.Login&#125;&#125;`）を使う場合は、条件分岐を使用することを検討してください。
 
-{% raw %}
 {% raw %}
 ```
 {{if .issue.Assignee}}
@@ -349,7 +307,6 @@ Assigned to: @{{.issue.Assignee.Login}}
 Not assigned yet
 {{end}}
 ```
-{% endraw %}
 {% endraw %}
 
 ## よくあるエラー
@@ -360,22 +317,18 @@ Go の構造体フィールドは**大文字で始まる**必要があります�
 
 ❌ **間違い:**
 {% raw %}
-{% raw %}
 ```
 {{.pull_request.number}}  // 小文字
 {{.repository.fullName}}  // キャメルケースの最初は小文字
 ```
 {% endraw %}
-{% endraw %}
 
 ✅ **正しい:**
-{% raw %}
 {% raw %}
 ```
 {{.pull_request.Number}}  // 大文字で始まる
 {{.repository.FullName}}  // 大文字で始まる
 ```
-{% endraw %}
 {% endraw %}
 
 ### エラー 2: 存在しないフィールドへのアクセス
@@ -384,16 +337,13 @@ Go の構造体フィールドは**大文字で始まる**必要があります�
 
 ❌ **間違い:**
 {% raw %}
-{% raw %}
 ```
 // push イベントで pull_request フィールドにアクセス
 {{.pull_request.Number}}
 ```
 {% endraw %}
-{% endraw %}
 
 ✅ **正しい:**
-{% raw %}
 {% raw %}
 ```
 // pull_request イベントでのみ使用
@@ -401,7 +351,6 @@ Go の構造体フィールドは**大文字で始まる**必要があります�
 PR #{{.pull_request.Number}}
 {{end}}
 ```
-{% endraw %}
 {% endraw %}
 
 ## 関連情報
