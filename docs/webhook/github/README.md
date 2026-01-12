@@ -4,7 +4,7 @@ GitHub Webhook 機能を使うと、GitHub からのイベント（プルリク�
 
 ## 初期メッセージテンプレートで使える変数
 
-GitHub Webhook の初期メッセージテンプレートは、Go Template 形式を使用しています。`{{` と `}}` で囲まれた変数名を使用して、webhook ペイロードから値を取得できます。
+GitHub Webhook の初期メッセージテンプレートは、Go Template 形式を使用しています。`&#123;&#123;` と `}}` で囲まれた変数名を使用して、webhook ペイロードから値を取得できます。
 
 ### 基本構文
 
@@ -17,106 +17,93 @@ GitHub Webhook の初期メッセージテンプレートは、Go Template 形�
 
 ### 共通フィールド（すべてのイベントで利用可能）
 
-{% raw %}
 | 変数 | 説明 | 例 |
 |------|------|-----|
-| `{{.action}}` | イベントのアクション | `opened`, `closed`, `synchronize` |
-| `{{.repository.Name}}` | リポジトリ名 | `agentapi-ui` |
-| `{{.repository.FullName}}` | オーナー/リポジトリ名 | `coder/agentapi-ui` |
-| `{{.repository.HTMLURL}}` | リポジトリのURL | `https://github.com/coder/agentapi-ui` |
-| `{{.sender.Login}}` | イベント送信者のユーザー名 | `octocat` |
-| `{{.sender.HTMLURL}}` | 送信者のプロフィールURL | `https://github.com/octocat` |
-{% endraw %}
+| `&#123;&#123;.action&#125;&#125;` | イベントのアクション | `opened`, `closed`, `synchronize` |
+| `&#123;&#123;.repository.Name&#125;&#125;` | リポジトリ名 | `agentapi-ui` |
+| `&#123;&#123;.repository.FullName&#125;&#125;` | オーナー/リポジトリ名 | `coder/agentapi-ui` |
+| `&#123;&#123;.repository.HTMLURL&#125;&#125;` | リポジトリのURL | `https://github.com/coder/agentapi-ui` |
+| `&#123;&#123;.sender.Login&#125;&#125;` | イベント送信者のユーザー名 | `octocat` |
+| `&#123;&#123;.sender.HTMLURL&#125;&#125;` | 送信者のプロフィールURL | `https://github.com/octocat` |
 
 ### Pull Request イベント
 
 `pull_request` イベントで使える変数：
 
-{% raw %}
 | 変数 | 説明 | 例 |
 |------|------|-----|
-| `{{.pull_request.Number}}` | プルリクエスト番号 | `123` |
-| `{{.pull_request.Title}}` | プルリクエストのタイトル | `Fix: Update user validation` |
-| `{{.pull_request.Body}}` | プルリクエストの説明 | `This PR fixes...` |
-| `{{.pull_request.State}}` | プルリクエストの状態 | `open`, `closed` |
-| `{{.pull_request.HTMLURL}}` | プルリクエストのURL | `https://github.com/org/repo/pull/123` |
-| `{{.pull_request.User.Login}}` | プルリクエスト作成者 | `octocat` |
-| `{{.pull_request.Head.Ref}}` | ソースブランチ名 | `feature/new-feature` |
-| `{{.pull_request.Head.SHA}}` | ソースブランチのコミットSHA | `abc123def456...` |
-| `{{.pull_request.Base.Ref}}` | ターゲットブランチ名 | `main` |
-| `{{.pull_request.Base.SHA}}` | ターゲットブランチのコミットSHA | `def456abc123...` |
-| `{{.pull_request.Draft}}` | ドラフトかどうか | `true`, `false` |
-| `{{.pull_request.Merged}}` | マージ済みかどうか | `true`, `false` |
-| `{{.pull_request.Mergeable}}` | マージ可能かどうか | `true`, `false` |
-{% endraw %}
+| `&#123;&#123;.pull_request.Number&#125;&#125;` | プルリクエスト番号 | `123` |
+| `&#123;&#123;.pull_request.Title&#125;&#125;` | プルリクエストのタイトル | `Fix: Update user validation` |
+| `&#123;&#123;.pull_request.Body&#125;&#125;` | プルリクエストの説明 | `This PR fixes...` |
+| `&#123;&#123;.pull_request.State&#125;&#125;` | プルリクエストの状態 | `open`, `closed` |
+| `&#123;&#123;.pull_request.HTMLURL&#125;&#125;` | プルリクエストのURL | `https://github.com/org/repo/pull/123` |
+| `&#123;&#123;.pull_request.User.Login&#125;&#125;` | プルリクエスト作成者 | `octocat` |
+| `&#123;&#123;.pull_request.Head.Ref&#125;&#125;` | ソースブランチ名 | `feature/new-feature` |
+| `&#123;&#123;.pull_request.Head.SHA&#125;&#125;` | ソースブランチのコミットSHA | `abc123def456...` |
+| `&#123;&#123;.pull_request.Base.Ref&#125;&#125;` | ターゲットブランチ名 | `main` |
+| `&#123;&#123;.pull_request.Base.SHA&#125;&#125;` | ターゲットブランチのコミットSHA | `def456abc123...` |
+| `&#123;&#123;.pull_request.Draft&#125;&#125;` | ドラフトかどうか | `true`, `false` |
+| `&#123;&#123;.pull_request.Merged&#125;&#125;` | マージ済みかどうか | `true`, `false` |
+| `&#123;&#123;.pull_request.Mergeable&#125;&#125;` | マージ可能かどうか | `true`, `false` |
 
 ### Issues イベント
 
 `issues` イベントで使える変数：
 
-{% raw %}
 | 変数 | 説明 | 例 |
 |------|------|-----|
-| `{{.issue.Number}}` | Issue 番号 | `456` |
-| `{{.issue.Title}}` | Issue のタイトル | `Bug: Login fails` |
-| `{{.issue.Body}}` | Issue の本文 | `Steps to reproduce...` |
-| `{{.issue.State}}` | Issue の状態 | `open`, `closed` |
-| `{{.issue.HTMLURL}}` | Issue のURL | `https://github.com/org/repo/issues/456` |
-| `{{.issue.User.Login}}` | Issue 作成者 | `octocat` |
-| `{{.issue.Assignee.Login}}` | アサインされたユーザー | `reviewer1` |
-{% endraw %}
+| `&#123;&#123;.issue.Number&#125;&#125;` | Issue 番号 | `456` |
+| `&#123;&#123;.issue.Title&#125;&#125;` | Issue のタイトル | `Bug: Login fails` |
+| `&#123;&#123;.issue.Body&#125;&#125;` | Issue の本文 | `Steps to reproduce...` |
+| `&#123;&#123;.issue.State&#125;&#125;` | Issue の状態 | `open`, `closed` |
+| `&#123;&#123;.issue.HTMLURL&#125;&#125;` | Issue のURL | `https://github.com/org/repo/issues/456` |
+| `&#123;&#123;.issue.User.Login&#125;&#125;` | Issue 作成者 | `octocat` |
+| `&#123;&#123;.issue.Assignee.Login&#125;&#125;` | アサインされたユーザー | `reviewer1` |
 
 ### Issue Comment イベント
 
 `issue_comment` イベントで使える変数：
 
-{% raw %}
 | 変数 | 説明 | 例 |
 |------|------|-----|
-| `{{.comment.Body}}` | コメントの本文 | `Looks good to me!` |
-| `{{.comment.HTMLURL}}` | コメントのURL | `https://github.com/org/repo/issues/456#comment-123` |
-| `{{.comment.User.Login}}` | コメント投稿者 | `octocat` |
-| `{{.issue.Number}}` | Issue/PR 番号 | `456` |
-| `{{.issue.Title}}` | Issue/PR のタイトル | `Bug: Login fails` |
-{% endraw %}
+| `&#123;&#123;.comment.Body&#125;&#125;` | コメントの本文 | `Looks good to me!` |
+| `&#123;&#123;.comment.HTMLURL&#125;&#125;` | コメントのURL | `https://github.com/org/repo/issues/456#comment-123` |
+| `&#123;&#123;.comment.User.Login&#125;&#125;` | コメント投稿者 | `octocat` |
+| `&#123;&#123;.issue.Number&#125;&#125;` | Issue/PR 番号 | `456` |
+| `&#123;&#123;.issue.Title&#125;&#125;` | Issue/PR のタイトル | `Bug: Login fails` |
 
 ### Pull Request Review イベント
 
 `pull_request_review` イベントで使える変数：
 
-{% raw %}
 | 変数 | 説明 | 例 |
 |------|------|-----|
-| `{{.review.Body}}` | レビューコメント | `Overall looks good...` |
-| `{{.review.State}}` | レビューの状態 | `approved`, `changes_requested`, `commented` |
-| `{{.review.HTMLURL}}` | レビューのURL | `https://github.com/org/repo/pull/123#review-456` |
-| `{{.review.User.Login}}` | レビュアー | `reviewer1` |
-| `{{.pull_request.Number}}` | プルリクエスト番号 | `123` |
-| `{{.pull_request.Title}}` | プルリクエストのタイトル | `Fix: Update user validation` |
-{% endraw %}
+| `&#123;&#123;.review.Body&#125;&#125;` | レビューコメント | `Overall looks good...` |
+| `&#123;&#123;.review.State&#125;&#125;` | レビューの状態 | `approved`, `changes_requested`, `commented` |
+| `&#123;&#123;.review.HTMLURL&#125;&#125;` | レビューのURL | `https://github.com/org/repo/pull/123#review-456` |
+| `&#123;&#123;.review.User.Login&#125;&#125;` | レビュアー | `reviewer1` |
+| `&#123;&#123;.pull_request.Number&#125;&#125;` | プルリクエスト番号 | `123` |
+| `&#123;&#123;.pull_request.Title&#125;&#125;` | プルリクエストのタイトル | `Fix: Update user validation` |
 
 ### Push イベント
 
 `push` イベントで使える変数：
 
-{% raw %}
 | 変数 | 説明 | 例 |
 |------|------|-----|
-| `{{.ref}}` | ブランチ参照 | `refs/heads/main` |
-| `{{.before}}` | プッシュ前のコミットSHA | `abc123...` |
-| `{{.after}}` | プッシュ後のコミットSHA | `def456...` |
-| `{{.commits}}` | コミットの配列 | `[...]` |
-| `{{.head_commit.Message}}` | 最新コミットメッセージ | `Fix bug in user service` |
-| `{{.head_commit.Author.Name}}` | コミット作成者名 | `John Doe` |
-| `{{.pusher.Name}}` | プッシュしたユーザー名 | `octocat` |
-{% endraw %}
+| `&#123;&#123;.ref&#125;&#125;` | ブランチ参照 | `refs/heads/main` |
+| `&#123;&#123;.before&#125;&#125;` | プッシュ前のコミットSHA | `abc123...` |
+| `&#123;&#123;.after&#125;&#125;` | プッシュ後のコミットSHA | `def456...` |
+| `&#123;&#123;.commits&#125;&#125;` | コミットの配列 | `[...]` |
+| `&#123;&#123;.head_commit.Message&#125;&#125;` | 最新コミットメッセージ | `Fix bug in user service` |
+| `&#123;&#123;.head_commit.Author.Name&#125;&#125;` | コミット作成者名 | `John Doe` |
+| `&#123;&#123;.pusher.Name&#125;&#125;` | プッシュしたユーザー名 | `octocat` |
 
 ## 実用例
 
-{% raw %}
-
 ### 例 1: Pull Request のレビュー依頼
 
+{% raw %}
 ```
 Review PR #{{.pull_request.Number}}: "{{.pull_request.Title}}" in {{.repository.FullName}}
 
@@ -310,7 +297,7 @@ Webhook の Delivery Record 機能を使って、実際に受信したペイロ�
 
 ### 3. 存在しないフィールドに注意
 
-すべてのフィールドが常に存在するわけではありません。オプショナルなフィールドを使う場合は、条件分岐を使用することを検討してください。
+すべてのフィールドが常に存在するわけではありません。オプショナルなフィールド（例: `&#123;&#123;.issue.Assignee.Login&#125;&#125;`）を使う場合は、条件分岐を使用することを検討してください。
 
 {% raw %}
 ```
