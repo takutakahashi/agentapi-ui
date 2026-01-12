@@ -434,9 +434,492 @@ agentapi-proxy の Delivery Record 機能を使って、受信したペイロー
 }
 ```
 
+## 実際のサービスからのWebhook例
+
+このセクションでは、実際のサービスから送信されるWebhookペイロードと、それに対応する条件式の例を紹介します。
+
+### Slack - インシデント通知
+
+**Slackから送信されるペイロード例:**
+```json
+{
+  "type": "event_callback",
+  "event": {
+    "type": "app_mention",
+    "text": "<@U12345> incident in production",
+    "user": "U67890",
+    "channel": "C11111",
+    "ts": "1234567890.123456"
+  },
+  "team_id": "T12345"
+}
+```
+
+**条件式の例:**
+
+1. **app_mention イベントのみ受け取る:**
+```json
+{
+  "go_template": "{{eq .event.type \"app_mention\"}}"
+}
+```
+
+2. **"incident" という単語を含む mention のみ:**
+```json
+{
+  "go_template": "{{and (eq .event.type \"app_mention\") (eq .type \"event_callback\")}}"
+}
+```
+
+3. **特定のチャンネルからの mention のみ:**
+```json
+{
+  "go_template": "{{and (eq .event.type \"app_mention\") (eq .event.channel \"C11111\")}}"
+}
+```
+
+### Datadog - メトリクスアラート
+
+**Datadogから送信されるペイロード例:**
+```json
+{
+  "id": "1234567890",
+  "alert_type": "metric_alert",
+  "title": "High CPU usage on web-server-01",
+  "body": "CPU usage is above 90%",
+  "priority": "normal",
+  "last_updated": "2026-01-12T10:30:00+00:00",
+  "event_type": "triggered",
+  "tags": ["env:production", "service:web", "host:web-server-01"],
+  "alert_metric": "system.cpu.user",
+  "alert_status": "alert",
+  "alert_transition": "Triggered",
+  "current_value": 95.3,
+  "alert_threshold": 90
+}
+```
+
+**条件式の例:**
+
+1. **アラートがトリガーされた時のみ:**
+```json
+{
+  "go_template": "{{eq .event_type \"triggered\"}}"
+}
+```
+
+2. **CPU使用率が90%以上の時:**
+```json
+{
+  "go_template": "{{and (eq .alert_metric \"system.cpu.user\") (gt .current_value 90)}}"
+}
+```
+
+3. **本番環境のメトリクスアラートのみ（簡易チェック）:**
+```json
+{
+  "go_template": "{{and (eq .alert_type \"metric_alert\") (eq .event_type \"triggered\")}}"
+}
+```
+
+### PagerDuty - インシデント
+
+**PagerDutyから送信されるペイロード例:**
+```json
+{
+  "event": {
+    "id": "INCIDENT123",
+    "event_type": "incident.triggered",
+    "resource_type": "incident",
+    "occurred_at": "2026-01-12T10:30:00Z",
+    "agent": {
+      "html_url": "https://example.pagerduty.com/users/USER123",
+      "id": "USER123",
+      "summary": "John Doe",
+      "type": "user_reference"
+    },
+    "data": {
+      "id": "INC-123",
+      "type": "incident",
+      "self": "https://api.pagerduty.com/incidents/INC-123",
+      "html_url": "https://example.pagerduty.com/incidents/INC-123",
+      "number": 123,
+      "status": "triggered",
+      "title": "Database connection pool exhausted",
+      "urgency": "high",
+      "service": {
+        "id": "SERVICE123",
+        "summary": "Production Database"
+      }
+    }
+  }
+}
+```
+
+**条件式の例:**
+
+1. **インシデントがトリガーされた時:**
+```json
+{
+  "go_template": "{{eq .event.event_type \"incident.triggered\"}}"
+}
+```
+
+2. **高緊急度のインシデントのみ:**
+```json
+{
+  "go_template": "{{and (eq .event.event_type \"incident.triggered\") (eq .event.data.urgency \"high\")}}"
+}
+```
+
+3. **特定のサービスの高緊急度インシデント:**
+```json
+{
+  "go_template": "{{and (eq .event.event_type \"incident.triggered\") (eq .event.data.urgency \"high\") (eq .event.data.service.id \"SERVICE123\")}}"
+}
+```
+
+### Sentry - エラートラッキング
+
+**Sentryから送信されるペイロード例:**
+```json
+{
+  "action": "created",
+  "installation": {
+    "uuid": "12345678-1234-1234-1234-123456789012"
+  },
+  "data": {
+    "issue": {
+      "id": "123456789",
+      "title": "TypeError: Cannot read property 'map' of undefined",
+      "culprit": "app/components/UserList.tsx in UserList",
+      "level": "error",
+      "status": "unresolved",
+      "type": "error",
+      "metadata": {
+        "type": "TypeError",
+        "value": "Cannot read property 'map' of undefined"
+      },
+      "project": {
+        "id": "987654",
+        "name": "production-web",
+        "slug": "production-web"
+      }
+    }
+  },
+  "actor": {
+    "type": "application",
+    "id": "sentry",
+    "name": "Sentry"
+  }
+}
+```
+
+**条件式の例:**
+
+1. **新しいエラーが作成された時:**
+```json
+{
+  "go_template": "{{eq .action \"created\"}}"
+}
+```
+
+2. **エラーレベルのイベントのみ:**
+```json
+{
+  "go_template": "{{and (eq .action \"created\") (eq .data.issue.level \"error\")}}"
+}
+```
+
+3. **特定のプロジェクトのエラー:**
+```json
+{
+  "go_template": "{{and (eq .action \"created\") (eq .data.issue.project.slug \"production-web\") (eq .data.issue.level \"error\")}}"
+}
+```
+
+### CircleCI - ビルド完了
+
+**CircleCIから送信されるペイロード例:**
+```json
+{
+  "type": "workflow-completed",
+  "id": "12345678-1234-1234-1234-123456789012",
+  "happened_at": "2026-01-12T10:30:00.000Z",
+  "webhook": {
+    "id": "webhook-123",
+    "name": "Production Deployment"
+  },
+  "workflow": {
+    "id": "workflow-123",
+    "name": "build-and-deploy",
+    "status": "success",
+    "created_at": "2026-01-12T10:20:00.000Z",
+    "stopped_at": "2026-01-12T10:30:00.000Z",
+    "url": "https://app.circleci.com/pipelines/github/org/repo/123/workflows/workflow-123"
+  },
+  "pipeline": {
+    "id": "pipeline-123",
+    "number": 456,
+    "vcs": {
+      "origin_repository_url": "https://github.com/org/repo",
+      "target_repository_url": "https://github.com/org/repo",
+      "revision": "abc123def456",
+      "branch": "main"
+    }
+  },
+  "project": {
+    "id": "project-123",
+    "name": "repo",
+    "slug": "github/org/repo"
+  },
+  "organization": {
+    "id": "org-123",
+    "name": "org"
+  }
+}
+```
+
+**条件式の例:**
+
+1. **ワークフローが完了した時:**
+```json
+{
+  "go_template": "{{eq .type \"workflow-completed\"}}"
+}
+```
+
+2. **ビルドが失敗した時:**
+```json
+{
+  "go_template": "{{and (eq .type \"workflow-completed\") (eq .workflow.status \"failed\")}}"
+}
+```
+
+3. **mainブランチのビルドが失敗した時:**
+```json
+{
+  "go_template": "{{and (eq .type \"workflow-completed\") (eq .workflow.status \"failed\") (eq .pipeline.vcs.branch \"main\")}}"
+}
+```
+
+4. **本番デプロイワークフローが成功した時:**
+```json
+{
+  "go_template": "{{and (eq .type \"workflow-completed\") (eq .workflow.name \"build-and-deploy\") (eq .workflow.status \"success\") (eq .pipeline.vcs.branch \"main\")}}"
+}
+```
+
+### Stripe - 支払いイベント
+
+**Stripeから送信されるペイロード例:**
+```json
+{
+  "id": "evt_1234567890",
+  "object": "event",
+  "api_version": "2023-10-16",
+  "created": 1704715200,
+  "type": "payment_intent.succeeded",
+  "data": {
+    "object": {
+      "id": "pi_1234567890",
+      "object": "payment_intent",
+      "amount": 5000,
+      "currency": "usd",
+      "status": "succeeded",
+      "customer": "cus_1234567890",
+      "description": "Monthly subscription",
+      "metadata": {
+        "subscription_id": "sub_1234567890",
+        "plan": "pro"
+      }
+    }
+  },
+  "livemode": true
+}
+```
+
+**条件式の例:**
+
+1. **支払いが成功した時:**
+```json
+{
+  "go_template": "{{eq .type \"payment_intent.succeeded\"}}"
+}
+```
+
+2. **$100以上の支払いが成功した時:**
+```json
+{
+  "go_template": "{{and (eq .type \"payment_intent.succeeded\") (ge .data.object.amount 10000)}}"
+}
+```
+
+3. **本番環境のProプラン支払い:**
+```json
+{
+  "go_template": "{{and (eq .type \"payment_intent.succeeded\") (eq .livemode true) (eq .data.object.metadata.plan \"pro\")}}"
+}
+```
+
+### GitHub Actions - ワークフロー実行
+
+**GitHub Actionsから送信されるペイロード例（カスタムWebhook）:**
+```json
+{
+  "workflow": "CI",
+  "repository": "org/repo",
+  "status": "failure",
+  "conclusion": "failure",
+  "branch": "main",
+  "commit_sha": "abc123def456",
+  "commit_message": "Fix: Update user validation",
+  "author": "john.doe",
+  "workflow_url": "https://github.com/org/repo/actions/runs/123456",
+  "run_id": 123456,
+  "run_number": 789
+}
+```
+
+**条件式の例:**
+
+1. **ワークフローが失敗した時:**
+```json
+{
+  "go_template": "{{eq .status \"failure\"}}"
+}
+```
+
+2. **mainブランチのCIが失敗した時:**
+```json
+{
+  "go_template": "{{and (eq .workflow \"CI\") (eq .branch \"main\") (eq .status \"failure\")}}"
+}
+```
+
+3. **特定のユーザーのコミットで失敗した時:**
+```json
+{
+  "go_template": "{{and (eq .status \"failure\") (eq .author \"john.doe\")}}"
+}
+```
+
+### 汎用的なWebhook - カスタムアプリケーション
+
+**カスタムアプリケーションのペイロード例:**
+```json
+{
+  "event_type": "order_created",
+  "timestamp": "2026-01-12T10:30:00Z",
+  "data": {
+    "order_id": "ORD-12345",
+    "customer_id": "CUST-67890",
+    "total_amount": 15000,
+    "currency": "JPY",
+    "status": "pending",
+    "items_count": 3,
+    "shipping_address": {
+      "country": "JP",
+      "prefecture": "Tokyo"
+    },
+    "priority": "high"
+  },
+  "metadata": {
+    "source": "web",
+    "campaign": "summer-sale"
+  }
+}
+```
+
+**条件式の例:**
+
+1. **注文が作成された時:**
+```json
+{
+  "go_template": "{{eq .event_type \"order_created\"}}"
+}
+```
+
+2. **10,000円以上の高額注文:**
+```json
+{
+  "go_template": "{{and (eq .event_type \"order_created\") (ge .data.total_amount 10000)}}"
+}
+```
+
+3. **高優先度のWeb注文:**
+```json
+{
+  "go_template": "{{and (eq .event_type \"order_created\") (eq .data.priority \"high\") (eq .metadata.source \"web\")}}"
+}
+```
+
+4. **特定キャンペーンの東京への配送:**
+```json
+{
+  "go_template": "{{and (eq .event_type \"order_created\") (eq .metadata.campaign \"summer-sale\") (eq .data.shipping_address.prefecture \"Tokyo\")}}"
+}
+```
+
+## 複数条件の組み合わせパターン
+
+実際の運用では、複数の条件を組み合わせることが多くあります。以下は実践的なパターン例です。
+
+### パターン 1: 環境とステータスの組み合わせ
+
+```json
+{
+  "triggers": [
+    {
+      "name": "Production Critical Alerts",
+      "priority": 100,
+      "conditions": {
+        "go_template": "{{and (eq .environment \"production\") (or (eq .severity \"critical\") (eq .severity \"high\"))}}"
+      }
+    },
+    {
+      "name": "Staging Alerts",
+      "priority": 50,
+      "conditions": {
+        "go_template": "{{and (eq .environment \"staging\") (eq .severity \"critical\")}}"
+      }
+    },
+    {
+      "name": "All Other Alerts",
+      "priority": 10,
+      "conditions": {
+        "go_template": "{{eq .event_type \"alert\"}}"
+      }
+    }
+  ]
+}
+```
+
+### パターン 2: 数値の範囲チェック
+
+```json
+{
+  "go_template": "{{and (gt .value 80) (le .value 100)}}"
+}
+```
+
+### パターン 3: 複数のイベントタイプ
+
+```json
+{
+  "go_template": "{{or (eq .event_type \"error\") (eq .event_type \"critical\") (eq .event_type \"emergency\")}}"
+}
+```
+
 ## まとめ
 
 Go Template を使った条件設定は、Custom Webhook の最も強力な機能です。基本的な構文を理解し、比較関数と論理演算を適切に使うことで、様々なペイロード構造に対応できます。
+
+実際のサービスからのWebhookを設定する際は：
+1. まずペイロードの構造を確認
+2. 必要な条件を明確にする
+3. 段階的に条件を追加してテスト
+4. Delivery Recordで動作を確認
 
 ## 関連ページ
 
