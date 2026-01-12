@@ -8,6 +8,8 @@ Go Template は、Go 言語の標準テンプレートエンジンを使用し�
 
 Go Template では、`{{` と `}}` で囲まれた部分がテンプレート式として評価されます。
 
+{% raw %}
+{% raw %}
 | 構文 | 説明 | 例 |
 |------|------|-----|
 | `{{.field}}` | フィールドへのアクセス | `{{.event}}` |
@@ -16,6 +18,8 @@ Go Template では、`{{` と `}}` で囲まれた部分がテンプレート式
 | `{{eq .a .b}}` | 等価比較 | `{{eq .event.type "alert"}}` |
 | `{{and .a .b}}` | AND 演算 | `{{and (eq .a 1) (eq .b 2)}}` |
 | `{{or .a .b}}` | OR 演算 | `{{or (eq .a 1) (eq .b 2)}}` |
+{% endraw %}
+{% endraw %}
 
 ### 例: 基本的なペイロード
 
@@ -36,6 +40,8 @@ Go Template では、`{{` と `}}` で囲まれた部分がテンプレート式
 
 **アクセス例**:
 
+{% raw %}
+{% raw %}
 | Go Template | 取得される値 | 説明 |
 |------------|------------|------|
 | `{{.event.type}}` | `"alert"` | event オブジェクトの type フィールド |
@@ -43,9 +49,12 @@ Go Template では、`{{` と `}}` で囲まれた部分がテンプレート式
 | `{{.service.name}}` | `"api-server"` | service オブジェクトの name フィールド |
 | `{{index .tags 0}}` | `"production"` | tags 配列の最初の要素 |
 | `{{index .tags 1}}` | `"urgent"` | tags 配列の2番目の要素 |
+{% endraw %}
+{% endraw %}
 
 ## 条件の基本構造
 
+{% raw %}
 ```json
 {
   "conditions": {
@@ -53,6 +62,7 @@ Go Template では、`{{` と `}}` で囲まれた部分がテンプレート式
   }
 }
 ```
+{% endraw %}
 
 この条件式は、`event.type` が `"alert"` と等しい場合に `true` を返します。
 
@@ -60,6 +70,7 @@ Go Template では、`{{` と `}}` で囲まれた部分がテンプレート式
 
 Go Template では、以下の比較関数が使用できます：
 
+{% raw %}
 | 関数 | 説明 | 使用例 |
 |------|------|---------|
 | `eq` | 等しい | `{{eq .status "active"}}` |
@@ -68,18 +79,23 @@ Go Template では、以下の比較関数が使用できます：
 | `le` | 以下 | `{{le .value 100}}` |
 | `gt` | より大きい | `{{gt .value 100}}` |
 | `ge` | 以上 | `{{ge .value 100}}` |
+{% endraw %}
 
 ## 論理演算
 
 複数の条件を組み合わせる場合は、`and` や `or` を使用します：
 
+{% raw %}
 ```go
 {{and (eq .event.type "alert") (eq .severity "critical")}}
 ```
+{% endraw %}
 
+{% raw %}
 ```go
 {{or (eq .environment "production") (eq .environment "staging")}}
 ```
+{% endraw %}
 
 ## 実践例
 
@@ -87,6 +103,7 @@ Go Template では、以下の比較関数が使用できます：
 
 **要件**: イベントタイプが `"alert"` の場合のみトリガー
 
+{% raw %}
 ```json
 {
   "conditions": {
@@ -94,6 +111,7 @@ Go Template では、以下の比較関数が使用できます：
   }
 }
 ```
+{% endraw %}
 
 **マッチするペイロード**:
 ```json
@@ -108,6 +126,7 @@ Go Template では、以下の比較関数が使用できます：
 
 **要件**: severity が `"critical"` かつ environment が `"production"` の場合のみトリガー
 
+{% raw %}
 ```json
 {
   "conditions": {
@@ -115,6 +134,7 @@ Go Template では、以下の比較関数が使用できます：
   }
 }
 ```
+{% endraw %}
 
 **マッチするペイロード**:
 ```json
@@ -128,6 +148,7 @@ Go Template では、以下の比較関数が使用できます：
 
 **要件**: service.status が `"down"` の場合のみトリガー
 
+{% raw %}
 ```json
 {
   "conditions": {
@@ -135,6 +156,7 @@ Go Template では、以下の比較関数が使用できます：
   }
 }
 ```
+{% endraw %}
 
 **マッチするペイロード**:
 ```json
@@ -150,6 +172,7 @@ Go Template では、以下の比較関数が使用できます：
 
 **要件**: CPU 使用率が 90 より大きい場合のみトリガー
 
+{% raw %}
 ```json
 {
   "conditions": {
@@ -157,6 +180,7 @@ Go Template では、以下の比較関数が使用できます：
   }
 }
 ```
+{% endraw %}
 
 **マッチするペイロード**:
 ```json
@@ -171,6 +195,7 @@ Go Template では、以下の比較関数が使用できます：
 
 **要件**: environment が `"production"` または `"staging"` の場合のみトリガー
 
+{% raw %}
 ```json
 {
   "conditions": {
@@ -178,6 +203,7 @@ Go Template では、以下の比較関数が使用できます：
   }
 }
 ```
+{% endraw %}
 
 **マッチするペイロード**:
 ```json
@@ -198,6 +224,7 @@ Go Template では、以下の比較関数が使用できます：
 
 **要件**: status が `"resolved"` でない場合のみトリガー
 
+{% raw %}
 ```json
 {
   "conditions": {
@@ -205,6 +232,7 @@ Go Template では、以下の比較関数が使用できます：
   }
 }
 ```
+{% endraw %}
 
 **マッチするペイロード**:
 ```json
@@ -224,6 +252,7 @@ Go Template では、以下の比較関数が使用できます：
 - environment が `"production"` である
 - status が `"triggered"` である
 
+{% raw %}
 ```json
 {
   "conditions": {
@@ -231,6 +260,7 @@ Go Template では、以下の比較関数が使用できます：
   }
 }
 ```
+{% endraw %}
 
 **マッチするペイロード**:
 ```json
@@ -250,6 +280,7 @@ Go Template では、以下の比較関数が使用できます：
 - 現在の値が 90 より大きい
 - タグに `"env:production"` が含まれる（簡易チェック）
 
+{% raw %}
 ```json
 {
   "conditions": {
@@ -257,6 +288,7 @@ Go Template では、以下の比較関数が使用できます：
   }
 }
 ```
+{% endraw %}
 
 **マッチするペイロード**:
 ```json
@@ -276,6 +308,7 @@ Go Template では、以下の比較関数が使用できます：
 - severity が `"critical"` または `"high"` である
 - environment が `"production"` である
 
+{% raw %}
 ```json
 {
   "conditions": {
@@ -283,6 +316,7 @@ Go Template では、以下の比較関数が使用できます：
   }
 }
 ```
+{% endraw %}
 
 **マッチするペイロード**:
 ```json
@@ -306,51 +340,62 @@ Go Template では、以下の比較関数が使用できます：
 条件が複雑すぎると、読みづらくなります。本当に必要な条件だけを設定しましょう。
 
 ❌ **悪い例**: 過剰な条件
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .event.type \"alert\") (ne .event.id \"\") (ne .event.timestamp \"\") (ne .user \"\")}}"
 }
 ```
+{% endraw %}
 
 ✅ **良い例**: 必要な条件のみ
+{% raw %}
 ```json
 {
   "go_template": "{{eq .event.type \"alert\"}}"
 }
 ```
+{% endraw %}
 
 ### 2. 括弧を適切に使う
 
 複雑な条件では、括弧を使って明確にしましょう。
 
 ❌ **悪い例**: 読みにくい
+{% raw %}
 ```json
 {
   "go_template": "{{and eq .a 1 eq .b 2 eq .c 3}}"
 }
 ```
+{% endraw %}
 
 ✅ **良い例**: 括弧で明確に
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .a 1) (and (eq .b 2) (eq .c 3))}}"
 }
 ```
+{% endraw %}
 
 ### 3. 文字列のエスケープに注意
 
 JSON 内で文字列を記述する場合は、ダブルクォートをエスケープする必要があります。
 
+{% raw %}
 ```json
 {
   "go_template": "{{eq .status \"active\"}}"
 }
 ```
+{% endraw %}
 
 ### 4. 優先度を活用
 
 複数のトリガーを設定する場合は、優先度を使って評価順序を制御しましょう。
 
+{% raw %}
 ```json
 {
   "triggers": [
@@ -371,6 +416,7 @@ JSON 内で文字列を記述する場合は、ダブルクォートをエスケ
   ]
 }
 ```
+{% endraw %}
 
 ## デバッグのコツ
 
@@ -393,32 +439,40 @@ agentapi-proxy の Delivery Record 機能を使って、受信したペイロー
 最初は単純な条件から始めて、徐々に複雑にしていきましょう。
 
 **ステップ 1**: 基本的な条件
+{% raw %}
 ```json
 {"go_template": "{{eq .event.type \"alert\"}}"}
 ```
+{% endraw %}
 
 **ステップ 2**: 条件を追加
+{% raw %}
 ```json
 {"go_template": "{{and (eq .event.type \"alert\") (eq .severity \"critical\")}}"}
 ```
+{% endraw %}
 
 ## よくあるエラー
 
 ### エラー 1: クォートのエスケープ忘れ
 
 ❌ **間違い**:
+{% raw %}
 ```json
 {
   "go_template": "{{eq .status "active"}}"
 }
 ```
+{% endraw %}
 
 ✅ **正しい**:
+{% raw %}
 ```json
 {
   "go_template": "{{eq .status \"active\"}}"
 }
 ```
+{% endraw %}
 
 ### エラー 2: 存在しないフィールドへのアクセス
 
@@ -428,11 +482,13 @@ agentapi-proxy の Delivery Record 機能を使って、受信したペイロー
 
 数値と文字列を比較する場合は、型に注意しましょう。
 
+{% raw %}
 ```json
 {
   "go_template": "{{eq .count 10}}"
 }
 ```
+{% endraw %}
 
 ## 実際のサービスからのWebhook例
 
@@ -458,25 +514,31 @@ agentapi-proxy の Delivery Record 機能を使って、受信したペイロー
 **条件式の例:**
 
 1. **app_mention イベントのみ受け取る:**
+{% raw %}
 ```json
 {
   "go_template": "{{eq .event.type \"app_mention\"}}"
 }
 ```
+{% endraw %}
 
 2. **"incident" という単語を含む mention のみ:**
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .event.type \"app_mention\") (eq .type \"event_callback\")}}"
 }
 ```
+{% endraw %}
 
 3. **特定のチャンネルからの mention のみ:**
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .event.type \"app_mention\") (eq .event.channel \"C11111\")}}"
 }
 ```
+{% endraw %}
 
 ### Datadog - メトリクスアラート
 
@@ -502,25 +564,31 @@ agentapi-proxy の Delivery Record 機能を使って、受信したペイロー
 **条件式の例:**
 
 1. **アラートがトリガーされた時のみ:**
+{% raw %}
 ```json
 {
   "go_template": "{{eq .event_type \"triggered\"}}"
 }
 ```
+{% endraw %}
 
 2. **CPU使用率が90%以上の時:**
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .alert_metric \"system.cpu.user\") (gt .current_value 90)}}"
 }
 ```
+{% endraw %}
 
 3. **本番環境のメトリクスアラートのみ（簡易チェック）:**
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .alert_type \"metric_alert\") (eq .event_type \"triggered\")}}"
 }
 ```
+{% endraw %}
 
 ### PagerDuty - インシデント
 
@@ -559,25 +627,31 @@ agentapi-proxy の Delivery Record 機能を使って、受信したペイロー
 **条件式の例:**
 
 1. **インシデントがトリガーされた時:**
+{% raw %}
 ```json
 {
   "go_template": "{{eq .event.event_type \"incident.triggered\"}}"
 }
 ```
+{% endraw %}
 
 2. **高緊急度のインシデントのみ:**
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .event.event_type \"incident.triggered\") (eq .event.data.urgency \"high\")}}"
 }
 ```
+{% endraw %}
 
 3. **特定のサービスの高緊急度インシデント:**
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .event.event_type \"incident.triggered\") (eq .event.data.urgency \"high\") (eq .event.data.service.id \"SERVICE123\")}}"
 }
 ```
+{% endraw %}
 
 ### Sentry - エラートラッキング
 
@@ -618,25 +692,31 @@ agentapi-proxy の Delivery Record 機能を使って、受信したペイロー
 **条件式の例:**
 
 1. **新しいエラーが作成された時:**
+{% raw %}
 ```json
 {
   "go_template": "{{eq .action \"created\"}}"
 }
 ```
+{% endraw %}
 
 2. **エラーレベルのイベントのみ:**
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .action \"created\") (eq .data.issue.level \"error\")}}"
 }
 ```
+{% endraw %}
 
 3. **特定のプロジェクトのエラー:**
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .action \"created\") (eq .data.issue.project.slug \"production-web\") (eq .data.issue.level \"error\")}}"
 }
 ```
+{% endraw %}
 
 ### CircleCI - ビルド完了
 
@@ -683,32 +763,40 @@ agentapi-proxy の Delivery Record 機能を使って、受信したペイロー
 **条件式の例:**
 
 1. **ワークフローが完了した時:**
+{% raw %}
 ```json
 {
   "go_template": "{{eq .type \"workflow-completed\"}}"
 }
 ```
+{% endraw %}
 
 2. **ビルドが失敗した時:**
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .type \"workflow-completed\") (eq .workflow.status \"failed\")}}"
 }
 ```
+{% endraw %}
 
 3. **mainブランチのビルドが失敗した時:**
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .type \"workflow-completed\") (eq .workflow.status \"failed\") (eq .pipeline.vcs.branch \"main\")}}"
 }
 ```
+{% endraw %}
 
 4. **本番デプロイワークフローが成功した時:**
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .type \"workflow-completed\") (eq .workflow.name \"build-and-deploy\") (eq .workflow.status \"success\") (eq .pipeline.vcs.branch \"main\")}}"
 }
 ```
+{% endraw %}
 
 ### Stripe - 支払いイベント
 
@@ -742,25 +830,31 @@ agentapi-proxy の Delivery Record 機能を使って、受信したペイロー
 **条件式の例:**
 
 1. **支払いが成功した時:**
+{% raw %}
 ```json
 {
   "go_template": "{{eq .type \"payment_intent.succeeded\"}}"
 }
 ```
+{% endraw %}
 
 2. **$100以上の支払いが成功した時:**
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .type \"payment_intent.succeeded\") (ge .data.object.amount 10000)}}"
 }
 ```
+{% endraw %}
 
 3. **本番環境のProプラン支払い:**
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .type \"payment_intent.succeeded\") (eq .livemode true) (eq .data.object.metadata.plan \"pro\")}}"
 }
 ```
+{% endraw %}
 
 ### GitHub Actions - ワークフロー実行
 
@@ -784,25 +878,31 @@ agentapi-proxy の Delivery Record 機能を使って、受信したペイロー
 **条件式の例:**
 
 1. **ワークフローが失敗した時:**
+{% raw %}
 ```json
 {
   "go_template": "{{eq .status \"failure\"}}"
 }
 ```
+{% endraw %}
 
 2. **mainブランチのCIが失敗した時:**
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .workflow \"CI\") (eq .branch \"main\") (eq .status \"failure\")}}"
 }
 ```
+{% endraw %}
 
 3. **特定のユーザーのコミットで失敗した時:**
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .status \"failure\") (eq .author \"john.doe\")}}"
 }
 ```
+{% endraw %}
 
 ### 汎用的なWebhook - カスタムアプリケーション
 
@@ -834,32 +934,40 @@ agentapi-proxy の Delivery Record 機能を使って、受信したペイロー
 **条件式の例:**
 
 1. **注文が作成された時:**
+{% raw %}
 ```json
 {
   "go_template": "{{eq .event_type \"order_created\"}}"
 }
 ```
+{% endraw %}
 
 2. **10,000円以上の高額注文:**
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .event_type \"order_created\") (ge .data.total_amount 10000)}}"
 }
 ```
+{% endraw %}
 
 3. **高優先度のWeb注文:**
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .event_type \"order_created\") (eq .data.priority \"high\") (eq .metadata.source \"web\")}}"
 }
 ```
+{% endraw %}
 
 4. **特定キャンペーンの東京への配送:**
+{% raw %}
 ```json
 {
   "go_template": "{{and (eq .event_type \"order_created\") (eq .metadata.campaign \"summer-sale\") (eq .data.shipping_address.prefecture \"Tokyo\")}}"
 }
 ```
+{% endraw %}
 
 ## 複数条件の組み合わせパターン
 
@@ -867,6 +975,7 @@ agentapi-proxy の Delivery Record 機能を使って、受信したペイロー
 
 ### パターン 1: 環境とステータスの組み合わせ
 
+{% raw %}
 ```json
 {
   "triggers": [
@@ -894,22 +1003,27 @@ agentapi-proxy の Delivery Record 機能を使って、受信したペイロー
   ]
 }
 ```
+{% endraw %}
 
 ### パターン 2: 数値の範囲チェック
 
+{% raw %}
 ```json
 {
   "go_template": "{{and (gt .value 80) (le .value 100)}}"
 }
 ```
+{% endraw %}
 
 ### パターン 3: 複数のイベントタイプ
 
+{% raw %}
 ```json
 {
   "go_template": "{{or (eq .event_type \"error\") (eq .event_type \"critical\") (eq .event_type \"emergency\")}}"
 }
 ```
+{% endraw %}
 
 ## まとめ
 
