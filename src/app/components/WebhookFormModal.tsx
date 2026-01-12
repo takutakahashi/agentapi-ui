@@ -6,6 +6,8 @@ import {
   CreateWebhookRequest,
   WebhookTrigger,
   GitHubConditions,
+  JSONPathCondition,
+  WebhookType,
   GITHUB_EVENTS,
   GITHUB_ACTIONS,
 } from '../../types/webhook'
@@ -28,6 +30,8 @@ interface TriggerFormData {
   actions: string[]
   baseBranches: string[]
   initialMessageTemplate: string
+  goTemplate?: string
+  jsonpathConditions?: JSONPathCondition[]
 }
 
 const emptyTrigger: TriggerFormData = {
@@ -37,6 +41,8 @@ const emptyTrigger: TriggerFormData = {
   actions: [],
   baseBranches: [],
   initialMessageTemplate: '',
+  goTemplate: '',
+  jsonpathConditions: [],
 }
 
 export default function WebhookFormModal({
@@ -47,6 +53,7 @@ export default function WebhookFormModal({
 }: WebhookFormModalProps) {
   const { getScopeParams } = useTeamScope()
   const [name, setName] = useState('')
+  const [webhookType, setWebhookType] = useState<WebhookType>('github')
   const [allowedEvents, setAllowedEvents] = useState<string[]>([])
   const [allowedRepositories, setAllowedRepositories] = useState('')
   const [triggers, setTriggers] = useState<TriggerFormData[]>([{ ...emptyTrigger }])
@@ -63,6 +70,7 @@ export default function WebhookFormModal({
   useEffect(() => {
     if (editingWebhook) {
       setName(editingWebhook.name)
+      setWebhookType(editingWebhook.type)
       setAllowedEvents(editingWebhook.github?.allowed_events || [])
       setAllowedRepositories(editingWebhook.github?.allowed_repositories?.join(', ') || '')
 
@@ -76,6 +84,8 @@ export default function WebhookFormModal({
             actions: t.conditions.github?.actions || [],
             baseBranches: t.conditions.github?.base_branches || [],
             initialMessageTemplate: t.session_config?.initial_message_template || '',
+            goTemplate: t.conditions.go_template || '',
+            jsonpathConditions: t.conditions.jsonpath || [],
           }))
         )
       } else {
@@ -105,6 +115,7 @@ export default function WebhookFormModal({
 
   const resetForm = () => {
     setName('')
+    setWebhookType('github')
     setAllowedEvents([])
     setAllowedRepositories('')
     setTriggers([{ ...emptyTrigger }])
@@ -242,18 +253,36 @@ export default function WebhookFormModal({
         .filter((r) => r)
 
       const webhookTriggers: WebhookTrigger[] = validTriggers.map((t) => {
-        const conditions: { github: GitHubConditions } = {
-          github: {},
+        const conditions: {
+          github?: GitHubConditions
+          jsonpath?: JSONPathCondition[]
+          go_template?: string
+        } = {}
+
+        // GitHub conditions
+        if (webhookType === 'github') {
+          conditions.github = {}
+          if (t.events.length > 0) {
+            conditions.github.events = t.events
+          }
+          if (t.actions.length > 0) {
+            conditions.github.actions = t.actions
+          }
+          if (t.baseBranches.length > 0) {
+            conditions.github.base_branches = t.baseBranches
+          }
         }
 
-        if (t.events.length > 0) {
-          conditions.github.events = t.events
-        }
-        if (t.actions.length > 0) {
-          conditions.github.actions = t.actions
-        }
-        if (t.baseBranches.length > 0) {
-          conditions.github.base_branches = t.baseBranches
+        // Custom webhook conditions
+        if (webhookType === 'custom') {
+          if (t.goTemplate?.trim()) {
+            conditions.go_template = t.goTemplate.trim()
+          }
+          if (t.jsonpathConditions && t.jsonpathConditions.length > 0) {
+            conditions.jsonpath = t.jsonpathConditions.filter(
+              (c) => c.path && c.operator
+            )
+          }
         }
 
         return {
@@ -269,11 +298,14 @@ export default function WebhookFormModal({
 
       const webhookData: CreateWebhookRequest = {
         name: name.trim(),
-        type: 'github',
-        github: {
-          allowed_events: allowedEvents.length > 0 ? allowedEvents : undefined,
-          allowed_repositories: repoList.length > 0 ? repoList : undefined,
-        },
+        type: webhookType,
+        github:
+          webhookType === 'github'
+            ? {
+                allowed_events: allowedEvents.length > 0 ? allowedEvents : undefined,
+                allowed_repositories: repoList.length > 0 ? repoList : undefined,
+              }
+            : undefined,
         triggers: webhookTriggers,
         ...scopeParams,
       }
@@ -343,13 +375,35 @@ export default function WebhookFormModal({
                 required
               />
             </div>
+
+            {/* Webhook Type */}
+            <div>
+              <label htmlFor="webhookType" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Webhookタイプ *
+              </label>
+              <select
+                id="webhookType"
+                value={webhookType}
+                onChange={(e) => setWebhookType(e.target.value as WebhookType)}
+                disabled={isSubmitting || isEditing}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                required
+              >
+                <option value="github">GitHub</option>
+                <option value="custom">Custom</option>
+              </select>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {isEditing ? 'タイプは編集時に変更できません' : 'GitHubまたはカスタムwebhookを選択'}
+              </p>
+            </div>
           </div>
 
           {/* GitHub Settings */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 pb-2">
-              GitHub設定
-            </h3>
+          {webhookType === 'github' && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 pb-2">
+                GitHub設定
+              </h3>
 
             {/* Allowed Events */}
             <div>
@@ -415,7 +469,8 @@ export default function WebhookFormModal({
                 カンマ区切りで複数指定可。空の場合、すべてのリポジトリを許可します
               </p>
             </div>
-          </div>
+            </div>
+          )}
 
           {/* Triggers */}
           <div className="space-y-4">
@@ -513,6 +568,9 @@ export default function WebhookFormModal({
                         </label>
                       </div>
 
+                      {/* GitHub Conditions */}
+                      {webhookType === 'github' && (
+                        <>
                       {/* Events */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -583,6 +641,130 @@ export default function WebhookFormModal({
                           PRのベースブランチでフィルタ（カンマ区切り）
                         </p>
                       </div>
+                        </>
+                      )}
+
+                      {/* Custom Webhook Conditions */}
+                      {webhookType === 'custom' && (
+                        <>
+                          {/* Go Template */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Go Template Matcher
+                            </label>
+                            <textarea
+                              value={trigger.goTemplate || ''}
+                              onChange={(e) => updateTrigger(index, 'goTemplate', e.target.value)}
+                              placeholder={'例: {{ eq .event.type "push" }}'}
+                              rows={3}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm font-mono resize-y"
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              Goテンプレート式。trueまたはfalseを返す式を記述してください。
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              例: {'{{ eq .event.type "push" }}'}, {'{{ and (eq .action "opened") (contains .title "fix") }}'}
+                            </p>
+                          </div>
+
+                          {/* JSONPath Conditions */}
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                JSONPath条件（オプション）
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newConditions = [...(trigger.jsonpathConditions || []), {
+                                    path: '',
+                                    operator: 'eq' as const,
+                                    value: ''
+                                  }]
+                                  updateTrigger(index, 'jsonpathConditions', newConditions)
+                                }}
+                                className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                                条件を追加
+                              </button>
+                            </div>
+
+                            {(!trigger.jsonpathConditions || trigger.jsonpathConditions.length === 0) && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+                                JSONPath条件が設定されていません
+                              </p>
+                            )}
+
+                            <div className="space-y-2">
+                              {trigger.jsonpathConditions?.map((condition, condIndex) => (
+                                <div key={condIndex} className="flex gap-2 items-start bg-gray-50 dark:bg-gray-700/50 p-2 rounded">
+                                  <div className="flex-1 space-y-2">
+                                    <input
+                                      type="text"
+                                      value={condition.path}
+                                      onChange={(e) => {
+                                        const newConditions = [...(trigger.jsonpathConditions || [])]
+                                        newConditions[condIndex] = { ...condition, path: e.target.value }
+                                        updateTrigger(index, 'jsonpathConditions', newConditions)
+                                      }}
+                                      placeholder="$.event.type"
+                                      className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white font-mono"
+                                    />
+                                    <div className="flex gap-2">
+                                      <select
+                                        value={condition.operator}
+                                        onChange={(e) => {
+                                          const newConditions = [...(trigger.jsonpathConditions || [])]
+                                          newConditions[condIndex] = { ...condition, operator: e.target.value as JSONPathCondition['operator'] }
+                                          updateTrigger(index, 'jsonpathConditions', newConditions)
+                                        }}
+                                        className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                                      >
+                                        <option value="eq">==</option>
+                                        <option value="ne">!=</option>
+                                        <option value="contains">contains</option>
+                                        <option value="matches">matches</option>
+                                        <option value="in">in</option>
+                                        <option value="exists">exists</option>
+                                      </select>
+                                      <input
+                                        type="text"
+                                        value={typeof condition.value === 'string' ? condition.value : JSON.stringify(condition.value)}
+                                        onChange={(e) => {
+                                          const newConditions = [...(trigger.jsonpathConditions || [])]
+                                          newConditions[condIndex] = { ...condition, value: e.target.value }
+                                          updateTrigger(index, 'jsonpathConditions', newConditions)
+                                        }}
+                                        placeholder="値"
+                                        className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white font-mono"
+                                      />
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newConditions = (trigger.jsonpathConditions || []).filter((_, i) => i !== condIndex)
+                                      updateTrigger(index, 'jsonpathConditions', newConditions)
+                                    }}
+                                    className="text-red-500 hover:text-red-700 dark:hover:text-red-400 mt-1"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                              JSONPath形式でペイロードの値を抽出し、条件を評価します
+                            </p>
+                          </div>
+                        </>
+                      )}
 
                       {/* Initial Message Template */}
                       <div>

@@ -35,6 +35,7 @@ export interface JSONPathCondition {
 export interface TriggerConditions {
   github?: GitHubConditions;
   jsonpath?: JSONPathCondition[];
+  go_template?: string;
 }
 
 // Session configuration for webhook triggers
