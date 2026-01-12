@@ -439,7 +439,6 @@ export default function WebhookFormModal({
               >
                 <option value="hmac">HMAC</option>
                 <option value="static">Static Token</option>
-                <option value="none">None (開発用)</option>
               </select>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 署名検証方式（HMAC推奨）
