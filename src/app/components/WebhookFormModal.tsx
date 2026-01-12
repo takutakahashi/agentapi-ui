@@ -8,6 +8,7 @@ import {
   GitHubConditions,
   JSONPathCondition,
   WebhookType,
+  WebhookSignatureType,
   GITHUB_EVENTS,
   GITHUB_ACTIONS,
 } from '../../types/webhook'
@@ -54,6 +55,8 @@ export default function WebhookFormModal({
   const { getScopeParams } = useTeamScope()
   const [name, setName] = useState('')
   const [webhookType, setWebhookType] = useState<WebhookType>('github')
+  const [signatureHeader, setSignatureHeader] = useState('X-Signature')
+  const [signatureType, setSignatureType] = useState<WebhookSignatureType>('hmac')
   const [allowedEvents, setAllowedEvents] = useState<string[]>([])
   const [allowedRepositories, setAllowedRepositories] = useState('')
   const [triggers, setTriggers] = useState<TriggerFormData[]>([{ ...emptyTrigger }])
@@ -71,6 +74,8 @@ export default function WebhookFormModal({
     if (editingWebhook) {
       setName(editingWebhook.name)
       setWebhookType(editingWebhook.type)
+      setSignatureHeader(editingWebhook.signature_header || 'X-Signature')
+      setSignatureType(editingWebhook.signature_type || 'hmac')
       setAllowedEvents(editingWebhook.github?.allowed_events || [])
       setAllowedRepositories(editingWebhook.github?.allowed_repositories?.join(', ') || '')
 
@@ -116,6 +121,8 @@ export default function WebhookFormModal({
   const resetForm = () => {
     setName('')
     setWebhookType('github')
+    setSignatureHeader('X-Signature')
+    setSignatureType('hmac')
     setAllowedEvents([])
     setAllowedRepositories('')
     setTriggers([{ ...emptyTrigger }])
@@ -299,6 +306,8 @@ export default function WebhookFormModal({
       const webhookData: CreateWebhookRequest = {
         name: name.trim(),
         type: webhookType,
+        signature_header: signatureHeader.trim() || undefined,
+        signature_type: signatureType,
         github:
           webhookType === 'github'
             ? {
@@ -394,6 +403,46 @@ export default function WebhookFormModal({
               </select>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 {isEditing ? 'タイプは編集時に変更できません' : 'GitHubまたはカスタムwebhookを選択'}
+              </p>
+            </div>
+
+            {/* Signature Header */}
+            <div>
+              <label htmlFor="signatureHeader" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                署名ヘッダー
+              </label>
+              <input
+                id="signatureHeader"
+                type="text"
+                value={signatureHeader}
+                onChange={(e) => setSignatureHeader(e.target.value)}
+                placeholder="X-Signature"
+                disabled={isSubmitting}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                署名を含むHTTPヘッダー名（デフォルト: X-Signature）
+              </p>
+            </div>
+
+            {/* Signature Type */}
+            <div>
+              <label htmlFor="signatureType" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                署名タイプ
+              </label>
+              <select
+                id="signatureType"
+                value={signatureType}
+                onChange={(e) => setSignatureType(e.target.value as WebhookSignatureType)}
+                disabled={isSubmitting}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="hmac">HMAC</option>
+                <option value="static">Static Token</option>
+                <option value="none">None (開発用)</option>
+              </select>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                署名検証方式（HMAC推奨）
               </p>
             </div>
           </div>

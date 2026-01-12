@@ -3,6 +3,7 @@ import { ResourceScope } from './agentapi';
 // Webhook types
 export type WebhookType = 'github' | 'custom';
 export type WebhookStatus = 'active' | 'paused';
+export type WebhookSignatureType = 'hmac' | 'static' | 'none';
 
 // GitHub webhook configuration
 export interface GitHubWebhookConfig {
@@ -81,6 +82,8 @@ export interface Webhook {
   type: WebhookType;
   secret?: string;
   webhook_url?: string;
+  signature_header?: string;
+  signature_type?: WebhookSignatureType;
   github?: GitHubWebhookConfig;
   triggers: WebhookTrigger[];
   session_config?: WebhookSessionConfig;
@@ -94,6 +97,8 @@ export interface Webhook {
 export interface CreateWebhookRequest {
   name: string;
   type: WebhookType;
+  signature_header?: string;
+  signature_type?: WebhookSignatureType;
   github?: GitHubWebhookConfig;
   triggers: WebhookTrigger[];
   session_config?: WebhookSessionConfig;
