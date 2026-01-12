@@ -6,7 +6,6 @@ import {
   CreateWebhookRequest,
   WebhookTrigger,
   GitHubConditions,
-  JSONPathCondition,
   WebhookType,
   WebhookSignatureType,
   GITHUB_EVENTS,
@@ -32,7 +31,6 @@ interface TriggerFormData {
   baseBranches: string[]
   initialMessageTemplate: string
   goTemplate?: string
-  jsonpathConditions?: JSONPathCondition[]
 }
 
 const emptyTrigger: TriggerFormData = {
@@ -43,7 +41,6 @@ const emptyTrigger: TriggerFormData = {
   baseBranches: [],
   initialMessageTemplate: '',
   goTemplate: '',
-  jsonpathConditions: [],
 }
 
 export default function WebhookFormModal({
@@ -90,7 +87,6 @@ export default function WebhookFormModal({
             baseBranches: t.conditions.github?.base_branches || [],
             initialMessageTemplate: t.session_config?.initial_message_template || '',
             goTemplate: t.conditions.go_template || '',
-            jsonpathConditions: t.conditions.jsonpath || [],
           }))
         )
       } else {
@@ -262,7 +258,6 @@ export default function WebhookFormModal({
       const webhookTriggers: WebhookTrigger[] = validTriggers.map((t) => {
         const conditions: {
           github?: GitHubConditions
-          jsonpath?: JSONPathCondition[]
           go_template?: string
         } = {}
 
@@ -284,11 +279,6 @@ export default function WebhookFormModal({
         if (webhookType === 'custom') {
           if (t.goTemplate?.trim()) {
             conditions.go_template = t.goTemplate.trim()
-          }
-          if (t.jsonpathConditions && t.jsonpathConditions.length > 0) {
-            conditions.jsonpath = t.jsonpathConditions.filter(
-              (c) => c.path && c.operator
-            )
           }
         }
 
@@ -712,103 +702,6 @@ export default function WebhookFormModal({
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                               例: {'{{ eq .event.type "push" }}'}, {'{{ and (eq .action "opened") (contains .title "fix") }}'}
-                            </p>
-                          </div>
-
-                          {/* JSONPath Conditions */}
-                          <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                JSONPath条件（オプション）
-                              </label>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newConditions = [...(trigger.jsonpathConditions || []), {
-                                    path: '',
-                                    operator: 'eq' as const,
-                                    value: ''
-                                  }]
-                                  updateTrigger(index, 'jsonpathConditions', newConditions)
-                                }}
-                                className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1"
-                              >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                </svg>
-                                条件を追加
-                              </button>
-                            </div>
-
-                            {(!trigger.jsonpathConditions || trigger.jsonpathConditions.length === 0) && (
-                              <p className="text-xs text-gray-500 dark:text-gray-400 italic">
-                                JSONPath条件が設定されていません
-                              </p>
-                            )}
-
-                            <div className="space-y-2">
-                              {trigger.jsonpathConditions?.map((condition, condIndex) => (
-                                <div key={condIndex} className="flex gap-2 items-start bg-gray-50 dark:bg-gray-700/50 p-2 rounded">
-                                  <div className="flex-1 space-y-2">
-                                    <input
-                                      type="text"
-                                      value={condition.path}
-                                      onChange={(e) => {
-                                        const newConditions = [...(trigger.jsonpathConditions || [])]
-                                        newConditions[condIndex] = { ...condition, path: e.target.value }
-                                        updateTrigger(index, 'jsonpathConditions', newConditions)
-                                      }}
-                                      placeholder="$.event.type"
-                                      className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white font-mono"
-                                    />
-                                    <div className="flex gap-2">
-                                      <select
-                                        value={condition.operator}
-                                        onChange={(e) => {
-                                          const newConditions = [...(trigger.jsonpathConditions || [])]
-                                          newConditions[condIndex] = { ...condition, operator: e.target.value as JSONPathCondition['operator'] }
-                                          updateTrigger(index, 'jsonpathConditions', newConditions)
-                                        }}
-                                        className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                                      >
-                                        <option value="eq">==</option>
-                                        <option value="ne">!=</option>
-                                        <option value="contains">contains</option>
-                                        <option value="matches">matches</option>
-                                        <option value="in">in</option>
-                                        <option value="exists">exists</option>
-                                      </select>
-                                      <input
-                                        type="text"
-                                        value={typeof condition.value === 'string' ? condition.value : JSON.stringify(condition.value)}
-                                        onChange={(e) => {
-                                          const newConditions = [...(trigger.jsonpathConditions || [])]
-                                          newConditions[condIndex] = { ...condition, value: e.target.value }
-                                          updateTrigger(index, 'jsonpathConditions', newConditions)
-                                        }}
-                                        placeholder="値"
-                                        className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white font-mono"
-                                      />
-                                    </div>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newConditions = (trigger.jsonpathConditions || []).filter((_, i) => i !== condIndex)
-                                      updateTrigger(index, 'jsonpathConditions', newConditions)
-                                    }}
-                                    className="text-red-500 hover:text-red-700 dark:hover:text-red-400 mt-1"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                              JSONPath形式でペイロードの値を抽出し、条件を評価します
                             </p>
                           </div>
                         </>

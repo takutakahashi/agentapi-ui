@@ -25,17 +25,9 @@ export interface GitHubConditions {
   sender?: string[];
 }
 
-// JSONPath condition for custom webhooks
-export interface JSONPathCondition {
-  path: string;
-  operator: 'eq' | 'ne' | 'contains' | 'matches' | 'in' | 'exists';
-  value: unknown;
-}
-
 // Trigger conditions
 export interface TriggerConditions {
   github?: GitHubConditions;
-  jsonpath?: JSONPathCondition[];
   go_template?: string;
 }
 
