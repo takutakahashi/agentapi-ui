@@ -1,10 +1,10 @@
-# Webhook ガイド
+# Webhook
 
-agentapi-proxy を使った Webhook の完全ガイドへようこそ。
+agentapi-proxy の Webhook 機能について説明します。
 
-## このガイドについて
+## Webhook とは
 
-このドキュメントでは、agentapi-proxy の Webhook 機能を最大限に活用するための情報を提供します。GitHub Webhook からカスタム Webhook まで、様々なユースケースに対応した設定方法を学べます。
+Webhook を使うと、GitHub や外部サービスからのイベントを受け取り、自動的に AI エージェントとのセッションを開始できます。GitHub Webhook からカスタム Webhook まで、様々なユースケースに対応した設定方法を学べます。
 
 ## 主な内容
 

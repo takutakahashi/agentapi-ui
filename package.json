@@ -16,9 +16,9 @@
     "e2e:ui": "playwright test --ui",
     "e2e:headed": "playwright test --headed",
     "e2e:install": "playwright install chromium",
-    "docs:init": "cd docs/webhook && honkit init",
-    "docs:serve": "cd docs/webhook && honkit serve",
-    "docs:build": "cd docs/webhook && honkit build"
+    "docs:init": "cd docs && honkit init",
+    "docs:serve": "cd docs && honkit serve",
+    "docs:build": "cd docs && honkit build"
   },
   "dependencies": {
     "@types/uuid": "^10.0.0",
