@@ -113,15 +113,6 @@ env: []
 # - name: API_URL
 #   value: "https://api.example.com"
 
-# Encryption key configuration
-encryptionKey:
-  # Enable encryption key from secret
-  enabled: true
-  # Name of the Kubernetes secret containing the encryption key
-  secretName: "agentapi-ui-encryption"
-  # Key within the secret that contains the encryption key
-  secretKey: "encryption-key"
-
 # Cookie encryption secret configuration
 cookieEncryptionSecret:
   # Enable cookie encryption secret from secret

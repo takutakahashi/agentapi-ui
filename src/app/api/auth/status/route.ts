@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getApiKeyFromCookie } from '@/lib/cookie-auth';
-import { getEncryptionService } from '@/lib/encryption';
+import crypto from 'crypto';
 
 export async function GET() {
   try {
@@ -12,8 +12,7 @@ export async function GET() {
     let tokenHash = null;
     if (authenticated && apiKey) {
       try {
-        const encryptionService = getEncryptionService();
-        tokenHash = encryptionService.hashApiToken(apiKey);
+        tokenHash = crypto.createHash('sha256').update(apiKey).digest('hex');
       } catch (err) {
         console.error('Failed to hash API token:', err);
       }
