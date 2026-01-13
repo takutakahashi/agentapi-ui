@@ -82,7 +82,7 @@ export default function SessionCard({ session, onDelete, isDeleting }: SessionCa
 
         {/* アクションボタン - モバイルでは横並び */}
         <div className="flex flex-row sm:flex-row items-center space-x-2 sm:space-x-2 sm:ml-4">
-          {session.status === 'active' && (
+          {session.status !== 'creating' && session.status !== 'starting' && (
             <Link
               href={`/agentapi?session=${session.session_id}`}
               className="inline-flex items-center justify-center px-3 py-2 sm:px-3 sm:py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors min-h-[44px] sm:min-h-0"
