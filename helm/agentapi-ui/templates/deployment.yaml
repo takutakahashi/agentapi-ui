@@ -49,13 +49,6 @@ spec:
             {{- toYaml .Values.readinessProbe | nindent 12 }}
           {{- end }}
           env:
-          {{- if .Values.encryptionKey.enabled }}
-            - name: ENCRYPTION_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.encryptionKey.secretName }}
-                  key: {{ .Values.encryptionKey.secretKey }}
-          {{- end }}
           {{- if .Values.cookieEncryptionSecret.enabled }}
             - name: COOKIE_ENCRYPTION_SECRET
               valueFrom:

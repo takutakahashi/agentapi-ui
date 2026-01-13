@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiKeyFromCookie, renewApiKeyCookie } from '@/lib/cookie-auth';
-import { getEncryptionService } from '@/lib/encryption';
 
 const PROXY_URL = process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080';
 
@@ -99,50 +98,13 @@ async function handleProxyRequest(
 
     debugLog(`[API Proxy] Target URL constructed:`, targetUrl);
 
-    // Prepare request body and handle encrypted config
+    // Prepare request body
     let body: string | undefined;
-    let decryptedConfig: Record<string, unknown> = {};
-    
+
     if (method !== 'GET' && method !== 'HEAD') {
       try {
         const bodyText = await request.text();
         body = bodyText;
-        
-        // Try to parse the body as JSON to check for encrypted config
-        try {
-          const bodyData = JSON.parse(bodyText);
-          
-          // Check if the request contains encrypted configuration
-          // Only decrypt if we have an API key (OAuth endpoints don't have one)
-          if (bodyData.encryptedConfig && apiKey) {
-            const encryptionService = getEncryptionService();
-            const currentTokenHash = encryptionService.hashApiToken(apiKey);
-            
-            try {
-              decryptedConfig = encryptionService.decrypt(
-                bodyData.encryptedConfig,
-                currentTokenHash
-              ) as Record<string, unknown>;
-              
-              // Remove encryptedConfig from the body and merge decrypted data
-              delete bodyData.encryptedConfig;
-              body = JSON.stringify(bodyData);
-            } catch (decryptError) {
-              console.error('Failed to decrypt config:', decryptError);
-              return NextResponse.json(
-                { error: 'Failed to decrypt configuration' },
-                { status: 401 }
-              );
-            }
-          } else if (bodyData.encryptedConfig && !apiKey) {
-            // OAuth endpoints with encrypted config should not happen, but handle gracefully
-            console.warn('OAuth endpoint received encrypted config, ignoring');
-            delete bodyData.encryptedConfig;
-            body = JSON.stringify(bodyData);
-          }
-        } catch {
-          // Body is not JSON, use as-is
-        }
       } catch (error) {
         console.error('Error reading request body:', error);
         return NextResponse.json(
@@ -182,11 +144,6 @@ async function handleProxyRequest(
     }
     headers.set('Content-Type', 'application/json');
     headers.set('Accept', 'application/json');
-
-    // Add base URL override if available
-    if (decryptedConfig.baseUrl) {
-      headers.set('X-Base-URL', String(decryptedConfig.baseUrl));
-    }
 
     // Copy relevant headers from original request (excluding accept-encoding to avoid compression issues)
     const headersToForward = [
