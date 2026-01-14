@@ -340,7 +340,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
 
   const navigateToChat = (sessionId: string) => {
     // AgentAPIチャット画面への遷移
-    router.push(`/agentapi?session=${sessionId}`)
+    router.push(`/sessions/${sessionId}`)
   }
 
 

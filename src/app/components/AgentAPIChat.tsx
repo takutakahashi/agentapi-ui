@@ -165,10 +165,15 @@ function formatTextWithLinks(text: string): JSX.Element {
   );
 }
 
-export default function AgentAPIChat() {
+interface AgentAPIChatProps {
+  sessionId?: string;
+}
+
+export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatProps = {}) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const sessionId = searchParams.get('session');
+  // Use sessionId from props if provided, otherwise fall back to query param
+  const sessionId = propSessionId || searchParams.get('session');
 
   // Create global API client
   const [agentAPI] = useState<ReturnType<typeof createAgentAPIProxyClientFromStorage>>(() => {
