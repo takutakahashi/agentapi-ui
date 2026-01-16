@@ -273,6 +273,10 @@ export default function WebhookFormModal({
           if (t.baseBranches.length > 0) {
             conditions.github.base_branches = t.baseBranches
           }
+          // Go template for GitHub webhooks
+          if (t.goTemplate?.trim()) {
+            conditions.go_template = t.goTemplate.trim()
+          }
         }
 
         // Custom webhook conditions
@@ -677,6 +681,26 @@ export default function WebhookFormModal({
                         />
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           PRのベースブランチでフィルタ（カンマ区切り）
+                        </p>
+                      </div>
+
+                      {/* Go Template Matcher for GitHub */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Go Template Matcher（追加フィルター）
+                        </label>
+                        <textarea
+                          value={trigger.goTemplate || ''}
+                          onChange={(e) => updateTrigger(index, 'goTemplate', e.target.value)}
+                          placeholder={'例: {{ and (eq .action "opened") (not .pull_request.draft) }}'}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm font-mono resize-y"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          より高度な条件判定が必要な場合に使用します。trueまたはfalseを返すGo template式を記述してください。
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          例: {'{{ contains .pull_request.title "feat:" }}'}, {'{{ and (eq .action "opened") (not .pull_request.draft) }}'}
                         </p>
                       </div>
                         </>
