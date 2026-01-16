@@ -902,7 +902,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                       {formatTimestamp(message.timestamp)}
                     </span>
                   </div>
-                  <div className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300">
+                  <div className={`prose prose-sm max-w-none text-gray-700 dark:text-gray-300 ${message.role === 'agent' ? 'font-mono' : ''}`}>
                     <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">
                       {formatTextWithLinks(message.content)}
                     </div>
