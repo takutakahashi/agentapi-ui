@@ -11,7 +11,7 @@ import { messageTemplateManager } from '../../utils/messageTemplateManager';
 import { MessageTemplate } from '../../types/messageTemplate';
 import { recentMessagesManager } from '../../utils/recentMessagesManager';
 import { pushNotificationManager } from '../../utils/pushNotification';
-import { getEnterKeyBehavior } from '../../types/settings';
+import { getEnterKeyBehavior, getFontSettings, FontSettings } from '../../types/settings';
 import ShareSessionButton from './ShareSessionButton';
 
 // Define local types for message and agent status
@@ -262,6 +262,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [inputValue, setInputValue] = useState('');
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [fontSettings, setFontSettings] = useState<FontSettings>(() => getFontSettings());
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -337,7 +338,23 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [showTemplateModal, showPRLinks, showClaudeLogins, showLoginPopup]);
+  }, [showTemplateModal, showPRLinks, showClaudeLogins, showLoginPopup])
+
+  // Listen for font settings changes
+  useEffect(() => {
+    const handleFontSettingsChange = (event: Event) => {
+      const customEvent = event as CustomEvent<FontSettings>
+      if (customEvent.detail) {
+        setFontSettings(customEvent.detail)
+      }
+    }
+
+    window.addEventListener('fontSettingsChanged', handleFontSettingsChange)
+
+    return () => {
+      window.removeEventListener('fontSettingsChanged', handleFontSettingsChange)
+    }
+  }, []);
 
 
   const loadTemplates = useCallback(async () => {
@@ -902,7 +919,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                       {formatTimestamp(message.timestamp)}
                     </span>
                   </div>
-                  <div className={`prose prose-sm max-w-none text-gray-700 dark:text-gray-300 ${message.role === 'agent' ? 'font-mono' : ''}`}>
+                  <div className={`prose prose-sm max-w-none text-gray-700 dark:text-gray-300 ${
+                    fontSettings.fontFamily === 'monospace' ? 'font-mono' : ''
+                  } ${
+                    fontSettings.fontSize === 'small' ? 'text-xs' :
+                    fontSettings.fontSize === 'large' ? 'text-base' :
+                    'text-sm'
+                  }`}>
                     <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">
                       {formatTextWithLinks(message.content)}
                     </div>

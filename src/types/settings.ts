@@ -87,6 +87,15 @@ export interface AgentApiProxySettings {
 // Enter キーの動作設定
 export type EnterKeyBehavior = 'send' | 'newline'
 
+// Font settings
+export type FontSize = 'small' | 'medium' | 'large'
+export type FontFamily = 'sans-serif' | 'monospace'
+
+export interface FontSettings {
+  fontSize: FontSize
+  fontFamily: FontFamily
+}
+
 export interface GlobalSettings {
   agentApiProxy: AgentApiProxySettings
   mcpServers: MCPServerConfig[]
@@ -95,6 +104,7 @@ export interface GlobalSettings {
   githubAuth?: GitHubOAuthSettings
   sendGithubTokenOnSessionStart?: boolean  // デフォルト true
   enterKeyBehavior?: EnterKeyBehavior  // デフォルト 'send' (Enter で送信、Shift+Enter で改行)
+  fontSettings?: FontSettings  // デフォルト { fontSize: 'medium', fontFamily: 'sans-serif' }
   created_at: string
   updated_at: string
 }
@@ -597,4 +607,26 @@ export const setEnterKeyBehavior = (behavior: EnterKeyBehavior): void => {
   const settings = loadFullGlobalSettings()
   settings.enterKeyBehavior = behavior
   saveFullGlobalSettings(settings)
+}
+
+// Font Settings utilities
+export const getDefaultFontSettings = (): FontSettings => ({
+  fontSize: 'medium',
+  fontFamily: 'sans-serif'
+})
+
+export const getFontSettings = (): FontSettings => {
+  const settings = loadFullGlobalSettings()
+  return settings.fontSettings ?? getDefaultFontSettings()
+}
+
+export const setFontSettings = (fontSettings: FontSettings): void => {
+  const settings = loadFullGlobalSettings()
+  settings.fontSettings = fontSettings
+  saveFullGlobalSettings(settings)
+
+  // Dispatch custom event to notify other components
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('fontSettingsChanged', { detail: fontSettings }))
+  }
 }

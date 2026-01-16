@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, GithubTokenSettings, ExperimentalSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings } from '@/components/settings'
+import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
+import { BedrockSettings, SettingsAccordion, GithubTokenSettings, ExperimentalSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings } from '@/components/settings'
 import { OneClickPushNotifications } from '@/app/components/OneClickPushNotifications'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
@@ -16,6 +16,7 @@ export default function PersonalSettingsPage() {
   const [isDebugMode, setIsDebugMode] = useState(false)
   const [sendGithubToken, setSendGithubToken] = useState(false)
   const [enterKeyBehavior, setEnterKeyBehaviorState] = useState<EnterKeyBehavior>('send')
+  const [fontSettings, setFontSettingsState] = useState<FontSettingsType>({ fontSize: 'medium', fontFamily: 'sans-serif' })
   const { showToast } = useToast()
 
   // デバッグモードの判定と GitHub Token 設定の読み込み
@@ -30,6 +31,8 @@ export default function PersonalSettingsPage() {
     setSendGithubToken(getSendGithubTokenOnSessionStart())
     // Enter キー設定を読み込み
     setEnterKeyBehaviorState(getEnterKeyBehavior())
+    // Font 設定を読み込み
+    setFontSettingsState(getFontSettings())
   }, [])
 
   useEffect(() => {
@@ -105,6 +108,11 @@ export default function PersonalSettingsPage() {
   const handleEnterKeyBehaviorChange = (behavior: EnterKeyBehavior) => {
     setEnterKeyBehaviorState(behavior)
     setEnterKeyBehavior(behavior)
+  }
+
+  const handleFontSettingsChange = (settings: FontSettingsType) => {
+    setFontSettingsState(settings)
+    setFontSettings(settings)
   }
 
   const handleExperimentalChange = (enabled: boolean) => {
@@ -233,6 +241,9 @@ export default function PersonalSettingsPage() {
           >
             <div className="space-y-6">
               <KeyBindingSettings enterKeyBehavior={enterKeyBehavior} onChange={handleEnterKeyBehaviorChange} />
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                <FontSettings fontSettings={fontSettings} onChange={handleFontSettingsChange} />
+              </div>
               <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
                 <GithubTokenSettings enabled={sendGithubToken} onChange={handleGithubTokenChange} />
               </div>
