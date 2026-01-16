@@ -1,6 +1,6 @@
 'use client'
 
-import { FontSettings as FontSettingsType, FontSize, FontFamily } from '@/types/settings'
+import { FontSettings as FontSettingsType, FontFamily } from '@/types/settings'
 
 interface FontSettingsProps {
   fontSettings: FontSettingsType
@@ -8,12 +8,6 @@ interface FontSettingsProps {
 }
 
 export function FontSettings({ fontSettings, onChange }: FontSettingsProps) {
-  const fontSizeOptions: { value: FontSize; label: string }[] = [
-    { value: 'small', label: '小' },
-    { value: 'medium', label: '中' },
-    { value: 'large', label: '大' }
-  ]
-
   const fontFamilyOptions: { value: FontFamily; label: string; description: string }[] = [
     {
       value: 'sans-serif',
@@ -27,7 +21,7 @@ export function FontSettings({ fontSettings, onChange }: FontSettingsProps) {
     }
   ]
 
-  const handleFontSizeChange = (fontSize: FontSize) => {
+  const handleFontSizeChange = (fontSize: number) => {
     onChange({ ...fontSettings, fontSize })
   }
 
@@ -37,28 +31,25 @@ export function FontSettings({ fontSettings, onChange }: FontSettingsProps) {
 
   return (
     <div className="space-y-6">
-      {/* Font Size */}
+      {/* Font Size Slider */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          フォントサイズ
+          フォントサイズ: {fontSettings.fontSize}px
         </label>
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-          チャット画面のテキストサイズを選択します
+          チャット画面のテキストサイズを調整します
         </p>
-        <div className="flex gap-2">
-          {fontSizeOptions.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => handleFontSizeChange(option.value)}
-              className={`px-4 py-2 rounded-lg border font-medium transition-colors ${
-                fontSettings.fontSize === option.value
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                  : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
+        <input
+          type="range"
+          min="12"
+          max="20"
+          value={fontSettings.fontSize}
+          onChange={(e) => handleFontSizeChange(parseInt(e.target.value))}
+          className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
+        />
+        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <span>12px</span>
+          <span>20px</span>
         </div>
       </div>
 

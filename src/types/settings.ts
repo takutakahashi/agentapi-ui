@@ -88,11 +88,10 @@ export interface AgentApiProxySettings {
 export type EnterKeyBehavior = 'send' | 'newline'
 
 // Font settings
-export type FontSize = 'small' | 'medium' | 'large'
 export type FontFamily = 'sans-serif' | 'monospace'
 
 export interface FontSettings {
-  fontSize: FontSize
+  fontSize: number  // Font size in px (12-20)
   fontFamily: FontFamily
 }
 
@@ -104,7 +103,7 @@ export interface GlobalSettings {
   githubAuth?: GitHubOAuthSettings
   sendGithubTokenOnSessionStart?: boolean  // デフォルト true
   enterKeyBehavior?: EnterKeyBehavior  // デフォルト 'send' (Enter で送信、Shift+Enter で改行)
-  fontSettings?: FontSettings  // デフォルト { fontSize: 'medium', fontFamily: 'sans-serif' }
+  fontSettings?: FontSettings  // デフォルト { fontSize: 14, fontFamily: 'sans-serif' }
   created_at: string
   updated_at: string
 }
@@ -611,7 +610,7 @@ export const setEnterKeyBehavior = (behavior: EnterKeyBehavior): void => {
 
 // Font Settings utilities
 export const getDefaultFontSettings = (): FontSettings => ({
-  fontSize: 'medium',
+  fontSize: 14,  // Default 14px
   fontFamily: 'sans-serif'
 })
 

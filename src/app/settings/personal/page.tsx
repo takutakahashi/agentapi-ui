@@ -16,7 +16,7 @@ export default function PersonalSettingsPage() {
   const [isDebugMode, setIsDebugMode] = useState(false)
   const [sendGithubToken, setSendGithubToken] = useState(false)
   const [enterKeyBehavior, setEnterKeyBehaviorState] = useState<EnterKeyBehavior>('send')
-  const [fontSettings, setFontSettingsState] = useState<FontSettingsType>({ fontSize: 'medium', fontFamily: 'sans-serif' })
+  const [fontSettings, setFontSettingsState] = useState<FontSettingsType>({ fontSize: 14, fontFamily: 'sans-serif' })
   const { showToast } = useToast()
 
   // デバッグモードの判定と GitHub Token 設定の読み込み
