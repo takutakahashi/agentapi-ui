@@ -139,23 +139,27 @@ function formatTextWithLinks(text: string): JSX.Element {
   if (!text || typeof text !== 'string') {
     return <>{text || ''}</>;
   }
-  
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+  // URLにマッチする正規表現（スペースや一般的な区切り文字を除外）
+  const urlRegex = /(https?:\/\/[^\s<>"'()[\]{}]+)/g;
   const parts = text.split(urlRegex);
-  
+
   return (
     <>
       {parts.map((part, index) => {
-        if (urlRegex.test(part)) {
+        // URLかどうかをチェック（グローバルフラグの状態問題を回避）
+        if (/^https?:\/\//.test(part)) {
+          // 末尾の句読点を削除
+          const cleanUrl = part.replace(/[.,;!?]+$/, '');
           return (
             <a
               key={index}
-              href={part}
+              href={cleanUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline whitespace-nowrap"
             >
-              {part}
+              {cleanUrl}
             </a>
           );
         }
