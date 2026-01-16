@@ -11,7 +11,7 @@ import { messageTemplateManager } from '../../utils/messageTemplateManager';
 import { MessageTemplate } from '../../types/messageTemplate';
 import { recentMessagesManager } from '../../utils/recentMessagesManager';
 import { pushNotificationManager } from '../../utils/pushNotification';
-import { getEnterKeyBehavior } from '../../types/settings';
+import { getEnterKeyBehavior, getFontSettings, FontSettings, setFontSettings as saveFontSettings, FontFamily } from '../../types/settings';
 import ShareSessionButton from './ShareSessionButton';
 
 // Define local types for message and agent status
@@ -262,6 +262,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [inputValue, setInputValue] = useState('');
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [fontSettings, setFontSettings] = useState<FontSettings>(() => getFontSettings());
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -286,6 +287,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [loginMethodPopupShown, setLoginMethodPopupShown] = useState(false);
   const [showLoginSuccess, setShowLoginSuccess] = useState(false);
   const [loginSuccessShown, setLoginSuccessShown] = useState(false);
+  const [showFontSettings, setShowFontSettings] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
@@ -326,18 +328,36 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           setShowClaudeLogins(false)
         } else if (showLoginPopup) {
           setShowLoginPopup(false)
+        } else if (showFontSettings) {
+          setShowFontSettings(false)
         }
       }
     }
 
-    if (showTemplateModal || showPRLinks || showClaudeLogins || showLoginPopup) {
+    if (showTemplateModal || showPRLinks || showClaudeLogins || showLoginPopup || showFontSettings) {
       document.addEventListener('keydown', handleKeyDown)
     }
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [showTemplateModal, showPRLinks, showClaudeLogins, showLoginPopup]);
+  }, [showTemplateModal, showPRLinks, showClaudeLogins, showLoginPopup, showFontSettings])
+
+  // Listen for font settings changes
+  useEffect(() => {
+    const handleFontSettingsChange = (event: Event) => {
+      const customEvent = event as CustomEvent<FontSettings>
+      if (customEvent.detail) {
+        setFontSettings(customEvent.detail)
+      }
+    }
+
+    window.addEventListener('fontSettingsChanged', handleFontSettingsChange)
+
+    return () => {
+      window.removeEventListener('fontSettingsChanged', handleFontSettingsChange)
+    }
+  }, []);
 
 
   const loadTemplates = useCallback(async () => {
@@ -695,6 +715,16 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
   };
 
+  const handleFontSizeChange = (newSize: number) => {
+    const newSettings = { ...fontSettings, fontSize: newSize };
+    saveFontSettings(newSettings);  // Save to localStorage and trigger event
+  };
+
+  const handleFontFamilyChange = (newFamily: FontFamily) => {
+    const newSettings = { ...fontSettings, fontFamily: newFamily };
+    saveFontSettings(newSettings);  // Save to localStorage and trigger event
+  };
+
   const formatTimestamp = useCallback((timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString();
   }, []);
@@ -902,7 +932,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                       {formatTimestamp(message.timestamp)}
                     </span>
                   </div>
-                  <div className={`prose prose-sm max-w-none text-gray-700 dark:text-gray-300 ${message.role === 'agent' ? 'font-mono' : ''}`}>
+                  <div
+                    className={`prose prose-sm max-w-none text-gray-700 dark:text-gray-300 ${
+                      fontSettings.fontFamily === 'monospace' ? 'font-mono' : ''
+                    }`}
+                    style={{ fontSize: `${fontSettings.fontSize}px` }}
+                  >
                     <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">
                       {formatTextWithLinks(message.content)}
                     </div>
@@ -1088,7 +1123,18 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
                   </svg>
                 </button>
-                
+
+                {/* Font Settings Button */}
+                <button
+                  onClick={() => setShowFontSettings(!showFontSettings)}
+                  className="px-2 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-md transition-colors flex items-center relative"
+                  title="フォント設定"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                  </svg>
+                </button>
+
                 {/* Template Button */}
                 <button
                   onClick={() => setShowTemplateModal(true)}
@@ -1707,6 +1753,122 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
                 >
                   OK
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Font Settings Popup */}
+      {showFontSettings && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowFontSettings(false)
+            }
+          }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  フォント設定
+                </h2>
+                <button
+                  onClick={() => setShowFontSettings(false)}
+                  className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 space-y-6">
+              {/* Font Size Slider */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  フォントサイズ: {fontSettings.fontSize}px
+                </label>
+                <input
+                  type="range"
+                  min="12"
+                  max="20"
+                  value={fontSettings.fontSize}
+                  onChange={(e) => handleFontSizeChange(parseInt(e.target.value))}
+                  className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                />
+                <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <span>12px</span>
+                  <span>20px</span>
+                </div>
+              </div>
+
+              {/* Font Family */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  フォントファミリー
+                </label>
+                <div className="space-y-2">
+                  <label className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${
+                    fontSettings.fontFamily === 'sans-serif'
+                      ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                      : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="fontFamily"
+                      value="sans-serif"
+                      checked={fontSettings.fontFamily === 'sans-serif'}
+                      onChange={() => handleFontFamilyChange('sans-serif')}
+                      className="h-4 w-4 text-purple-600 focus:ring-purple-500"
+                    />
+                    <div className="ml-3">
+                      <span className="block text-sm font-medium text-gray-900 dark:text-white">
+                        Sans-serif
+                      </span>
+                      <span className="block text-xs text-gray-500 dark:text-gray-400">
+                        通常のフォント（読みやすさ重視）
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${
+                    fontSettings.fontFamily === 'monospace'
+                      ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                      : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="fontFamily"
+                      value="monospace"
+                      checked={fontSettings.fontFamily === 'monospace'}
+                      onChange={() => handleFontFamilyChange('monospace')}
+                      className="h-4 w-4 text-purple-600 focus:ring-purple-500"
+                    />
+                    <div className="ml-3">
+                      <span className="block text-sm font-medium text-gray-900 dark:text-white font-mono">
+                        Monospace
+                      </span>
+                      <span className="block text-xs text-gray-500 dark:text-gray-400">
+                        等幅フォント（コード表示に適している）
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowFontSettings(false)}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors"
+                >
+                  閉じる
                 </button>
               </div>
             </div>
