@@ -140,9 +140,20 @@ function formatTextWithLinks(text: string): JSX.Element {
     return <>{text || ''}</>;
   }
 
+  // テキストを正規化
+  // 1. 各行の行頭・行末の空白を削除
+  // 2. 連続するスペース・タブを1つのスペースに
+  // 3. 3つ以上の連続する改行を2つの改行に
+  const normalizedText = text
+    .split('\n')
+    .map(line => line.trim())  // 各行の行頭・行末の空白を削除
+    .join('\n')
+    .replace(/[ \t]+/g, ' ')  // 連続するスペース・タブを1つのスペースに
+    .replace(/\n{3,}/g, '\n\n');  // 3つ以上の連続する改行を2つの改行に
+
   // URLにマッチする正規表現（スペースや一般的な区切り文字を除外）
   const urlRegex = /(https?:\/\/[^\s<>"'()[\]{}]+)/g;
-  const parts = text.split(urlRegex);
+  const parts = normalizedText.split(urlRegex);
 
   return (
     <>
