@@ -16,7 +16,7 @@ export default function SessionPage({ params }: SessionPageProps) {
 
   return (
     <div className="h-dvh bg-gray-50" style={{ position: 'relative', overflow: 'hidden' }}>
-      <div className="w-full h-full flex flex-col px-0 sm:container sm:mx-auto sm:px-4" style={{ minHeight: 0 }}>
+      <div className="w-full h-full flex flex-col px-0 sm:px-6 max-w-[1800px] mx-auto" style={{ minHeight: 0 }}>
         <Suspense fallback={<LoadingSpinner />}>
           <AgentAPIChat sessionId={resolvedParams.sessionId} />
         </Suspense>

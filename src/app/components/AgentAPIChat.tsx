@@ -740,12 +740,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900" style={{ position: 'relative', minHeight: 0 }}>
       {/* Header */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-3 sm:px-6 py-2 sm:py-3 flex-shrink-0">
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-3 sm:px-6 py-1.5 sm:py-2 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2 sm:space-x-4">
             <Link
               href="/chats"
-              className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+              className="flex items-center space-x-1 sm:space-x-2 px-2 py-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
               title="Go to Conversations"
             >
               <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -754,10 +754,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
               <span className="hidden sm:inline">Conversations</span>
             </Link>
             <div>
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
+              <h2 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
                 <span className="inline">Chat</span>
                 {sessionId && (
-                  <span className="ml-2 text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400 inline">
+                  <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400 inline">
                     #{sessionId.substring(0, 6)}
                   </span>
                 )}
@@ -988,7 +988,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       </div>
 
       {/* Input */}
-      <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-4 flex-shrink-0">
+      <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 flex-shrink-0">
         {/* Control Panel */}
         {showControlPanel && (
           <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md">
