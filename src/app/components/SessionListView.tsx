@@ -46,10 +46,10 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
 
   const fetchSessionStatusesInitial = useCallback(async (sessionList: Session[]) => {
     if (sessionList.length === 0 || !agentAPIProxy) return
-    
+
     try {
-      // セッション数を制限してAPIコールを削減（最新5セッションのみ）
-      const limitedSessions = sessionList.slice(0, 5)
+      // セッション数を制限してAPIコールを削減（表示分の20セッションまで）
+      const limitedSessions = sessionList.slice(0, 20)
       
       // 各セッションのエージェント状態を並列で取得
       const statusPromises = limitedSessions.map(async (session) => {
@@ -77,9 +77,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       statusResults.forEach(result => {
         statusMap[result.sessionId] = result.status
       })
-      
+
       // 残りのセッションにはデフォルト値を設定（APIコールなし）
-      sessionList.slice(5).forEach(session => {
+      sessionList.slice(20).forEach(session => {
         statusMap[session.session_id] = {
           status: session.status === 'active' ? 'stable' : 'error',
           last_activity: session.updated_at,
@@ -114,8 +114,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       const sessionList = response.sessions || []
       setSessions(sessionList)
 
-      // 各セッションの初期メッセージを取得
-      const messagePromises = sessionList.map(async (session) => {
+      // 初期表示分（最初の20セッション）のメッセージのみを取得
+      const initialSessions = sessionList.slice(0, 20)
+      const messagePromises = initialSessions.map(async (session) => {
         try {
           const messages = await agentAPI.getSessionMessages!(session.session_id, { limit: 10 })
           const userMessages = messages.messages.filter(msg => msg.role === 'user')
@@ -136,6 +137,40 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
         messageMap[result.sessionId] = result.message
       })
       setSessionMessages(messageMap)
+
+      // 残りのセッションのメッセージをバックグラウンドで取得
+      const remainingSessions = sessionList.slice(20)
+      if (remainingSessions.length > 0) {
+        // 非同期でバックグラウンド取得（UI をブロックしない）
+        Promise.all(
+          remainingSessions.map(async (session) => {
+            try {
+              const messages = await agentAPI.getSessionMessages!(session.session_id, { limit: 10 })
+              const userMessages = messages.messages.filter(msg => msg.role === 'user')
+              if (userMessages.length > 0) {
+                const userMessage = extractUserMessage(userMessages[0].content)
+                setSessionMessages(prev => ({
+                  ...prev,
+                  [session.session_id]: userMessage
+                }))
+              } else {
+                setSessionMessages(prev => ({
+                  ...prev,
+                  [session.session_id]: String(session.tags?.description || session.metadata?.description || 'No description available')
+                }))
+              }
+            } catch (err) {
+              console.warn(`Failed to fetch messages for session ${session.session_id}:`, err)
+              setSessionMessages(prev => ({
+                ...prev,
+                [session.session_id]: String(session.tags?.description || session.metadata?.description || 'No description available')
+              }))
+            }
+          })
+        ).catch(err => {
+          console.warn('Failed to fetch remaining session messages:', err)
+        })
+      }
       
       // 初期表示時にすぐにエージェントステータスを取得
       if (sessionList.length > 0) {
@@ -172,8 +207,8 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     if (sessions.length === 0 || !agentAPIProxy) return
 
     try {
-      // セッション数を制限してAPIコールを削減（最新5セッションのみ）
-      const limitedSessions = sessions.slice(0, 5)
+      // セッション数を制限してAPIコールを削減（表示分の20セッションまで）
+      const limitedSessions = sessions.slice(0, 20)
 
       // 各セッションのエージェント状態を並列で取得
       const statusPromises = limitedSessions.map(async (session) => {
@@ -203,7 +238,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       })
 
       // 残りのセッションにはデフォルト値を設定（APIコールなし）
-      sessions.slice(5).forEach(session => {
+      sessions.slice(20).forEach(session => {
         statusMap[session.session_id] = {
           status: session.status === 'active' ? 'stable' : 'error',
           last_activity: session.updated_at,
