@@ -131,20 +131,9 @@ cookieEncryptionSecret:
   # Key within the secret that contains the cookie encryption secret
   secretKey: "cookie-encryption-secret"
 
-# OAuth Only Mode configuration
-# When enabled, sets AUTH_MODE to oauth_only and configures proxy URLs
-oauthOnlyMode:
-  # Enable OAuth only mode
-  enabled: false
-  # AgentAPI Proxy URL for OAuth mode
-  proxyUrl: "http://localhost:8080"
-  # Public AgentAPI Proxy URL for client-side (optional, defaults to proxyUrl)
-  publicProxyUrl: ""
-
 # Application configuration (runtime settings via /api/config)
 config:
   # Authentication mode: 'oauth_only' | 'api_key' | 'both'
-  # Note: If oauthOnlyMode.enabled is true, this will be overridden to 'oauth_only'
   authMode: "both"
   # Login page title
   loginTitle: "AgentAPI UI"

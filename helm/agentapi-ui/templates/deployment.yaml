@@ -63,22 +63,11 @@ spec:
                   name: {{ .Values.cookieEncryptionSecret.secretName }}
                   key: {{ .Values.cookieEncryptionSecret.secretKey }}
           {{- end }}
-          {{- if .Values.oauthOnlyMode.enabled }}
-            - name: AGENTAPI_PROXY_URL
-              value: {{ .Values.oauthOnlyMode.proxyUrl | quote }}
-            - name: NEXT_PUBLIC_AGENTAPI_PROXY_URL
-              value: {{ .Values.oauthOnlyMode.publicProxyUrl | default .Values.oauthOnlyMode.proxyUrl | quote }}
-          {{- end }}
             - name: NEXT_PUBLIC_ALLOWED_ORIGINS
               value: "https://{{ .Values.hostname }}"
             # Application configuration (runtime settings)
-            {{- if .Values.oauthOnlyMode.enabled }}
-            - name: AUTH_MODE
-              value: "oauth_only"
-            {{- else }}
             - name: AUTH_MODE
               value: {{ .Values.config.authMode | quote }}
-            {{- end }}
             - name: LOGIN_TITLE
               value: {{ .Values.config.loginTitle | quote }}
             - name: LOGIN_DESCRIPTION
