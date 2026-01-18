@@ -138,8 +138,6 @@ oauthOnlyMode:
   enabled: false
   # AgentAPI Proxy URL for OAuth mode
   proxyUrl: "http://localhost:8080"
-  # Public AgentAPI Proxy URL for client-side (optional, defaults to proxyUrl)
-  publicProxyUrl: ""
 
 # Application configuration (runtime settings via /api/config)
 config:
@@ -167,13 +165,3 @@ pwa:
   # Custom icon URL (optional, leave empty to use default icons)
   # Example: "https://example.com/icon.png"
   iconUrl: ""
-
-# ConfigMap data
-configMap:
-  data: {}
-    # Any configuration data can be added here
-
-# Secret data
-secret:
-  data: {}
-    # Any secret data can be added here

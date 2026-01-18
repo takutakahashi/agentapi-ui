@@ -36,8 +36,6 @@ NEXT_PUBLIC_OAUTH_ONLY_MODE=false
 
 # Push Notification Configuration (オプション)
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_vapid_public_key_here
-VAPID_PRIVATE_KEY=your_vapid_private_key_here
-VAPID_SUBJECT=mailto:admin@example.com
 ```
 
 4. 開発サーバーの起動:
@@ -101,8 +99,6 @@ npx web-push generate-vapid-keys
 ```bash
 # .env.local に追加
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_public_key_here
-VAPID_PRIVATE_KEY=your_private_key_here
-VAPID_SUBJECT=mailto:your-email@example.com
 ```
 
 3. **設定画面で有効化**:

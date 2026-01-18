@@ -66,8 +66,6 @@ spec:
           {{- if .Values.oauthOnlyMode.enabled }}
             - name: AGENTAPI_PROXY_URL
               value: {{ .Values.oauthOnlyMode.proxyUrl | quote }}
-            - name: NEXT_PUBLIC_AGENTAPI_PROXY_URL
-              value: {{ .Values.oauthOnlyMode.publicProxyUrl | default .Values.oauthOnlyMode.proxyUrl | quote }}
           {{- end }}
             - name: NEXT_PUBLIC_ALLOWED_ORIGINS
               value: "https://{{ .Values.hostname }}"
