@@ -63,6 +63,11 @@ spec:
                   name: {{ .Values.cookieEncryptionSecret.secretName }}
                   key: {{ .Values.cookieEncryptionSecret.secretKey }}
           {{- end }}
+            # AgentAPI Proxy URLs
+            - name: AGENTAPI_PROXY_URL
+              value: {{ .Values.agentapiProxy.proxyUrl | quote }}
+            - name: NEXT_PUBLIC_AGENTAPI_PROXY_URL
+              value: {{ .Values.agentapiProxy.publicProxyUrl | default .Values.agentapiProxy.proxyUrl | quote }}
             - name: NEXT_PUBLIC_ALLOWED_ORIGINS
               value: "https://{{ .Values.hostname }}"
             # Application configuration (runtime settings)

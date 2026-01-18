@@ -131,6 +131,14 @@ cookieEncryptionSecret:
   # Key within the secret that contains the cookie encryption secret
   secretKey: "cookie-encryption-secret"
 
+# AgentAPI Proxy configuration
+# These URLs are required for the UI to communicate with the AgentAPI proxy server
+agentapiProxy:
+  # AgentAPI Proxy URL for server-side API calls
+  proxyUrl: "http://localhost:8080"
+  # Public AgentAPI Proxy URL for client-side (optional, defaults to proxyUrl)
+  publicProxyUrl: ""
+
 # Application configuration (runtime settings via /api/config)
 config:
   # Authentication mode: 'oauth_only' | 'api_key' | 'both'
