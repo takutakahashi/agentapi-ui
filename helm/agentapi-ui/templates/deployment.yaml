@@ -57,7 +57,7 @@ spec:
                   key: {{ .Values.encryptionKey.secretKey }}
           {{- end }}
           {{- if .Values.cookieEncryptionSecret.enabled }}
-            - name: COOKIE_SECRET
+            - name: COOKIE_ENCRYPTION_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.cookieEncryptionSecret.secretName }}
