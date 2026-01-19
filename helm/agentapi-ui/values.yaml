@@ -136,8 +136,8 @@ cookieEncryptionSecret:
 oauthOnlyMode:
   # Enable OAuth only mode
   enabled: false
-  # AgentAPI Proxy URL for OAuth mode
-  proxyUrl: "http://localhost:8080"
+  # AgentAPI Proxy URL for OAuth mode (leave empty for auto-detection)
+  proxyUrl: ""
 
 # Application configuration (runtime settings via /api/config)
 config:

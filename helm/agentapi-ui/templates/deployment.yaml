@@ -62,13 +62,32 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.cookieEncryptionSecret.secretName }}
                   key: {{ .Values.cookieEncryptionSecret.secretKey }}
+            - name: COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.cookieEncryptionSecret.secretName }}
+                  key: {{ .Values.cookieEncryptionSecret.secretKey }}
           {{- end }}
-          {{- if .Values.oauthOnlyMode.enabled }}
+          {{- $proxyUrl := "" }}
+          {{- if .Values.config.proxyUrl }}
+            {{- $proxyUrl = .Values.config.proxyUrl }}
+          {{- else if .Values.oauthOnlyMode.proxyUrl }}
+            {{- $proxyUrl = .Values.oauthOnlyMode.proxyUrl }}
+          {{- else }}
+            {{- $proxyUrl = printf "http://%s-backend:8080" .Release.Name }}
+          {{- end }}
+          {{- if or .Values.oauthOnlyMode.enabled $proxyUrl }}
             - name: AGENTAPI_PROXY_URL
-              value: {{ .Values.oauthOnlyMode.proxyUrl | quote }}
+              value: {{ $proxyUrl | quote }}
           {{- end }}
+            {{- $hostname := "" }}
+            {{- if .Values.global }}
+              {{- $hostname = .Values.global.hostname | default .Values.hostname }}
+            {{- else }}
+              {{- $hostname = .Values.hostname }}
+            {{- end }}
             - name: NEXT_PUBLIC_ALLOWED_ORIGINS
-              value: "https://{{ .Values.hostname }}"
+              value: "https://{{ $hostname }}"
             # Application configuration (runtime settings)
             {{- if .Values.oauthOnlyMode.enabled }}
             - name: AUTH_MODE

@@ -24,7 +24,13 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-    - host: {{ .Values.hostname }}
+    {{- $hostname := "" }}
+    {{- if .Values.global }}
+      {{- $hostname = .Values.global.hostname | default .Values.hostname }}
+    {{- else }}
+      {{- $hostname = .Values.hostname }}
+    {{- end }}
+    - host: {{ $hostname }}
       http:
         paths:
           - path: /
