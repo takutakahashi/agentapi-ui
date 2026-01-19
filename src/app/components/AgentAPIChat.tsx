@@ -701,7 +701,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
   }, [sessionId, router]);
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       const enterKeyBehavior = getEnterKeyBehavior();
       // 'send' モード: Enter で送信、Cmd/Ctrl+Enter で改行
@@ -1064,7 +1064,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
               aria-label="Message"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
               onFocus={() => {
                 // テンプレートの自動表示を無効化
               }}
