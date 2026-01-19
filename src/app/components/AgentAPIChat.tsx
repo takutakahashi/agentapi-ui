@@ -701,12 +701,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
   }, [sessionId, router]);
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       const enterKeyBehavior = getEnterKeyBehavior();
-      // 'send' モード: Enter で送信、Shift+Enter で改行
-      // 'newline' モード: Enter で改行、Shift+Enter で送信
-      const shouldSend = enterKeyBehavior === 'send' ? !e.shiftKey : e.shiftKey;
+      // 'send' モード: Enter で送信、Cmd/Ctrl+Enter で改行
+      // 'newline' モード: Enter で改行、Cmd/Ctrl+Enter で送信
+      const isModifierKeyPressed = e.metaKey || e.ctrlKey;
+      const shouldSend = enterKeyBehavior === 'send' ? !isModifierKeyPressed : isModifierKeyPressed;
 
       if (shouldSend) {
         e.preventDefault();
@@ -1063,7 +1064,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
               aria-label="Message"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
               onFocus={() => {
                 // テンプレートの自動表示を無効化
               }}
@@ -1106,10 +1107,30 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             )}
             <div className="flex items-center justify-between mt-3">
               <div className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">
-                Press Enter to send, Shift+Enter for new line
+                {(() => {
+                  const enterKeyBehavior = getEnterKeyBehavior();
+                  const isMac = typeof window !== 'undefined' && navigator.platform.includes('Mac');
+                  const modifierKey = isMac ? '⌘' : 'Ctrl';
+
+                  if (enterKeyBehavior === 'send') {
+                    return `Press Enter to send, ${modifierKey}+Enter for new line`;
+                  } else {
+                    return `Press ${modifierKey}+Enter to send, Enter for new line`;
+                  }
+                })()}
               </div>
               <div className="text-xs text-gray-500 dark:text-gray-400 block sm:hidden">
-                Enter: send
+                {(() => {
+                  const enterKeyBehavior = getEnterKeyBehavior();
+                  const isMac = typeof window !== 'undefined' && navigator.platform.includes('Mac');
+                  const modifierKey = isMac ? '⌘' : 'Ctrl';
+
+                  if (enterKeyBehavior === 'send') {
+                    return `Enter: send`;
+                  } else {
+                    return `${modifierKey}+Enter: send`;
+                  }
+                })()}
               </div>
               <div className="flex items-center space-x-2">
                 {/* Control Panel Toggle */}
