@@ -37,8 +37,6 @@ services:
       - "3000:3000"
     environment:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
-      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
-      - VAPID_SUBJECT=${VAPID_SUBJECT}
     volumes:
       # 設定ファイルを外部マウントする場合（オプション）
       - ./config.js:/app/public/config.js:ro

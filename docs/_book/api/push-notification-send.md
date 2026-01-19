@@ -325,8 +325,6 @@ self.addEventListener('notificationclick', (event) => {
 
 4. **環境変数の保護**:
    - `NEXT_PUBLIC_VAPID_PUBLIC_KEY`: 公開可能
-   - `VAPID_PRIVATE_KEY`: 秘密鍵として厳重に管理
-   - `VAPID_SUBJECT`: mailto: または https: URL
 
 ---
 
