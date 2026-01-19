@@ -12,12 +12,12 @@ export function KeyBindingSettings({ enterKeyBehavior, onChange }: KeyBindingSet
     {
       value: 'send',
       label: 'Enter で送信',
-      description: 'Enter キーでメッセージを送信、Shift+Enter で改行'
+      description: 'Enter キーでメッセージを送信、Command+Enter (または Ctrl+Enter) で改行'
     },
     {
       value: 'newline',
       label: 'Enter で改行',
-      description: 'Enter キーで改行、Shift+Enter でメッセージを送信'
+      description: 'Enter キーで改行、Command+Enter (または Ctrl+Enter) でメッセージを送信'
     }
   ]
 
