@@ -63,9 +63,17 @@ spec:
                   name: {{ .Values.cookieEncryptionSecret.secretName }}
                   key: {{ .Values.cookieEncryptionSecret.secretKey }}
           {{- end }}
-          {{- if or .Values.oauthOnlyMode.enabled .Values.config.proxyUrl }}
+          {{- $proxyUrl := "" }}
+          {{- if .Values.config.proxyUrl }}
+            {{- $proxyUrl = .Values.config.proxyUrl }}
+          {{- else if .Values.oauthOnlyMode.proxyUrl }}
+            {{- $proxyUrl = .Values.oauthOnlyMode.proxyUrl }}
+          {{- else }}
+            {{- $proxyUrl = printf "http://%s-backend:8080" .Release.Name }}
+          {{- end }}
+          {{- if or .Values.oauthOnlyMode.enabled $proxyUrl }}
             - name: AGENTAPI_PROXY_URL
-              value: {{ .Values.config.proxyUrl | default .Values.oauthOnlyMode.proxyUrl | quote }}
+              value: {{ $proxyUrl | quote }}
           {{- end }}
             {{- $hostname := "" }}
             {{- if .Values.global }}
