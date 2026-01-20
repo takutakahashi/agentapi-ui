@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, GithubTokenSettings, ExperimentalSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings } from '@/components/settings'
+import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings } from '@/components/settings'
 import { OneClickPushNotifications } from '@/app/components/OneClickPushNotifications'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
@@ -13,20 +13,13 @@ export default function PersonalSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isDebugMode, setIsDebugMode] = useState(false)
   const [sendGithubToken, setSendGithubToken] = useState(false)
   const [enterKeyBehavior, setEnterKeyBehaviorState] = useState<EnterKeyBehavior>('send')
   const [fontSettings, setFontSettingsState] = useState<FontSettingsType>({ fontSize: 14, fontFamily: 'sans-serif' })
   const { showToast } = useToast()
 
-  // デバッグモードの判定と GitHub Token 設定の読み込み
+  // GitHub Token 設定、Enter キー設定、Font 設定の読み込み
   useEffect(() => {
-    if (process.env.AGENTAPI_DEBUG === 'true') {
-      setIsDebugMode(true)
-    } else {
-      const debugFlag = localStorage.getItem('agentapi_debug')
-      setIsDebugMode(debugFlag === 'true')
-    }
     // GitHub Token 設定を読み込み
     setSendGithubToken(getSendGithubTokenOnSessionStart())
     // Enter キー設定を読み込み
@@ -115,15 +108,6 @@ export default function PersonalSettingsPage() {
     setFontSettings(settings)
   }
 
-  const handleExperimentalChange = (enabled: boolean) => {
-    setIsDebugMode(enabled)
-    if (enabled) {
-      localStorage.setItem('agentapi_debug', 'true')
-    } else {
-      localStorage.removeItem('agentapi_debug')
-    }
-  }
-
   const handleSave = async () => {
     setSaving(true)
     setError(null)
@@ -187,22 +171,21 @@ export default function PersonalSettingsPage() {
         <>
           <SettingsAccordion
             title="Marketplace"
-            description="Configure plugin marketplaces (Experimental)"
+            description="Configure plugin marketplaces"
             defaultOpen
           >
-            <MarketplaceSettings marketplaces={settings.marketplaces} onChange={handleMarketplacesChange} disabled={!isDebugMode} />
+            <MarketplaceSettings marketplaces={settings.marketplaces} onChange={handleMarketplacesChange} />
           </SettingsAccordion>
 
           <SettingsAccordion
             title="Plugins"
-            description="Enable plugins from official and registered marketplaces (Experimental)"
+            description="Enable plugins from official and registered marketplaces"
             defaultOpen
           >
             <PluginSettings
               enabledPlugins={settings.enabled_plugins}
               availableMarketplaces={Object.keys(settings.marketplaces || {})}
               onChange={handlePluginsChange}
-              disabled={!isDebugMode}
             />
           </SettingsAccordion>
 
@@ -256,14 +239,6 @@ export default function PersonalSettingsPage() {
             defaultOpen
           >
             <OneClickPushNotifications />
-          </SettingsAccordion>
-
-          <SettingsAccordion
-            title="Experimental"
-            description="Enable experimental features"
-            defaultOpen
-          >
-            <ExperimentalSettings enabled={isDebugMode} onChange={handleExperimentalChange} />
           </SettingsAccordion>
 
           <div className="flex justify-end">

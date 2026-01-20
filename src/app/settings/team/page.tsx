@@ -14,18 +14,7 @@ export default function TeamSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isTeamLoaded, setIsTeamLoaded] = useState(false)
-  const [isDebugMode, setIsDebugMode] = useState(false)
   const { showToast } = useToast()
-
-  // デバッグモードの判定
-  useEffect(() => {
-    if (process.env.AGENTAPI_DEBUG === 'true') {
-      setIsDebugMode(true)
-      return
-    }
-    const debugFlag = localStorage.getItem('agentapi_debug')
-    setIsDebugMode(debugFlag === 'true')
-  }, [])
 
   const loadTeamSettings = useCallback(async (name: string) => {
     if (!name.trim()) return
@@ -204,22 +193,21 @@ export default function TeamSettingsPage() {
         <>
           <SettingsAccordion
             title="Marketplace"
-            description="Configure plugin marketplaces (Experimental)"
+            description="Configure plugin marketplaces"
             defaultOpen
           >
-            <MarketplaceSettings marketplaces={settings.marketplaces} onChange={handleMarketplacesChange} disabled={!isDebugMode} />
+            <MarketplaceSettings marketplaces={settings.marketplaces} onChange={handleMarketplacesChange} />
           </SettingsAccordion>
 
           <SettingsAccordion
             title="Plugins"
-            description="Enable plugins from official and registered marketplaces (Experimental)"
+            description="Enable plugins from official and registered marketplaces"
             defaultOpen
           >
             <PluginSettings
               enabledPlugins={settings.enabled_plugins}
               availableMarketplaces={Object.keys(settings.marketplaces || {})}
               onChange={handlePluginsChange}
-              disabled={!isDebugMode}
             />
           </SettingsAccordion>
 

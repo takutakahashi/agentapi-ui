@@ -9,7 +9,6 @@ interface PluginSettingsProps {
   enabledPlugins: string[] | undefined  // "plugin@marketplace" 形式
   availableMarketplaces: string[]       // 登録済みマーケットプレイス名
   onChange: (plugins: string[]) => void
-  disabled?: boolean
 }
 
 // プラグイン文字列をパース
@@ -29,7 +28,7 @@ function formatPlugin(name: string, marketplace: string): string {
   return `${name}@${marketplace}`
 }
 
-export function PluginSettings({ enabledPlugins, availableMarketplaces, onChange, disabled = false }: PluginSettingsProps) {
+export function PluginSettings({ enabledPlugins, availableMarketplaces, onChange }: PluginSettingsProps) {
   const [newPluginName, setNewPluginName] = useState('')
   const [selectedMarketplace, setSelectedMarketplace] = useState(OFFICIAL_MARKETPLACE)
   const [error, setError] = useState<string | null>(null)
@@ -50,7 +49,6 @@ export function PluginSettings({ enabledPlugins, availableMarketplaces, onChange
   const allMarketplaces = [OFFICIAL_MARKETPLACE, ...availableMarketplaces]
 
   const handleAdd = () => {
-    if (disabled) return
     setError(null)
 
     const trimmed = newPluginName.trim()
@@ -71,7 +69,6 @@ export function PluginSettings({ enabledPlugins, availableMarketplaces, onChange
   }
 
   const handleDelete = (pluginStr: string) => {
-    if (disabled) return
     onChange(pluginList.filter(p => p !== pluginStr))
   }
 
@@ -84,18 +81,7 @@ export function PluginSettings({ enabledPlugins, availableMarketplaces, onChange
 
   return (
     <div className="space-y-6">
-      {disabled && (
-        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-center gap-2">
-          <svg className="w-5 h-5 text-amber-500 dark:text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <span className="text-sm text-amber-700 dark:text-amber-300">
-            This feature is experimental. Enable experimental features to configure plugins.
-          </span>
-        </div>
-      )}
-
-      <div className={disabled ? "opacity-60" : ""}>
+      <div>
         {/* Official Plugins Section */}
         <div className="mb-6">
           <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
@@ -126,12 +112,7 @@ export function PluginSettings({ enabledPlugins, availableMarketplaces, onChange
                     <button
                       type="button"
                       onClick={() => handleDelete(pluginStr)}
-                      disabled={disabled}
-                      className={`text-sm font-medium ${
-                        disabled
-                          ? 'text-gray-400 cursor-not-allowed'
-                          : 'text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300'
-                      }`}
+                      className="text-sm font-medium text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                     >
                       Delete
                     </button>
@@ -179,12 +160,7 @@ export function PluginSettings({ enabledPlugins, availableMarketplaces, onChange
                     <button
                       type="button"
                       onClick={() => handleDelete(pluginStr)}
-                      disabled={disabled}
-                      className={`text-sm font-medium ml-2 ${
-                        disabled
-                          ? 'text-gray-400 cursor-not-allowed'
-                          : 'text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300'
-                      }`}
+                      className="text-sm font-medium ml-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                     >
                       Delete
                     </button>
@@ -214,10 +190,7 @@ export function PluginSettings({ enabledPlugins, availableMarketplaces, onChange
               <select
                 value={selectedMarketplace}
                 onChange={(e) => setSelectedMarketplace(e.target.value)}
-                disabled={disabled}
-                className={`w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  disabled ? 'cursor-not-allowed opacity-60' : ''
-                }`}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {allMarketplaces.map((mp) => (
                   <option key={mp} value={mp}>
@@ -241,18 +214,15 @@ export function PluginSettings({ enabledPlugins, availableMarketplaces, onChange
                     setError(null)
                   }}
                   onKeyDown={handleKeyDown}
-                  disabled={disabled}
                   placeholder="Enter plugin name"
-                  className={`flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    disabled ? 'cursor-not-allowed' : ''
-                  }`}
+                  className="flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <button
                   type="button"
                   onClick={handleAdd}
-                  disabled={disabled || !newPluginName.trim()}
+                  disabled={!newPluginName.trim()}
                   className={`px-4 py-2 rounded-md transition-colors ${
-                    disabled || !newPluginName.trim()
+                    !newPluginName.trim()
                       ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                       : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
