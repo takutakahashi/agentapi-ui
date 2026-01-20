@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useCallback } from 'react'
 import { Webhook, WebhookStatus, WebhookType } from '../../types/webhook'
 import WebhookFilterSidebar from '../components/WebhookFilterSidebar'
 import WebhookListView from '../components/WebhookListView'
@@ -9,29 +8,13 @@ import WebhookFormModal from '../components/WebhookFormModal'
 import TopBar from '../components/TopBar'
 import NavigationTabs from '../components/NavigationTabs'
 
-function isDebugEnabled(): boolean {
-  if (typeof window === 'undefined') return false
-  return localStorage.getItem('agentapi_debug') !== null
-}
-
 export default function WebhooksPage() {
-  const router = useRouter()
-  const [isAuthorized, setIsAuthorized] = useState(false)
   const [statusFilter, setStatusFilter] = useState<WebhookStatus | null>(null)
   const [typeFilter, setTypeFilter] = useState<WebhookType | null>(null)
   const [sidebarVisible, setSidebarVisible] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [isFormModalOpen, setIsFormModalOpen] = useState(false)
   const [editingWebhook, setEditingWebhook] = useState<Webhook | null>(null)
-
-  // Check feature flag on mount
-  useEffect(() => {
-    if (!isDebugEnabled()) {
-      router.replace('/chats')
-    } else {
-      setIsAuthorized(true)
-    }
-  }, [router])
 
   const handleWebhooksUpdate = useCallback(() => {
     setRefreshKey((prev) => prev + 1)
@@ -56,15 +39,6 @@ export default function WebhooksPage() {
     setEditingWebhook(null)
     setIsFormModalOpen(true)
   }, [])
-
-  // Show nothing while checking authorization
-  if (!isAuthorized) {
-    return (
-      <div className="min-h-dvh bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
-      </div>
-    )
-  }
 
   return (
     <main className="min-h-dvh bg-gray-50 dark:bg-gray-900">
