@@ -1,4 +1,26 @@
 {{- if .Values.ingress.enabled -}}
+{{- $ingressClassName := .Values.ingress.className }}
+{{- if .Values.global }}
+  {{- if .Values.global.ingress }}
+    {{- $ingressClassName = .Values.global.ingress.className | default $ingressClassName }}
+  {{- end }}
+{{- end }}
+{{- $tlsEnabled := false }}
+{{- if .Values.ingress.tls }}
+  {{- $tlsEnabled = true }}
+{{- else if .Values.global }}
+  {{- if .Values.global.ingress }}
+    {{- if .Values.global.ingress.tls }}
+      {{- $tlsEnabled = .Values.global.ingress.tls.enabled | default false }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- $hostname := "" }}
+{{- if .Values.global }}
+  {{- $hostname = .Values.global.hostname | default .Values.hostname }}
+{{- else }}
+  {{- $hostname = .Values.hostname }}
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -10,8 +32,8 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
-  ingressClassName: {{ .Values.ingress.className }}
+  {{- if and $ingressClassName (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ $ingressClassName }}
   {{- end }}
   {{- if .Values.ingress.tls }}
   tls:
@@ -22,14 +44,13 @@ spec:
         {{- end }}
       secretName: {{ .secretName }}
     {{- end }}
+  {{- else if and $tlsEnabled $hostname }}
+  tls:
+    - hosts:
+        - {{ $hostname | quote }}
+      secretName: {{ include "agentapi-ui.fullname" . }}-tls
   {{- end }}
   rules:
-    {{- $hostname := "" }}
-    {{- if .Values.global }}
-      {{- $hostname = .Values.global.hostname | default .Values.hostname }}
-    {{- else }}
-      {{- $hostname = .Values.hostname }}
-    {{- end }}
     - host: {{ $hostname }}
       http:
         paths:
