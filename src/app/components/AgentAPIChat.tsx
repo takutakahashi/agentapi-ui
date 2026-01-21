@@ -939,7 +939,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     }`}
                     style={{ fontSize: `${fontSettings.fontSize}px` }}
                   >
-                    <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">
+                    <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full font-mono">
                       {formatTextWithLinks(message.content)}
                     </div>
                   </div>
