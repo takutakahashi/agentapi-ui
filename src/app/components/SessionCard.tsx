@@ -20,16 +20,32 @@ export default function SessionCard({ session, onDelete, isDeleting }: SessionCa
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 640)
     }
-    
+
     checkMobile()
     window.addEventListener('resize', checkMobile)
-    
+
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  // Check if session is old (both started_at and updated_at are older than 3 days)
+  const isOldSession = () => {
+    const threeDaysAgo = new Date()
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+
+    const startedAt = new Date(session.started_at)
+    const updatedAt = session.updated_at ? new Date(session.updated_at) : startedAt
+
+    return startedAt < threeDaysAgo && updatedAt < threeDaysAgo
+  }
+
+  const isOld = isOldSession()
+
 
   return (
-    <div className="border-b border-gray-200 dark:border-gray-700 px-3 py-4 sm:px-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+    <div
+      className="border-b border-gray-200 dark:border-gray-700 px-3 py-4 sm:px-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+      style={isOld ? { filter: 'grayscale(50%)', opacity: 0.7 } : {}}
+    >
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
         <div className="flex-1 min-w-0">
           {/* タイトルとステータス */}

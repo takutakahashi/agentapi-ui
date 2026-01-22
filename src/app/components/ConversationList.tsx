@@ -23,6 +23,9 @@ interface PageState {
   limit: number
 }
 
+type SortField = 'started_at' | 'updated_at'
+type SortOrder = 'asc' | 'desc'
+
 export default function ConversationList() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -33,7 +36,7 @@ export default function ConversationList() {
 
   // Create global API client
   const [agentAPI] = useState(() => createAgentAPIProxyClientFromStorage(repositoryParam || undefined))
-  
+
   const [allSessions, setAllSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -47,19 +50,31 @@ export default function ConversationList() {
   const [isCreatingQuickSession, setIsCreatingQuickSession] = useState(false)
   const [deletingSession, setDeletingSession] = useState<string | null>(null)
   const [sidebarVisible, setSidebarVisible] = useState(false)
+  const [sortBy, setSortBy] = useState<SortField>('updated_at')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
 
   // Extract filter groups from all sessions
   const filterGroups = extractFilterGroups(allSessions)
-  
+
   // Apply filters to get filtered sessions
-  const filteredSessions = applySessionFilters(allSessions, sessionFilters)
-  
+  const filteredSessionsBeforeSort = applySessionFilters(allSessions, sessionFilters)
+
+  // Apply sorting
+  const filteredSessions = [...filteredSessionsBeforeSort].sort((a, b) => {
+    const aValue = a[sortBy] || ''
+    const bValue = b[sortBy] || ''
+
+    if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1
+    if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1
+    return 0
+  })
+
   // Apply pagination to filtered sessions
   const paginatedSessions = filteredSessions.slice(
     (pageState.page - 1) * pageState.limit,
     pageState.page * pageState.limit
   )
-  
+
   const totalPages = Math.ceil(filteredSessions.length / pageState.limit)
 
   const fetchSessions = useCallback(async () => {
@@ -276,7 +291,7 @@ export default function ConversationList() {
 
         {/* Filter Summary Bar */}
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setSidebarVisible(!sidebarVisible)}
@@ -287,7 +302,7 @@ export default function ConversationList() {
                 </svg>
                 {sidebarVisible ? 'Hide Filters' : 'Show Filters'}
               </button>
-              
+
               <span className="text-sm text-gray-500 dark:text-gray-400">
                 {filteredSessions.length} of {allSessions.length} sessions
                 {sessionFilters.status && ` • Status: ${sessionFilters.status}`}
@@ -295,14 +310,44 @@ export default function ConversationList() {
                 {Object.keys(sessionFilters.environmentFilters).length > 0 && ` • ${Object.keys(sessionFilters.environmentFilters).length} environment filters`}
               </span>
             </div>
-            
-            <button
-              onClick={fetchSessions}
-              disabled={loading}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 disabled:opacity-50"
-            >
-              {loading ? 'Refreshing...' : 'Refresh'}
-            </button>
+
+            <div className="flex items-center gap-3">
+              {/* Sort Controls */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-700 dark:text-gray-300">並び替え:</label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortField)}
+                  className="text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="started_at">開始日時</option>
+                  <option value="updated_at">更新日時</option>
+                </select>
+                <button
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                  className="inline-flex items-center px-2 py-1 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
+                  title={sortOrder === 'asc' ? '昇順' : '降順'}
+                >
+                  {sortOrder === 'asc' ? (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+
+              <button
+                onClick={fetchSessions}
+                disabled={loading}
+                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 disabled:opacity-50"
+              >
+                {loading ? 'Refreshing...' : 'Refresh'}
+              </button>
+            </div>
           </div>
         </div>
 
