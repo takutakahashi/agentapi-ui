@@ -165,6 +165,7 @@ export interface Session {
   session_id: string;
   user_id: string;
   status: SessionStatus;
+  started_at: string;
   created_at: string;
   updated_at: string;
   environment?: Record<string, string>;
