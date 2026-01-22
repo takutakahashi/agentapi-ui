@@ -43,6 +43,18 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   const [sessionMessages, setSessionMessages] = useState<{ [sessionId: string]: string }>({})
   const [isMobile, setIsMobile] = useState(false)
   const [sessionAgentStatus, setSessionAgentStatus] = useState<{ [sessionId: string]: AgentStatus }>({})
+  const [sortBy, setSortBy] = useState<'started_at' | 'updated_at'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('sessionListSortBy') as 'started_at' | 'updated_at') || 'updated_at'
+    }
+    return 'updated_at'
+  })
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('sessionListSortOrder') as 'asc' | 'desc') || 'desc'
+    }
+    return 'desc'
+  })
 
   const fetchSessionStatusesInitial = useCallback(async (sessionList: Session[]) => {
     if (sessionList.length === 0 || !agentAPIProxy) return
@@ -332,31 +344,54 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 640)
     }
-    
+
     checkMobile()
     window.addEventListener('resize', checkMobile)
-    
+
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
+
+  // ソート設定を localStorage に保存
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sessionListSortBy', sortBy)
+    }
+  }, [sortBy])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sessionListSortOrder', sortOrder)
+    }
+  }, [sortOrder])
 
 
   const getMockSessions = (): Session[] => []
 
   // タグフィルタを適用してセッションをフィルタリング
-  const filteredSessions = sessions.filter(session => {
+  const filteredSessionsBeforeSort = sessions.filter(session => {
     return Object.entries(tagFilters).every(([tagKey, selectedValues]) => {
       if (selectedValues.length === 0) return true
-      
+
       // First check tags field
       const sessionTagValue = session.tags?.[tagKey]
       if (sessionTagValue && selectedValues.includes(sessionTagValue)) {
         return true
       }
-      
+
       // Fallback to metadata for backward compatibility
       const sessionMetadataValue = session.metadata?.[tagKey]
       return sessionMetadataValue && selectedValues.includes(String(sessionMetadataValue))
     })
+  })
+
+  // ソートを適用
+  const filteredSessions = [...filteredSessionsBeforeSort].sort((a, b) => {
+    const aValue = a[sortBy] || ''
+    const bValue = b[sortBy] || ''
+
+    if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1
+    if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1
+    return 0
   })
 
   // ページネーション
@@ -436,6 +471,17 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     const now = new Date()
     const diffMs = now.getTime() - started.getTime()
     return diffMs < 2 * 60 * 1000 // 2分以内
+  }
+
+  // セッションが古いかどうかを判定（started_at と updated_at が両方とも3日前より古い）
+  const isOldSession = (session: Session) => {
+    const threeDaysAgo = new Date()
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+
+    const startedAt = new Date(session.started_at)
+    const updatedAt = session.updated_at ? new Date(session.updated_at) : startedAt
+
+    return startedAt < threeDaysAgo && updatedAt < threeDaysAgo
   }
 
   // セッションの表示用説明を取得
@@ -530,17 +576,47 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <h3 className="text-lg font-medium text-gray-900 dark:text-white">
           セッション一覧 ({filteredSessions.length + creatingSessions.length})
         </h3>
-        <button
-          onClick={fetchSessions}
-          disabled={loading}
-          className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 disabled:opacity-50"
-        >
-          {loading ? '更新中...' : '更新'}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* ソート機能 */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'started_at' | 'updated_at')}
+            className="text-sm border border-gray-200 dark:border-gray-700 rounded-md px-3 py-1.5 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="started_at">開始日時順</option>
+            <option value="updated_at">更新日時順</option>
+          </select>
+          <button
+            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            className="inline-flex items-center justify-center px-2 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
+            title={sortOrder === 'asc' ? '昇順' : '降順'}
+          >
+            {sortOrder === 'asc' ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
+          </button>
+          <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+          <button
+            onClick={fetchSessions}
+            disabled={loading}
+            className="inline-flex items-center px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 disabled:opacity-50 font-medium"
+          >
+            <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {loading ? '更新中...' : '更新'}
+          </button>
+        </div>
       </div>
 
       {/* 作成中セッション */}
@@ -697,6 +773,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                   const isNew = isNewSession(session.started_at)
                   const agentStatusInfo = getAgentStatusForSession(session)
                   const description = getSessionDescription(session)
+                  const isOld = isOldSession(session)
 
                   return (
                   <div
@@ -708,6 +785,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                         ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20'
                         : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
                     }`}
+                    style={isOld ? { filter: 'grayscale(50%)', opacity: 0.7 } : {}}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
                       <div className="flex-1 min-w-0">

@@ -23,6 +23,9 @@ interface PageState {
   limit: number
 }
 
+type SortField = 'started_at' | 'updated_at'
+type SortOrder = 'asc' | 'desc'
+
 export default function ConversationList() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -33,7 +36,7 @@ export default function ConversationList() {
 
   // Create global API client
   const [agentAPI] = useState(() => createAgentAPIProxyClientFromStorage(repositoryParam || undefined))
-  
+
   const [allSessions, setAllSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -47,19 +50,41 @@ export default function ConversationList() {
   const [isCreatingQuickSession, setIsCreatingQuickSession] = useState(false)
   const [deletingSession, setDeletingSession] = useState<string | null>(null)
   const [sidebarVisible, setSidebarVisible] = useState(false)
+  const [sortBy, setSortBy] = useState<SortField>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('conversationListSortBy') as SortField) || 'updated_at'
+    }
+    return 'updated_at'
+  })
+  const [sortOrder, setSortOrder] = useState<SortOrder>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('conversationListSortOrder') as SortOrder) || 'desc'
+    }
+    return 'desc'
+  })
 
   // Extract filter groups from all sessions
   const filterGroups = extractFilterGroups(allSessions)
-  
+
   // Apply filters to get filtered sessions
-  const filteredSessions = applySessionFilters(allSessions, sessionFilters)
-  
+  const filteredSessionsBeforeSort = applySessionFilters(allSessions, sessionFilters)
+
+  // Apply sorting
+  const filteredSessions = [...filteredSessionsBeforeSort].sort((a, b) => {
+    const aValue = a[sortBy] || ''
+    const bValue = b[sortBy] || ''
+
+    if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1
+    if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1
+    return 0
+  })
+
   // Apply pagination to filtered sessions
   const paginatedSessions = filteredSessions.slice(
     (pageState.page - 1) * pageState.limit,
     pageState.page * pageState.limit
   )
-  
+
   const totalPages = Math.ceil(filteredSessions.length / pageState.limit)
 
   const fetchSessions = useCallback(async () => {
@@ -202,6 +227,19 @@ export default function ConversationList() {
     setSessionFilters(urlFilters)
   }, [searchParams])
 
+  // ソート設定を localStorage に保存
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('conversationListSortBy', sortBy)
+    }
+  }, [sortBy])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('conversationListSortOrder', sortOrder)
+    }
+  }, [sortOrder])
+
 
   if (loading && allSessions.length === 0) {
     return <LoadingSpinner />
@@ -276,7 +314,7 @@ export default function ConversationList() {
 
         {/* Filter Summary Bar */}
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setSidebarVisible(!sidebarVisible)}
@@ -287,7 +325,7 @@ export default function ConversationList() {
                 </svg>
                 {sidebarVisible ? 'Hide Filters' : 'Show Filters'}
               </button>
-              
+
               <span className="text-sm text-gray-500 dark:text-gray-400">
                 {filteredSessions.length} of {allSessions.length} sessions
                 {sessionFilters.status && ` • Status: ${sessionFilters.status}`}
@@ -295,14 +333,44 @@ export default function ConversationList() {
                 {Object.keys(sessionFilters.environmentFilters).length > 0 && ` • ${Object.keys(sessionFilters.environmentFilters).length} environment filters`}
               </span>
             </div>
-            
-            <button
-              onClick={fetchSessions}
-              disabled={loading}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 disabled:opacity-50"
-            >
-              {loading ? 'Refreshing...' : 'Refresh'}
-            </button>
+
+            <div className="flex items-center gap-2">
+              {/* Sort Controls */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortField)}
+                className="text-sm border border-gray-200 dark:border-gray-700 rounded-md px-3 py-1.5 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="started_at">開始日時順</option>
+                <option value="updated_at">更新日時順</option>
+              </select>
+              <button
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                className="inline-flex items-center justify-center px-2 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
+                title={sortOrder === 'asc' ? '昇順' : '降順'}
+              >
+                {sortOrder === 'asc' ? (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                )}
+              </button>
+              <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+              <button
+                onClick={fetchSessions}
+                disabled={loading}
+                className="inline-flex items-center px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 disabled:opacity-50 font-medium"
+              >
+                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {loading ? '更新中...' : '更新'}
+              </button>
+            </div>
           </div>
         </div>
 
