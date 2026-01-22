@@ -44,8 +44,10 @@ export default function SessionCard({ session, onDelete, isDeleting }: SessionCa
           <div className="flex flex-col sm:flex-row sm:items-center text-xs text-gray-500 dark:text-gray-400 space-y-1 sm:space-y-0 sm:space-x-4 mb-3">
             <span>#{session.session_id.substring(0, 8)}</span>
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <span>作成: {formatRelativeTime(session.created_at)}</span>
-              <span className="hidden sm:inline">更新: {formatRelativeTime(session.updated_at)}</span>
+              <span>開始: {formatRelativeTime(session.started_at)}</span>
+              {session.updated_at && (
+                <span className="hidden sm:inline">更新: {formatRelativeTime(session.updated_at)}</span>
+              )}
             </div>
             <span className="hidden sm:inline">by {session.user_id}</span>
             {session.environment?.WORKSPACE_NAME && (

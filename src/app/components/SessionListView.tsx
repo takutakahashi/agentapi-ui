@@ -430,11 +430,11 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     }
   }
 
-  // セッションが新規かどうかを判定（作成から2分以内）
-  const isNewSession = (createdAt: string) => {
-    const created = new Date(createdAt)
+  // セッションが新規かどうかを判定（開始から2分以内）
+  const isNewSession = (startedAt: string) => {
+    const started = new Date(startedAt)
     const now = new Date()
-    const diffMs = now.getTime() - created.getTime()
+    const diffMs = now.getTime() - started.getTime()
     return diffMs < 2 * 60 * 1000 // 2分以内
   }
 
@@ -449,7 +449,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     }
 
     // 新規セッションでメッセージがまだ取得できていない場合
-    if (isNewSession(session.created_at)) {
+    if (isNewSession(session.started_at)) {
       return '読み込み中...'
     }
 
@@ -459,7 +459,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   // エージェントステータスの表示情報を取得（新規セッション考慮）
   const getAgentStatusForSession = (session: Session) => {
     const agentStatus = sessionAgentStatus[session.session_id]
-    const isNew = isNewSession(session.created_at)
+    const isNew = isNewSession(session.started_at)
 
     // セッションが作成中または起動中の場合は、そのステータスを優先表示
     if (session.status === 'creating') {
@@ -694,7 +694,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
             <div>
               <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
                 {paginatedSessions.map((session) => {
-                  const isNew = isNewSession(session.created_at)
+                  const isNew = isNewSession(session.started_at)
                   const agentStatusInfo = getAgentStatusForSession(session)
                   const description = getSessionDescription(session)
 
@@ -763,8 +763,10 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                         <div className="flex flex-col sm:flex-row sm:items-center text-xs text-gray-500 dark:text-gray-400 space-y-1 sm:space-y-0 sm:space-x-4 mb-3">
                           <span>#{session.session_id.substring(0, 8)}</span>
                           <div className="flex items-center space-x-2 sm:space-x-4">
-                            <span>作成: {formatRelativeTime(session.created_at)}</span>
-                            <span className="hidden sm:inline">更新: {formatRelativeTime(session.updated_at)}</span>
+                            <span>開始: {formatRelativeTime(session.started_at)}</span>
+                            {session.updated_at && (
+                              <span className="hidden sm:inline">更新: {formatRelativeTime(session.updated_at)}</span>
+                            )}
                             {sessionAgentStatus[session.session_id]?.last_activity && (
                               <span className="hidden sm:inline">Agent活動: {formatRelativeTime(sessionAgentStatus[session.session_id].last_activity!)}</span>
                             )}
