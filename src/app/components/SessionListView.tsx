@@ -764,7 +764,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                           <span>#{session.session_id.substring(0, 8)}</span>
                           <div className="flex items-center space-x-2 sm:space-x-4">
                             <span>開始: {formatRelativeTime(session.started_at)}</span>
-                            <span className="hidden sm:inline">更新: {formatRelativeTime(session.updated_at)}</span>
+                            {session.updated_at && (
+                              <span className="hidden sm:inline">更新: {formatRelativeTime(session.updated_at)}</span>
+                            )}
                             {sessionAgentStatus[session.session_id]?.last_activity && (
                               <span className="hidden sm:inline">Agent活動: {formatRelativeTime(sessionAgentStatus[session.session_id].last_activity!)}</span>
                             )}
