@@ -50,8 +50,18 @@ export default function ConversationList() {
   const [isCreatingQuickSession, setIsCreatingQuickSession] = useState(false)
   const [deletingSession, setDeletingSession] = useState<string | null>(null)
   const [sidebarVisible, setSidebarVisible] = useState(false)
-  const [sortBy, setSortBy] = useState<SortField>('updated_at')
-  const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
+  const [sortBy, setSortBy] = useState<SortField>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('conversationListSortBy') as SortField) || 'updated_at'
+    }
+    return 'updated_at'
+  })
+  const [sortOrder, setSortOrder] = useState<SortOrder>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('conversationListSortOrder') as SortOrder) || 'desc'
+    }
+    return 'desc'
+  })
 
   // Extract filter groups from all sessions
   const filterGroups = extractFilterGroups(allSessions)
@@ -217,6 +227,19 @@ export default function ConversationList() {
     setSessionFilters(urlFilters)
   }, [searchParams])
 
+  // ソート設定を localStorage に保存
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('conversationListSortBy', sortBy)
+    }
+  }, [sortBy])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('conversationListSortOrder', sortOrder)
+    }
+  }, [sortOrder])
+
 
   if (loading && allSessions.length === 0) {
     return <LoadingSpinner />
@@ -316,7 +339,7 @@ export default function ConversationList() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SortField)}
-                className="text-sm border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                className="text-sm border border-gray-200 dark:border-gray-700 rounded-md px-3 py-1.5 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="started_at">開始日時順</option>
                 <option value="updated_at">更新日時順</option>

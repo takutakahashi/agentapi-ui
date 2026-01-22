@@ -43,8 +43,18 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   const [sessionMessages, setSessionMessages] = useState<{ [sessionId: string]: string }>({})
   const [isMobile, setIsMobile] = useState(false)
   const [sessionAgentStatus, setSessionAgentStatus] = useState<{ [sessionId: string]: AgentStatus }>({})
-  const [sortBy, setSortBy] = useState<'started_at' | 'updated_at'>('updated_at')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [sortBy, setSortBy] = useState<'started_at' | 'updated_at'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('sessionListSortBy') as 'started_at' | 'updated_at') || 'updated_at'
+    }
+    return 'updated_at'
+  })
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('sessionListSortOrder') as 'asc' | 'desc') || 'desc'
+    }
+    return 'desc'
+  })
 
   const fetchSessionStatusesInitial = useCallback(async (sessionList: Session[]) => {
     if (sessionList.length === 0 || !agentAPIProxy) return
@@ -334,12 +344,25 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 640)
     }
-    
+
     checkMobile()
     window.addEventListener('resize', checkMobile)
-    
+
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
+
+  // ソート設定を localStorage に保存
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sessionListSortBy', sortBy)
+    }
+  }, [sortBy])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sessionListSortOrder', sortOrder)
+    }
+  }, [sortOrder])
 
 
   const getMockSessions = (): Session[] => []
@@ -562,7 +585,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'started_at' | 'updated_at')}
-            className="text-sm border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            className="text-sm border border-gray-200 dark:border-gray-700 rounded-md px-3 py-1.5 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="started_at">開始日時順</option>
             <option value="updated_at">更新日時順</option>
