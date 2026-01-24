@@ -159,18 +159,19 @@ export class AgentAPIProxyClient {
 
             if (!fallbackResponse.ok) {
               const errorData = await fallbackResponse.json().catch(() => ({
-                error: {
-                  code: 'UNKNOWN_ERROR',
-                  message: `HTTP ${fallbackResponse.status}: ${fallbackResponse.statusText}`,
-                  timestamp: new Date().toISOString(),
-                }
+                message: `HTTP ${fallbackResponse.status}: ${fallbackResponse.statusText}`,
               }));
+
+              // Support both Echo's simple format and structured error format
+              const errorMessage = errorData.message || errorData.error?.message || `HTTP ${fallbackResponse.status}`;
+              const errorCode = errorData.error?.code || 'HTTP_ERROR';
+              const errorDetails = errorData.error?.details;
 
               throw new AgentAPIProxyError(
                 fallbackResponse.status,
-                errorData.error?.code || 'UNKNOWN_ERROR',
-                errorData.error?.message || `HTTP ${fallbackResponse.status}`,
-                errorData.error?.details
+                errorCode,
+                errorMessage,
+                errorDetails
               );
             }
 
@@ -184,18 +185,19 @@ export class AgentAPIProxyClient {
           }
 
           const errorData = await response.json().catch(() => ({
-            error: {
-              code: 'UNKNOWN_ERROR',
-              message: `HTTP ${response.status}: ${response.statusText}`,
-              timestamp: new Date().toISOString(),
-            }
+            message: `HTTP ${response.status}: ${response.statusText}`,
           }));
+
+          // Support both Echo's simple format and structured error format
+          const errorMessage = errorData.message || errorData.error?.message || `HTTP ${response.status}`;
+          const errorCode = errorData.error?.code || 'HTTP_ERROR';
+          const errorDetails = errorData.error?.details;
 
           throw new AgentAPIProxyError(
             response.status,
-            errorData.error?.code || 'UNKNOWN_ERROR',
-            errorData.error?.message || `HTTP ${response.status}`,
-            errorData.error?.details
+            errorCode,
+            errorMessage,
+            errorDetails
           );
         }
 
@@ -240,18 +242,19 @@ export class AgentAPIProxyClient {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
-          error: {
-            code: 'UNKNOWN_ERROR',
-            message: `HTTP ${response.status}: ${response.statusText}`,
-            timestamp: new Date().toISOString(),
-          }
+          message: `HTTP ${response.status}: ${response.statusText}`,
         }));
+
+        // Support both Echo's simple format and structured error format
+        const errorMessage = errorData.message || errorData.error?.message || `HTTP ${response.status}`;
+        const errorCode = errorData.error?.code || 'HTTP_ERROR';
+        const errorDetails = errorData.error?.details;
 
         throw new AgentAPIProxyError(
           response.status,
-          errorData.error?.code || 'UNKNOWN_ERROR',
-          errorData.error?.message || `HTTP ${response.status}`,
-          errorData.error?.details
+          errorCode,
+          errorMessage,
+          errorDetails
         );
       }
 
