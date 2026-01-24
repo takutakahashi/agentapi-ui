@@ -577,7 +577,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       )}
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+        <h3 className="hidden sm:block text-lg font-medium text-gray-900 dark:text-white">
           セッション一覧 ({filteredSessions.length + creatingSessions.length})
         </h3>
         <div className="flex items-center gap-2">

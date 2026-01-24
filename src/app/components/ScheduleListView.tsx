@@ -143,7 +143,7 @@ export default function ScheduleListView({
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <h2 className="hidden sm:block text-lg font-semibold text-gray-900 dark:text-white">
           スケジュール一覧 ({schedules.length})
         </h2>
         <button
