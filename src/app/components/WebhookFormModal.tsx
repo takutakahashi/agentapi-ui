@@ -11,7 +11,7 @@ import {
   GITHUB_EVENTS,
   GITHUB_ACTIONS,
 } from '../../types/webhook'
-import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
+import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { OrganizationHistory } from '../../utils/organizationHistory'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
 
@@ -323,7 +323,27 @@ export default function WebhookFormModal({
       handleClose()
     } catch (err) {
       console.error('Failed to save webhook:', err)
-      setError(err instanceof Error ? err.message : 'Webhookの保存に失敗しました')
+
+      // Handle AgentAPIProxyError with detailed error information
+      if (err instanceof AgentAPIProxyError) {
+        // Extract detailed error message
+        let errorMessage = err.message
+
+        // Add status code for context
+        if (err.status === 400) {
+          errorMessage = `入力エラー: ${errorMessage}`
+        } else if (err.status === 403) {
+          errorMessage = `権限エラー: ${errorMessage}`
+        } else if (err.status === 500) {
+          errorMessage = `サーバーエラー: ${errorMessage}`
+        }
+
+        setError(errorMessage)
+      } else if (err instanceof Error) {
+        setError(err.message)
+      } else {
+        setError('Webhookの保存に失敗しました')
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -757,7 +777,12 @@ export default function WebhookFormModal({
           {/* Error */}
           {error && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
-              <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
+              <div className="flex items-start gap-2">
+                <svg className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-red-600 dark:text-red-400 text-sm whitespace-pre-wrap break-words flex-1">{error}</p>
+              </div>
             </div>
           )}
 
