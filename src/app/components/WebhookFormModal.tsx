@@ -5,6 +5,7 @@ import {
   Webhook,
   CreateWebhookRequest,
   WebhookTrigger,
+  WebhookSessionConfig,
   GitHubConditions,
   WebhookType,
   WebhookSignatureType,
@@ -30,6 +31,8 @@ interface TriggerFormData {
   actions: string[]
   baseBranches: string[]
   initialMessageTemplate: string
+  reuseMessageTemplate?: string
+  reuseSession: boolean
   goTemplate?: string
 }
 
@@ -40,6 +43,8 @@ const emptyTrigger: TriggerFormData = {
   actions: [],
   baseBranches: [],
   initialMessageTemplate: '',
+  reuseMessageTemplate: '',
+  reuseSession: false,
   goTemplate: '',
 }
 
@@ -86,6 +91,8 @@ export default function WebhookFormModal({
             actions: t.conditions.github?.actions || [],
             baseBranches: t.conditions.github?.base_branches || [],
             initialMessageTemplate: t.session_config?.initial_message_template || '',
+            reuseMessageTemplate: t.session_config?.reuse_message_template || '',
+            reuseSession: t.session_config?.reuse_session ?? false,
             goTemplate: t.conditions.go_template || '',
           }))
         )
@@ -286,14 +293,24 @@ export default function WebhookFormModal({
           }
         }
 
+        // Build session_config
+        const session_config: WebhookSessionConfig = {}
+        if (t.initialMessageTemplate.trim()) {
+          session_config.initial_message_template = t.initialMessageTemplate.trim()
+        }
+        if (t.reuseMessageTemplate?.trim()) {
+          session_config.reuse_message_template = t.reuseMessageTemplate.trim()
+        }
+        if (t.reuseSession) {
+          session_config.reuse_session = true
+        }
+
         return {
           id: t.id,
           name: t.name.trim(),
           enabled: t.enabled,
           conditions,
-          session_config: t.initialMessageTemplate.trim()
-            ? { initial_message_template: t.initialMessageTemplate.trim() }
-            : undefined,
+          session_config: Object.keys(session_config).length > 0 ? session_config : undefined,
         }
       })
 
@@ -767,6 +784,42 @@ export default function WebhookFormModal({
                           Goテンプレート形式。例: {'{{.pull_request.Number}}'}
                         </p>
                       </div>
+
+                      {/* Reuse Session Toggle */}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`trigger-reuse-session-${index}`}
+                          checked={trigger.reuseSession}
+                          onChange={(e) => updateTrigger(index, 'reuseSession', e.target.checked)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <label htmlFor={`trigger-reuse-session-${index}`} className="text-sm text-gray-700 dark:text-gray-300">
+                          セッションを再利用する
+                        </label>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 -mt-3 ml-6">
+                        同じ webhook と trigger の組み合わせで実行中のセッションがある場合、新しいセッションを作成せずに既存のセッションにメッセージを送信します
+                      </p>
+
+                      {/* Reuse Message Template */}
+                      {trigger.reuseSession && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            セッション再利用時のメッセージテンプレート
+                          </label>
+                          <textarea
+                            value={trigger.reuseMessageTemplate || ''}
+                            onChange={(e) => updateTrigger(index, 'reuseMessageTemplate', e.target.value)}
+                            placeholder={'例: New update for PR #{{.pull_request.Number}}'}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm font-mono resize-y"
+                          />
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            セッション再利用時に送信するメッセージ。未設定の場合、初期メッセージテンプレートが使用されます
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
