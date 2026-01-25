@@ -36,6 +36,8 @@ export interface WebhookSessionConfig {
   environment?: Record<string, string>;
   tags?: Record<string, string>;
   initial_message_template?: string;
+  reuse_message_template?: string;
+  reuse_session?: boolean;
   params?: {
     github_token?: string;
     [key: string]: unknown;
@@ -60,6 +62,7 @@ export interface WebhookDeliveryRecord {
   status: 'processed' | 'skipped' | 'failed';
   matched_trigger?: string;
   session_id?: string;
+  session_reused?: boolean;
   error?: string;
 }
 
