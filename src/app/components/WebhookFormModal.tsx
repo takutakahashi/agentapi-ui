@@ -301,9 +301,8 @@ export default function WebhookFormModal({
         if (t.reuseMessageTemplate?.trim()) {
           session_config.reuse_message_template = t.reuseMessageTemplate.trim()
         }
-        if (t.reuseSession) {
-          session_config.reuse_session = true
-        }
+        // Always set reuse_session explicitly (true or false)
+        session_config.reuse_session = t.reuseSession
 
         return {
           id: t.id,
