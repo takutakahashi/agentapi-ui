@@ -23,28 +23,39 @@ function parseToolUseContent(content: string): ToolUseContent | null {
 
 // ツール名から概要を生成
 function getToolDescription(toolName: string, input: Record<string, unknown>): string {
+  // descriptionがあれば優先的に使用
+  const description = input.description as string | undefined;
+
   switch (toolName) {
-    case 'Read':
-      return `ファイル "${input.file_path}" を読み込み中`;
-    case 'Write':
-      return `ファイル "${input.file_path}" を作成中`;
-    case 'Edit':
-      return `ファイル "${input.file_path}" を編集中`;
-    case 'Bash':
-      return `コマンドを実行中`;
-    case 'Glob':
-      return `パターン "${input.pattern}" でファイルを検索中`;
-    case 'Grep':
-      return `"${input.pattern}" を検索中`;
     case 'Task':
-      const description = input.description as string;
-      return `サブエージェント: ${description}`;
+      // サブエージェント名を取得
+      const subagentType = input.subagent_type as string | undefined;
+      if (subagentType && description) {
+        return `${subagentType}: ${description}`;
+      } else if (subagentType) {
+        return `${subagentType}を実行中`;
+      } else if (description) {
+        return description;
+      }
+      return 'サブエージェントを実行中';
+    case 'Read':
+      return description || `ファイル "${input.file_path}" を読み込み中`;
+    case 'Write':
+      return description || `ファイル "${input.file_path}" を作成中`;
+    case 'Edit':
+      return description || `ファイル "${input.file_path}" を編集中`;
+    case 'Bash':
+      return description || 'コマンドを実行中';
+    case 'Glob':
+      return description || `パターン "${input.pattern}" でファイルを検索中`;
+    case 'Grep':
+      return description || `"${input.pattern}" を検索中`;
     case 'WebFetch':
-      return `Webページを取得中`;
+      return description || 'Webページを取得中';
     case 'WebSearch':
-      return `"${input.query}" を検索中`;
+      return description || `"${input.query}" を検索中`;
     default:
-      return `${toolName} を実行中`;
+      return description || `${toolName}を実行中`;
   }
 }
 
