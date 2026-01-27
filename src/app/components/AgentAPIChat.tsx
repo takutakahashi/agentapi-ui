@@ -14,7 +14,7 @@ import { pushNotificationManager } from '../../utils/pushNotification';
 import { getEnterKeyBehavior, getFontSettings, FontSettings, setFontSettings as saveFontSettings, FontFamily } from '../../types/settings';
 import ShareSessionButton from './ShareSessionButton';
 import MessageItem from './MessageItem';
-import RunningTools from './RunningTools';
+import ToolExecutionPane from './ToolExecutionPane';
 
 // Define local types for agent status
 interface AgentStatus {
@@ -815,18 +815,23 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           </div>
         )}
 
-        {/* 実行中のツール表示 */}
-        <RunningTools messages={messages} />
-
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {messages.map((message) => (
-            <MessageItem
-              key={message.id}
-              message={message}
-              formatTimestamp={formatTimestamp}
-              fontSettings={fontSettings}
-            />
-          ))}
+          {messages
+            .filter((message) => {
+              // ツール実行とツール結果はメインのタイムラインから除外
+              // ユーザーとアシスタントのメッセージのみ表示
+              return message.role === 'user' ||
+                     message.role === 'assistant' ||
+                     (message.role === 'agent' && !message.toolUseId);
+            })
+            .map((message) => (
+              <MessageItem
+                key={message.id}
+                message={message}
+                formatTimestamp={formatTimestamp}
+                fontSettings={fontSettings}
+              />
+            ))}
         </div>
         <div ref={messagesEndRef} />
         
@@ -867,6 +872,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           </div>
         )}
       </div>
+
+      {/* ツール実行確認ペーン */}
+      <ToolExecutionPane messages={messages} />
 
       {/* Input */}
       <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 flex-shrink-0">
