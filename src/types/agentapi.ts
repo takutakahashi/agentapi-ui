@@ -209,11 +209,16 @@ export interface CreateSessionRequest {
 // Session message types
 export interface SessionMessage {
   id: string;
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant' | 'system' | 'tool_result' | 'agent';
   content: string;
   timestamp: string;
   session_id: string;
   metadata?: Record<string, unknown>;
+  type?: 'normal' | 'error';
+  toolUseId?: string;
+  parentToolUseId?: string;
+  status?: 'success' | 'error';
+  time?: string;
 }
 
 export interface SessionMessageListResponse {
