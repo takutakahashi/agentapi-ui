@@ -13,15 +13,10 @@ import { recentMessagesManager } from '../../utils/recentMessagesManager';
 import { pushNotificationManager } from '../../utils/pushNotification';
 import { getEnterKeyBehavior, getFontSettings, FontSettings, setFontSettings as saveFontSettings, FontFamily } from '../../types/settings';
 import ShareSessionButton from './ShareSessionButton';
+import MessageItem from './MessageItem';
+import ToolExecutionPane from './ToolExecutionPane';
 
-// Define local types for message and agent status
-interface Message {
-  id: number;
-  role: 'user' | 'agent';
-  content: string;
-  timestamp: string;
-}
-
+// Define local types for agent status
 interface AgentStatus {
   status: 'stable' | 'running' | 'error';
   last_activity?: string;
@@ -36,36 +31,6 @@ function isValidSessionMessageResponse(response: unknown): response is SessionMe
     'messages' in response &&
     Array.isArray((response as SessionMessageListResponse).messages)
   );
-}
-
-// Utility function to safely convert string or number IDs to numbers
-function convertSessionMessageId(id: string | number, fallbackId: number): number {
-  // Convert to string safely
-  const stringId = String(id);
-  
-  // Handle empty string
-  if (!stringId || stringId.trim() === '') {
-    return fallbackId;
-  }
-  
-  // Try to parse as number
-  const parsed = parseInt(stringId, 10);
-  if (!isNaN(parsed) && parsed >= 0) {
-    return parsed;
-  }
-  
-  // For negative numbers or non-numeric strings, create a stable hash
-  // This ensures the same string always produces the same number
-  let hash = 0;
-  for (let i = 0; i < stringId.length; i++) {
-    const char = stringId.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  
-  // Ensure positive number and use fallback if hash is problematic
-  const hashId = Math.abs(hash);
-  return hashId > 0 ? hashId : fallbackId;
 }
 
 // PR URLを抽出する関数
@@ -105,68 +70,34 @@ function extractPRUrls(text: string): string[] {
 
 function extractClaudeLoginUrls(text: string): string[] {
   if (!text || typeof text !== 'string') return [];
-  
+
   // Claude Code OAuth URLのパターン
   // https://claude.ai/oauth/authorize?code=true&client_id=...&...
   const claudeLoginRegex = /https?:\/\/claude\.ai\/oauth\/authorize\?[^\s]+/g;
   const matches = text.match(claudeLoginRegex);
-  
+
   // URLが改行で分割されている可能性があるため、改行を除去して再検索
   const textWithoutBreaks = text.replace(/\s+/g, '');
   const matchesWithoutBreaks = textWithoutBreaks.match(claudeLoginRegex);
-  
+
   // 両方の結果をマージ
   const allMatches = [...(matches || []), ...(matchesWithoutBreaks || [])];
-  
+
   // 有効なClaude OAuth URLかを検証
   const validClaudeUrls = allMatches.filter(url => {
     const cleanUrl = url.replace(/\s+/g, '');
     return cleanUrl.includes('client_id=') && cleanUrl.includes('response_type=code');
   });
-  
+
   const result = Array.from(new Set(validClaudeUrls.map(url => url.replace(/\s+/g, '')))); // 重複を除去し、改行を除去
-  
+
   // デバッグ用ログ
   if (text.includes('claude.ai/oauth')) {
     console.log('Claude ログインURL検索対象:', text);
     console.log('検出されたClaude ログインURL:', result);
   }
-  
+
   return result;
-}
-
-function formatTextWithLinks(text: string): JSX.Element {
-  if (!text || typeof text !== 'string') {
-    return <>{text || ''}</>;
-  }
-
-  // URLにマッチする正規表現（スペースや一般的な区切り文字を除外）
-  const urlRegex = /(https?:\/\/[^\s<>"'()[\]{}]+)/g;
-  const parts = text.split(urlRegex);
-
-  return (
-    <>
-      {parts.map((part, index) => {
-        // URLかどうかをチェック（グローバルフラグの状態問題を回避）
-        if (/^https?:\/\//.test(part)) {
-          // 末尾の句読点を削除
-          const cleanUrl = part.replace(/[.,;!?]+$/, '');
-          return (
-            <a
-              key={index}
-              href={cleanUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline whitespace-nowrap"
-            >
-              {cleanUrl}
-            </a>
-          );
-        }
-        return part;
-      })}
-    </>
-  );
 }
 
 interface AgentAPIChatProps {
@@ -214,16 +145,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 console.warn('Invalid session messages response structure:', sessionMessagesResponse);
               }
               
-              // Convert SessionMessage to Message format for display with safe array handling
+              // Use SessionMessage directly for display
               const messages = sessionMessagesResponse?.messages || [];
-              const convertedMessages: Message[] = messages.map((msg: SessionMessage, index: number) => ({
-                id: convertSessionMessageId(msg.id, Date.now() + index), // Safe ID conversion with unique fallback
-                role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'), // Convert roles to Message format
-                content: msg.content,
-                timestamp: msg.timestamp
-              }));
-              
-              setMessages(convertedMessages);
+
+              setMessages(messages);
               setError(null);
               return;
             } catch (err) {
@@ -258,7 +183,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
   }, [sessionId, agentAPI]);
   
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<SessionMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -405,16 +330,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         return;
       }
       
-      // Convert SessionMessage to Message format for display with safe array handling
+      // Use SessionMessage directly for display
       const messages = sessionMessagesResponse?.messages || [];
-      const convertedMessages: Message[] = messages.map((msg: SessionMessage, index: number) => ({
-        id: convertSessionMessageId(msg.id, Date.now() + index), // Safe ID conversion with unique fallback
-        role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'), // Convert roles to Message format
-        content: msg.content,
-        timestamp: msg.timestamp
-      }));
-      
-      setMessages(convertedMessages);
+
+      setMessages(messages);
       
       
       setAgentStatus(sessionStatus);
@@ -592,16 +511,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           type: messageType
         });
 
-        // For user messages, convert to Message format and add to display
+        // For user messages, add to display
         if (messageType === 'user') {
-          const convertedMessage: Message = {
-            id: convertSessionMessageId(sessionMessage.id, Date.now()), // Safe ID conversion
-            role: sessionMessage.role === 'assistant' ? 'agent' : (sessionMessage.role === 'system' ? 'agent' : sessionMessage.role as 'user' | 'agent'),
-            content: sessionMessage.content,
-            timestamp: sessionMessage.timestamp
-          };
-
-          setMessages(prev => [...prev, convertedMessage]);
+          setMessages(prev => [...prev, sessionMessage]);
         }
       } else {
         setError('No session ID available. Cannot send message.');
@@ -902,51 +814,24 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             <p className="text-sm mt-1">Start a conversation with the agent below</p>
           </div>
         )}
-        
+
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {messages.map((message) => (
-            <div key={message.id} className="px-4 sm:px-6 py-4">
-              <div className="flex items-start space-x-2 sm:space-x-3">
-                <div className="flex-shrink-0">
-                  <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center ${
-                    message.role === 'user' 
-                      ? 'bg-blue-500 text-white' 
-                      : 'bg-purple-500 text-white'
-                  }`}>
-                    {message.role === 'user' ? (
-                      <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                      </svg>
-                    ) : (
-                      <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                      </svg>
-                    )}
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-1 sm:space-x-2 mb-2">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {message.role === 'user' ? 'You' : 'AgentAPI'}
-                    </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {formatTimestamp(message.timestamp)}
-                    </span>
-                  </div>
-                  <div
-                    className={`prose prose-sm max-w-none text-gray-700 dark:text-gray-300 ${
-                      fontSettings.fontFamily === 'monospace' ? 'font-mono' : ''
-                    }`}
-                    style={{ fontSize: `${fontSettings.fontSize}px` }}
-                  >
-                    <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">
-                      {formatTextWithLinks(message.content)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+          {messages
+            .filter((message) => {
+              // ツール実行とツール結果はメインのタイムラインから除外
+              // ユーザーとアシスタントのメッセージのみ表示
+              return message.role === 'user' ||
+                     message.role === 'assistant' ||
+                     (message.role === 'agent' && !message.toolUseId);
+            })
+            .map((message) => (
+              <MessageItem
+                key={message.id}
+                message={message}
+                formatTimestamp={formatTimestamp}
+                fontSettings={fontSettings}
+              />
+            ))}
         </div>
         <div ref={messagesEndRef} />
         
@@ -987,6 +872,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           </div>
         )}
       </div>
+
+      {/* ツール実行確認ペーン */}
+      <ToolExecutionPane messages={messages} />
 
       {/* Input */}
       <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 flex-shrink-0">
