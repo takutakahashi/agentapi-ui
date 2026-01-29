@@ -635,11 +635,15 @@ export const setFontSettings = (fontSettings: FontSettings): void => {
 export const getUseClaudeAgentAPI = (): boolean => {
   const settings = loadFullGlobalSettings()
   // デフォルトは false
-  return settings.useClaudeAgentAPI ?? false
+  const value = settings.useClaudeAgentAPI ?? false
+  console.log('[getUseClaudeAgentAPI] Current value:', value, 'Full settings:', settings)
+  return value
 }
 
 export const setUseClaudeAgentAPI = (enabled: boolean): void => {
+  console.log('[setUseClaudeAgentAPI] Setting to:', enabled)
   const settings = loadFullGlobalSettings()
   settings.useClaudeAgentAPI = enabled
   saveFullGlobalSettings(settings)
+  console.log('[setUseClaudeAgentAPI] Saved successfully')
 }

@@ -102,8 +102,12 @@ export default function PersonalSettingsPage() {
   }
 
   const handleUseClaudeAgentAPIChange = (enabled: boolean) => {
+    console.log('[PersonalSettings] Changing useClaudeAgentAPI to:', enabled)
     setUseClaudeAgentAPIState(enabled)
     setUseClaudeAgentAPI(enabled)
+    // Verify it was saved
+    const saved = getUseClaudeAgentAPI()
+    console.log('[PersonalSettings] Verified saved value:', saved)
   }
 
   const handleEnterKeyBehaviorChange = (behavior: EnterKeyBehavior) => {

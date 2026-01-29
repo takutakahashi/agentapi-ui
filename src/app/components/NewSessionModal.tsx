@@ -148,6 +148,7 @@ export default function NewSessionModal({
 
       // Check if Claude AgentAPI should be used
       const useClaudeAgentAPI = getUseClaudeAgentAPI()
+      console.log('[NewSessionModal] useClaudeAgentAPI setting:', useClaudeAgentAPI)
 
       // Build params object
       const params: Record<string, unknown> = {
@@ -156,7 +157,17 @@ export default function NewSessionModal({
 
       if (useClaudeAgentAPI) {
         params.agent_type = 'claude-agentapi'
+        console.log('[NewSessionModal] Adding agent_type to params:', params.agent_type)
       }
+
+      console.log('[NewSessionModal] Final params:', params)
+      console.log('[NewSessionModal] Full start request:', {
+        environment,
+        metadata: { description: message },
+        tags: Object.keys(tags).length > 0 ? tags : undefined,
+        params,
+        ...scopeParams
+      })
 
       // セッションを作成（初期メッセージを params.message で送信）
       const session = await client.start({
