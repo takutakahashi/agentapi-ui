@@ -8,7 +8,7 @@ import { messageTemplateManager } from '../../utils/messageTemplateManager'
 import { MessageTemplate } from '../../types/messageTemplate'
 import { recentMessagesManager } from '../../utils/recentMessagesManager'
 import { OrganizationHistory } from '../../utils/organizationHistory'
-import { addRepositoryToHistory } from '../../types/settings'
+import { addRepositoryToHistory, getUseClaudeAgentAPI } from '../../types/settings'
 import SessionCreationProgressModal from './SessionCreationProgressModal'
 import { SessionCreationProgress, SessionCreationStatus } from '../../types/sessionProgress'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
@@ -146,6 +146,18 @@ export default function NewSessionModal({
       // Get scope parameters from context
       const scopeParams = getScopeParams()
 
+      // Check if Claude AgentAPI should be used
+      const useClaudeAgentAPI = getUseClaudeAgentAPI()
+
+      // Build params object
+      const params: Record<string, unknown> = {
+        message: message
+      }
+
+      if (useClaudeAgentAPI) {
+        params.agent_type = 'claude-agentapi'
+      }
+
       // セッションを作成（初期メッセージを params.message で送信）
       const session = await client.start({
         environment,
@@ -153,9 +165,7 @@ export default function NewSessionModal({
           description: message
         },
         tags: Object.keys(tags).length > 0 ? tags : undefined,
-        params: {
-          message: message
-        },
+        params,
         ...scopeParams
       })
       console.log('Session created with initial message:', session)
