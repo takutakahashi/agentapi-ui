@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { SessionMessage } from '../../types/agentapi';
+import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client';
 
 interface ToolUseContent {
   type: 'tool_use';
@@ -60,26 +62,68 @@ function getToolDescription(toolName: string, input: Record<string, unknown>): s
 }
 
 interface ToolExecutionPaneProps {
-  messages: SessionMessage[];
+  sessionId: string;
 }
 
-export default function ToolExecutionPane({ messages }: ToolExecutionPaneProps) {
-  // 実行中のツールを特定
-  const runningTools: Array<{ toolUse: ToolUseContent; message: SessionMessage }> = [];
-  const completedToolIds = new Set(
-    messages
-      .filter(m => m.role === 'tool_result' && m.parentToolUseId)
-      .map(m => m.parentToolUseId)
-  );
+export default function ToolExecutionPane({ sessionId }: ToolExecutionPaneProps) {
+  const [runningTools, setRunningTools] = useState<Array<{ toolUse: ToolUseContent; message: SessionMessage }>>([]);
+  const [isEndpointAvailable, setIsEndpointAvailable] = useState<boolean>(true);
 
-  messages.forEach(message => {
-    if (message.role === 'agent' && message.toolUseId) {
-      const toolUse = parseToolUseContent(message.content);
-      if (toolUse && !completedToolIds.has(message.toolUseId)) {
-        runningTools.push({ toolUse, message });
-      }
+  useEffect(() => {
+    if (!sessionId || !isEndpointAvailable) {
+      return;
     }
-  });
+
+    let isMounted = true;
+
+    const fetchToolStatus = async () => {
+      try {
+        const client = createAgentAPIProxyClientFromStorage();
+        const result = await client.getToolStatus(sessionId);
+
+        if (!isMounted) return;
+
+        if (result === null) {
+          // 404エラー: エンドポイントが利用できない
+          setIsEndpointAvailable(false);
+          setRunningTools([]);
+          return;
+        }
+
+        // メッセージから実行中のツールを抽出
+        const tools: Array<{ toolUse: ToolUseContent; message: SessionMessage }> = [];
+
+        result.messages.forEach(message => {
+          if (message.role === 'agent' && message.toolUseId) {
+            const toolUse = parseToolUseContent(message.content);
+            if (toolUse) {
+              tools.push({ toolUse, message });
+            }
+          }
+        });
+
+        setRunningTools(tools);
+      } catch (error) {
+        console.error('[ToolExecutionPane] Failed to fetch tool status:', error);
+      }
+    };
+
+    // 初回実行
+    fetchToolStatus();
+
+    // 2秒ごとにポーリング
+    const intervalId = setInterval(fetchToolStatus, 2000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [sessionId, isEndpointAvailable]);
+
+  // エンドポイントが利用できない場合は何も表示しない
+  if (!isEndpointAvailable) {
+    return null;
+  }
 
   return (
     <div className="bg-gray-50 dark:bg-gray-800 border-t border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
