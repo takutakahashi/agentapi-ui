@@ -125,10 +125,11 @@ export default function NewSessionModal({
 
   const createSessionInBackground = async (client: AgentAPIProxyClient, message: string, repo: string, sessionId: string) => {
     try {
-      console.log('Starting background session creation with initial message...')
+      console.log('[NewSessionModal] Starting background session creation with initial message...')
       onSessionStatusUpdate(sessionId, 'creating')
       updateProgress('creating')
 
+      console.log('[NewSessionModal] Building tags and environment...')
       const tags: Record<string, string> = {}
 
       if (repo) {
@@ -143,9 +144,11 @@ export default function NewSessionModal({
         environment.REPOSITORY = repo
       }
 
+      console.log('[NewSessionModal] Getting scope parameters...')
       // Get scope parameters from context
       const scopeParams = getScopeParams()
 
+      console.log('[NewSessionModal] About to check useClaudeAgentAPI setting...')
       // Check if Claude AgentAPI should be used
       const useClaudeAgentAPI = getUseClaudeAgentAPI()
       console.log('[NewSessionModal] useClaudeAgentAPI setting:', useClaudeAgentAPI)
