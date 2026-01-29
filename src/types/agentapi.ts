@@ -252,3 +252,8 @@ export interface SessionEventsOptions {
   reconnectInterval?: number;
   maxReconnectAttempts?: number;
 }
+
+// Tool status types
+export interface ToolStatusResponseBody {
+  messages: SessionMessage[];
+}

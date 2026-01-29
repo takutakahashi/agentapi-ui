@@ -9,7 +9,7 @@ import { messageTemplateManager } from '../../../utils/messageTemplateManager'
 import { MessageTemplate } from '../../../types/messageTemplate'
 import { recentMessagesManager } from '../../../utils/recentMessagesManager'
 import { OrganizationHistory } from '../../../utils/organizationHistory'
-import { addRepositoryToHistory } from '../../../types/settings'
+import { addRepositoryToHistory, getUseClaudeAgentAPI } from '../../../types/settings'
 import TopBar from '../../components/TopBar'
 import SessionCreationProgressModal from '../../components/SessionCreationProgressModal'
 import { SessionCreationProgress, SessionCreationStatus } from '../../../types/sessionProgress'
@@ -109,15 +109,29 @@ export default function NewSessionPage() {
 
       console.log('[NewSessionPage] Creating session with scope params:', scopeParams)
 
+      // Check if Claude AgentAPI should be used
+      const useClaudeAgentAPI = getUseClaudeAgentAPI()
+      console.log('[NewSessionPage] useClaudeAgentAPI setting:', useClaudeAgentAPI)
+
+      // Build params object
+      const params: Record<string, unknown> = {
+        message: message
+      }
+
+      if (useClaudeAgentAPI) {
+        params.agent_type = 'claude-agentapi'
+        console.log('[NewSessionPage] Adding agent_type to params:', params.agent_type)
+      }
+
+      console.log('[NewSessionPage] Final params:', params)
+
       const session = await client.start({
         environment,
         metadata: {
           description: message
         },
         tags: Object.keys(tags).length > 0 ? tags : undefined,
-        params: {
-          message: message
-        },
+        params,
         ...scopeParams
       })
       console.log('Session created with initial message:', session)

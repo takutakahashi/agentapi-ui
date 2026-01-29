@@ -11,7 +11,8 @@ import {
   SessionEventsOptions,
   Agent,
   AgentListResponse,
-  AgentListParams
+  AgentListParams,
+  ToolStatusResponseBody
 } from '../types/agentapi';
 import {
   Schedule,
@@ -442,6 +443,25 @@ export class AgentAPIProxyClient {
 
   async getSessionStatus(sessionId: string): Promise<AgentStatus> {
     return this.makeRequest<AgentStatus>(`/${sessionId}/status`);
+  }
+
+  /**
+   * Get active tool execution status for a session
+   * Returns null if the endpoint is not available (404)
+   */
+  async getToolStatus(sessionId: string): Promise<ToolStatusResponseBody | null> {
+    try {
+      return await this.makeRequest<ToolStatusResponseBody>(`/${sessionId}/tool_status`);
+    } catch (error) {
+      // If the endpoint doesn't exist (404), return null
+      if (error instanceof AgentAPIProxyError && error.status === 404) {
+        if (this.debug) {
+          console.log(`[AgentAPIProxy] Tool status endpoint not available for session ${sessionId}`);
+        }
+        return null;
+      }
+      throw error;
+    }
   }
 
   // Session events using Server-Sent Events

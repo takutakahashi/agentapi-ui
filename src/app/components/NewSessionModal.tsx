@@ -8,7 +8,7 @@ import { messageTemplateManager } from '../../utils/messageTemplateManager'
 import { MessageTemplate } from '../../types/messageTemplate'
 import { recentMessagesManager } from '../../utils/recentMessagesManager'
 import { OrganizationHistory } from '../../utils/organizationHistory'
-import { addRepositoryToHistory } from '../../types/settings'
+import { addRepositoryToHistory, getUseClaudeAgentAPI } from '../../types/settings'
 import SessionCreationProgressModal from './SessionCreationProgressModal'
 import { SessionCreationProgress, SessionCreationStatus } from '../../types/sessionProgress'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
@@ -125,10 +125,11 @@ export default function NewSessionModal({
 
   const createSessionInBackground = async (client: AgentAPIProxyClient, message: string, repo: string, sessionId: string) => {
     try {
-      console.log('Starting background session creation with initial message...')
+      console.log('[NewSessionModal] Starting background session creation with initial message...')
       onSessionStatusUpdate(sessionId, 'creating')
       updateProgress('creating')
 
+      console.log('[NewSessionModal] Building tags and environment...')
       const tags: Record<string, string> = {}
 
       if (repo) {
@@ -143,8 +144,53 @@ export default function NewSessionModal({
         environment.REPOSITORY = repo
       }
 
+      console.log('[NewSessionModal] Getting scope parameters...')
       // Get scope parameters from context
       const scopeParams = getScopeParams()
+
+      console.log('[NewSessionModal] About to check useClaudeAgentAPI setting...')
+
+      // Check if Claude AgentAPI should be used
+      let useClaudeAgentAPI = false
+      try {
+        console.log('[NewSessionModal] Calling getUseClaudeAgentAPI()...')
+        useClaudeAgentAPI = getUseClaudeAgentAPI()
+        console.log('[NewSessionModal] getUseClaudeAgentAPI() returned:', useClaudeAgentAPI)
+      } catch (error) {
+        console.error('[NewSessionModal] Error calling getUseClaudeAgentAPI():', error)
+        // Fallback: read directly from localStorage
+        try {
+          const settingsStr = localStorage.getItem('agentapi-full-global-settings')
+          if (settingsStr) {
+            const settings = JSON.parse(settingsStr)
+            useClaudeAgentAPI = settings.useClaudeAgentAPI ?? false
+            console.log('[NewSessionModal] Fallback: read from localStorage:', useClaudeAgentAPI)
+          }
+        } catch (fallbackError) {
+          console.error('[NewSessionModal] Fallback also failed:', fallbackError)
+        }
+      }
+
+      console.log('[NewSessionModal] useClaudeAgentAPI setting:', useClaudeAgentAPI)
+
+      // Build params object
+      const params: Record<string, unknown> = {
+        message: message
+      }
+
+      if (useClaudeAgentAPI) {
+        params.agent_type = 'claude-agentapi'
+        console.log('[NewSessionModal] Adding agent_type to params:', params.agent_type)
+      }
+
+      console.log('[NewSessionModal] Final params:', params)
+      console.log('[NewSessionModal] Full start request:', {
+        environment,
+        metadata: { description: message },
+        tags: Object.keys(tags).length > 0 ? tags : undefined,
+        params,
+        ...scopeParams
+      })
 
       // セッションを作成（初期メッセージを params.message で送信）
       const session = await client.start({
@@ -153,9 +199,7 @@ export default function NewSessionModal({
           description: message
         },
         tags: Object.keys(tags).length > 0 ? tags : undefined,
-        params: {
-          message: message
-        },
+        params,
         ...scopeParams
       })
       console.log('Session created with initial message:', session)

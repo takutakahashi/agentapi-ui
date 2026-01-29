@@ -102,6 +102,7 @@ export interface GlobalSettings {
   messageTemplates: MessageTemplate[]
   githubAuth?: GitHubOAuthSettings
   sendGithubTokenOnSessionStart?: boolean  // デフォルト true
+  useClaudeAgentAPI?: boolean  // デフォルト false (新しいエージェントを使用するか)
   enterKeyBehavior?: EnterKeyBehavior  // デフォルト 'send' (Enter で送信、Shift+Enter で改行)
   fontSettings?: FontSettings  // デフォルト { fontSize: 14, fontFamily: 'sans-serif' }
   created_at: string
@@ -628,4 +629,21 @@ export const setFontSettings = (fontSettings: FontSettings): void => {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('fontSettingsChanged', { detail: fontSettings }))
   }
+}
+
+// Use Claude AgentAPI utilities
+export const getUseClaudeAgentAPI = (): boolean => {
+  const settings = loadFullGlobalSettings()
+  // デフォルトは false
+  const value = settings.useClaudeAgentAPI ?? false
+  console.log('[getUseClaudeAgentAPI] Current value:', value, 'Full settings:', settings)
+  return value
+}
+
+export const setUseClaudeAgentAPI = (enabled: boolean): void => {
+  console.log('[setUseClaudeAgentAPI] Setting to:', enabled)
+  const settings = loadFullGlobalSettings()
+  settings.useClaudeAgentAPI = enabled
+  saveFullGlobalSettings(settings)
+  console.log('[setUseClaudeAgentAPI] Saved successfully')
 }

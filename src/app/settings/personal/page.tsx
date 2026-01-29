@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
+import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, getUseClaudeAgentAPI, setUseClaudeAgentAPI, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
 import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings } from '@/components/settings'
 import { OneClickPushNotifications } from '@/app/components/OneClickPushNotifications'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
@@ -14,14 +14,17 @@ export default function PersonalSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sendGithubToken, setSendGithubToken] = useState(false)
+  const [useClaudeAgentAPI, setUseClaudeAgentAPIState] = useState(false)
   const [enterKeyBehavior, setEnterKeyBehaviorState] = useState<EnterKeyBehavior>('send')
   const [fontSettings, setFontSettingsState] = useState<FontSettingsType>({ fontSize: 14, fontFamily: 'sans-serif' })
   const { showToast } = useToast()
 
-  // GitHub Token 設定、Enter キー設定、Font 設定の読み込み
+  // GitHub Token 設定、Claude AgentAPI 設定、Enter キー設定、Font 設定の読み込み
   useEffect(() => {
     // GitHub Token 設定を読み込み
     setSendGithubToken(getSendGithubTokenOnSessionStart())
+    // Claude AgentAPI 設定を読み込み
+    setUseClaudeAgentAPIState(getUseClaudeAgentAPI())
     // Enter キー設定を読み込み
     setEnterKeyBehaviorState(getEnterKeyBehavior())
     // Font 設定を読み込み
@@ -96,6 +99,15 @@ export default function PersonalSettingsPage() {
   const handleGithubTokenChange = (enabled: boolean) => {
     setSendGithubToken(enabled)
     setSendGithubTokenOnSessionStart(enabled)
+  }
+
+  const handleUseClaudeAgentAPIChange = (enabled: boolean) => {
+    console.log('[PersonalSettings] Changing useClaudeAgentAPI to:', enabled)
+    setUseClaudeAgentAPIState(enabled)
+    setUseClaudeAgentAPI(enabled)
+    // Verify it was saved
+    const saved = getUseClaudeAgentAPI()
+    console.log('[PersonalSettings] Verified saved value:', saved)
   }
 
   const handleEnterKeyBehaviorChange = (behavior: EnterKeyBehavior) => {
@@ -229,6 +241,27 @@ export default function PersonalSettingsPage() {
               </div>
               <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
                 <GithubTokenSettings enabled={sendGithubToken} onChange={handleGithubTokenChange} />
+              </div>
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                <div className="flex items-start">
+                  <div className="flex items-center h-5">
+                    <input
+                      id="use-claude-agentapi"
+                      type="checkbox"
+                      checked={useClaudeAgentAPI}
+                      onChange={(e) => handleUseClaudeAgentAPIChange(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                  </div>
+                  <div className="ml-3 text-sm">
+                    <label htmlFor="use-claude-agentapi" className="font-medium text-gray-700 dark:text-gray-300">
+                      新しいエージェントを使用 (Claude AgentAPI)
+                    </label>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">
+                      有効にすると、セッション作成時に agent_type パラメーターに claude-agentapi が設定されます
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </SettingsAccordion>
