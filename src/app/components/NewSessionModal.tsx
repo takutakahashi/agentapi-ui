@@ -149,8 +149,28 @@ export default function NewSessionModal({
       const scopeParams = getScopeParams()
 
       console.log('[NewSessionModal] About to check useClaudeAgentAPI setting...')
+
       // Check if Claude AgentAPI should be used
-      const useClaudeAgentAPI = getUseClaudeAgentAPI()
+      let useClaudeAgentAPI = false
+      try {
+        console.log('[NewSessionModal] Calling getUseClaudeAgentAPI()...')
+        useClaudeAgentAPI = getUseClaudeAgentAPI()
+        console.log('[NewSessionModal] getUseClaudeAgentAPI() returned:', useClaudeAgentAPI)
+      } catch (error) {
+        console.error('[NewSessionModal] Error calling getUseClaudeAgentAPI():', error)
+        // Fallback: read directly from localStorage
+        try {
+          const settingsStr = localStorage.getItem('agentapi-full-global-settings')
+          if (settingsStr) {
+            const settings = JSON.parse(settingsStr)
+            useClaudeAgentAPI = settings.useClaudeAgentAPI ?? false
+            console.log('[NewSessionModal] Fallback: read from localStorage:', useClaudeAgentAPI)
+          }
+        } catch (fallbackError) {
+          console.error('[NewSessionModal] Fallback also failed:', fallbackError)
+        }
+      }
+
       console.log('[NewSessionModal] useClaudeAgentAPI setting:', useClaudeAgentAPI)
 
       // Build params object
