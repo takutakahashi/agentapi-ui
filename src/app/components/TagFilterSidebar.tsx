@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { agentAPI } from '../../lib/api'
 import NavigationTabs from './NavigationTabs'
+import { useTeamScope } from '../../contexts/TeamScopeContext'
 
 interface Tag {
   key: string
@@ -20,46 +21,34 @@ interface TagFilterSidebarProps {
   onToggleVisibility?: () => void
 }
 
-export default function TagFilterSidebar({ 
-  onFiltersChange, 
+export default function TagFilterSidebar({
+  onFiltersChange,
   currentFilters,
   isVisible = true,
   onToggleVisibility
 }: TagFilterSidebarProps) {
+  const { selectedTeam } = useTeamScope()
   const [tags, setTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set())
 
-  useEffect(() => {
-    fetchTags()
-  }, [])
-
-  // ESCキーでサイドバーを閉じる
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isVisible && onToggleVisibility) {
-        onToggleVisibility()
-      }
-    }
-
-    if (isVisible) {
-      document.addEventListener('keydown', handleKeyDown)
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [isVisible, onToggleVisibility])
-
-  const fetchTags = async () => {
+  const fetchTags = useCallback(async () => {
     try {
       setLoading(true)
+
+      // Compute scope parameters directly from selectedTeam
+      const scopeParams: { scope: 'user' | 'team'; team_id?: string } = selectedTeam
+        ? { scope: 'team', team_id: selectedTeam }
+        : { scope: 'user' }
+
+      console.log('[TagFilterSidebar] Fetching tags with scope params:', scopeParams)
+
       // search APIの代わりに、既存のセッションからメタデータを抽出してTagを作成
-      const response = await agentAPI.search!({ limit: 1000 })
+      const response = await agentAPI.search!({ limit: 1000, ...scopeParams })
       const sessions = response.sessions || []
-      
+
       const tagMap = new Map<string, Set<string>>()
-      
+
       sessions.forEach(session => {
         // Process tags field first (prioritize tags over metadata)
         if (session.tags) {
@@ -74,7 +63,7 @@ export default function TagFilterSidebar({
               }
             })
         }
-        
+
         // Fallback to metadata for backward compatibility
         if (session.metadata) {
           Object.entries(session.metadata).forEach(([key, value]) => {
@@ -88,12 +77,12 @@ export default function TagFilterSidebar({
           })
         }
       })
-      
+
       const extractedTags: Tag[] = Array.from(tagMap.entries()).map(([key, values]) => ({
         key,
         values: Array.from(values).sort()
       }))
-      
+
       setTags(extractedTags)
     } catch (error) {
       console.error('Failed to fetch tags:', error)
@@ -115,7 +104,28 @@ export default function TagFilterSidebar({
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedTeam])
+
+  useEffect(() => {
+    fetchTags()
+  }, [fetchTags])
+
+  // ESCキーでサイドバーを閉じる
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isVisible && onToggleVisibility) {
+        onToggleVisibility()
+      }
+    }
+
+    if (isVisible) {
+      document.addEventListener('keydown', handleKeyDown)
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isVisible, onToggleVisibility])
 
   const toggleTag = (tagKey: string) => {
     const newExpanded = new Set(expandedTags)
