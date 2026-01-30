@@ -15,7 +15,6 @@ import {
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { OrganizationHistory } from '../../utils/organizationHistory'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
-import { getGitHubAuthSettings } from '../../types/settings'
 
 interface WebhookFormModalProps {
   isOpen: boolean
@@ -257,15 +256,6 @@ export default function WebhookFormModal({
       // Get scope parameters from context
       const scopeParams = getScopeParams()
 
-      // Get GitHub token for personal scope
-      let githubToken: string | undefined
-      if (scopeParams.scope === 'user') {
-        const githubAuth = getGitHubAuthSettings()
-        if (githubAuth?.accessToken) {
-          githubToken = githubAuth.accessToken
-        }
-      }
-
       // Parse allowed repositories
       const repoList = allowedRepositories
         .split(',')
@@ -313,14 +303,6 @@ export default function WebhookFormModal({
         }
         // Always set reuse_session explicitly (true or false)
         session_config.reuse_session = t.reuseSession
-
-        // Add github_token for personal scope
-        if (githubToken) {
-          if (!session_config.params) {
-            session_config.params = {}
-          }
-          session_config.params.github_token = githubToken
-        }
 
         return {
           id: t.id,
