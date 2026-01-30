@@ -64,7 +64,7 @@ export default function TagFilterSidebar({
         // Process tags field first (prioritize tags over metadata)
         if (session.tags) {
           Object.entries(session.tags)
-            .filter(([key]) => key !== 'description')
+            .filter(([key]) => key !== 'description' && key !== 'team')
             .forEach(([key, value]) => {
               if (value && value !== '') {
                 if (!tagMap.has(key)) {
@@ -78,7 +78,7 @@ export default function TagFilterSidebar({
         // Fallback to metadata for backward compatibility
         if (session.metadata) {
           Object.entries(session.metadata).forEach(([key, value]) => {
-            if (key !== 'description') { // description は除外
+            if (key !== 'description' && key !== 'team') { // description と team は除外
               const valueStr = String(value)
               if (!tagMap.has(key)) {
                 tagMap.set(key, new Set())

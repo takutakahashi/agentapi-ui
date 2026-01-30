@@ -64,6 +64,10 @@ export function extractFilterGroups(sessions: Session[]): FilterGroup[] {
     // Process tags
     if (session.tags) {
       Object.entries(session.tags).forEach(([key, value]) => {
+        // Exclude system reserved keys
+        if (key === 'description' || key === 'team') {
+          return
+        }
         if (value !== null && value !== undefined && value !== '') {
           if (!tagKeys.has(key)) {
             tagKeys.set(key, new Map<string, number>())
