@@ -174,6 +174,35 @@ async function handleProxyRequest(
       debugLog('[API Proxy] Skipping params.github_token injection (disabled by user setting)');
     }
 
+    // Inject session_config.params.github_token for personal webhooks
+    if ((path === 'webhooks' || path.startsWith('webhooks/')) && (method === 'POST' || method === 'PUT') && apiKey && body) {
+      try {
+        const bodyData = JSON.parse(body);
+        // Only inject for personal (user) scope webhooks
+        if (bodyData.scope === 'user' || (!bodyData.scope && !bodyData.team_id)) {
+          if (bodyData.triggers && Array.isArray(bodyData.triggers)) {
+            bodyData.triggers = bodyData.triggers.map((trigger: {session_config?: {params?: {github_token?: string}}}) => {
+              if (!trigger.session_config) {
+                trigger.session_config = {};
+              }
+              if (!trigger.session_config.params) {
+                trigger.session_config.params = {};
+              }
+              trigger.session_config.params.github_token = apiKey;
+              return trigger;
+            });
+            body = JSON.stringify(bodyData);
+            debugLog('[API Proxy] Injected session_config.params.github_token for personal webhook');
+          }
+        } else {
+          debugLog('[API Proxy] Skipping github_token injection for team-scoped webhook');
+        }
+      } catch {
+        // JSON parse failed, continue with original body
+        debugLog('[API Proxy] Failed to inject github_token for webhook: body is not valid JSON');
+      }
+    }
+
     // Prepare headers
     const headers = new Headers();
     // Only add Authorization header for non-OAuth endpoints
