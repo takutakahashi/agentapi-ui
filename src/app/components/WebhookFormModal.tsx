@@ -33,6 +33,7 @@ interface TriggerFormData {
   initialMessageTemplate: string
   reuseMessageTemplate?: string
   reuseSession: boolean
+  mountPayload: boolean
   goTemplate?: string
 }
 
@@ -45,6 +46,7 @@ const emptyTrigger: TriggerFormData = {
   initialMessageTemplate: '',
   reuseMessageTemplate: '',
   reuseSession: false,
+  mountPayload: false,
   goTemplate: '',
 }
 
@@ -93,6 +95,7 @@ export default function WebhookFormModal({
             initialMessageTemplate: t.session_config?.initial_message_template || '',
             reuseMessageTemplate: t.session_config?.reuse_message_template || '',
             reuseSession: t.session_config?.reuse_session ?? false,
+            mountPayload: t.session_config?.mount_payload ?? false,
             goTemplate: t.conditions.go_template || '',
           }))
         )
@@ -303,6 +306,8 @@ export default function WebhookFormModal({
         }
         // Always set reuse_session explicitly (true or false)
         session_config.reuse_session = t.reuseSession
+        // Always set mount_payload explicitly (true or false)
+        session_config.mount_payload = t.mountPayload
 
         return {
           id: t.id,
@@ -799,6 +804,23 @@ export default function WebhookFormModal({
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400 -mt-3 ml-6">
                         同じ webhook と trigger の組み合わせで実行中のセッションがある場合、新しいセッションを作成せずに既存のセッションにメッセージを送信します
+                      </p>
+
+                      {/* Mount Payload Toggle */}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`trigger-mount-payload-${index}`}
+                          checked={trigger.mountPayload}
+                          onChange={(e) => updateTrigger(index, 'mountPayload', e.target.checked)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <label htmlFor={`trigger-mount-payload-${index}`} className="text-sm text-gray-700 dark:text-gray-300">
+                          Webhookペイロードをマウントする
+                        </label>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 -mt-3 ml-6">
+                        有効にすると、Webhookペイロードが /opt/webhook/payload.json としてセッションコンテナにマウントされます
                       </p>
 
                       {/* Reuse Message Template */}
