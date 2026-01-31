@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, getUseClaudeAgentAPI, setUseClaudeAgentAPI, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings } from '@/components/settings'
+import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, SyncSettings } from '@/components/settings'
 import { OneClickPushNotifications } from '@/app/components/OneClickPushNotifications'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
@@ -118,6 +118,14 @@ export default function PersonalSettingsPage() {
   const handleFontSettingsChange = (settings: FontSettingsType) => {
     setFontSettingsState(settings)
     setFontSettings(settings)
+  }
+
+  const handleSyncSettingsChange = (gitRepository: string, storagePath: string) => {
+    setSettings((prev) => ({
+      ...prev,
+      git_repository: gitRepository,
+      storage_path: storagePath,
+    }))
   }
 
   const handleSave = async () => {
@@ -264,6 +272,18 @@ export default function PersonalSettingsPage() {
                 </div>
               </div>
             </div>
+          </SettingsAccordion>
+
+          <SettingsAccordion
+            title="Settings Sync"
+            description="Configure settings synchronization with Git repository"
+            defaultOpen
+          >
+            <SyncSettings
+              gitRepository={settings.git_repository}
+              storagePath={settings.storage_path}
+              onChange={handleSyncSettingsChange}
+            />
           </SettingsAccordion>
 
           <SettingsAccordion
