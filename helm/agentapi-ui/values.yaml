@@ -33,9 +33,7 @@ replicaCount: 1
 image:
   repository: ghcr.io/takutakahashi/agentapi-ui
   pullPolicy: IfNotPresent
-  # Image tag to use. If empty, defaults to the chart's appVersion.
-  # It is recommended to leave this empty to automatically use the appVersion.
-  tag: ""
+  # Note: Image tag is automatically set to the chart's appVersion and cannot be overridden
 
 imagePullSecrets: []
 nameOverride: ""
