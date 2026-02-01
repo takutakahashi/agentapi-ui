@@ -229,17 +229,15 @@ export default function MessageItem({
                   {formatTimestamp(message.timestamp || message.time || '')}
                 </span>
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                Click the button below to review and approve or reject the plan.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowPlanModal(true)}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded font-medium transition-colors"
-                >
-                  📋 View Plan
-                </button>
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                A plan is ready for your review.
               </div>
+              <button
+                onClick={() => setShowPlanModal(true)}
+                className="text-sm text-amber-600 dark:text-amber-400 hover:underline font-medium"
+              >
+                📋 View plan details
+              </button>
             </div>
           </div>
         </div>
