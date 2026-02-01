@@ -2,6 +2,7 @@
 
 import { SessionMessage } from '../../types/agentapi';
 import { useState } from 'react';
+import PlanApprovalModal from './PlanApprovalModal';
 
 interface ToolUseContent {
   type: 'tool_use';
@@ -86,6 +87,7 @@ export default function MessageItem({
   isPlanApprovalDisabled = false
 }: MessageItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showPlanModal, setShowPlanModal] = useState(false);
 
   // ツール実行の場合
   if (message.role === 'agent' && message.toolUseId) {
@@ -195,49 +197,66 @@ export default function MessageItem({
 
   // プランモードメッセージの場合
   if (message.type === 'plan') {
+    const handleApprovePlanClick = async () => {
+      if (onApprovePlan) {
+        await onApprovePlan(true);
+        setShowPlanModal(false);
+      }
+    };
+
+    const handleRejectPlanClick = async () => {
+      if (onApprovePlan) {
+        await onApprovePlan(false);
+        setShowPlanModal(false);
+      }
+    };
+
     return (
-      <div className="px-4 sm:px-6 py-4 bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500">
-        <div className="flex items-start space-x-2">
-          <div className="flex-shrink-0">
-            <svg className="w-6 h-6 text-amber-600 dark:text-amber-400" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M9 2v2H7v2H5v2H3v12h18V8h-2V6h-2V4h-2V2H9zm0 2h6v2h2v2h2v10H5V8h2V6h2V4zm2 4v2h2V8h-2zm-4 4v2h10v-2H7z"/>
-            </svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center space-x-2 mb-2">
-              <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
-                📋 Plan Ready for Approval
-              </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                {formatTimestamp(message.timestamp || message.time || '')}
-              </span>
+      <>
+        <div className="px-4 sm:px-6 py-4 bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500">
+          <div className="flex items-start space-x-2">
+            <div className="flex-shrink-0">
+              <svg className="w-6 h-6 text-amber-600 dark:text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M9 2v2H7v2H5v2H3v12h18V8h-2V6h-2V4h-2V2H9zm0 2h6v2h2v2h2v10H5V8h2V6h2V4zm2 4v2h2V8h-2zm-4 4v2h10v-2H7z"/>
+              </svg>
             </div>
-            <div className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300 mb-3">
-              <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full bg-white dark:bg-gray-800 p-3 rounded">
-                {formatTextWithLinks(message.content)}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center space-x-2 mb-2">
+                <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                  📋 Plan Ready for Approval
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {formatTimestamp(message.timestamp || message.time || '')}
+                </span>
               </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                Click the button below to review and approve or reject the plan.
+              </p>
+              {onApprovePlan && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowPlanModal(true)}
+                    disabled={isPlanApprovalDisabled}
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 text-white rounded font-medium transition-colors"
+                  >
+                    📋 View Plan
+                  </button>
+                </div>
+              )}
             </div>
-            {onApprovePlan && (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => onApprovePlan(true)}
-                  disabled={isPlanApprovalDisabled}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded font-medium transition-colors"
-                >
-                  ✓ Approve Plan
-                </button>
-                <button
-                  onClick={() => onApprovePlan(false)}
-                  disabled={isPlanApprovalDisabled}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded font-medium transition-colors"
-                >
-                  ✗ Reject Plan
-                </button>
-              </div>
-            )}
           </div>
         </div>
-      </div>
+
+        {/* Plan Approval Modal */}
+        <PlanApprovalModal
+          isOpen={showPlanModal}
+          planContent={message.content}
+          onApprove={handleApprovePlanClick}
+          onReject={handleRejectPlanClick}
+          onClose={() => setShowPlanModal(false)}
+          isLoading={isPlanApprovalDisabled}
+        />
+      </>
     );
   }
 
