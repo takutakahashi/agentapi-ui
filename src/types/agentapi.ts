@@ -258,35 +258,35 @@ export interface ToolStatusResponseBody {
   messages: SessionMessage[];
 }
 
-// Action types for plan approval and question answering
-export type ActionType = 'approve_plan' | 'answer_question' | 'stop_agent';
-
-export interface ApprovePlanAction {
-  type: 'approve_plan';
-  approved: boolean;
+// Action types for AskUserQuestion
+export interface QuestionOption {
+  label: string;
+  description: string;
 }
 
-export interface AnswerQuestionAction {
-  type: 'answer_question';
-  answers: Record<string, string | string[]>;
-}
-
-export interface StopAgentAction {
-  type: 'stop_agent';
-}
-
-export type ActionRequest = ApprovePlanAction | AnswerQuestionAction | StopAgentAction;
-
-export interface ActionResponse {
-  ok: boolean;
+export interface Question {
+  question: string;
+  header: string;
+  options: QuestionOption[];
+  multiSelect: boolean;
 }
 
 export interface PendingAction {
-  type: 'answer_question' | 'approve_plan';
+  type: 'answer_question' | 'approve_plan' | 'stop_agent';
   tool_use_id: string;
-  content: unknown;
+  content?: {
+    questions?: Question[];
+    [key: string]: unknown;
+  };
 }
 
-export interface PendingActionsResponse {
-  pending_actions: PendingAction[];
+export interface ActionRequest {
+  type: 'answer_question' | 'approve_plan' | 'stop_agent';
+  answers?: Record<string, string | string[]>;
+  approved?: boolean;
+}
+
+export interface ActionResponse {
+  ok?: boolean;
+  pending_actions?: PendingAction[];
 }

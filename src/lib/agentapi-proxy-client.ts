@@ -13,9 +13,9 @@ import {
   AgentListResponse,
   AgentListParams,
   ToolStatusResponseBody,
+  PendingAction,
   ActionRequest,
-  ActionResponse,
-  PendingActionsResponse
+  ActionResponse
 } from '../types/agentapi';
 import {
   Schedule,
@@ -444,31 +444,6 @@ export class AgentAPIProxyClient {
     }
   }
 
-  /**
-   * Send an action (approve_plan, answer_question, or stop_agent) to the session
-   */
-  async sendAction(sessionId: string, action: ActionRequest): Promise<ActionResponse> {
-    if (this.debug) {
-      console.log(`[AgentAPIProxy] Sending action to session ${sessionId}:`, action.type);
-    }
-
-    return this.makeRequest<ActionResponse>(`/${sessionId}/action`, {
-      method: 'POST',
-      body: JSON.stringify(action),
-    });
-  }
-
-  /**
-   * Get pending actions (questions and plans) waiting for user response
-   */
-  async getPendingActions(sessionId: string): Promise<PendingActionsResponse> {
-    if (this.debug) {
-      console.log(`[AgentAPIProxy] Getting pending actions for session ${sessionId}`);
-    }
-
-    return this.makeRequest<PendingActionsResponse>(`/${sessionId}/action`);
-  }
-
   async getSessionStatus(sessionId: string): Promise<AgentStatus> {
     return this.makeRequest<AgentStatus>(`/${sessionId}/status`);
   }
@@ -667,6 +642,45 @@ export class AgentAPIProxyClient {
     } catch (error) {
       console.error('[AgentAPIProxy] Failed to get GitHub auth URL:', error);
       throw error;
+    }
+  }
+
+  // Action operations (AskUserQuestion, etc.)
+
+  /**
+   * Get pending actions for a session (e.g., AskUserQuestion)
+   */
+  async getPendingActions(sessionId: string): Promise<PendingAction[]> {
+    try {
+      const response = await this.makeRequest<ActionResponse>(`/${sessionId}/action`);
+      return response.pending_actions || [];
+    } catch (error) {
+      // If endpoint doesn't exist (404), return empty array
+      if (error instanceof AgentAPIProxyError && error.status === 404) {
+        if (this.debug) {
+          console.log(`[AgentAPIProxy] Action endpoint not available for session ${sessionId}`);
+        }
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Send action response (e.g., answer to AskUserQuestion)
+   */
+  async sendAction(sessionId: string, action: ActionRequest): Promise<void> {
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Sending action to session ${sessionId}:`, action);
+    }
+
+    await this.makeRequest<void>(`/${sessionId}/action`, {
+      method: 'POST',
+      body: JSON.stringify(action),
+    });
+
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Successfully sent action to session ${sessionId}`);
     }
   }
 
