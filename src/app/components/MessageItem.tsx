@@ -2,6 +2,8 @@
 
 import { SessionMessage } from '../../types/agentapi';
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ToolUseContent {
   type: 'tool_use';
@@ -36,6 +38,77 @@ function parseToolResultContent(content: string): ToolResultContent | null {
   return null;
 }
 
+// Markdown の特徴的な記法をチェックする関数
+function hasMarkdownSyntax(text: string): boolean {
+  if (!text || typeof text !== 'string') return false;
+
+  // よくある Markdown の記法をチェック
+  const markdownPatterns = [
+    /^#{1,6}\s/m,                    // 見出し (# ## ### など)
+    /\*\*[^*]+\*\*/,                // 太字 (**text**)
+    /\*[^*]+\*/,                    // イタリック (*text*)
+    /`[^`]+`/,                      // インラインコード (`code`)
+    /```[\s\S]*?```/,               // コードブロック (```code```)
+    /^\s*[-*+]\s/m,                 // リスト (- * +)
+    /^\s*\d+\.\s/m,                 // 番号付きリスト (1. 2. など)
+    /\[[^\]]+\]\([^)]+\)/,          // リンク [text](url)
+    /!\[[^\]]*\]\([^)]+\)/,         // 画像 ![alt](url)
+    /^\s*>\s/m,                     // 引用 (>)
+    /^\s*---+\s*$/m,                // 水平線 (---)
+    /\|.*\|/,                       // テーブル (| col |)
+  ];
+
+  return markdownPatterns.some(pattern => pattern.test(text));
+}
+
+// Markdown をレンダリングするコンポーネント
+function MarkdownContent({ content }: { content: string }): JSX.Element {
+  return (
+    <div className="prose prose-sm dark:prose-invert max-w-none">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          // リンクに適切なスタイルを追加
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          a: ({ node, ...props }) => (
+            <a
+              {...props}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
+            />
+          ),
+          // コードブロックのスタイリング
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          code: ({ node, className, children, ...props }) => {
+            const isInline = !className;
+            return isInline ? (
+              <code
+                className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm font-mono"
+                {...props}
+              >
+                {children}
+              </code>
+            ) : (
+              <code className={className} {...props}>
+                {children}
+              </code>
+            );
+          },
+          // プリフォーマット済みテキストのスタイリング
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          pre: ({ node, ...props }) => (
+            <pre className="bg-gray-100 dark:bg-gray-800 p-3 rounded-md overflow-x-auto" {...props} />
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+// テキストコンテンツをレンダリングする関数
 function formatTextWithLinks(text: string): JSX.Element {
   if (!text || typeof text !== 'string') {
     return <>{text || ''}</>;
@@ -65,6 +138,14 @@ function formatTextWithLinks(text: string): JSX.Element {
       })}
     </>
   );
+}
+
+// コンテンツをレンダリングする関数（Markdown か通常のテキストかを判断）
+function renderContent(content: string): JSX.Element {
+  if (hasMarkdownSyntax(content)) {
+    return <MarkdownContent content={content} />;
+  }
+  return <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">{formatTextWithLinks(content)}</div>;
 }
 
 interface MessageItemProps {
@@ -244,10 +325,8 @@ export default function MessageItem({
                 {formatTimestamp(message.timestamp || message.time || '')}
               </span>
             </div>
-            <div className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300">
-              <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">
-                {formatTextWithLinks(message.content)}
-              </div>
+            <div className="text-gray-700 dark:text-gray-300">
+              {renderContent(message.content)}
             </div>
           </div>
         </div>
@@ -288,14 +367,12 @@ export default function MessageItem({
             </span>
           </div>
           <div
-            className={`prose prose-sm max-w-none text-gray-700 dark:text-gray-300 ${
+            className={`text-gray-700 dark:text-gray-300 ${
               fontSettings.fontFamily === 'monospace' ? 'font-mono' : ''
             }`}
             style={{ fontSize: `${fontSettings.fontSize}px` }}
           >
-            <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">
-              {formatTextWithLinks(message.content)}
-            </div>
+            {renderContent(message.content)}
           </div>
         </div>
       </div>
