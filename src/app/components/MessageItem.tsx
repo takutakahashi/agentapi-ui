@@ -172,35 +172,49 @@ export default function MessageItem({
 
     if (toolUse) {
       return (
-        <div className="px-4 sm:px-6 py-3 bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-500">
-          <div className="flex items-start space-x-2">
-            <div className="flex-shrink-0">
-              <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+        <div className="relative">
+          <div className="flex items-center px-4 sm:px-6 py-1.5 my-0.5 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors group">
+            {/* 左の細い縦線 */}
+            <div className="w-0.5 h-5 bg-purple-300 dark:bg-purple-600 mr-3 opacity-40 group-hover:opacity-70"></div>
+
+            {/* ツールアイコンとコンパクトな情報 */}
+            <div className="flex items-center space-x-2 flex-1 min-w-0">
+              <svg className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/>
               </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2 mb-1">
-                <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                  Tool: {toolUse.name}
-                </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {formatTimestamp(message.timestamp || message.time || '')}
-                </span>
-              </div>
+
+              <span className="text-xs font-medium text-purple-600 dark:text-purple-400 truncate">
+                {toolUse.name}
+              </span>
+
+              <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+                {formatTimestamp(message.timestamp || message.time || '')}
+              </span>
+
+              {/* 展開ボタン */}
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="text-xs text-purple-600 dark:text-purple-400 hover:underline"
+                className="text-xs text-purple-500 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 ml-auto flex-shrink-0 px-1"
+                aria-label={isExpanded ? 'Hide details' : 'Show details'}
               >
-                {isExpanded ? 'Hide details' : 'Show details'}
+                {isExpanded ? '▲' : '▼'}
               </button>
-              {isExpanded && (
-                <pre className="mt-2 text-xs bg-white dark:bg-gray-800 p-2 rounded overflow-x-auto">
-                  {JSON.stringify(toolUse.input, null, 2)}
-                </pre>
-              )}
             </div>
           </div>
+
+          {/* 展開された詳細 */}
+          {isExpanded && (
+            <div className="px-4 sm:px-6 pb-2">
+              <div className="ml-6 bg-purple-50 dark:bg-purple-900/20 rounded-md p-3 border-l-2 border-purple-400">
+                <div className="text-xs font-semibold text-purple-700 dark:text-purple-300 mb-2">
+                  Input Parameters:
+                </div>
+                <pre className="text-xs bg-white dark:bg-gray-800 p-2 rounded overflow-x-auto">
+                  {JSON.stringify(toolUse.input, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -212,17 +226,21 @@ export default function MessageItem({
     const isSuccess = message.status === 'success';
 
     return (
-      <div className={`px-4 sm:px-6 py-3 border-l-4 ${
-        isSuccess
-          ? 'bg-green-50 dark:bg-green-900/20 border-green-500'
-          : 'bg-red-50 dark:bg-red-900/20 border-red-500'
-      }`}>
-        <div className="flex items-start space-x-2">
-          <div className="flex-shrink-0">
-            <svg className={`w-5 h-5 ${
+      <div className="relative">
+        <div className="flex items-center px-4 sm:px-6 py-1.5 my-0.5 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors group">
+          {/* 左の細い縦線 */}
+          <div className={`w-0.5 h-5 mr-3 opacity-40 group-hover:opacity-70 ${
+            isSuccess
+              ? 'bg-green-300 dark:bg-green-600'
+              : 'bg-red-300 dark:bg-red-600'
+          }`}></div>
+
+          {/* ツール結果のアイコンとコンパクトな情報 */}
+          <div className="flex items-center space-x-2 flex-1 min-w-0">
+            <svg className={`w-3.5 h-3.5 flex-shrink-0 ${
               isSuccess
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-red-600 dark:text-red-400'
+                ? 'text-green-500 dark:text-green-400'
+                : 'text-red-500 dark:text-red-400'
             }`} fill="currentColor" viewBox="0 0 24 24">
               {isSuccess ? (
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
@@ -230,44 +248,66 @@ export default function MessageItem({
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
               )}
             </svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center space-x-2 mb-1">
-              <span className={`text-sm font-medium ${
-                isSuccess
-                  ? 'text-green-700 dark:text-green-300'
-                  : 'text-red-700 dark:text-red-300'
-              }`}>
-                Tool Result: {isSuccess ? 'Success' : 'Error'}
-              </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                {formatTimestamp(message.timestamp || message.time || '')}
-              </span>
-            </div>
+
+            <span className={`text-xs font-medium truncate ${
+              isSuccess
+                ? 'text-green-600 dark:text-green-400'
+                : 'text-red-600 dark:text-red-400'
+            }`}>
+              {isSuccess ? '✓' : '✗'} Result
+            </span>
+
+            <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+              {formatTimestamp(message.timestamp || message.time || '')}
+            </span>
+
+            {/* 展開ボタン */}
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className={`text-xs hover:underline ${
+              className={`text-xs ml-auto flex-shrink-0 px-1 ${
                 isSuccess
-                  ? 'text-green-600 dark:text-green-400'
-                  : 'text-red-600 dark:text-red-400'
-              }`}>
-              {isExpanded ? 'Hide result' : 'Show result'}
+                  ? 'text-green-500 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300'
+                  : 'text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300'
+              }`}
+              aria-label={isExpanded ? 'Hide result' : 'Show result'}
+            >
+              {isExpanded ? '▲' : '▼'}
             </button>
-            {isExpanded && result && (
-              <div className="mt-2 text-xs bg-white dark:bg-gray-800 p-2 rounded overflow-x-auto">
-                {result.error ? (
-                  <div className="text-red-600 dark:text-red-400">
-                    <strong>Error:</strong> {result.error}
-                  </div>
-                ) : (
-                  <pre className="whitespace-pre-wrap break-words">
-                    {result.result || message.content}
-                  </pre>
-                )}
-              </div>
-            )}
           </div>
         </div>
+
+        {/* 展開された詳細 */}
+        {isExpanded && (
+          <div className="px-4 sm:px-6 pb-2">
+            <div className={`ml-6 rounded-md p-3 border-l-2 ${
+              isSuccess
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-400'
+                : 'bg-red-50 dark:bg-red-900/20 border-red-400'
+            }`}>
+              {result?.error ? (
+                <div className="text-xs">
+                  <div className="font-semibold text-red-700 dark:text-red-300 mb-2">Error:</div>
+                  <div className="bg-white dark:bg-gray-800 p-2 rounded overflow-x-auto text-red-600 dark:text-red-400">
+                    {result.error}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs">
+                  <div className={`font-semibold mb-2 ${
+                    isSuccess
+                      ? 'text-green-700 dark:text-green-300'
+                      : 'text-red-700 dark:text-red-300'
+                  }`}>
+                    Result:
+                  </div>
+                  <pre className="bg-white dark:bg-gray-800 p-2 rounded overflow-x-auto whitespace-pre-wrap break-words">
+                    {result?.result || message.content}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
