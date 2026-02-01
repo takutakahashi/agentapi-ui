@@ -63,17 +63,41 @@ export default function PlanApprovalModal({
 
   // Extract plan from JSON structure if needed
   let planMarkdown = planContent;
+
   try {
-    const parsed = JSON.parse(planContent);
-    console.log('Parsed plan content:', parsed);
-    if (parsed.plan) {
-      planMarkdown = parsed.plan;
-      console.log('Extracted plan markdown:', planMarkdown);
-    } else {
-      console.log('No plan field found in parsed content, using raw content');
+    // planContentがすでにオブジェクトの場合
+    if (typeof planContent === 'object' && planContent !== null) {
+      const obj = planContent as { plan?: string };
+      if (obj.plan && typeof obj.plan === 'string') {
+        planMarkdown = obj.plan;
+      }
+    }
+    // planContentが文字列の場合
+    else if (typeof planContent === 'string') {
+      // "📋 Plan ready for approval: " のようなプレフィックスを削除
+      let contentToParse = planContent.trim();
+      const prefixMatch = contentToParse.match(/^📋\s*Plan\s+ready\s+for\s+approval:\s*/i);
+      if (prefixMatch) {
+        contentToParse = contentToParse.substring(prefixMatch[0].length).trim();
+      }
+
+      // JSONとしてパースを試みる
+      try {
+        const parsed = JSON.parse(contentToParse);
+        if (parsed && typeof parsed === 'object' && parsed.plan && typeof parsed.plan === 'string') {
+          planMarkdown = parsed.plan;
+        } else {
+          // JSONとしてパースできたが、planフィールドがない場合は元の文字列を使用
+          planMarkdown = planContent;
+        }
+      } catch {
+        // JSONパースに失敗した場合は、元の文字列をそのまま使用（マークダウンの可能性）
+        planMarkdown = planContent;
+      }
     }
   } catch (e) {
-    console.log('Failed to parse plan content as JSON, using raw content:', e);
+    console.error('[PlanApprovalModal] Error during plan extraction:', e);
+    planMarkdown = String(planContent);
   }
 
   return (
