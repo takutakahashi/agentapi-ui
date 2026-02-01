@@ -12,7 +12,10 @@ import {
   Agent,
   AgentListResponse,
   AgentListParams,
-  ToolStatusResponseBody
+  ToolStatusResponseBody,
+  ActionRequest,
+  ActionResponse,
+  PendingActionsResponse
 } from '../types/agentapi';
 import {
   Schedule,
@@ -439,6 +442,31 @@ export class AgentAPIProxyClient {
 
       throw error;
     }
+  }
+
+  /**
+   * Send an action (approve_plan, answer_question, or stop_agent) to the session
+   */
+  async sendAction(sessionId: string, action: ActionRequest): Promise<ActionResponse> {
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Sending action to session ${sessionId}:`, action.type);
+    }
+
+    return this.makeRequest<ActionResponse>(`/${sessionId}/action`, {
+      method: 'POST',
+      body: JSON.stringify(action),
+    });
+  }
+
+  /**
+   * Get pending actions (questions and plans) waiting for user response
+   */
+  async getPendingActions(sessionId: string): Promise<PendingActionsResponse> {
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Getting pending actions for session ${sessionId}`);
+    }
+
+    return this.makeRequest<PendingActionsResponse>(`/${sessionId}/action`);
   }
 
   async getSessionStatus(sessionId: string): Promise<AgentStatus> {

@@ -214,7 +214,7 @@ export interface SessionMessage {
   timestamp: string;
   session_id: string;
   metadata?: Record<string, unknown>;
-  type?: 'normal' | 'error';
+  type?: 'normal' | 'error' | 'question' | 'plan';
   toolUseId?: string;
   parentToolUseId?: string;
   status?: 'success' | 'error';
@@ -256,4 +256,37 @@ export interface SessionEventsOptions {
 // Tool status types
 export interface ToolStatusResponseBody {
   messages: SessionMessage[];
+}
+
+// Action types for plan approval and question answering
+export type ActionType = 'approve_plan' | 'answer_question' | 'stop_agent';
+
+export interface ApprovePlanAction {
+  type: 'approve_plan';
+  approved: boolean;
+}
+
+export interface AnswerQuestionAction {
+  type: 'answer_question';
+  answers: Record<string, string | string[]>;
+}
+
+export interface StopAgentAction {
+  type: 'stop_agent';
+}
+
+export type ActionRequest = ApprovePlanAction | AnswerQuestionAction | StopAgentAction;
+
+export interface ActionResponse {
+  ok: boolean;
+}
+
+export interface PendingAction {
+  type: 'answer_question' | 'approve_plan';
+  tool_use_id: string;
+  content: unknown;
+}
+
+export interface PendingActionsResponse {
+  pending_actions: PendingAction[];
 }

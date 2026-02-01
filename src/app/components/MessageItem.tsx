@@ -74,9 +74,17 @@ interface MessageItemProps {
     fontSize: number;
     fontFamily: string;
   };
+  onApprovePlan?: (approved: boolean) => void;
+  isPlanApprovalDisabled?: boolean;
 }
 
-export default function MessageItem({ message, formatTimestamp, fontSettings }: MessageItemProps) {
+export default function MessageItem({
+  message,
+  formatTimestamp,
+  fontSettings,
+  onApprovePlan,
+  isPlanApprovalDisabled = false
+}: MessageItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // ツール実行の場合
@@ -179,6 +187,84 @@ export default function MessageItem({ message, formatTimestamp, fontSettings }: 
                 )}
               </div>
             )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // プランモードメッセージの場合
+  if (message.type === 'plan') {
+    return (
+      <div className="px-4 sm:px-6 py-4 bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500">
+        <div className="flex items-start space-x-2">
+          <div className="flex-shrink-0">
+            <svg className="w-6 h-6 text-amber-600 dark:text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M9 2v2H7v2H5v2H3v12h18V8h-2V6h-2V4h-2V2H9zm0 2h6v2h2v2h2v10H5V8h2V6h2V4zm2 4v2h2V8h-2zm-4 4v2h10v-2H7z"/>
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center space-x-2 mb-2">
+              <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                📋 Plan Ready for Approval
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {formatTimestamp(message.timestamp || message.time || '')}
+              </span>
+            </div>
+            <div className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300 mb-3">
+              <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full bg-white dark:bg-gray-800 p-3 rounded">
+                {formatTextWithLinks(message.content)}
+              </div>
+            </div>
+            {onApprovePlan && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onApprovePlan(true)}
+                  disabled={isPlanApprovalDisabled}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded font-medium transition-colors"
+                >
+                  ✓ Approve Plan
+                </button>
+                <button
+                  onClick={() => onApprovePlan(false)}
+                  disabled={isPlanApprovalDisabled}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded font-medium transition-colors"
+                >
+                  ✗ Reject Plan
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 質問メッセージの場合（将来の拡張用）
+  if (message.type === 'question') {
+    return (
+      <div className="px-4 sm:px-6 py-4 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500">
+        <div className="flex items-start space-x-2">
+          <div className="flex-shrink-0">
+            <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center space-x-2 mb-2">
+              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                ❓ Question
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {formatTimestamp(message.timestamp || message.time || '')}
+              </span>
+            </div>
+            <div className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300">
+              <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">
+                {formatTextWithLinks(message.content)}
+              </div>
+            </div>
           </div>
         </div>
       </div>
