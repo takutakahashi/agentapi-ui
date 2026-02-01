@@ -547,9 +547,20 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
   }, [inputValue, isLoading, isConnected, sessionId, agentStatus, loadRecentMessages]);
 
-  const sendStopSignal = () => {
-    // Send ESC key (raw message)
-    sendMessage('raw', '\u001b');
+  const sendStopSignal = async () => {
+    if (!sessionId || !agentAPIRef.current) {
+      setError('セッションが利用できません');
+      return;
+    }
+
+    try {
+      // Send stop action via /action endpoint
+      await agentAPIRef.current.sendAction(sessionId, { type: 'stop_agent' });
+      console.log('Stop signal sent successfully');
+    } catch (err) {
+      console.error('Failed to send stop signal:', err);
+      setError('停止シグナルの送信に失敗しました');
+    }
   };
 
   const sendArrowUp = () => {
