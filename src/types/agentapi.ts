@@ -257,3 +257,35 @@ export interface SessionEventsOptions {
 export interface ToolStatusResponseBody {
   messages: SessionMessage[];
 }
+
+// Action types for AskUserQuestion
+export interface QuestionOption {
+  label: string;
+  description: string;
+}
+
+export interface Question {
+  question: string;
+  header: string;
+  options: QuestionOption[];
+  multiSelect: boolean;
+}
+
+export interface PendingAction {
+  type: 'answer_question' | 'approve_plan' | 'stop_agent';
+  tool_use_id: string;
+  content?: {
+    questions?: Question[];
+    [key: string]: unknown;
+  };
+}
+
+export interface ActionRequest {
+  type: 'answer_question' | 'approve_plan' | 'stop_agent';
+  answers?: Record<string, string | string[]>;
+  approved?: boolean;
+}
+
+export interface ActionResponse {
+  pending_actions: PendingAction[];
+}
