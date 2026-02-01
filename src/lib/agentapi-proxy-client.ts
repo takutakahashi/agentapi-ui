@@ -467,27 +467,6 @@ export class AgentAPIProxyClient {
     }
   }
 
-  /**
-   * Send an action to the agent
-   * Supports stop_agent, answer_question, and approve_plan actions
-   */
-  async sendAction(sessionId: string, action: { type: 'stop_agent' } | { type: 'answer_question'; answers: Record<string, string> } | { type: 'approve_plan'; approved: boolean }): Promise<{ ok: boolean }> {
-    if (this.debug) {
-      console.log(`[AgentAPIProxy] Sending action to session ${sessionId}:`, action);
-    }
-
-    const result = await this.makeRequest<{ ok: boolean }>(`/${sessionId}/action`, {
-      method: 'POST',
-      body: JSON.stringify(action),
-    });
-
-    if (this.debug) {
-      console.log(`[AgentAPIProxy] Successfully sent action to session ${sessionId}`);
-    }
-
-    return result;
-  }
-
   // Session events using Server-Sent Events
   subscribeToSessionEvents(
     sessionId: string,

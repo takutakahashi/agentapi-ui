@@ -214,7 +214,7 @@ export interface SessionMessage {
   timestamp: string;
   session_id: string;
   metadata?: Record<string, unknown>;
-  type?: 'normal' | 'error';
+  type?: 'normal' | 'error' | 'question' | 'plan';
   toolUseId?: string;
   parentToolUseId?: string;
   status?: 'success' | 'error';
@@ -287,5 +287,6 @@ export interface ActionRequest {
 }
 
 export interface ActionResponse {
-  pending_actions: PendingAction[];
+  ok?: boolean;
+  pending_actions?: PendingAction[];
 }

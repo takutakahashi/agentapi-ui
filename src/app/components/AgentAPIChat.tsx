@@ -15,6 +15,7 @@ import { getEnterKeyBehavior, getFontSettings, FontSettings, setFontSettings as 
 import ShareSessionButton from './ShareSessionButton';
 import MessageItem from './MessageItem';
 import ToolExecutionPane from './ToolExecutionPane';
+import PlanApprovalModal from './PlanApprovalModal';
 import AskUserQuestionModal from './AskUserQuestionModal';
 
 // Define local types for agent status
@@ -214,6 +215,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [showLoginSuccess, setShowLoginSuccess] = useState(false);
   const [loginSuccessShown, setLoginSuccessShown] = useState(false);
   const [showFontSettings, setShowFontSettings] = useState(false);
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [planContent, setPlanContent] = useState<string>('');
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -587,6 +590,44 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
   }, [inputValue, isLoading, isConnected, sessionId, agentStatus, loadRecentMessages]);
 
+  const handleShowPlanModal = useCallback((content: string) => {
+    setPlanContent(content);
+    setShowPlanModal(true);
+  }, []);
+
+  const handleApprovePlan = useCallback(async (approved: boolean) => {
+    if (!sessionId || !agentAPIRef.current) {
+      setError('Session not available for plan approval');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await agentAPIRef.current.sendAction(sessionId, {
+        type: 'approve_plan',
+        approved
+      });
+
+      // モーダルを閉じる
+      setShowPlanModal(false);
+
+      // スクロールを有効にして下部へ移動
+      setShouldAutoScroll(true);
+      setTimeout(() => scrollToBottom(), 100);
+    } catch (err) {
+      console.error('Failed to approve plan:', err);
+      if (err instanceof AgentAPIProxyError) {
+        setError(`プラン承認に失敗しました: ${err.message}`);
+      } else {
+        setError(`プラン承認に失敗しました: ${err instanceof Error ? err.message : '不明なエラー'}`);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [sessionId]);
+
   const sendStopSignal = async () => {
     if (!sessionId || !agentAPIRef.current) {
       setError('セッションが利用できません');
@@ -881,6 +922,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 message={message}
                 formatTimestamp={formatTimestamp}
                 fontSettings={fontSettings}
+                onShowPlanModal={message.type === 'plan' ? () => handleShowPlanModal(message.content) : undefined}
               />
             ))}
         </div>
@@ -1835,6 +1877,16 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           </div>
         </div>
       )}
+
+      {/* Plan Approval Modal */}
+      <PlanApprovalModal
+        isOpen={showPlanModal}
+        planContent={planContent}
+        onApprove={() => handleApprovePlan(true)}
+        onReject={() => handleApprovePlan(false)}
+        onClose={() => setShowPlanModal(false)}
+        isLoading={isLoading}
+      />
 
       {/* AskUserQuestion Modal */}
       {showQuestionModal && pendingAction?.content?.questions && (
