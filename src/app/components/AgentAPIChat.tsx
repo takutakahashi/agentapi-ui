@@ -15,6 +15,7 @@ import { getEnterKeyBehavior, getFontSettings, FontSettings, setFontSettings as 
 import ShareSessionButton from './ShareSessionButton';
 import MessageItem from './MessageItem';
 import ToolExecutionPane from './ToolExecutionPane';
+import PlanApprovalModal from './PlanApprovalModal';
 
 // Define local types for agent status
 interface AgentStatus {
@@ -213,6 +214,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [showLoginSuccess, setShowLoginSuccess] = useState(false);
   const [loginSuccessShown, setLoginSuccessShown] = useState(false);
   const [showFontSettings, setShowFontSettings] = useState(false);
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [planContent, setPlanContent] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
@@ -547,6 +550,11 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
   }, [inputValue, isLoading, isConnected, sessionId, agentStatus, loadRecentMessages]);
 
+  const handleShowPlanModal = useCallback((content: string) => {
+    setPlanContent(content);
+    setShowPlanModal(true);
+  }, []);
+
   const handleApprovePlan = useCallback(async (approved: boolean) => {
     if (!sessionId || !agentAPIRef.current) {
       setError('Session not available for plan approval');
@@ -561,6 +569,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         type: 'approve_plan',
         approved
       });
+
+      // モーダルを閉じる
+      setShowPlanModal(false);
 
       // スクロールを有効にして下部へ移動
       setShouldAutoScroll(true);
@@ -860,8 +871,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 message={message}
                 formatTimestamp={formatTimestamp}
                 fontSettings={fontSettings}
-                onApprovePlan={handleApprovePlan}
-                isPlanApprovalDisabled={isLoading}
+                onShowPlanModal={message.type === 'plan' ? () => handleShowPlanModal(message.content) : undefined}
               />
             ))}
         </div>
@@ -1816,6 +1826,16 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           </div>
         </div>
       )}
+
+      {/* Plan Approval Modal */}
+      <PlanApprovalModal
+        isOpen={showPlanModal}
+        planContent={planContent}
+        onApprove={() => handleApprovePlan(true)}
+        onReject={() => handleApprovePlan(false)}
+        onClose={() => setShowPlanModal(false)}
+        isLoading={isLoading}
+      />
     </div>
   );
 }

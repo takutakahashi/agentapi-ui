@@ -65,11 +65,15 @@ export default function PlanApprovalModal({
   let planMarkdown = planContent;
   try {
     const parsed = JSON.parse(planContent);
+    console.log('Parsed plan content:', parsed);
     if (parsed.plan) {
       planMarkdown = parsed.plan;
+      console.log('Extracted plan markdown:', planMarkdown);
+    } else {
+      console.log('No plan field found in parsed content, using raw content');
     }
-  } catch {
-    // If parsing fails, use content as-is
+  } catch (e) {
+    console.log('Failed to parse plan content as JSON, using raw content:', e);
   }
 
   return (
