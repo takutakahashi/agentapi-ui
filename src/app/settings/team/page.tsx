@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, prepareSettingsForSave } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, MCPServerSettings, MarketplaceSettings, PluginSettings } from '@/components/settings'
+import { BedrockSettings, SettingsAccordion, MCPServerSettings, MarketplaceSettings, PluginSettings, SyncSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -85,6 +85,14 @@ export default function TeamSettingsPage() {
 
   const handleBedrockChange = (config: BedrockConfig) => {
     setSettings((prev) => ({ ...prev, bedrock: config }))
+  }
+
+  const handleSyncSettingsChange = (gitRepository: string, storagePath: string) => {
+    setSettings((prev) => ({
+      ...prev,
+      git_repository: gitRepository,
+      storage_path: storagePath,
+    }))
   }
 
   const handleMCPServersChange = (servers: Record<string, APIMCPServerConfig>) => {
@@ -225,6 +233,18 @@ export default function TeamSettingsPage() {
             defaultOpen
           >
             <MCPServerSettings servers={settings.mcp_servers} onChange={handleMCPServersChange} />
+          </SettingsAccordion>
+
+          <SettingsAccordion
+            title="Settings Sync"
+            description="Configure settings synchronization with Git repository"
+            defaultOpen
+          >
+            <SyncSettings
+              gitRepository={settings.git_repository}
+              storagePath={settings.storage_path}
+              onChange={handleSyncSettingsChange}
+            />
           </SettingsAccordion>
 
           <div className="flex justify-end">

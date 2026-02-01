@@ -48,6 +48,8 @@ export interface SettingsData {
   claude_code_oauth_token?: string;  // Claude Code OAuth トークン（保存時のみ使用）
   has_claude_code_oauth_token?: boolean;  // OAuth トークンが設定されているか（読み取り時のみ）
   auth_mode?: AuthMode;  // 認証モード（oauth または bedrock）
+  git_repository?: string;  // Git repository URL for settings sync
+  storage_path?: string;  // Storage path for settings sync
 }
 
 // Personal settings
@@ -242,6 +244,16 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
   // Auth Mode の処理
   if (data.auth_mode) {
     prepared.auth_mode = data.auth_mode
+  }
+
+  // Git Repository の処理
+  if (data.git_repository !== undefined) {
+    prepared.git_repository = data.git_repository.trim()
+  }
+
+  // Storage Path の処理
+  if (data.storage_path !== undefined) {
+    prepared.storage_path = data.storage_path.trim()
   }
 
   return prepared
