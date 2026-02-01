@@ -974,7 +974,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       </div>
 
       {/* ツール実行確認ペーン */}
-      {sessionId && <ToolExecutionPane sessionId={sessionId} />}
+      {sessionId && <ToolExecutionPane sessionId={sessionId} agentStatus={agentStatus?.status} />}
 
       {/* Input */}
       <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 flex-shrink-0">
