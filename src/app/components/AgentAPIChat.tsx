@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client';
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client';
-import { SessionMessage, SessionMessageListResponse } from '../../types/agentapi';
+import { SessionMessage, SessionMessageListResponse, PendingAction } from '../../types/agentapi';
 import { useBackgroundAwareInterval } from '../hooks/usePageVisibility';
 import { messageTemplateManager } from '../../utils/messageTemplateManager';
 import { MessageTemplate } from '../../types/messageTemplate';
@@ -15,6 +15,7 @@ import { getEnterKeyBehavior, getFontSettings, FontSettings, setFontSettings as 
 import ShareSessionButton from './ShareSessionButton';
 import MessageItem from './MessageItem';
 import ToolExecutionPane from './ToolExecutionPane';
+import AskUserQuestionModal from './AskUserQuestionModal';
 
 // Define local types for agent status
 interface AgentStatus {
@@ -213,6 +214,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [showLoginSuccess, setShowLoginSuccess] = useState(false);
   const [loginSuccessShown, setLoginSuccessShown] = useState(false);
   const [showFontSettings, setShowFontSettings] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [showQuestionModal, setShowQuestionModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
@@ -245,7 +248,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        if (showTemplateModal) {
+        if (showQuestionModal) {
+          setShowQuestionModal(false)
+        } else if (showTemplateModal) {
           setShowTemplateModal(false)
         } else if (showPRLinks) {
           setShowPRLinks(false)
@@ -259,14 +264,14 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       }
     }
 
-    if (showTemplateModal || showPRLinks || showClaudeLogins || showLoginPopup || showFontSettings) {
+    if (showQuestionModal || showTemplateModal || showPRLinks || showClaudeLogins || showLoginPopup || showFontSettings) {
       document.addEventListener('keydown', handleKeyDown)
     }
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [showTemplateModal, showPRLinks, showClaudeLogins, showLoginPopup, showFontSettings])
+  }, [showQuestionModal, showTemplateModal, showPRLinks, showClaudeLogins, showLoginPopup, showFontSettings])
 
   // Listen for font settings changes
   useEffect(() => {
@@ -316,26 +321,37 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   // Session-based polling for messages (optimized interval)
   const pollMessages = useCallback(async () => {
     if (!isConnected || !sessionId || !agentAPIRef.current) return;
-    
+
     try {
-      // Poll both messages and status
-      const [sessionMessagesResponse, sessionStatus] = await Promise.all([
+      // Poll messages, status, and pending actions
+      const [sessionMessagesResponse, sessionStatus, pendingActions] = await Promise.all([
         agentAPIRef.current.getSessionMessages(sessionId, { limit: 100 }),
-        agentAPIRef.current.getSessionStatus(sessionId)
+        agentAPIRef.current.getSessionStatus(sessionId),
+        agentAPIRef.current.getPendingActions(sessionId)
       ]);
-      
+
       // Validate and safely handle session messages response
       if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
         console.warn('Invalid session messages response structure during polling:', sessionMessagesResponse);
         return;
       }
-      
+
       // Use SessionMessage directly for display
       const messages = sessionMessagesResponse?.messages || [];
 
       setMessages(messages);
-      
-      
+
+      // Handle pending actions
+      const questionAction = pendingActions.find(a => a.type === 'answer_question');
+      if (questionAction && !pendingAction) {
+        setPendingAction(questionAction);
+        setShowQuestionModal(true);
+      } else if (!questionAction && pendingAction) {
+        // Question was answered/cleared
+        setPendingAction(null);
+        setShowQuestionModal(false);
+      }
+
       setAgentStatus(sessionStatus);
       prevAgentStatusRef.current = sessionStatus;
     } catch (err) {
@@ -344,7 +360,31 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         setError(`Failed to update messages: ${err.message}`);
       }
     }
-  }, [isConnected, sessionId]); // agentAPIを依存配列から除去
+  }, [isConnected, sessionId, pendingAction]); // agentAPIを依存配列から除去
+
+  const handleAnswerSubmit = useCallback(async (answers: Record<string, string | string[]>) => {
+    if (!sessionId || !agentAPIRef.current || !pendingAction) return;
+
+    try {
+      await agentAPIRef.current.sendAction(sessionId, {
+        type: 'answer_question',
+        answers
+      });
+
+      // Clear pending action and close modal
+      setPendingAction(null);
+      setShowQuestionModal(false);
+    } catch (err) {
+      console.error('Failed to submit answers:', err);
+      if (err instanceof AgentAPIProxyError) {
+        setError(`Failed to submit answers: ${err.message}`);
+      }
+    }
+  }, [sessionId, pendingAction]);
+
+  const handleQuestionModalClose = useCallback(() => {
+    setShowQuestionModal(false);
+  }, []);
 
   // バックグラウンド対応の定期更新フック
   const pollingControl = useBackgroundAwareInterval(pollMessages, 1000, true);
@@ -1794,6 +1834,15 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             </div>
           </div>
         </div>
+      )}
+
+      {/* AskUserQuestion Modal */}
+      {showQuestionModal && pendingAction?.content?.questions && (
+        <AskUserQuestionModal
+          questions={pendingAction.content.questions}
+          onSubmit={handleAnswerSubmit}
+          onClose={handleQuestionModalClose}
+        />
       )}
     </div>
   );
