@@ -74,16 +74,9 @@ export default function PlanApprovalModal({
     }
     // planContentが文字列の場合
     else if (typeof planContent === 'string') {
-      // "📋 Plan ready for approval: " のようなプレフィックスを削除
-      let contentToParse = planContent.trim();
-      const prefixMatch = contentToParse.match(/^📋\s*Plan\s+ready\s+for\s+approval:\s*/i);
-      if (prefixMatch) {
-        contentToParse = contentToParse.substring(prefixMatch[0].length).trim();
-      }
-
       // JSONとしてパースを試みる
       try {
-        const parsed = JSON.parse(contentToParse);
+        const parsed = JSON.parse(planContent);
         if (parsed && typeof parsed === 'object' && parsed.plan && typeof parsed.plan === 'string') {
           planMarkdown = parsed.plan;
         } else {
