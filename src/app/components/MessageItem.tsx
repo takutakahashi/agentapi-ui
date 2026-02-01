@@ -232,17 +232,14 @@ export default function MessageItem({
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                 Click the button below to review and approve or reject the plan.
               </p>
-              {onApprovePlan && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowPlanModal(true)}
-                    disabled={isPlanApprovalDisabled}
-                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 text-white rounded font-medium transition-colors"
-                  >
-                    📋 View Plan
-                  </button>
-                </div>
-              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowPlanModal(true)}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded font-medium transition-colors"
+                >
+                  📋 View Plan
+                </button>
+              </div>
             </div>
           </div>
         </div>
