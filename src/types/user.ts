@@ -1,3 +1,5 @@
+import { Repository } from './repository'
+
 // agentapi-proxy /user/info から取得するユーザー情報
 // teams は "org/team-slug" 形式の文字列配列
 export interface ProxyUserInfo {
@@ -20,4 +22,6 @@ export interface UserInfo {
   }
   // agentapi-proxy から取得した情報
   proxy?: ProxyUserInfo
+  // GitHub リポジトリ情報（GitHub OAuth の場合のみ）
+  repositories?: Repository[]
 }
