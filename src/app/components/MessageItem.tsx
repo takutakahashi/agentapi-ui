@@ -182,14 +182,53 @@ export default function MessageItem({
     const hasResult = !!toolResult;
 
     if (toolUse) {
+      // ツールの簡易情報を抽出（description, file_path, pattern など）
+      const getBriefInfo = (): string | null => {
+        const input = toolUse.input;
+        const maxLength = 40;
+
+        // description があれば優先
+        if (input.description && typeof input.description === 'string') {
+          return input.description.length > maxLength
+            ? input.description.substring(0, maxLength) + '...'
+            : input.description;
+        }
+
+        // ファイル系のツール
+        if (input.file_path && typeof input.file_path === 'string') {
+          const path = input.file_path;
+          return path.length > maxLength
+            ? '...' + path.substring(path.length - maxLength)
+            : path;
+        }
+
+        // パターン検索系
+        if (input.pattern && typeof input.pattern === 'string') {
+          return input.pattern.length > maxLength
+            ? input.pattern.substring(0, maxLength) + '...'
+            : input.pattern;
+        }
+
+        // コマンド系
+        if (input.command && typeof input.command === 'string') {
+          return input.command.length > maxLength
+            ? input.command.substring(0, maxLength) + '...'
+            : input.command;
+        }
+
+        return null;
+      };
+
+      const briefInfo = getBriefInfo();
+
       return (
         <div className="px-4 sm:px-6 py-0.5">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full flex items-center py-1 hover:opacity-80 transition-opacity group"
+            className="w-full flex items-center py-1 hover:opacity-80 transition-opacity group text-left"
           >
             {/* 細い縦線 */}
-            <div className={`w-px h-4 mr-2 ${
+            <div className={`w-px h-4 mr-2 flex-shrink-0 ${
               hasResult
                 ? isSuccess
                   ? 'bg-green-400 dark:bg-green-500'
@@ -198,7 +237,7 @@ export default function MessageItem({
             }`}></div>
 
             {/* ツール名 */}
-            <span className={`text-xs ${
+            <span className={`text-xs flex-shrink-0 ${
               hasResult
                 ? isSuccess
                   ? 'text-green-600 dark:text-green-400'
@@ -210,7 +249,7 @@ export default function MessageItem({
 
             {/* 結果インジケーター */}
             {hasResult && (
-              <span className={`ml-1 text-xs ${
+              <span className={`ml-1 text-xs flex-shrink-0 ${
                 isSuccess
                   ? 'text-green-600 dark:text-green-400'
                   : 'text-red-600 dark:text-red-400'
@@ -219,13 +258,20 @@ export default function MessageItem({
               </span>
             )}
 
+            {/* 簡易情報 */}
+            {briefInfo && (
+              <span className="ml-2 text-xs text-gray-400 dark:text-gray-500 truncate">
+                {briefInfo}
+              </span>
+            )}
+
             {/* タイムスタンプ */}
-            <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">
+            <span className="ml-auto text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
               {formatTimestamp(message.timestamp || message.time || '')}
             </span>
 
             {/* 展開アイコン */}
-            <span className="ml-2 text-xs text-gray-400">
+            <span className="ml-2 text-xs text-gray-400 flex-shrink-0">
               {isExpanded ? '−' : '+'}
             </span>
           </button>
