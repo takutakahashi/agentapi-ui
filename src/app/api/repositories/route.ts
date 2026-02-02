@@ -42,21 +42,34 @@ export async function GET(request: NextRequest) {
     let accessToken: string | null = null
     try {
       const decryptedData = decryptCookie(authToken)
-      const sessionData = JSON.parse(decryptedData)
+      console.log('[repositories] Decrypted cookie data type:', typeof decryptedData)
 
-      // GitHub OAuth認証の場合
-      if (sessionData.sessionId && sessionData.accessToken) {
-        accessToken = sessionData.accessToken
+      try {
+        const sessionData = JSON.parse(decryptedData)
+        console.log('[repositories] Session data keys:', Object.keys(sessionData))
+        console.log('[repositories] Has sessionId:', !!sessionData.sessionId)
+        console.log('[repositories] Has accessToken:', !!sessionData.accessToken)
+
+        // GitHub OAuth認証の場合
+        if (sessionData.sessionId && sessionData.accessToken) {
+          accessToken = sessionData.accessToken
+          console.log('[repositories] Found GitHub accessToken from session')
+        }
+      } catch (parseErr) {
+        // JSON パースに失敗した場合、平文のAPIキーかもしれない
+        console.log('[repositories] Failed to parse as JSON, might be plain API key')
+        // ただし、GitHub APIを叩くにはGitHubトークンが必要
       }
     } catch (err) {
-      console.error('Failed to decrypt session data:', err)
-      // デクリプション失敗の場合、APIキー認証の可能性もあるが、
-      // リポジトリ取得にはGitHubトークンが必要
+      console.error('[repositories] Failed to decrypt session data:', err)
     }
 
     if (!accessToken) {
       return NextResponse.json(
-        { error: 'GitHub access token not found. Please login with GitHub OAuth.' },
+        {
+          error: 'GitHub access token not found. Please login with GitHub OAuth.',
+          details: 'This endpoint requires GitHub OAuth authentication to access your repositories.'
+        },
         { status: 401 }
       )
     }
