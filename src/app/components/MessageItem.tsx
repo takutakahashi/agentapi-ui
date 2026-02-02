@@ -151,6 +151,7 @@ function renderContent(content: string, disableMarkdown: boolean = false): JSX.E
 
 interface MessageItemProps {
   message: SessionMessage;
+  toolResult?: SessionMessage; // 対応するツール結果（オプショナル）
   formatTimestamp: (timestamp: string) => string;
   fontSettings: {
     fontSize: number;
@@ -162,6 +163,7 @@ interface MessageItemProps {
 
 export default function MessageItem({
   message,
+  toolResult,
   formatTimestamp,
   fontSettings,
   onShowPlanModal,
@@ -172,110 +174,148 @@ export default function MessageItem({
   // claude agent でない場合は markdown を無効化
   const disableMarkdown = !isClaudeAgent;
 
-  // ツール実行の場合
+  // ツール実行の場合（ツール結果も含めて表示）
   if (message.role === 'agent' && message.toolUseId) {
     const toolUse = parseToolUseContent(message.content);
+    const result = toolResult ? parseToolResultContent(toolResult.content) : null;
+    const isSuccess = toolResult?.status === 'success';
+    const hasResult = !!toolResult;
 
     if (toolUse) {
+      // ツールの簡易情報を抽出（description, file_path, pattern など）
+      const getBriefInfo = (): string | null => {
+        const input = toolUse.input;
+        const maxLength = 40;
+
+        // description があれば優先
+        if (input.description && typeof input.description === 'string') {
+          return input.description.length > maxLength
+            ? input.description.substring(0, maxLength) + '...'
+            : input.description;
+        }
+
+        // ファイル系のツール
+        if (input.file_path && typeof input.file_path === 'string') {
+          const path = input.file_path;
+          return path.length > maxLength
+            ? '...' + path.substring(path.length - maxLength)
+            : path;
+        }
+
+        // パターン検索系
+        if (input.pattern && typeof input.pattern === 'string') {
+          return input.pattern.length > maxLength
+            ? input.pattern.substring(0, maxLength) + '...'
+            : input.pattern;
+        }
+
+        // コマンド系
+        if (input.command && typeof input.command === 'string') {
+          return input.command.length > maxLength
+            ? input.command.substring(0, maxLength) + '...'
+            : input.command;
+        }
+
+        return null;
+      };
+
+      const briefInfo = getBriefInfo();
+
       return (
-        <div className="px-4 sm:px-6 py-3 bg-purple-50 dark:bg-purple-900/20 border-l-4 border-purple-500">
-          <div className="flex items-start space-x-2">
-            <div className="flex-shrink-0">
-              <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2 mb-1">
-                <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                  Tool: {toolUse.name}
-                </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {formatTimestamp(message.timestamp || message.time || '')}
-                </span>
-              </div>
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="text-xs text-purple-600 dark:text-purple-400 hover:underline"
-              >
-                {isExpanded ? 'Hide details' : 'Show details'}
-              </button>
-              {isExpanded && (
-                <pre className="mt-2 text-xs bg-white dark:bg-gray-800 p-2 rounded overflow-x-auto">
+        <div className="px-4 sm:px-6 py-0.5">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full flex items-center py-1 hover:opacity-80 transition-opacity group text-left"
+          >
+            {/* 細い縦線 */}
+            <div className={`w-px h-4 mr-2 flex-shrink-0 ${
+              hasResult
+                ? isSuccess
+                  ? 'bg-green-400 dark:bg-green-500'
+                  : 'bg-red-400 dark:bg-red-500'
+                : 'bg-gray-300 dark:bg-gray-600'
+            }`}></div>
+
+            {/* ツール名 */}
+            <span className={`text-xs flex-shrink-0 ${
+              hasResult
+                ? isSuccess
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400'
+                : 'text-gray-500 dark:text-gray-400'
+            }`}>
+              {toolUse.name}
+            </span>
+
+            {/* 結果インジケーター */}
+            {hasResult && (
+              <span className={`ml-1 text-xs flex-shrink-0 ${
+                isSuccess
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400'
+              }`}>
+                {isSuccess ? '✓' : '✗'}
+              </span>
+            )}
+
+            {/* 簡易情報 */}
+            {briefInfo && (
+              <span className="ml-2 text-xs text-gray-400 dark:text-gray-500 truncate">
+                {briefInfo}
+              </span>
+            )}
+
+            {/* タイムスタンプ */}
+            <span className="ml-auto text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+              {formatTimestamp(message.timestamp || message.time || '')}
+            </span>
+
+            {/* 展開アイコン */}
+            <span className="ml-2 text-xs text-gray-400 flex-shrink-0">
+              {isExpanded ? '−' : '+'}
+            </span>
+          </button>
+
+          {/* 展開された詳細 */}
+          {isExpanded && (
+            <div className="ml-3 mt-1 mb-2 text-xs">
+              {/* ツール入力 */}
+              <div className="mb-2">
+                <div className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Input:</div>
+                <pre className="bg-gray-50 dark:bg-gray-800 p-2 rounded text-gray-600 dark:text-gray-400 overflow-x-auto">
                   {JSON.stringify(toolUse.input, null, 2)}
                 </pre>
+              </div>
+
+              {/* ツール結果 */}
+              {hasResult && (
+                <div>
+                  <div className={`font-semibold mb-1 ${
+                    isSuccess
+                      ? 'text-green-700 dark:text-green-300'
+                      : 'text-red-700 dark:text-red-300'
+                  }`}>
+                    {isSuccess ? 'Result:' : 'Error:'}
+                  </div>
+                  <pre className={`p-2 rounded overflow-x-auto ${
+                    isSuccess
+                      ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
+                      : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+                  }`}>
+                    {result?.error || result?.result || toolResult.content}
+                  </pre>
+                </div>
               )}
             </div>
-          </div>
+          )}
         </div>
       );
     }
   }
 
-  // ツール結果の場合
+  // ツール結果は tool_use と一緒に表示されるため、ここでは何もしない
   if (message.role === 'tool_result') {
-    const result = parseToolResultContent(message.content);
-    const isSuccess = message.status === 'success';
-
-    return (
-      <div className={`px-4 sm:px-6 py-3 border-l-4 ${
-        isSuccess
-          ? 'bg-green-50 dark:bg-green-900/20 border-green-500'
-          : 'bg-red-50 dark:bg-red-900/20 border-red-500'
-      }`}>
-        <div className="flex items-start space-x-2">
-          <div className="flex-shrink-0">
-            <svg className={`w-5 h-5 ${
-              isSuccess
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-red-600 dark:text-red-400'
-            }`} fill="currentColor" viewBox="0 0 24 24">
-              {isSuccess ? (
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-              ) : (
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-              )}
-            </svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center space-x-2 mb-1">
-              <span className={`text-sm font-medium ${
-                isSuccess
-                  ? 'text-green-700 dark:text-green-300'
-                  : 'text-red-700 dark:text-red-300'
-              }`}>
-                Tool Result: {isSuccess ? 'Success' : 'Error'}
-              </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                {formatTimestamp(message.timestamp || message.time || '')}
-              </span>
-            </div>
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className={`text-xs hover:underline ${
-                isSuccess
-                  ? 'text-green-600 dark:text-green-400'
-                  : 'text-red-600 dark:text-red-400'
-              }`}>
-              {isExpanded ? 'Hide result' : 'Show result'}
-            </button>
-            {isExpanded && result && (
-              <div className="mt-2 text-xs bg-white dark:bg-gray-800 p-2 rounded overflow-x-auto">
-                {result.error ? (
-                  <div className="text-red-600 dark:text-red-400">
-                    <strong>Error:</strong> {result.error}
-                  </div>
-                ) : (
-                  <pre className="whitespace-pre-wrap break-words">
-                    {result.result || message.content}
-                  </pre>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   // プランモードメッセージの場合
