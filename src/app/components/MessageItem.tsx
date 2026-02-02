@@ -142,7 +142,7 @@ function formatTextWithLinks(text: string): JSX.Element {
 
 // コンテンツをレンダリングする関数（Markdown か通常のテキストかを判断）
 function renderContent(content: string, disableMarkdown: boolean = false): JSX.Element {
-  // /action エンドポイントが利用できない場合は markdown を無効化
+  // claude agent でない場合は markdown を無効化
   if (disableMarkdown || !hasMarkdownSyntax(content)) {
     return <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">{formatTextWithLinks(content)}</div>;
   }
@@ -157,7 +157,7 @@ interface MessageItemProps {
     fontFamily: string;
   };
   onShowPlanModal?: () => void;
-  supportsActionEndpoint?: boolean | null;
+  isClaudeAgent?: boolean;
 }
 
 export default function MessageItem({
@@ -165,12 +165,12 @@ export default function MessageItem({
   formatTimestamp,
   fontSettings,
   onShowPlanModal,
-  supportsActionEndpoint
+  isClaudeAgent
 }: MessageItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // /action エンドポイントが利用できない場合は markdown を無効化
-  const disableMarkdown = supportsActionEndpoint === false;
+  // claude agent でない場合は markdown を無効化
+  const disableMarkdown = !isClaudeAgent;
 
   // ツール実行の場合
   if (message.role === 'agent' && message.toolUseId) {

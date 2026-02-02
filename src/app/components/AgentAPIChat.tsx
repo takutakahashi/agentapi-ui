@@ -217,7 +217,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [showFontSettings, setShowFontSettings] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [planContent, setPlanContent] = useState<string>('');
-  const [supportsActionEndpoint, setSupportsActionEndpoint] = useState<boolean | null>(null);
+  const [agentType, setAgentType] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -410,30 +410,24 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     };
   }, [isConnected, sessionId]); // pollingControlを依存配列から除去
 
-  // Check if /action endpoint is available (claude-agentapi)
+  // Get agent type from /status endpoint
   useEffect(() => {
-    const checkActionEndpoint = async () => {
+    const fetchAgentType = async () => {
       if (!sessionId || !agentAPIRef.current) {
         return;
       }
 
       try {
-        // Try to call GET /action to check if it exists
-        await agentAPIRef.current.getPendingActions(sessionId);
-        // If we get here, the endpoint exists (even if it returns empty array)
-        setSupportsActionEndpoint(true);
+        const status = await agentAPIRef.current.getSessionStatus(sessionId);
+        setAgentType(status.agent_type || null);
       } catch (error) {
-        // If we get a 404, the endpoint doesn't exist
-        if (error instanceof AgentAPIProxyError && error.status === 404) {
-          setSupportsActionEndpoint(false);
-        } else {
-          // For other errors, assume the endpoint exists but there was another problem
-          setSupportsActionEndpoint(true);
-        }
+        console.error('Failed to get agent type:', error);
+        // If we can't get the agent type, assume it's not claude
+        setAgentType(null);
       }
     };
 
-    checkActionEndpoint();
+    fetchAgentType();
   }, [sessionId]);
 
   // Handle new messages and auto-scroll
@@ -662,19 +656,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
 
     try {
-      if (supportsActionEndpoint === null) {
-        // Still checking endpoint availability
-        console.log('Still checking /action endpoint availability');
-        setError('エンドポイントの確認中です。しばらくお待ちください。');
-        return;
-      }
-
-      if (supportsActionEndpoint) {
+      if (agentType === 'claude') {
         // claude-agentapi: Use /action endpoint
         await agentAPIRef.current.sendAction(sessionId, { type: 'stop_agent' });
-        console.log('Stop signal sent via /action endpoint');
+        console.log('Stop signal sent via /action endpoint (claude agent)');
       } else {
-        // Legacy: Send Ctrl+C as raw message
+        // Other agents: Send Ctrl+C as raw message
         await agentAPIRef.current.sendSessionMessage(sessionId, {
           content: '\x03', // Ctrl+C
           type: 'raw'
@@ -966,7 +953,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 formatTimestamp={formatTimestamp}
                 fontSettings={fontSettings}
                 onShowPlanModal={message.type === 'plan' ? () => handleShowPlanModal(message.content) : undefined}
-                supportsActionEndpoint={supportsActionEndpoint}
+                isClaudeAgent={agentType === 'claude'}
               />
             ))}
         </div>
