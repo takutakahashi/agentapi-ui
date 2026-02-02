@@ -141,11 +141,12 @@ function formatTextWithLinks(text: string): JSX.Element {
 }
 
 // コンテンツをレンダリングする関数（Markdown か通常のテキストかを判断）
-function renderContent(content: string): JSX.Element {
-  if (hasMarkdownSyntax(content)) {
-    return <MarkdownContent content={content} />;
+function renderContent(content: string, disableMarkdown: boolean = false): JSX.Element {
+  // claude agent でない場合は markdown を無効化
+  if (disableMarkdown || !hasMarkdownSyntax(content)) {
+    return <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">{formatTextWithLinks(content)}</div>;
   }
-  return <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">{formatTextWithLinks(content)}</div>;
+  return <MarkdownContent content={content} />;
 }
 
 interface MessageItemProps {
@@ -156,15 +157,20 @@ interface MessageItemProps {
     fontFamily: string;
   };
   onShowPlanModal?: () => void;
+  isClaudeAgent?: boolean;
 }
 
 export default function MessageItem({
   message,
   formatTimestamp,
   fontSettings,
-  onShowPlanModal
+  onShowPlanModal,
+  isClaudeAgent
 }: MessageItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // claude agent でない場合は markdown を無効化
+  const disableMarkdown = !isClaudeAgent;
 
   // ツール実行の場合
   if (message.role === 'agent' && message.toolUseId) {
@@ -366,7 +372,7 @@ export default function MessageItem({
               </span>
             </div>
             <div className="text-gray-700 dark:text-gray-300">
-              {renderContent(message.content)}
+              {renderContent(message.content, disableMarkdown)}
             </div>
           </div>
         </div>
@@ -412,7 +418,7 @@ export default function MessageItem({
             }`}
             style={{ fontSize: `${fontSettings.fontSize}px` }}
           >
-            {renderContent(message.content)}
+            {renderContent(message.content, disableMarkdown)}
           </div>
         </div>
       </div>

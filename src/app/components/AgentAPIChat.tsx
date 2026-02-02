@@ -217,6 +217,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [showFontSettings, setShowFontSettings] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [planContent, setPlanContent] = useState<string>('');
+  const [agentType, setAgentType] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -408,6 +409,26 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       control.stop();
     };
   }, [isConnected, sessionId]); // pollingControlを依存配列から除去
+
+  // Get agent type from /status endpoint
+  useEffect(() => {
+    const fetchAgentType = async () => {
+      if (!sessionId || !agentAPIRef.current) {
+        return;
+      }
+
+      try {
+        const status = await agentAPIRef.current.getSessionStatus(sessionId);
+        setAgentType(status.agent_type || null);
+      } catch (error) {
+        console.error('Failed to get agent type:', error);
+        // If we can't get the agent type, assume it's not claude
+        setAgentType(null);
+      }
+    };
+
+    fetchAgentType();
+  }, [sessionId]);
 
   // Handle new messages and auto-scroll
   useEffect(() => {
@@ -635,9 +656,18 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
 
     try {
-      // Send stop action via /action endpoint
-      await agentAPIRef.current.sendAction(sessionId, { type: 'stop_agent' });
-      console.log('Stop signal sent successfully');
+      if (agentType === 'claude') {
+        // claude-agentapi: Use /action endpoint
+        await agentAPIRef.current.sendAction(sessionId, { type: 'stop_agent' });
+        console.log('Stop signal sent via /action endpoint (claude agent)');
+      } else {
+        // Other agents: Send Ctrl+C as raw message
+        await agentAPIRef.current.sendSessionMessage(sessionId, {
+          content: '\x03', // Ctrl+C
+          type: 'raw'
+        });
+        console.log('Stop signal sent via Ctrl+C (raw message)');
+      }
     } catch (err) {
       console.error('Failed to send stop signal:', err);
       setError('停止シグナルの送信に失敗しました');
@@ -923,6 +953,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 formatTimestamp={formatTimestamp}
                 fontSettings={fontSettings}
                 onShowPlanModal={message.type === 'plan' ? () => handleShowPlanModal(message.content) : undefined}
+                isClaudeAgent={agentType === 'claude'}
               />
             ))}
         </div>

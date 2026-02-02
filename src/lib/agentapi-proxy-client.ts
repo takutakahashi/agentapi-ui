@@ -55,6 +55,7 @@ interface AgentStatus {
   status: 'stable' | 'running' | 'error';
   last_activity?: string;
   current_task?: string;
+  agent_type?: string;
 }
 
 export interface AgentAPIProxyClientConfig {
