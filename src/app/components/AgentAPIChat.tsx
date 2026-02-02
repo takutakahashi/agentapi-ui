@@ -938,24 +938,64 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         )}
 
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {messages
-            .filter((message) => {
-              // すべてのメッセージを表示（ツール実行、ツール結果も含む）
-              return message.role === 'user' ||
-                     message.role === 'assistant' ||
-                     message.role === 'agent' ||
-                     message.role === 'tool_result';
-            })
-            .map((message) => (
-              <MessageItem
-                key={message.id}
-                message={message}
-                formatTimestamp={formatTimestamp}
-                fontSettings={fontSettings}
-                onShowPlanModal={message.type === 'plan' ? () => handleShowPlanModal(message.content) : undefined}
-                isClaudeAgent={agentType === 'claude'}
-              />
-            ))}
+          {(() => {
+            const renderedMessages: JSX.Element[] = [];
+            const processedIds = new Set<string>();
+
+            messages.forEach((message, index) => {
+              // すでに処理済みのメッセージはスキップ
+              if (processedIds.has(message.id)) return;
+
+              // tool_result は親の tool_use と一緒に表示されるのでスキップ
+              if (message.role === 'tool_result') {
+                processedIds.add(message.id);
+                return;
+              }
+
+              // tool_use の場合、対応する tool_result を探す
+              if (message.role === 'agent' && message.toolUseId) {
+                const toolResult = messages.find(m =>
+                  m.role === 'tool_result' &&
+                  m.parentToolUseId === message.toolUseId
+                );
+
+                if (toolResult) {
+                  processedIds.add(toolResult.id);
+                }
+
+                renderedMessages.push(
+                  <MessageItem
+                    key={message.id}
+                    message={message}
+                    toolResult={toolResult}
+                    formatTimestamp={formatTimestamp}
+                    fontSettings={fontSettings}
+                    onShowPlanModal={message.type === 'plan' ? () => handleShowPlanModal(message.content) : undefined}
+                    isClaudeAgent={agentType === 'claude'}
+                  />
+                );
+                processedIds.add(message.id);
+                return;
+              }
+
+              // 通常のメッセージ (user, assistant, agent without toolUseId)
+              if (message.role === 'user' || message.role === 'assistant' || message.role === 'agent') {
+                renderedMessages.push(
+                  <MessageItem
+                    key={message.id}
+                    message={message}
+                    formatTimestamp={formatTimestamp}
+                    fontSettings={fontSettings}
+                    onShowPlanModal={message.type === 'plan' ? () => handleShowPlanModal(message.content) : undefined}
+                    isClaudeAgent={agentType === 'claude'}
+                  />
+                );
+                processedIds.add(message.id);
+              }
+            });
+
+            return renderedMessages;
+          })()}
         </div>
         <div ref={messagesEndRef} />
         
