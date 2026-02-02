@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client';
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client';
-import { SessionMessage, SessionMessageListResponse } from '../../types/agentapi';
+import { SessionMessage, SessionMessageListResponse, PendingAction } from '../../types/agentapi';
 import { useBackgroundAwareInterval } from '../hooks/usePageVisibility';
 import { messageTemplateManager } from '../../utils/messageTemplateManager';
 import { MessageTemplate } from '../../types/messageTemplate';
@@ -15,6 +15,8 @@ import { getEnterKeyBehavior, getFontSettings, FontSettings, setFontSettings as 
 import ShareSessionButton from './ShareSessionButton';
 import MessageItem from './MessageItem';
 import ToolExecutionPane from './ToolExecutionPane';
+import PlanApprovalModal from './PlanApprovalModal';
+import AskUserQuestionModal from './AskUserQuestionModal';
 
 // Define local types for agent status
 interface AgentStatus {
@@ -213,6 +215,11 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [showLoginSuccess, setShowLoginSuccess] = useState(false);
   const [loginSuccessShown, setLoginSuccessShown] = useState(false);
   const [showFontSettings, setShowFontSettings] = useState(false);
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [planContent, setPlanContent] = useState<string>('');
+  const [agentType, setAgentType] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [showQuestionModal, setShowQuestionModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
@@ -245,7 +252,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        if (showTemplateModal) {
+        if (showQuestionModal) {
+          setShowQuestionModal(false)
+        } else if (showTemplateModal) {
           setShowTemplateModal(false)
         } else if (showPRLinks) {
           setShowPRLinks(false)
@@ -259,14 +268,14 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       }
     }
 
-    if (showTemplateModal || showPRLinks || showClaudeLogins || showLoginPopup || showFontSettings) {
+    if (showQuestionModal || showTemplateModal || showPRLinks || showClaudeLogins || showLoginPopup || showFontSettings) {
       document.addEventListener('keydown', handleKeyDown)
     }
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [showTemplateModal, showPRLinks, showClaudeLogins, showLoginPopup, showFontSettings])
+  }, [showQuestionModal, showTemplateModal, showPRLinks, showClaudeLogins, showLoginPopup, showFontSettings])
 
   // Listen for font settings changes
   useEffect(() => {
@@ -316,26 +325,37 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   // Session-based polling for messages (optimized interval)
   const pollMessages = useCallback(async () => {
     if (!isConnected || !sessionId || !agentAPIRef.current) return;
-    
+
     try {
-      // Poll both messages and status
-      const [sessionMessagesResponse, sessionStatus] = await Promise.all([
+      // Poll messages, status, and pending actions
+      const [sessionMessagesResponse, sessionStatus, pendingActions] = await Promise.all([
         agentAPIRef.current.getSessionMessages(sessionId, { limit: 100 }),
-        agentAPIRef.current.getSessionStatus(sessionId)
+        agentAPIRef.current.getSessionStatus(sessionId),
+        agentAPIRef.current.getPendingActions(sessionId)
       ]);
-      
+
       // Validate and safely handle session messages response
       if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
         console.warn('Invalid session messages response structure during polling:', sessionMessagesResponse);
         return;
       }
-      
+
       // Use SessionMessage directly for display
       const messages = sessionMessagesResponse?.messages || [];
 
       setMessages(messages);
-      
-      
+
+      // Handle pending actions
+      const questionAction = pendingActions.find(a => a.type === 'answer_question');
+      if (questionAction && !pendingAction) {
+        setPendingAction(questionAction);
+        setShowQuestionModal(true);
+      } else if (!questionAction && pendingAction) {
+        // Question was answered/cleared
+        setPendingAction(null);
+        setShowQuestionModal(false);
+      }
+
       setAgentStatus(sessionStatus);
       prevAgentStatusRef.current = sessionStatus;
     } catch (err) {
@@ -344,7 +364,31 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         setError(`Failed to update messages: ${err.message}`);
       }
     }
-  }, [isConnected, sessionId]); // agentAPIを依存配列から除去
+  }, [isConnected, sessionId, pendingAction]); // agentAPIを依存配列から除去
+
+  const handleAnswerSubmit = useCallback(async (answers: Record<string, string | string[]>) => {
+    if (!sessionId || !agentAPIRef.current || !pendingAction) return;
+
+    try {
+      await agentAPIRef.current.sendAction(sessionId, {
+        type: 'answer_question',
+        answers
+      });
+
+      // Clear pending action and close modal
+      setPendingAction(null);
+      setShowQuestionModal(false);
+    } catch (err) {
+      console.error('Failed to submit answers:', err);
+      if (err instanceof AgentAPIProxyError) {
+        setError(`Failed to submit answers: ${err.message}`);
+      }
+    }
+  }, [sessionId, pendingAction]);
+
+  const handleQuestionModalClose = useCallback(() => {
+    setShowQuestionModal(false);
+  }, []);
 
   // バックグラウンド対応の定期更新フック
   const pollingControl = useBackgroundAwareInterval(pollMessages, 1000, true);
@@ -365,6 +409,26 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       control.stop();
     };
   }, [isConnected, sessionId]); // pollingControlを依存配列から除去
+
+  // Get agent type from /status endpoint
+  useEffect(() => {
+    const fetchAgentType = async () => {
+      if (!sessionId || !agentAPIRef.current) {
+        return;
+      }
+
+      try {
+        const status = await agentAPIRef.current.getSessionStatus(sessionId);
+        setAgentType(status.agent_type || null);
+      } catch (error) {
+        console.error('Failed to get agent type:', error);
+        // If we can't get the agent type, assume it's not claude
+        setAgentType(null);
+      }
+    };
+
+    fetchAgentType();
+  }, [sessionId]);
 
   // Handle new messages and auto-scroll
   useEffect(() => {
@@ -547,9 +611,67 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
   }, [inputValue, isLoading, isConnected, sessionId, agentStatus, loadRecentMessages]);
 
-  const sendStopSignal = () => {
-    // Send ESC key (raw message)
-    sendMessage('raw', '\u001b');
+  const handleShowPlanModal = useCallback((content: string) => {
+    setPlanContent(content);
+    setShowPlanModal(true);
+  }, []);
+
+  const handleApprovePlan = useCallback(async (approved: boolean) => {
+    if (!sessionId || !agentAPIRef.current) {
+      setError('Session not available for plan approval');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await agentAPIRef.current.sendAction(sessionId, {
+        type: 'approve_plan',
+        approved
+      });
+
+      // モーダルを閉じる
+      setShowPlanModal(false);
+
+      // スクロールを有効にして下部へ移動
+      setShouldAutoScroll(true);
+      setTimeout(() => scrollToBottom(), 100);
+    } catch (err) {
+      console.error('Failed to approve plan:', err);
+      if (err instanceof AgentAPIProxyError) {
+        setError(`プラン承認に失敗しました: ${err.message}`);
+      } else {
+        setError(`プラン承認に失敗しました: ${err instanceof Error ? err.message : '不明なエラー'}`);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [sessionId]);
+
+  const sendStopSignal = async () => {
+    if (!sessionId || !agentAPIRef.current) {
+      setError('セッションが利用できません');
+      return;
+    }
+
+    try {
+      if (agentType === 'claude') {
+        // claude-agentapi: Use /action endpoint
+        await agentAPIRef.current.sendAction(sessionId, { type: 'stop_agent' });
+        console.log('Stop signal sent via /action endpoint (claude agent)');
+      } else {
+        // Other agents: Send Ctrl+C as raw message
+        await agentAPIRef.current.sendSessionMessage(sessionId, {
+          content: '\x03', // Ctrl+C
+          type: 'raw'
+        });
+        console.log('Stop signal sent via Ctrl+C (raw message)');
+      }
+    } catch (err) {
+      console.error('Failed to send stop signal:', err);
+      setError('停止シグナルの送信に失敗しました');
+    }
   };
 
   const sendArrowUp = () => {
@@ -830,6 +952,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 message={message}
                 formatTimestamp={formatTimestamp}
                 fontSettings={fontSettings}
+                onShowPlanModal={message.type === 'plan' ? () => handleShowPlanModal(message.content) : undefined}
+                isClaudeAgent={agentType === 'claude'}
               />
             ))}
         </div>
@@ -874,7 +998,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       </div>
 
       {/* ツール実行確認ペーン */}
-      {sessionId && <ToolExecutionPane sessionId={sessionId} />}
+      {sessionId && <ToolExecutionPane sessionId={sessionId} agentStatus={agentStatus?.status} />}
 
       {/* Input */}
       <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 flex-shrink-0">
@@ -1783,6 +1907,25 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             </div>
           </div>
         </div>
+      )}
+
+      {/* Plan Approval Modal */}
+      <PlanApprovalModal
+        isOpen={showPlanModal}
+        planContent={planContent}
+        onApprove={() => handleApprovePlan(true)}
+        onReject={() => handleApprovePlan(false)}
+        onClose={() => setShowPlanModal(false)}
+        isLoading={isLoading}
+      />
+
+      {/* AskUserQuestion Modal */}
+      {showQuestionModal && pendingAction?.content?.questions && (
+        <AskUserQuestionModal
+          questions={pendingAction.content.questions}
+          onSubmit={handleAnswerSubmit}
+          onClose={handleQuestionModalClose}
+        />
       )}
     </div>
   );

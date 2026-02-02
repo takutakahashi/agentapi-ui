@@ -63,9 +63,10 @@ function getToolDescription(toolName: string, input: Record<string, unknown>): s
 
 interface ToolExecutionPaneProps {
   sessionId: string;
+  agentStatus?: 'stable' | 'running' | 'error';
 }
 
-export default function ToolExecutionPane({ sessionId }: ToolExecutionPaneProps) {
+export default function ToolExecutionPane({ sessionId, agentStatus }: ToolExecutionPaneProps) {
   const [runningTools, setRunningTools] = useState<Array<{ toolUse: ToolUseContent; message: SessionMessage }>>([]);
   const [isEndpointAvailable, setIsEndpointAvailable] = useState<boolean>(true);
 
@@ -145,17 +146,18 @@ export default function ToolExecutionPane({ sessionId }: ToolExecutionPaneProps)
                 </span>
               </div>
             ))
-          ) : (
-            // 実行中のツールがない場合はデフォルトのローディング表示
+          ) : agentStatus === 'running' ? (
+            // エージェントが running 状態でツールがない場合
             <div className="flex items-center space-x-2 text-xs">
-              <svg className="w-3 h-3 text-gray-400 dark:text-gray-500 animate-pulse flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" opacity="0.3"/>
+              <svg className="animate-spin w-3 h-3 text-gray-400 dark:text-gray-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
               <span className="text-gray-400 dark:text-gray-500">
-                エージェント待機中
+                エージェント実行中
               </span>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

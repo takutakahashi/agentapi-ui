@@ -2,6 +2,8 @@
 
 import { SessionMessage } from '../../types/agentapi';
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ToolUseContent {
   type: 'tool_use';
@@ -36,6 +38,77 @@ function parseToolResultContent(content: string): ToolResultContent | null {
   return null;
 }
 
+// Markdown の特徴的な記法をチェックする関数
+function hasMarkdownSyntax(text: string): boolean {
+  if (!text || typeof text !== 'string') return false;
+
+  // よくある Markdown の記法をチェック
+  const markdownPatterns = [
+    /^#{1,6}\s/m,                    // 見出し (# ## ### など)
+    /\*\*[^*]+\*\*/,                // 太字 (**text**)
+    /\*[^*]+\*/,                    // イタリック (*text*)
+    /`[^`]+`/,                      // インラインコード (`code`)
+    /```[\s\S]*?```/,               // コードブロック (```code```)
+    /^\s*[-*+]\s/m,                 // リスト (- * +)
+    /^\s*\d+\.\s/m,                 // 番号付きリスト (1. 2. など)
+    /\[[^\]]+\]\([^)]+\)/,          // リンク [text](url)
+    /!\[[^\]]*\]\([^)]+\)/,         // 画像 ![alt](url)
+    /^\s*>\s/m,                     // 引用 (>)
+    /^\s*---+\s*$/m,                // 水平線 (---)
+    /\|.*\|/,                       // テーブル (| col |)
+  ];
+
+  return markdownPatterns.some(pattern => pattern.test(text));
+}
+
+// Markdown をレンダリングするコンポーネント
+function MarkdownContent({ content }: { content: string }): JSX.Element {
+  return (
+    <div className="prose prose-sm dark:prose-invert max-w-none">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          // リンクに適切なスタイルを追加
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          a: ({ node, ...props }) => (
+            <a
+              {...props}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
+            />
+          ),
+          // コードブロックのスタイリング
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          code: ({ node, className, children, ...props }) => {
+            const isInline = !className;
+            return isInline ? (
+              <code
+                className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm font-mono"
+                {...props}
+              >
+                {children}
+              </code>
+            ) : (
+              <code className={className} {...props}>
+                {children}
+              </code>
+            );
+          },
+          // プリフォーマット済みテキストのスタイリング
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          pre: ({ node, ...props }) => (
+            <pre className="bg-gray-100 dark:bg-gray-800 p-3 rounded-md overflow-x-auto" {...props} />
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+// テキストコンテンツをレンダリングする関数
 function formatTextWithLinks(text: string): JSX.Element {
   if (!text || typeof text !== 'string') {
     return <>{text || ''}</>;
@@ -67,6 +140,15 @@ function formatTextWithLinks(text: string): JSX.Element {
   );
 }
 
+// コンテンツをレンダリングする関数（Markdown か通常のテキストかを判断）
+function renderContent(content: string, disableMarkdown: boolean = false): JSX.Element {
+  // claude agent でない場合は markdown を無効化
+  if (disableMarkdown || !hasMarkdownSyntax(content)) {
+    return <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">{formatTextWithLinks(content)}</div>;
+  }
+  return <MarkdownContent content={content} />;
+}
+
 interface MessageItemProps {
   message: SessionMessage;
   formatTimestamp: (timestamp: string) => string;
@@ -74,10 +156,21 @@ interface MessageItemProps {
     fontSize: number;
     fontFamily: string;
   };
+  onShowPlanModal?: () => void;
+  isClaudeAgent?: boolean;
 }
 
-export default function MessageItem({ message, formatTimestamp, fontSettings }: MessageItemProps) {
+export default function MessageItem({
+  message,
+  formatTimestamp,
+  fontSettings,
+  onShowPlanModal,
+  isClaudeAgent
+}: MessageItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // claude agent でない場合は markdown を無効化
+  const disableMarkdown = !isClaudeAgent;
 
   // ツール実行の場合
   if (message.role === 'agent' && message.toolUseId) {
@@ -185,6 +278,68 @@ export default function MessageItem({ message, formatTimestamp, fontSettings }: 
     );
   }
 
+  // プランモードメッセージの場合
+  if (message.type === 'plan') {
+    return (
+      <div className="px-4 sm:px-6 py-4 bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500">
+        <div className="flex items-start space-x-2">
+          <div className="flex-shrink-0">
+            <svg className="w-6 h-6 text-amber-600 dark:text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M9 2v2H7v2H5v2H3v12h18V8h-2V6h-2V4h-2V2H9zm0 2h6v2h2v2h2v10H5V8h2V6h2V4zm2 4v2h2V8h-2zm-4 4v2h10v-2H7z"/>
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center space-x-2 mb-2">
+              <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                📋 Plan Ready for Approval
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {formatTimestamp(message.timestamp || message.time || '')}
+              </span>
+            </div>
+            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+              A plan is ready for your review.
+            </div>
+            <button
+              onClick={onShowPlanModal}
+              className="text-sm text-amber-600 dark:text-amber-400 hover:underline font-medium"
+            >
+              📋 View plan details
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 質問メッセージの場合（将来の拡張用）
+  if (message.type === 'question') {
+    return (
+      <div className="px-4 sm:px-6 py-4 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500">
+        <div className="flex items-start space-x-2">
+          <div className="flex-shrink-0">
+            <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center space-x-2 mb-2">
+              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                ❓ Question
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {formatTimestamp(message.timestamp || message.time || '')}
+              </span>
+            </div>
+            <div className="text-gray-700 dark:text-gray-300">
+              {renderContent(message.content, disableMarkdown)}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // 通常のメッセージ (ユーザー or アシスタント)
   const role = message.role === 'assistant' || message.role === 'agent' ? 'agent' : message.role;
 
@@ -218,14 +373,12 @@ export default function MessageItem({ message, formatTimestamp, fontSettings }: 
             </span>
           </div>
           <div
-            className={`prose prose-sm max-w-none text-gray-700 dark:text-gray-300 ${
+            className={`text-gray-700 dark:text-gray-300 ${
               fontSettings.fontFamily === 'monospace' ? 'font-mono' : ''
             }`}
             style={{ fontSize: `${fontSettings.fontSize}px` }}
           >
-            <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">
-              {formatTextWithLinks(message.content)}
-            </div>
+            {renderContent(message.content, disableMarkdown)}
           </div>
         </div>
       </div>
