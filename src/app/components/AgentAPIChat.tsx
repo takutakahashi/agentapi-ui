@@ -966,6 +966,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 formatTimestamp={formatTimestamp}
                 fontSettings={fontSettings}
                 onShowPlanModal={message.type === 'plan' ? () => handleShowPlanModal(message.content) : undefined}
+                supportsActionEndpoint={supportsActionEndpoint}
               />
             ))}
         </div>
