@@ -398,8 +398,11 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   // Setup real-time event listening
   useEffect(() => {
     const control = pollingControlRef.current;
-    
-    if (isConnected && sessionId) {
+
+    // stableの場合はポーリングを停止
+    const isStable = agentStatus?.status === 'stable';
+
+    if (isConnected && sessionId && !isStable) {
       control.start();
     } else {
       control.stop();
@@ -408,7 +411,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     return () => {
       control.stop();
     };
-  }, [isConnected, sessionId]); // pollingControlを依存配列から除去
+  }, [isConnected, sessionId, agentStatus?.status]); // agentStatus.statusを依存配列に追加
 
   // Get agent type from /status endpoint
   useEffect(() => {
