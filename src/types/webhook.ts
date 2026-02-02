@@ -38,6 +38,7 @@ export interface WebhookSessionConfig {
   initial_message_template?: string;
   reuse_message_template?: string;
   reuse_session?: boolean;
+  mount_payload?: boolean;
   params?: {
     github_token?: string;
     [key: string]: unknown;
