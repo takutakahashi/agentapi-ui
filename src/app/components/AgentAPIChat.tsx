@@ -940,11 +940,11 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {messages
             .filter((message) => {
-              // ツール実行とツール結果はメインのタイムラインから除外
-              // ユーザーとアシスタントのメッセージのみ表示
+              // すべてのメッセージを表示（ツール実行、ツール結果も含む）
               return message.role === 'user' ||
                      message.role === 'assistant' ||
-                     (message.role === 'agent' && !message.toolUseId);
+                     message.role === 'agent' ||
+                     message.role === 'tool_result';
             })
             .map((message) => (
               <MessageItem
