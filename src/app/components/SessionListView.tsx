@@ -40,7 +40,6 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [deletingSession, setDeletingSession] = useState<string | null>(null)
-  const [sessionMessages, setSessionMessages] = useState<{ [sessionId: string]: string }>({})
   const [isMobile, setIsMobile] = useState(false)
   const [sessionAgentStatus, setSessionAgentStatus] = useState<{ [sessionId: string]: AgentStatus }>({})
   const [sortBy, setSortBy] = useState<'started_at' | 'updated_at'>(() => {
@@ -126,64 +125,6 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       const sessionList = response.sessions || []
       setSessions(sessionList)
 
-      // 初期表示分（最初の20セッション）のメッセージのみを取得
-      const initialSessions = sessionList.slice(0, 20)
-      const messagePromises = initialSessions.map(async (session) => {
-        try {
-          const messages = await agentAPI.getSessionMessages!(session.session_id, { limit: 10 })
-          const userMessages = messages.messages.filter(msg => msg.role === 'user')
-          if (userMessages.length > 0) {
-            // システムプロンプトを除去したユーザーメッセージのみを取得
-            const userMessage = extractUserMessage(userMessages[0].content)
-            return { sessionId: session.session_id, message: userMessage }
-          }
-        } catch (err) {
-          console.warn(`Failed to fetch messages for session ${session.session_id}:`, err)
-        }
-        return { sessionId: session.session_id, message: String(session.tags?.description || session.metadata?.description || 'No description available') }
-      })
-
-      const messageResults = await Promise.all(messagePromises)
-      const messageMap: { [sessionId: string]: string } = {}
-      messageResults.forEach(result => {
-        messageMap[result.sessionId] = result.message
-      })
-      setSessionMessages(messageMap)
-
-      // 残りのセッションのメッセージをバックグラウンドで取得
-      const remainingSessions = sessionList.slice(20)
-      if (remainingSessions.length > 0) {
-        // 非同期でバックグラウンド取得（UI をブロックしない）
-        Promise.all(
-          remainingSessions.map(async (session) => {
-            try {
-              const messages = await agentAPI.getSessionMessages!(session.session_id, { limit: 10 })
-              const userMessages = messages.messages.filter(msg => msg.role === 'user')
-              if (userMessages.length > 0) {
-                const userMessage = extractUserMessage(userMessages[0].content)
-                setSessionMessages(prev => ({
-                  ...prev,
-                  [session.session_id]: userMessage
-                }))
-              } else {
-                setSessionMessages(prev => ({
-                  ...prev,
-                  [session.session_id]: String(session.tags?.description || session.metadata?.description || 'No description available')
-                }))
-              }
-            } catch (err) {
-              console.warn(`Failed to fetch messages for session ${session.session_id}:`, err)
-              setSessionMessages(prev => ({
-                ...prev,
-                [session.session_id]: String(session.tags?.description || session.metadata?.description || 'No description available')
-              }))
-            }
-          })
-        ).catch(err => {
-          console.warn('Failed to fetch remaining session messages:', err)
-        })
-      }
-      
       // 初期表示時にすぐにエージェントステータスを取得
       if (sessionList.length > 0) {
         await fetchSessionStatusesInitial(sessionList)
@@ -198,14 +139,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       // モックデータを使用
       const mockSessions = getMockSessions()
       setSessions(mockSessions)
-      
-      // モックセッションの初期メッセージを設定
-      const mockMessages: { [sessionId: string]: string } = {}
-      mockSessions.forEach(session => {
-        mockMessages[session.session_id] = String(session.tags?.description || session.metadata?.description || 'No description available')
-      })
-      setSessionMessages(mockMessages)
-      
+
       // モックデータでもエージェントステータスを初期設定
       if (mockSessions.length > 0) {
         await fetchSessionStatusesInitial(mockSessions)
@@ -439,20 +373,6 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     }
   }
 
-  const extractUserMessage = (combinedMessage: string) => {
-    // システムプロンプトと初期メッセージが結合されている場合（\n\n---\n\n で区切られている）
-    const separator = '\n\n---\n\n'
-    const separatorIndex = combinedMessage.indexOf(separator)
-    
-    if (separatorIndex !== -1) {
-      // セパレータが見つかった場合、セパレータより後の部分を返す
-      return combinedMessage.substring(separatorIndex + separator.length).trim()
-    }
-    
-    // セパレータが見つからない場合、元のメッセージをそのまま返す
-    return combinedMessage
-  }
-
 
   const getStatusText = (status: CreatingSession['status']) => {
     switch (status) {
@@ -486,9 +406,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
 
   // セッションの表示用説明を取得
   const getSessionDescription = (session: Session) => {
-    const description = session.tags?.description ||
-                       sessionMessages[session.session_id] ||
-                       session.metadata?.description
+    const description = session.metadata?.description
 
     if (description && description !== 'No description available') {
       return description
@@ -951,7 +869,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                         <button
                           onClick={() => deleteSession(session.session_id)}
                           disabled={deletingSession === session.session_id}
-                          aria-label={`${deletingSession === session.session_id ? '削除中' : '削除'}: ${sessionMessages[session.session_id] || session.metadata?.description || `セッション ${session.session_id.substring(0, 8)}`}`}
+                          aria-label={`${deletingSession === session.session_id ? '削除中' : '削除'}: ${session.metadata?.description || `セッション ${session.session_id.substring(0, 8)}`}`}
                           className="inline-flex items-center justify-center px-3 py-2 sm:px-3 sm:py-1.5 border border-red-300 dark:border-red-600 hover:bg-red-50 dark:hover:bg-red-700 text-red-700 dark:text-red-300 text-sm font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] sm:min-h-0"
                         >
                           {deletingSession === session.session_id ? (
