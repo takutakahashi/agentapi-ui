@@ -38,23 +38,25 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // セッションデータをデクリプト
+    // セッションデータをデクリプトしてGitHubアクセストークンを取得
     let accessToken: string | null = null
     try {
       const decryptedData = decryptCookie(authToken)
       const sessionData = JSON.parse(decryptedData)
-      accessToken = sessionData.accessToken
+
+      // GitHub OAuth認証の場合
+      if (sessionData.sessionId && sessionData.accessToken) {
+        accessToken = sessionData.accessToken
+      }
     } catch (err) {
       console.error('Failed to decrypt session data:', err)
-      return NextResponse.json(
-        { error: 'Invalid authentication token' },
-        { status: 401 }
-      )
+      // デクリプション失敗の場合、APIキー認証の可能性もあるが、
+      // リポジトリ取得にはGitHubトークンが必要
     }
 
     if (!accessToken) {
       return NextResponse.json(
-        { error: 'GitHub access token not found' },
+        { error: 'GitHub access token not found. Please login with GitHub OAuth.' },
         { status: 401 }
       )
     }
