@@ -1,8 +1,10 @@
 // agentapi-proxy /user/info から取得するユーザー情報
 // teams は "org/team-slug" 形式の文字列配列
+// repositories は "owner/repo" 形式の文字列配列
 export interface ProxyUserInfo {
   username: string
   teams: string[]
+  repositories?: string[]
 }
 
 // 統合されたユーザー情報
