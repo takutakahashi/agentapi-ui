@@ -21,25 +21,25 @@ export default function ChatsPage() {
     setRefreshKey(prev => prev + 1)
   }, [])
 
-  // Load repositories on mount
+  // Load user info and repositories on mount
   useEffect(() => {
-    const loadRepositories = async () => {
+    const loadUserInfo = async () => {
       try {
-        const response = await fetch('/api/user/repositories')
+        const response = await fetch('/api/user/info')
         if (response.ok) {
           const data = await response.json()
 
-          // Store repositories in sessionStorage for access by new session page
-          if (typeof window !== 'undefined' && data.repositories) {
-            sessionStorage.setItem('user_repositories', JSON.stringify(data.repositories))
+          // Store repositories from proxy info in sessionStorage for access by new session page
+          if (typeof window !== 'undefined' && data.proxy?.repositories) {
+            sessionStorage.setItem('user_repositories', JSON.stringify(data.proxy.repositories))
           }
         }
       } catch (error) {
-        console.error('Failed to load repositories:', error)
+        console.error('Failed to load user info:', error)
       }
     }
 
-    loadRepositories()
+    loadUserInfo()
   }, [])
 
   return (
