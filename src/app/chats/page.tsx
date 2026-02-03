@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import TagFilterSidebar from '../components/TagFilterSidebar'
 import SessionListView from '../components/SessionListView'
@@ -19,6 +19,27 @@ export default function ChatsPage() {
 
   const handleSessionsUpdate = useCallback(() => {
     setRefreshKey(prev => prev + 1)
+  }, [])
+
+  // Load repositories on mount
+  useEffect(() => {
+    const loadRepositories = async () => {
+      try {
+        const response = await fetch('/api/user/repositories')
+        if (response.ok) {
+          const data = await response.json()
+
+          // Store repositories in sessionStorage for access by new session page
+          if (typeof window !== 'undefined' && data.repositories) {
+            sessionStorage.setItem('user_repositories', JSON.stringify(data.repositories))
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load repositories:', error)
+      }
+    }
+
+    loadRepositories()
   }, [])
 
   return (

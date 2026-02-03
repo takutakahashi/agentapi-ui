@@ -121,11 +121,28 @@ export class OrganizationHistory {
   static getRepositorySuggestions(query?: string): string[] {
     try {
       const settings = loadFullGlobalSettings();
-      if (!settings || !settings.repositoryHistory) return [];
+      let repositories: string[] = [];
 
-      let repositories: string[] = settings.repositoryHistory
-        .map(item => item.repository)
-        .filter(repo => repo && repo.trim());
+      // 履歴から取得
+      if (settings && settings.repositoryHistory) {
+        repositories = settings.repositoryHistory
+          .map(item => item.repository)
+          .filter(repo => repo && repo.trim());
+      }
+
+      // sessionStorageからGitHubリポジトリリストを取得して追加
+      if (typeof window !== 'undefined') {
+        try {
+          const userRepos = sessionStorage.getItem('user_repositories');
+          if (userRepos) {
+            const parsedRepos: string[] = JSON.parse(userRepos);
+            // 既存の履歴にないリポジトリを追加
+            repositories = [...repositories, ...parsedRepos];
+          }
+        } catch {
+          // sessionStorageエラーを無視
+        }
+      }
 
       if (query && query.trim()) {
         const lowerQuery = query.toLowerCase();
@@ -134,9 +151,27 @@ export class OrganizationHistory {
         );
       }
 
-      // 重複を削除して最新使用順でソート
+      // 重複を削除
       const uniqueRepositories: string[] = [...new Set(repositories)];
-      return uniqueRepositories.slice(0, MAX_HISTORY_SIZE);
+
+      // 履歴にあるものを優先してソート
+      const historyRepos = settings?.repositoryHistory?.map(item => item.repository) || [];
+      const sortedRepos = uniqueRepositories.sort((a, b) => {
+        const aInHistory = historyRepos.indexOf(a);
+        const bInHistory = historyRepos.indexOf(b);
+
+        // 両方とも履歴にある場合は履歴順
+        if (aInHistory !== -1 && bInHistory !== -1) {
+          return aInHistory - bInHistory;
+        }
+        // 片方だけ履歴にある場合は履歴にあるものを優先
+        if (aInHistory !== -1) return -1;
+        if (bInHistory !== -1) return 1;
+        // 両方とも履歴にない場合はアルファベット順
+        return a.localeCompare(b);
+      });
+
+      return sortedRepos.slice(0, 50); // より多くのリポジトリを表示可能に
     } catch {
       return [];
     }
