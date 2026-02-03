@@ -176,4 +176,62 @@ export class OrganizationHistory {
       return [];
     }
   }
+
+  // リポジトリ履歴と一覧を分けて取得
+  static getRepositorySuggestionsGrouped(query?: string): {
+    history: string[];
+    repositories: string[];
+  } {
+    try {
+      const settings = loadFullGlobalSettings();
+      let historyRepos: string[] = [];
+      let allRepos: string[] = [];
+
+      // 履歴から取得
+      if (settings && settings.repositoryHistory) {
+        historyRepos = settings.repositoryHistory
+          .map(item => item.repository)
+          .filter(repo => repo && repo.trim());
+      }
+
+      // sessionStorageからGitHubリポジトリリストを取得
+      if (typeof window !== 'undefined') {
+        try {
+          const userRepos = sessionStorage.getItem('user_repositories');
+          if (userRepos) {
+            const parsedRepos: string[] = JSON.parse(userRepos);
+            allRepos = parsedRepos;
+          }
+        } catch {
+          // sessionStorageエラーを無視
+        }
+      }
+
+      // クエリでフィルタ
+      if (query && query.trim()) {
+        const lowerQuery = query.toLowerCase();
+        historyRepos = historyRepos.filter(repo =>
+          repo.toLowerCase().includes(lowerQuery)
+        );
+        allRepos = allRepos.filter(repo =>
+          repo.toLowerCase().includes(lowerQuery)
+        );
+      }
+
+      // 履歴にないリポジトリのみを一覧として返す
+      const historySet = new Set(historyRepos);
+      const repositoriesOnly = allRepos.filter(repo => !historySet.has(repo));
+
+      // 重複を削除してソート
+      const uniqueHistory = [...new Set(historyRepos)];
+      const uniqueRepositories = [...new Set(repositoriesOnly)].sort((a, b) => a.localeCompare(b));
+
+      return {
+        history: uniqueHistory.slice(0, 20),
+        repositories: uniqueRepositories.slice(0, 50)
+      };
+    } catch {
+      return { history: [], repositories: [] };
+    }
+  }
 }
