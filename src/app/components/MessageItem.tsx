@@ -68,6 +68,49 @@ function MarkdownContent({ content }: { content: string }): JSX.Element {
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
+          // 見出しのスタイリング
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          h1: ({ node, ...props }) => (
+            <h1
+              className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-6 mb-4 pb-2 border-b-2 border-gray-200 dark:border-gray-700"
+              {...props}
+            />
+          ),
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          h2: ({ node, ...props }) => (
+            <h2
+              className="text-xl font-bold text-gray-900 dark:text-gray-100 mt-5 mb-3 pb-1 border-b border-gray-200 dark:border-gray-700"
+              {...props}
+            />
+          ),
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          h3: ({ node, ...props }) => (
+            <h3
+              className="text-lg font-semibold text-gray-900 dark:text-gray-100 mt-4 mb-2"
+              {...props}
+            />
+          ),
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          h4: ({ node, ...props }) => (
+            <h4
+              className="text-base font-semibold text-gray-800 dark:text-gray-200 mt-3 mb-2"
+              {...props}
+            />
+          ),
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          h5: ({ node, ...props }) => (
+            <h5
+              className="text-sm font-semibold text-gray-800 dark:text-gray-200 mt-2 mb-1"
+              {...props}
+            />
+          ),
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          h6: ({ node, ...props }) => (
+            <h6
+              className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-2 mb-1"
+              {...props}
+            />
+          ),
           // リンクに適切なスタイルを追加
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           a: ({ node, ...props }) => (
