@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client';
@@ -341,9 +341,35 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       }
 
       // Use SessionMessage directly for display
-      const messages = sessionMessagesResponse?.messages || [];
+      const newMessages = sessionMessagesResponse?.messages || [];
 
-      setMessages(messages);
+      // Deep comparison: only update if there are actual differences in content
+      setMessages(prevMessages => {
+        // If length differs, update
+        if (prevMessages.length !== newMessages.length) {
+          return newMessages;
+        }
+
+        // Check if any message content has changed
+        const hasChanges = newMessages.some((newMsg, index) => {
+          const prevMsg = prevMessages[index];
+          if (!prevMsg) return true;
+
+          // Compare essential fields
+          return (
+            prevMsg.id !== newMsg.id ||
+            prevMsg.role !== newMsg.role ||
+            prevMsg.content !== newMsg.content ||
+            prevMsg.type !== newMsg.type ||
+            prevMsg.toolUseId !== newMsg.toolUseId ||
+            prevMsg.parentToolUseId !== newMsg.parentToolUseId ||
+            prevMsg.timestamp !== newMsg.timestamp
+          );
+        });
+
+        // Only update if there are actual changes
+        return hasChanges ? newMessages : prevMessages;
+      });
 
       // Handle pending actions
       const questionAction = pendingActions.find(a => a.type === 'answer_question');
@@ -615,6 +641,17 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     setPlanContent(content);
     setShowPlanModal(true);
   }, []);
+
+  // Memoize plan modal callbacks for each message to prevent unnecessary re-renders
+  const planModalCallbacks = useMemo(() => {
+    const callbacks = new Map<string, () => void>();
+    messages.forEach(message => {
+      if (message.type === 'plan') {
+        callbacks.set(message.id, () => handleShowPlanModal(message.content));
+      }
+    });
+    return callbacks;
+  }, [messages, handleShowPlanModal]);
 
   const handleApprovePlan = useCallback(async (approved: boolean) => {
     if (!sessionId || !agentAPIRef.current) {
@@ -970,7 +1007,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     toolResult={toolResult}
                     formatTimestamp={formatTimestamp}
                     fontSettings={fontSettings}
-                    onShowPlanModal={message.type === 'plan' ? () => handleShowPlanModal(message.content) : undefined}
+                    onShowPlanModal={planModalCallbacks.get(message.id)}
                     isClaudeAgent={agentType === 'claude'}
                   />
                 );
@@ -986,7 +1023,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     message={message}
                     formatTimestamp={formatTimestamp}
                     fontSettings={fontSettings}
-                    onShowPlanModal={message.type === 'plan' ? () => handleShowPlanModal(message.content) : undefined}
+                    onShowPlanModal={planModalCallbacks.get(message.id)}
                     isClaudeAgent={agentType === 'claude'}
                   />
                 );
