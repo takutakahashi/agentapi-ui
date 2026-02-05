@@ -151,7 +151,7 @@ function MarkdownContent({ content }: { content: string }): JSX.Element {
           // テーブルのスタイリング - 既存UIのカードスタイルに合わせる
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           table: ({ node, ...props }) => (
-            <div className="overflow-x-auto my-4">
+            <div className="overflow-x-auto my-4 -mx-2 px-2">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg" {...props} />
             </div>
           ),
@@ -169,11 +169,11 @@ function MarkdownContent({ content }: { content: string }): JSX.Element {
           ),
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           th: ({ node, ...props }) => (
-            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white" {...props} />
+            <th className="px-3 py-2 text-left text-xs sm:text-sm font-semibold text-gray-900 dark:text-white whitespace-nowrap" {...props} />
           ),
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           td: ({ node, ...props }) => (
-            <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 border-t border-gray-100 dark:border-gray-800" {...props} />
+            <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-gray-300 border-t border-gray-100 dark:border-gray-800 whitespace-nowrap" {...props} />
           ),
           // リストのスタイリング
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
