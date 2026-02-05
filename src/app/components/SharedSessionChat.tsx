@@ -193,7 +193,30 @@ export default function SharedSessionChat({ shareToken }: SharedSessionChatProps
         timestamp: msg.timestamp
       }));
 
-      setMessages(convertedMessages);
+      // Deep comparison: only update if there are actual differences in content
+      setMessages(prevMessages => {
+        // If length differs, update
+        if (prevMessages.length !== convertedMessages.length) {
+          return convertedMessages;
+        }
+
+        // Check if any message content has changed
+        const hasChanges = convertedMessages.some((newMsg, index) => {
+          const prevMsg = prevMessages[index];
+          if (!prevMsg) return true;
+
+          // Compare essential fields
+          return (
+            prevMsg.id !== newMsg.id ||
+            prevMsg.role !== newMsg.role ||
+            prevMsg.content !== newMsg.content ||
+            prevMsg.timestamp !== newMsg.timestamp
+          );
+        });
+
+        // Only update if there are actual changes
+        return hasChanges ? convertedMessages : prevMessages;
+      });
       setAgentStatus(sessionStatus as AgentStatus);
     } catch (err) {
       console.error('Failed to poll shared session data:', err);

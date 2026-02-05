@@ -341,9 +341,35 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       }
 
       // Use SessionMessage directly for display
-      const messages = sessionMessagesResponse?.messages || [];
+      const newMessages = sessionMessagesResponse?.messages || [];
 
-      setMessages(messages);
+      // Deep comparison: only update if there are actual differences in content
+      setMessages(prevMessages => {
+        // If length differs, update
+        if (prevMessages.length !== newMessages.length) {
+          return newMessages;
+        }
+
+        // Check if any message content has changed
+        const hasChanges = newMessages.some((newMsg, index) => {
+          const prevMsg = prevMessages[index];
+          if (!prevMsg) return true;
+
+          // Compare essential fields
+          return (
+            prevMsg.id !== newMsg.id ||
+            prevMsg.role !== newMsg.role ||
+            prevMsg.content !== newMsg.content ||
+            prevMsg.type !== newMsg.type ||
+            prevMsg.toolUseId !== newMsg.toolUseId ||
+            prevMsg.parentToolUseId !== newMsg.parentToolUseId ||
+            prevMsg.timestamp !== newMsg.timestamp
+          );
+        });
+
+        // Only update if there are actual changes
+        return hasChanges ? newMessages : prevMessages;
+      });
 
       // Handle pending actions
       const questionAction = pendingActions.find(a => a.type === 'answer_question');
