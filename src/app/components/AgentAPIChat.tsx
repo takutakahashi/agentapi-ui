@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client';
@@ -642,6 +642,17 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     setShowPlanModal(true);
   }, []);
 
+  // Memoize plan modal callbacks for each message to prevent unnecessary re-renders
+  const planModalCallbacks = useMemo(() => {
+    const callbacks = new Map<string, () => void>();
+    messages.forEach(message => {
+      if (message.type === 'plan') {
+        callbacks.set(message.id, () => handleShowPlanModal(message.content));
+      }
+    });
+    return callbacks;
+  }, [messages, handleShowPlanModal]);
+
   const handleApprovePlan = useCallback(async (approved: boolean) => {
     if (!sessionId || !agentAPIRef.current) {
       setError('Session not available for plan approval');
@@ -996,7 +1007,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     toolResult={toolResult}
                     formatTimestamp={formatTimestamp}
                     fontSettings={fontSettings}
-                    onShowPlanModal={message.type === 'plan' ? () => handleShowPlanModal(message.content) : undefined}
+                    onShowPlanModal={planModalCallbacks.get(message.id)}
                     isClaudeAgent={agentType === 'claude'}
                   />
                 );
@@ -1012,7 +1023,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     message={message}
                     formatTimestamp={formatTimestamp}
                     fontSettings={fontSettings}
-                    onShowPlanModal={message.type === 'plan' ? () => handleShowPlanModal(message.content) : undefined}
+                    onShowPlanModal={planModalCallbacks.get(message.id)}
                     isClaudeAgent={agentType === 'claude'}
                   />
                 );

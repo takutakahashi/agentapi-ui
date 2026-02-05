@@ -1,7 +1,7 @@
 'use client';
 
 import { SessionMessage } from '../../types/agentapi';
-import { useState } from 'react';
+import React, { useState, memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -161,7 +161,7 @@ interface MessageItemProps {
   isClaudeAgent?: boolean;
 }
 
-export default function MessageItem({
+function MessageItem({
   message,
   toolResult,
   formatTimestamp,
@@ -425,3 +425,41 @@ export default function MessageItem({
     </div>
   );
 }
+
+// Custom comparison function for React.memo
+function areEqual(prevProps: MessageItemProps, nextProps: MessageItemProps): boolean {
+  // Compare message object - only the fields that affect rendering
+  const messageEqual =
+    prevProps.message.id === nextProps.message.id &&
+    prevProps.message.role === nextProps.message.role &&
+    prevProps.message.content === nextProps.message.content &&
+    prevProps.message.type === nextProps.message.type &&
+    prevProps.message.toolUseId === nextProps.message.toolUseId &&
+    prevProps.message.parentToolUseId === nextProps.message.parentToolUseId &&
+    prevProps.message.timestamp === nextProps.message.timestamp &&
+    prevProps.message.time === nextProps.message.time &&
+    prevProps.message.status === nextProps.message.status;
+
+  // Compare toolResult if present
+  const toolResultEqual =
+    prevProps.toolResult?.id === nextProps.toolResult?.id &&
+    prevProps.toolResult?.content === nextProps.toolResult?.content &&
+    prevProps.toolResult?.status === nextProps.toolResult?.status;
+
+  // Compare fontSettings
+  const fontSettingsEqual =
+    prevProps.fontSettings.fontSize === nextProps.fontSettings.fontSize &&
+    prevProps.fontSettings.fontFamily === nextProps.fontSettings.fontFamily;
+
+  // Compare other props
+  const otherPropsEqual =
+    prevProps.isClaudeAgent === nextProps.isClaudeAgent;
+
+  // formatTimestamp and onShowPlanModal are functions - we assume they're stable
+  // (they should be wrapped with useCallback in the parent component)
+
+  return messageEqual && toolResultEqual && fontSettingsEqual && otherPropsEqual;
+}
+
+// Export memoized component
+export default memo(MessageItem, areEqual);
