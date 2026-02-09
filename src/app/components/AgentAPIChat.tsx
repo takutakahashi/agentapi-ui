@@ -257,11 +257,21 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const loadMoreMessages = useCallback(async () => {
     if (!hasMoreMessages || isLoadingMore || !sessionId || !agentAPIRef.current) return;
 
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    // Save current scroll position
+    const previousScrollHeight = container.scrollHeight;
+    const previousScrollTop = container.scrollTop;
+
     setIsLoadingMore(true);
     try {
       // Get the oldest message timestamp
       const oldestMessage = messages[0];
-      if (!oldestMessage) return;
+      if (!oldestMessage) {
+        setIsLoadingMore(false);
+        return;
+      }
 
       // Fetch 50 messages before the oldest one
       const response = await agentAPIRef.current.getSessionMessages(sessionId, {
@@ -271,6 +281,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
       if (!isValidSessionMessageResponse(response)) {
         console.warn('Invalid session messages response:', response);
+        setIsLoadingMore(false);
         return;
       }
 
@@ -280,6 +291,14 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         // Prepend older messages to the beginning
         setMessages(prev => [...olderMessages, ...prev]);
         setHasMoreMessages(olderMessages.length >= 50);
+
+        // Restore scroll position after DOM update
+        setTimeout(() => {
+          if (container) {
+            const newScrollHeight = container.scrollHeight;
+            container.scrollTop = previousScrollTop + (newScrollHeight - previousScrollHeight);
+          }
+        }, 0);
       } else {
         setHasMoreMessages(false);
       }
@@ -338,20 +357,32 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   // IntersectionObserver for infinite scroll (load more on scroll up)
   useEffect(() => {
     const topElement = messagesTopRef.current;
-    if (!topElement || !hasMoreMessages) return;
+    if (!topElement || !hasMoreMessages) {
+      console.log('[IntersectionObserver] Skip setup:', { hasElement: !!topElement, hasMoreMessages });
+      return;
+    }
+
+    console.log('[IntersectionObserver] Setting up observer');
 
     const observer = new IntersectionObserver(
       (entries) => {
+        console.log('[IntersectionObserver] Callback triggered:', {
+          isIntersecting: entries[0].isIntersecting,
+          isLoadingMore,
+          hasMoreMessages
+        });
         if (entries[0].isIntersecting && !isLoadingMore) {
+          console.log('[IntersectionObserver] Loading more messages...');
           loadMoreMessages();
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1, root: messagesContainerRef.current }
     );
 
     observer.observe(topElement);
 
     return () => {
+      console.log('[IntersectionObserver] Disconnecting observer');
       observer.disconnect();
     };
   }, [hasMoreMessages, isLoadingMore, loadMoreMessages]);
@@ -1028,6 +1059,14 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           </div>
         )}
 
+        {/* Loading indicator for infinite scroll - at the top */}
+        {isLoadingMore && (
+          <div className="flex justify-center items-center py-4">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">読み込み中...</span>
+          </div>
+        )}
+
         {/* Intersection observer target for infinite scroll */}
         <div ref={messagesTopRef} style={{ height: '1px' }} />
 
@@ -1127,14 +1166,6 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
               </svg>
             </button>
-          </div>
-        )}
-
-        {/* Loading indicator for infinite scroll */}
-        {isLoadingMore && (
-          <div className="flex justify-center items-center py-4">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-            <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">読み込み中...</span>
           </div>
         )}
       </div>
