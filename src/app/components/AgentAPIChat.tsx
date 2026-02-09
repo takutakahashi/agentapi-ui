@@ -159,7 +159,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
               setAllMessages(fetchedMessages);
 
               // Calculate total pages and set initial page to the last page
-              const totalPages = Math.ceil(fetchedMessages.length / pageState.limit);
+              const MESSAGES_PER_PAGE = 50;
+              const totalPages = Math.ceil(fetchedMessages.length / MESSAGES_PER_PAGE);
               const initialPage = totalPages > 0 ? totalPages : 1;
 
               setPageState(prev => ({ ...prev, page: initialPage }));
@@ -197,14 +198,6 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
   }, [sessionId, agentAPI]);
 
-  // Apply pagination when pageState or allMessages changes
-  useEffect(() => {
-    const startIndex = (pageState.page - 1) * pageState.limit;
-    const endIndex = pageState.page * pageState.limit;
-    const paginatedMessages = allMessages.slice(startIndex, endIndex);
-    setMessages(paginatedMessages);
-  }, [pageState, allMessages]);
-
   const [allMessages, setAllMessages] = useState<SessionMessage[]>([]);
   const [messages, setMessages] = useState<SessionMessage[]>([]);
   const [pageState, setPageState] = useState<PageState>({
@@ -212,6 +205,14 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     limit: 50
   });
   const [inputValue, setInputValue] = useState('');
+
+  // Apply pagination when pageState or allMessages changes
+  useEffect(() => {
+    const startIndex = (pageState.page - 1) * pageState.limit;
+    const endIndex = pageState.page * pageState.limit;
+    const paginatedMessages = allMessages.slice(startIndex, endIndex);
+    setMessages(paginatedMessages);
+  }, [pageState, allMessages]);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [fontSettings, setFontSettings] = useState<FontSettings>(() => getFontSettings());
@@ -1029,7 +1030,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             const renderedMessages: JSX.Element[] = [];
             const processedIds = new Set<string>();
 
-            messages.forEach((message, index) => {
+            messages.forEach((message) => {
               // すでに処理済みのメッセージはスキップ
               if (processedIds.has(message.id)) return;
 
