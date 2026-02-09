@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface EnvVarsSettingsProps {
   envVarKeys?: string[]  // 環境変数のキーのみ（読み取り時）
@@ -19,8 +19,15 @@ export function EnvVarsSettings({ envVarKeys, onChange }: EnvVarsSettingsProps) 
   const [editKey, setEditKey] = useState('')
   const [editValue, setEditValue] = useState('')
   const [keyError, setKeyError] = useState('')
+  // ローカル状態で環境変数のキーを管理（UIに即座に反映するため）
+  const [localKeys, setLocalKeys] = useState<string[]>(envVarKeys || [])
 
-  const existingKeys = envVarKeys || []
+  // envVarKeys が変更されたらローカル状態を更新
+  useEffect(() => {
+    setLocalKeys(envVarKeys || [])
+  }, [envVarKeys])
+
+  const existingKeys = localKeys
 
   const handleAdd = () => {
     setEditingEntry({
@@ -48,6 +55,8 @@ export function EnvVarsSettings({ envVarKeys, onChange }: EnvVarsSettingsProps) 
 
   const handleDelete = (key: string) => {
     if (confirm(`環境変数 "${key}" を削除してもよろしいですか？`)) {
+      // ローカル状態から削除
+      setLocalKeys(prev => prev.filter(k => k !== key))
       // 空文字列を送信して削除をマーク
       const updates: Record<string, string> = {}
       updates[key] = ''
@@ -89,7 +98,14 @@ export function EnvVarsSettings({ envVarKeys, onChange }: EnvVarsSettingsProps) 
 
     // 名前が変更された場合は古いキーを削除
     if (editingEntry && !editingEntry.isNew && editingEntry.key !== editKey) {
+      // ローカル状態から古いキーを削除
+      setLocalKeys(prev => prev.filter(k => k !== editingEntry.key))
       updates[editingEntry.key] = ''
+    }
+
+    // 新しいキーの場合はローカル状態に追加
+    if (editingEntry?.isNew) {
+      setLocalKeys(prev => [...prev, editKey].sort())
     }
 
     updates[editKey] = editValue
