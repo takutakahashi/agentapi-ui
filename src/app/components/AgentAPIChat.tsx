@@ -25,6 +25,12 @@ interface AgentStatus {
   current_task?: string;
 }
 
+// Define pagination state
+interface PageState {
+  page: number;
+  limit: number;
+}
+
 // Type guard function to validate session message response
 function isValidSessionMessageResponse(response: unknown): response is SessionMessageListResponse {
   return (
@@ -140,17 +146,23 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             // Session-based connection: load messages from agentapi-proxy
             try {
               if (!agentAPIRef.current) return;
-              const sessionMessagesResponse = await agentAPIRef.current.getSessionMessages(sessionId, { limit: 100 });
-              
+              // Fetch all messages for client-side pagination
+              const sessionMessagesResponse = await agentAPIRef.current.getSessionMessages(sessionId, { limit: 1000 });
+
               // Validate and safely handle session messages response
               if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
                 console.warn('Invalid session messages response structure:', sessionMessagesResponse);
               }
-              
-              // Use SessionMessage directly for display
-              const messages = sessionMessagesResponse?.messages || [];
 
-              setMessages(messages);
+              // Store all messages for pagination
+              const fetchedMessages = sessionMessagesResponse?.messages || [];
+              setAllMessages(fetchedMessages);
+
+              // Calculate total pages and set initial page to the last page
+              const totalPages = Math.ceil(fetchedMessages.length / pageState.limit);
+              const initialPage = totalPages > 0 ? totalPages : 1;
+
+              setPageState(prev => ({ ...prev, page: initialPage }));
               setError(null);
               return;
             } catch (err) {
@@ -184,8 +196,21 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       return () => clearTimeout(timeoutId);
     }
   }, [sessionId, agentAPI]);
-  
+
+  // Apply pagination when pageState or allMessages changes
+  useEffect(() => {
+    const startIndex = (pageState.page - 1) * pageState.limit;
+    const endIndex = pageState.page * pageState.limit;
+    const paginatedMessages = allMessages.slice(startIndex, endIndex);
+    setMessages(paginatedMessages);
+  }, [pageState, allMessages]);
+
+  const [allMessages, setAllMessages] = useState<SessionMessage[]>([]);
   const [messages, setMessages] = useState<SessionMessage[]>([]);
+  const [pageState, setPageState] = useState<PageState>({
+    page: 1,
+    limit: 50
+  });
   const [inputValue, setInputValue] = useState('');
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -238,15 +263,22 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
   const handleScroll = useCallback(() => {
     if (!messagesContainerRef.current) return;
-    
+
     const isAtBottom = checkIfAtBottom();
     setShouldAutoScroll(isAtBottom);
-    
+
     // 下部にスクロールしたら新着メッセージ通知をクリア
     if (isAtBottom) {
       setHasNewMessages(false);
     }
   }, []);
+
+  const handlePageChange = (newPage: number) => {
+    setPageState(prev => ({ ...prev, page: newPage }));
+
+    // ページ変更時は上部にスクロール
+    messagesContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // ESCキーでモーダルを閉じる
   useEffect(() => {
@@ -329,7 +361,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     try {
       // Poll messages, status, and pending actions
       const [sessionMessagesResponse, sessionStatus, pendingActions] = await Promise.all([
-        agentAPIRef.current.getSessionMessages(sessionId, { limit: 100 }),
+        agentAPIRef.current.getSessionMessages(sessionId, { limit: 1000 }),
         agentAPIRef.current.getSessionStatus(sessionId),
         agentAPIRef.current.getPendingActions(sessionId)
       ]);
@@ -344,15 +376,27 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       const newMessages = sessionMessagesResponse?.messages || [];
 
       // Deep comparison: only update if there are actual differences in content
-      setMessages(prevMessages => {
+      setAllMessages(prevAllMessages => {
         // If length differs, update
-        if (prevMessages.length !== newMessages.length) {
+        if (prevAllMessages.length !== newMessages.length) {
+          // Check if user is on the last page
+          const currentTotalPages = Math.ceil(prevAllMessages.length / pageState.limit);
+          const isOnLastPage = pageState.page === currentTotalPages || currentTotalPages === 0;
+
+          // If new messages were added and user is on the last page, move to the new last page
+          if (newMessages.length > prevAllMessages.length && isOnLastPage) {
+            const newTotalPages = Math.ceil(newMessages.length / pageState.limit);
+            if (newTotalPages > currentTotalPages) {
+              setPageState(prev => ({ ...prev, page: newTotalPages }));
+            }
+          }
+
           return newMessages;
         }
 
         // Check if any message content has changed
         const hasChanges = newMessages.some((newMsg, index) => {
-          const prevMsg = prevMessages[index];
+          const prevMsg = prevAllMessages[index];
           if (!prevMsg) return true;
 
           // Compare essential fields
@@ -368,7 +412,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         });
 
         // Only update if there are actual changes
-        return hasChanges ? newMessages : prevMessages;
+        return hasChanges ? newMessages : prevAllMessages;
       });
 
       // Handle pending actions
@@ -390,7 +434,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         setError(`Failed to update messages: ${err.message}`);
       }
     }
-  }, [isConnected, sessionId, pendingAction]); // agentAPIを依存配列から除去
+  }, [isConnected, sessionId, pendingAction, pageState]); // agentAPIを依存配列から除去
 
   const handleAnswerSubmit = useCallback(async (answers: Record<string, string | string[]>) => {
     if (!sessionId || !agentAPIRef.current || !pendingAction) return;
@@ -601,15 +645,21 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           type: messageType
         });
 
-        // For user messages, add to display
+        // For user messages, add to allMessages and navigate to last page
         if (messageType === 'user') {
-          setMessages(prev => [...prev, sessionMessage]);
+          setAllMessages(prev => {
+            const updatedMessages = [...prev, sessionMessage];
+            // Calculate new total pages and navigate to the last page
+            const newTotalPages = Math.ceil(updatedMessages.length / pageState.limit);
+            setPageState(ps => ({ ...ps, page: newTotalPages }));
+            return updatedMessages;
+          });
         }
       } else {
         setError('No session ID available. Cannot send message.');
         return;
       }
-      
+
       if (messageType === 'user') {
         // 最近のメッセージに保存
         await recentMessagesManager.saveMessage(messageContent);
@@ -635,7 +685,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, isLoading, isConnected, sessionId, agentStatus, loadRecentMessages]);
+  }, [inputValue, isLoading, isConnected, sessionId, agentStatus, loadRecentMessages, pageState.limit]);
 
   const handleShowPlanModal = useCallback((content: string) => {
     setPlanContent(content);
@@ -1072,6 +1122,46 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             </button>
           </div>
         )}
+
+        {/* Pagination UI */}
+        {(() => {
+          const totalPages = Math.ceil(allMessages.length / pageState.limit);
+          return totalPages > 1 ? (
+            <div className="sticky bottom-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePageChange(pageState.page - 1)}
+                  disabled={pageState.page === 1}
+                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Previous
+                </button>
+
+                <span className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">
+                  Page {pageState.page} of {totalPages}
+                </span>
+
+                <button
+                  onClick={() => handlePageChange(pageState.page + 1)}
+                  disabled={pageState.page === totalPages}
+                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Next
+                </button>
+              </div>
+
+              {/* Latest page jump button */}
+              {pageState.page < totalPages && (
+                <button
+                  onClick={() => handlePageChange(totalPages)}
+                  className="px-3 py-2 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md"
+                >
+                  Latest →
+                </button>
+              )}
+            </div>
+          ) : null;
+        })()}
       </div>
 
       {/* ツール実行確認ペーン */}
