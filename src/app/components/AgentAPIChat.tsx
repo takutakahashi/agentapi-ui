@@ -131,11 +131,14 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   // Initialize chat when agentAPI is ready - optimized for faster loading
   useEffect(() => {
     if (agentAPI && sessionId) {
+      // Reset initial load flag when session changes
+      setIsInitialLoadComplete(false);
+
       const initializeChat = async () => {
         try {
           setError(null);
           setIsConnected(true); // Set connected immediately for better UX
-          
+
           if (sessionId) {
             // Session-based connection: load latest messages
             try {
@@ -160,6 +163,15 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                              (sessionMessagesResponse?.total ? sessionMessagesResponse.total > fetchedMessages.length : false);
               setHasMoreMessages(hasMore);
               setError(null);
+
+              // Mark initial load as complete
+              setIsInitialLoadComplete(true);
+
+              // Scroll to bottom after messages are loaded
+              setTimeout(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+              }, 100);
+
               return;
             } catch (err) {
               console.error('Failed to load session messages:', err);
@@ -196,6 +208,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [messages, setMessages] = useState<SessionMessage[]>([]);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -371,10 +384,15 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   }, []);
 
   // IntersectionObserver for infinite scroll (load more on scroll up)
+  // Only activate after initial load is complete to prevent premature loading
   useEffect(() => {
     const topElement = messagesTopRef.current;
-    if (!topElement || !hasMoreMessages) {
-      console.log('[IntersectionObserver] Skip setup:', { hasElement: !!topElement, hasMoreMessages });
+    if (!topElement || !hasMoreMessages || !isInitialLoadComplete) {
+      console.log('[IntersectionObserver] Skip setup:', {
+        hasElement: !!topElement,
+        hasMoreMessages,
+        isInitialLoadComplete
+      });
       return;
     }
 
@@ -401,7 +419,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       console.log('[IntersectionObserver] Disconnecting observer');
       observer.disconnect();
     };
-  }, [hasMoreMessages, isLoadingMore, loadMoreMessages]);
+  }, [hasMoreMessages, isLoadingMore, loadMoreMessages, isInitialLoadComplete]);
 
 
   const loadTemplates = useCallback(async () => {
