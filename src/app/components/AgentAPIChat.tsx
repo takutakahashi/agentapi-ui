@@ -385,13 +385,21 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
   // IntersectionObserver for infinite scroll (load more on scroll up)
   // Only activate after initial load is complete to prevent premature loading
+  // Disabled while loading to prevent multiple simultaneous requests
   useEffect(() => {
     const topElement = messagesTopRef.current;
-    if (!topElement || !hasMoreMessages || !isInitialLoadComplete) {
+
+    // Don't observe if:
+    // - Element doesn't exist
+    // - No more messages to load
+    // - Initial load not complete
+    // - Currently loading (prevents rapid multiple requests)
+    if (!topElement || !hasMoreMessages || !isInitialLoadComplete || isLoadingMore) {
       console.log('[IntersectionObserver] Skip setup:', {
         hasElement: !!topElement,
         hasMoreMessages,
-        isInitialLoadComplete
+        isInitialLoadComplete,
+        isLoadingMore
       });
       return;
     }
@@ -402,10 +410,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       (entries) => {
         console.log('[IntersectionObserver] Callback triggered:', {
           isIntersecting: entries[0].isIntersecting,
-          isLoadingMore,
           hasMoreMessages
         });
-        if (entries[0].isIntersecting && !isLoadingMore) {
+        // Only trigger if the top element is visible
+        if (entries[0].isIntersecting) {
           console.log('[IntersectionObserver] Loading more messages...');
           loadMoreMessages();
         }
