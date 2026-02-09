@@ -25,12 +25,6 @@ interface AgentStatus {
   current_task?: string;
 }
 
-// Define pagination state
-interface PageState {
-  page: number;
-  limit: number;
-}
-
 // Type guard function to validate session message response
 function isValidSessionMessageResponse(response: unknown): response is SessionMessageListResponse {
   return (
@@ -143,27 +137,23 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           setIsConnected(true); // Set connected immediately for better UX
           
           if (sessionId) {
-            // Session-based connection: load messages from agentapi-proxy
+            // Session-based connection: load latest messages
             try {
               if (!agentAPIRef.current) return;
-              // Fetch all messages for client-side pagination
-              const sessionMessagesResponse = await agentAPIRef.current.getSessionMessages(sessionId, { limit: 1000 });
+              // Fetch only the latest 50 messages initially
+              const sessionMessagesResponse = await agentAPIRef.current.getSessionMessages(sessionId, { limit: 50 });
 
               // Validate and safely handle session messages response
               if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
                 console.warn('Invalid session messages response structure:', sessionMessagesResponse);
               }
 
-              // Store all messages for pagination
+              // Store latest messages
               const fetchedMessages = sessionMessagesResponse?.messages || [];
-              setAllMessages(fetchedMessages);
+              setMessages(fetchedMessages);
 
-              // Calculate total pages and set initial page to the last page
-              const MESSAGES_PER_PAGE = 50;
-              const totalPages = Math.ceil(fetchedMessages.length / MESSAGES_PER_PAGE);
-              const initialPage = totalPages > 0 ? totalPages : 1;
-
-              setPageState(prev => ({ ...prev, page: initialPage }));
+              // Check if there might be more messages
+              setHasMoreMessages(fetchedMessages.length >= 50);
               setError(null);
               return;
             } catch (err) {
@@ -198,21 +188,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
   }, [sessionId, agentAPI]);
 
-  const [allMessages, setAllMessages] = useState<SessionMessage[]>([]);
   const [messages, setMessages] = useState<SessionMessage[]>([]);
-  const [pageState, setPageState] = useState<PageState>({
-    page: 1,
-    limit: 50
-  });
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [inputValue, setInputValue] = useState('');
-
-  // Apply pagination when pageState or allMessages changes
-  useEffect(() => {
-    const startIndex = (pageState.page - 1) * pageState.limit;
-    const endIndex = pageState.page * pageState.limit;
-    const paginatedMessages = allMessages.slice(startIndex, endIndex);
-    setMessages(paginatedMessages);
-  }, [pageState, allMessages]);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [fontSettings, setFontSettings] = useState<FontSettings>(() => getFontSettings());
@@ -248,6 +227,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const messagesTopRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
   const prevAgentStatusRef = useRef<AgentStatus | null>(null);
 
@@ -274,12 +254,41 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
   }, []);
 
-  const handlePageChange = (newPage: number) => {
-    setPageState(prev => ({ ...prev, page: newPage }));
+  const loadMoreMessages = useCallback(async () => {
+    if (!hasMoreMessages || isLoadingMore || !sessionId || !agentAPIRef.current) return;
 
-    // ページ変更時は上部にスクロール
-    messagesContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+    setIsLoadingMore(true);
+    try {
+      // Get the oldest message timestamp
+      const oldestMessage = messages[0];
+      if (!oldestMessage) return;
+
+      // Fetch 50 messages before the oldest one
+      const response = await agentAPIRef.current.getSessionMessages(sessionId, {
+        limit: 50,
+        to: oldestMessage.timestamp
+      });
+
+      if (!isValidSessionMessageResponse(response)) {
+        console.warn('Invalid session messages response:', response);
+        return;
+      }
+
+      const olderMessages = response?.messages || [];
+
+      if (olderMessages.length > 0) {
+        // Prepend older messages to the beginning
+        setMessages(prev => [...olderMessages, ...prev]);
+        setHasMoreMessages(olderMessages.length >= 50);
+      } else {
+        setHasMoreMessages(false);
+      }
+    } catch (err) {
+      console.error('Failed to load more messages:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [hasMoreMessages, isLoadingMore, sessionId, messages]);
 
   // ESCキーでモーダルを閉じる
   useEffect(() => {
@@ -326,6 +335,27 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
   }, []);
 
+  // IntersectionObserver for infinite scroll (load more on scroll up)
+  useEffect(() => {
+    const topElement = messagesTopRef.current;
+    if (!topElement || !hasMoreMessages) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isLoadingMore) {
+          loadMoreMessages();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(topElement);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMoreMessages, isLoadingMore, loadMoreMessages]);
+
 
   const loadTemplates = useCallback(async () => {
     try {
@@ -360,9 +390,16 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     if (!isConnected || !sessionId || !agentAPIRef.current) return;
 
     try {
+      // Get the latest message timestamp for polling new messages only
+      const latestMessage = messages[messages.length - 1];
+      const fromTimestamp = latestMessage?.timestamp;
+
       // Poll messages, status, and pending actions
       const [sessionMessagesResponse, sessionStatus, pendingActions] = await Promise.all([
-        agentAPIRef.current.getSessionMessages(sessionId, { limit: 1000 }),
+        agentAPIRef.current.getSessionMessages(sessionId, {
+          limit: 50,
+          from: fromTimestamp
+        }),
         agentAPIRef.current.getSessionStatus(sessionId),
         agentAPIRef.current.getPendingActions(sessionId)
       ]);
@@ -376,45 +413,17 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       // Use SessionMessage directly for display
       const newMessages = sessionMessagesResponse?.messages || [];
 
-      // Deep comparison: only update if there are actual differences in content
-      setAllMessages(prevAllMessages => {
-        // If length differs, update
-        if (prevAllMessages.length !== newMessages.length) {
-          // Check if user is on the last page
-          const currentTotalPages = Math.ceil(prevAllMessages.length / pageState.limit);
-          const isOnLastPage = pageState.page === currentTotalPages || currentTotalPages === 0;
+      // Filter out messages we already have and append only truly new ones
+      if (newMessages.length > 0) {
+        setMessages(prevMessages => {
+          const existingIds = new Set(prevMessages.map(m => m.id));
+          const trulyNewMessages = newMessages.filter(m => !existingIds.has(m.id));
 
-          // If new messages were added and user is on the last page, move to the new last page
-          if (newMessages.length > prevAllMessages.length && isOnLastPage) {
-            const newTotalPages = Math.ceil(newMessages.length / pageState.limit);
-            if (newTotalPages > currentTotalPages) {
-              setPageState(prev => ({ ...prev, page: newTotalPages }));
-            }
-          }
+          if (trulyNewMessages.length === 0) return prevMessages;
 
-          return newMessages;
-        }
-
-        // Check if any message content has changed
-        const hasChanges = newMessages.some((newMsg, index) => {
-          const prevMsg = prevAllMessages[index];
-          if (!prevMsg) return true;
-
-          // Compare essential fields
-          return (
-            prevMsg.id !== newMsg.id ||
-            prevMsg.role !== newMsg.role ||
-            prevMsg.content !== newMsg.content ||
-            prevMsg.type !== newMsg.type ||
-            prevMsg.toolUseId !== newMsg.toolUseId ||
-            prevMsg.parentToolUseId !== newMsg.parentToolUseId ||
-            prevMsg.timestamp !== newMsg.timestamp
-          );
+          return [...prevMessages, ...trulyNewMessages];
         });
-
-        // Only update if there are actual changes
-        return hasChanges ? newMessages : prevAllMessages;
-      });
+      }
 
       // Handle pending actions
       const questionAction = pendingActions.find(a => a.type === 'answer_question');
@@ -435,7 +444,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         setError(`Failed to update messages: ${err.message}`);
       }
     }
-  }, [isConnected, sessionId, pendingAction, pageState]); // agentAPIを依存配列から除去
+  }, [isConnected, sessionId, pendingAction, messages]); // agentAPIを依存配列から除去
 
   const handleAnswerSubmit = useCallback(async (answers: Record<string, string | string[]>) => {
     if (!sessionId || !agentAPIRef.current || !pendingAction) return;
@@ -646,15 +655,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           type: messageType
         });
 
-        // For user messages, add to allMessages and navigate to last page
+        // For user messages, add to messages
         if (messageType === 'user') {
-          setAllMessages(prev => {
-            const updatedMessages = [...prev, sessionMessage];
-            // Calculate new total pages and navigate to the last page
-            const newTotalPages = Math.ceil(updatedMessages.length / pageState.limit);
-            setPageState(ps => ({ ...ps, page: newTotalPages }));
-            return updatedMessages;
-          });
+          setMessages(prev => [...prev, sessionMessage]);
         }
       } else {
         setError('No session ID available. Cannot send message.');
@@ -686,7 +689,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, isLoading, isConnected, sessionId, agentStatus, loadRecentMessages, pageState.limit]);
+  }, [inputValue, isLoading, isConnected, sessionId, agentStatus, loadRecentMessages]);
 
   const handleShowPlanModal = useCallback((content: string) => {
     setPlanContent(content);
@@ -1025,6 +1028,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           </div>
         )}
 
+        {/* Intersection observer target for infinite scroll */}
+        <div ref={messagesTopRef} style={{ height: '1px' }} />
+
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {(() => {
             const renderedMessages: JSX.Element[] = [];
@@ -1124,45 +1130,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           </div>
         )}
 
-        {/* Pagination UI */}
-        {(() => {
-          const totalPages = Math.ceil(allMessages.length / pageState.limit);
-          return totalPages > 1 ? (
-            <div className="sticky bottom-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handlePageChange(pageState.page - 1)}
-                  disabled={pageState.page === 1}
-                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  Previous
-                </button>
-
-                <span className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">
-                  Page {pageState.page} of {totalPages}
-                </span>
-
-                <button
-                  onClick={() => handlePageChange(pageState.page + 1)}
-                  disabled={pageState.page === totalPages}
-                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  Next
-                </button>
-              </div>
-
-              {/* Latest page jump button */}
-              {pageState.page < totalPages && (
-                <button
-                  onClick={() => handlePageChange(totalPages)}
-                  className="px-3 py-2 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md"
-                >
-                  Latest →
-                </button>
-              )}
-            </div>
-          ) : null;
-        })()}
+        {/* Loading indicator for infinite scroll */}
+        {isLoadingMore && (
+          <div className="flex justify-center items-center py-4">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">読み込み中...</span>
+          </div>
+        )}
       </div>
 
       {/* ツール実行確認ペーン */}
