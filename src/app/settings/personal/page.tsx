@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, getUseClaudeAgentAPI, setUseClaudeAgentAPI, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings } from '@/components/settings'
+import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings } from '@/components/settings'
 import { OneClickPushNotifications } from '@/app/components/OneClickPushNotifications'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
 export default function PersonalSettingsPage() {
   const [settings, setSettings] = useState<SettingsData>({})
+  const [originalSettings, setOriginalSettings] = useState<SettingsData>({})
   const [userName, setUserName] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -18,6 +19,28 @@ export default function PersonalSettingsPage() {
   const [enterKeyBehavior, setEnterKeyBehaviorState] = useState<EnterKeyBehavior>('send')
   const [fontSettings, setFontSettingsState] = useState<FontSettingsType>({ fontSize: 14, fontFamily: 'sans-serif' })
   const { showToast } = useToast()
+  const hasUnsavedChangesRef = useRef(false)
+
+  // 未保存の変更があるかチェック
+  const hasUnsavedChanges = JSON.stringify(settings) !== JSON.stringify(originalSettings)
+
+  // hasUnsavedChanges を ref に保存（イベントハンドラで最新の値を参照するため）
+  useEffect(() => {
+    hasUnsavedChangesRef.current = hasUnsavedChanges
+  }, [hasUnsavedChanges])
+
+  // ページ離脱時の警告
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChangesRef.current) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [])
 
   // GitHub Token 設定、Claude AgentAPI 設定、Enter キー設定、Font 設定の読み込み
   useEffect(() => {
@@ -61,6 +84,7 @@ export default function PersonalSettingsPage() {
         const client = createAgentAPIProxyClientFromStorage()
         const data = await client.getSettings(userName)
         setSettings(data)
+        setOriginalSettings(data)
       } catch (err) {
         console.error('Failed to load personal settings:', err)
         setError('Failed to load settings')
@@ -96,6 +120,14 @@ export default function PersonalSettingsPage() {
     setSettings((prev) => ({ ...prev, mcp_servers: servers }))
   }
 
+  const handleEnvVarsChange = (updates: Record<string, string>) => {
+    setSettings((prev) => {
+      const existingEnvVars = prev.env_vars || {}
+      const newEnvVars = { ...existingEnvVars, ...updates }
+      return { ...prev, env_vars: newEnvVars }
+    })
+  }
+
   const handleGithubTokenChange = (enabled: boolean) => {
     setSendGithubToken(enabled)
     setSendGithubTokenOnSessionStart(enabled)
@@ -129,6 +161,8 @@ export default function PersonalSettingsPage() {
       // 空の値を除外して保存
       const preparedSettings = prepareSettingsForSave(settings)
       await client.saveSettings(userName, preparedSettings)
+      // 保存成功後、元の設定を更新
+      setOriginalSettings(settings)
       showToast('Settings saved successfully!', 'success')
     } catch (err) {
       console.error('Failed to save personal settings:', err)
@@ -230,6 +264,14 @@ export default function PersonalSettingsPage() {
           </SettingsAccordion>
 
           <SettingsAccordion
+            title="Environment Variables"
+            description="Configure custom environment variables for sessions"
+            defaultOpen
+          >
+            <EnvVarsSettings envVarKeys={settings.env_var_keys} onChange={handleEnvVarsChange} />
+          </SettingsAccordion>
+
+          <SettingsAccordion
             title="Session Settings"
             description="Configure session behavior"
             defaultOpen
@@ -274,11 +316,19 @@ export default function PersonalSettingsPage() {
             <OneClickPushNotifications />
           </SettingsAccordion>
 
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+            {hasUnsavedChanges && (
+              <div className="flex items-center gap-2 text-sm text-yellow-600 dark:text-yellow-400">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <span>未保存の変更があります</span>
+              </div>
+            )}
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 ml-auto"
             >
               {saving && (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
