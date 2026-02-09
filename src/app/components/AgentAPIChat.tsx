@@ -131,27 +131,47 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   // Initialize chat when agentAPI is ready - optimized for faster loading
   useEffect(() => {
     if (agentAPI && sessionId) {
+      // Reset initial load flag when session changes
+      setIsInitialLoadComplete(false);
+
       const initializeChat = async () => {
         try {
           setError(null);
           setIsConnected(true); // Set connected immediately for better UX
-          
+
           if (sessionId) {
-            // Session-based connection: load messages from agentapi-proxy
+            // Session-based connection: load latest messages
             try {
               if (!agentAPIRef.current) return;
-              const sessionMessagesResponse = await agentAPIRef.current.getSessionMessages(sessionId, { limit: 100 });
-              
+              // Fetch only the latest 50 messages initially (direction: tail gets most recent)
+              const sessionMessagesResponse = await agentAPIRef.current.getSessionMessages(sessionId, {
+                limit: 50,
+                direction: 'tail'
+              });
+
               // Validate and safely handle session messages response
               if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
                 console.warn('Invalid session messages response structure:', sessionMessagesResponse);
               }
-              
-              // Use SessionMessage directly for display
-              const messages = sessionMessagesResponse?.messages || [];
 
-              setMessages(messages);
+              // Store latest messages
+              const fetchedMessages = sessionMessagesResponse?.messages || [];
+              setMessages(fetchedMessages);
+
+              // Check if there are more messages using hasMore field or total count
+              const hasMore = sessionMessagesResponse?.hasMore ??
+                             (sessionMessagesResponse?.total ? sessionMessagesResponse.total > fetchedMessages.length : false);
+              setHasMoreMessages(hasMore);
               setError(null);
+
+              // Mark initial load as complete
+              setIsInitialLoadComplete(true);
+
+              // Scroll to bottom after messages are loaded
+              setTimeout(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+              }, 100);
+
               return;
             } catch (err) {
               console.error('Failed to load session messages:', err);
@@ -184,8 +204,11 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       return () => clearTimeout(timeoutId);
     }
   }, [sessionId, agentAPI]);
-  
+
   const [messages, setMessages] = useState<SessionMessage[]>([]);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -222,8 +245,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const messagesTopRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
   const prevAgentStatusRef = useRef<AgentStatus | null>(null);
+  const lastLoadTimeRef = useRef<number>(0);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -238,15 +263,94 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
   const handleScroll = useCallback(() => {
     if (!messagesContainerRef.current) return;
-    
+
     const isAtBottom = checkIfAtBottom();
     setShouldAutoScroll(isAtBottom);
-    
+
     // 下部にスクロールしたら新着メッセージ通知をクリア
     if (isAtBottom) {
       setHasNewMessages(false);
     }
   }, []);
+
+  const loadMoreMessages = useCallback(async () => {
+    if (!hasMoreMessages || isLoadingMore || !sessionId || !agentAPIRef.current) return;
+
+    // Prevent loading if less than 2 seconds have passed since last load
+    const now = Date.now();
+    const timeSinceLastLoad = now - lastLoadTimeRef.current;
+    const cooldownPeriod = 2000; // 2 seconds
+
+    if (timeSinceLastLoad < cooldownPeriod) {
+      console.log(`[loadMoreMessages] Cooldown active. Wait ${Math.ceil((cooldownPeriod - timeSinceLastLoad) / 1000)}s before loading more.`);
+      return;
+    }
+
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    // Update last load time
+    lastLoadTimeRef.current = now;
+
+    // Save current scroll position
+    const previousScrollHeight = container.scrollHeight;
+    const previousScrollTop = container.scrollTop;
+
+    setIsLoadingMore(true);
+    try {
+      // Get the oldest message ID (smallest ID)
+      const oldestMessage = messages[0];
+      if (!oldestMessage || typeof oldestMessage.id !== 'number') {
+        console.error('Invalid oldest message:', oldestMessage);
+        setIsLoadingMore(false);
+        setHasMoreMessages(false);
+        return;
+      }
+
+      console.log('[loadMoreMessages] Fetching messages before ID:', oldestMessage.id);
+
+      // Fetch messages before the oldest message ID using cursor-based pagination
+      const response = await agentAPIRef.current.getSessionMessages(sessionId, {
+        before: oldestMessage.id,
+        limit: 50
+      });
+
+      if (!isValidSessionMessageResponse(response)) {
+        console.warn('Invalid session messages response:', response);
+        setIsLoadingMore(false);
+        return;
+      }
+
+      const olderMessages = response?.messages || [];
+      console.log(`[loadMoreMessages] Fetched ${olderMessages.length} older messages`);
+
+      if (olderMessages.length > 0) {
+        // Prepend older messages to the beginning
+        setMessages(prev => [...olderMessages, ...prev]);
+
+        // Use hasMore field from response to determine if there are more messages
+        const hasMore = response?.hasMore ?? (olderMessages.length >= 50);
+        setHasMoreMessages(hasMore);
+
+        // Restore scroll position after DOM update
+        setTimeout(() => {
+          if (container) {
+            const newScrollHeight = container.scrollHeight;
+            const scrollDiff = newScrollHeight - previousScrollHeight;
+            container.scrollTop = previousScrollTop + scrollDiff;
+            console.log('[loadMoreMessages] Restored scroll position, scrollDiff:', scrollDiff);
+          }
+        }, 0);
+      } else {
+        console.log('[loadMoreMessages] No more older messages');
+        setHasMoreMessages(false);
+      }
+    } catch (err) {
+      console.error('Failed to load more messages:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [hasMoreMessages, isLoadingMore, sessionId, messages]);
 
   // ESCキーでモーダルを閉じる
   useEffect(() => {
@@ -293,6 +397,52 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
   }, []);
 
+  // IntersectionObserver for infinite scroll (load more on scroll up)
+  // Only activate after initial load is complete to prevent premature loading
+  // Disabled while loading to prevent multiple simultaneous requests
+  useEffect(() => {
+    const topElement = messagesTopRef.current;
+
+    // Don't observe if:
+    // - Element doesn't exist
+    // - No more messages to load
+    // - Initial load not complete
+    // - Currently loading (prevents rapid multiple requests)
+    if (!topElement || !hasMoreMessages || !isInitialLoadComplete || isLoadingMore) {
+      console.log('[IntersectionObserver] Skip setup:', {
+        hasElement: !!topElement,
+        hasMoreMessages,
+        isInitialLoadComplete,
+        isLoadingMore
+      });
+      return;
+    }
+
+    console.log('[IntersectionObserver] Setting up observer');
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        console.log('[IntersectionObserver] Callback triggered:', {
+          isIntersecting: entries[0].isIntersecting,
+          hasMoreMessages
+        });
+        // Only trigger if the top element is visible
+        if (entries[0].isIntersecting) {
+          console.log('[IntersectionObserver] Loading more messages...');
+          loadMoreMessages();
+        }
+      },
+      { threshold: 0.1, root: messagesContainerRef.current }
+    );
+
+    observer.observe(topElement);
+
+    return () => {
+      console.log('[IntersectionObserver] Disconnecting observer');
+      observer.disconnect();
+    };
+  }, [hasMoreMessages, isLoadingMore, loadMoreMessages, isInitialLoadComplete]);
+
 
   const loadTemplates = useCallback(async () => {
     try {
@@ -327,9 +477,19 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     if (!isConnected || !sessionId || !agentAPIRef.current) return;
 
     try {
+      // Get the latest message ID for polling new messages only
+      const latestMessage = messages[messages.length - 1];
+      const latestMessageId = latestMessage && typeof latestMessage.id === 'number' ? latestMessage.id : undefined;
+
       // Poll messages, status, and pending actions
       const [sessionMessagesResponse, sessionStatus, pendingActions] = await Promise.all([
-        agentAPIRef.current.getSessionMessages(sessionId, { limit: 100 }),
+        agentAPIRef.current.getSessionMessages(sessionId, latestMessageId !== undefined ? {
+          after: latestMessageId, // Get messages with ID > latestMessageId (newer messages)
+          limit: 50
+        } : {
+          limit: 50,
+          direction: 'tail' // If no messages yet, get latest 50
+        }),
         agentAPIRef.current.getSessionStatus(sessionId),
         agentAPIRef.current.getPendingActions(sessionId)
       ]);
@@ -343,33 +503,17 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       // Use SessionMessage directly for display
       const newMessages = sessionMessagesResponse?.messages || [];
 
-      // Deep comparison: only update if there are actual differences in content
-      setMessages(prevMessages => {
-        // If length differs, update
-        if (prevMessages.length !== newMessages.length) {
-          return newMessages;
-        }
+      // Filter out messages we already have and append only truly new ones
+      if (newMessages.length > 0) {
+        setMessages(prevMessages => {
+          const existingIds = new Set(prevMessages.map(m => m.id));
+          const trulyNewMessages = newMessages.filter(m => !existingIds.has(m.id));
 
-        // Check if any message content has changed
-        const hasChanges = newMessages.some((newMsg, index) => {
-          const prevMsg = prevMessages[index];
-          if (!prevMsg) return true;
+          if (trulyNewMessages.length === 0) return prevMessages;
 
-          // Compare essential fields
-          return (
-            prevMsg.id !== newMsg.id ||
-            prevMsg.role !== newMsg.role ||
-            prevMsg.content !== newMsg.content ||
-            prevMsg.type !== newMsg.type ||
-            prevMsg.toolUseId !== newMsg.toolUseId ||
-            prevMsg.parentToolUseId !== newMsg.parentToolUseId ||
-            prevMsg.timestamp !== newMsg.timestamp
-          );
+          return [...prevMessages, ...trulyNewMessages];
         });
-
-        // Only update if there are actual changes
-        return hasChanges ? newMessages : prevMessages;
-      });
+      }
 
       // Handle pending actions
       const questionAction = pendingActions.find(a => a.type === 'answer_question');
@@ -390,7 +534,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         setError(`Failed to update messages: ${err.message}`);
       }
     }
-  }, [isConnected, sessionId, pendingAction]); // agentAPIを依存配列から除去
+  }, [isConnected, sessionId, pendingAction, messages]); // agentAPIを依存配列から除去
 
   const handleAnswerSubmit = useCallback(async (answers: Record<string, string | string[]>) => {
     if (!sessionId || !agentAPIRef.current || !pendingAction) return;
@@ -601,7 +745,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           type: messageType
         });
 
-        // For user messages, add to display
+        // For user messages, add to messages
         if (messageType === 'user') {
           setMessages(prev => [...prev, sessionMessage]);
         }
@@ -609,7 +753,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         setError('No session ID available. Cannot send message.');
         return;
       }
-      
+
       if (messageType === 'user') {
         // 最近のメッセージに保存
         await recentMessagesManager.saveMessage(messageContent);
@@ -647,7 +791,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     const callbacks = new Map<string, () => void>();
     messages.forEach(message => {
       if (message.type === 'plan') {
-        callbacks.set(message.id, () => handleShowPlanModal(message.content));
+        callbacks.set(message.id.toString(), () => handleShowPlanModal(message.content));
       }
     });
     return callbacks;
@@ -974,12 +1118,23 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           </div>
         )}
 
+        {/* Loading indicator for infinite scroll - at the top */}
+        {isLoadingMore && (
+          <div className="flex justify-center items-center py-4">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">読み込み中...</span>
+          </div>
+        )}
+
+        {/* Intersection observer target for infinite scroll */}
+        <div ref={messagesTopRef} style={{ height: '1px' }} />
+
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {(() => {
             const renderedMessages: JSX.Element[] = [];
-            const processedIds = new Set<string>();
+            const processedIds = new Set<number>();
 
-            messages.forEach((message, index) => {
+            messages.forEach((message) => {
               // すでに処理済みのメッセージはスキップ
               if (processedIds.has(message.id)) return;
 
@@ -1007,7 +1162,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     toolResult={toolResult}
                     formatTimestamp={formatTimestamp}
                     fontSettings={fontSettings}
-                    onShowPlanModal={planModalCallbacks.get(message.id)}
+                    onShowPlanModal={planModalCallbacks.get(message.id.toString())}
                     isClaudeAgent={agentType === 'claude'}
                   />
                 );
@@ -1023,7 +1178,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     message={message}
                     formatTimestamp={formatTimestamp}
                     fontSettings={fontSettings}
-                    onShowPlanModal={planModalCallbacks.get(message.id)}
+                    onShowPlanModal={planModalCallbacks.get(message.id.toString())}
                     isClaudeAgent={agentType === 'claude'}
                   />
                 );

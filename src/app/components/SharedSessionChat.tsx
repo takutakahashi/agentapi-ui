@@ -141,7 +141,7 @@ export default function SharedSessionChat({ shareToken }: SharedSessionChatProps
             id: convertSessionMessageId(msg.id, Date.now() + index),
             role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'),
             content: msg.content,
-            timestamp: msg.timestamp
+            timestamp: msg.time || msg.timestamp || new Date().toISOString()
           }));
 
           setMessages(convertedMessages);
@@ -190,7 +190,7 @@ export default function SharedSessionChat({ shareToken }: SharedSessionChatProps
         id: convertSessionMessageId(msg.id, Date.now() + index),
         role: msg.role === 'assistant' ? 'agent' : (msg.role === 'system' ? 'agent' : msg.role as 'user' | 'agent'),
         content: msg.content,
-        timestamp: msg.timestamp
+        timestamp: msg.time || msg.timestamp || new Date().toISOString()
       }));
 
       // Deep comparison: only update if there are actual differences in content
