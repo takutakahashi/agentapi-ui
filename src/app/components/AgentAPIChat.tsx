@@ -248,6 +248,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const messagesTopRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
   const prevAgentStatusRef = useRef<AgentStatus | null>(null);
+  const lastLoadTimeRef = useRef<number>(0);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -275,8 +276,21 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const loadMoreMessages = useCallback(async () => {
     if (!hasMoreMessages || isLoadingMore || !sessionId || !agentAPIRef.current) return;
 
+    // Prevent loading if less than 2 seconds have passed since last load
+    const now = Date.now();
+    const timeSinceLastLoad = now - lastLoadTimeRef.current;
+    const cooldownPeriod = 2000; // 2 seconds
+
+    if (timeSinceLastLoad < cooldownPeriod) {
+      console.log(`[loadMoreMessages] Cooldown active. Wait ${Math.ceil((cooldownPeriod - timeSinceLastLoad) / 1000)}s before loading more.`);
+      return;
+    }
+
     const container = messagesContainerRef.current;
     if (!container) return;
+
+    // Update last load time
+    lastLoadTimeRef.current = now;
 
     // Save current scroll position
     const previousScrollHeight = container.scrollHeight;
