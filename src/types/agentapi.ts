@@ -208,29 +208,42 @@ export interface CreateSessionRequest {
 
 // Session message types
 export interface SessionMessage {
-  id: string;
+  id: number; // Changed from string to number (matches API spec)
   role: 'user' | 'assistant' | 'system' | 'tool_result' | 'agent';
   content: string;
-  timestamp: string;
-  session_id: string;
+  timestamp?: string; // Made optional (for backwards compatibility)
+  time: string; // ISO 8601 timestamp from API
+  session_id?: string; // Made optional (not in API spec)
   metadata?: Record<string, unknown>;
   type?: 'normal' | 'error' | 'question' | 'plan';
   toolUseId?: string;
   parentToolUseId?: string;
   status?: 'success' | 'error';
-  time?: string;
 }
 
 export interface SessionMessageListResponse {
   messages: SessionMessage[];
-  total: number;
-  page: number;
-  limit: number;
+  total?: number; // Total number of messages in conversation
+  hasMore?: boolean; // Whether there are more messages available
+  page?: number; // Deprecated, kept for backwards compatibility
+  limit?: number; // Deprecated, kept for backwards compatibility
 }
 
 export interface SessionMessageListParams {
+  // Cursor-based pagination
+  before?: number; // Get messages with ID < before (load older messages)
+  after?: number; // Get messages with ID > after (load newer messages)
+
+  // Limit-based pagination
+  limit?: number; // Number of messages to retrieve
+  direction?: 'head' | 'tail'; // Direction for limit-based pagination
+
+  // Context-based pagination
+  around?: number; // Message ID to center around
+  context?: number; // Number of messages before and after "around"
+
+  // Deprecated, kept for backwards compatibility
   page?: number;
-  limit?: number;
   from?: string;
   to?: string;
 }

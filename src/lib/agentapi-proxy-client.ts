@@ -376,15 +376,32 @@ export class AgentAPIProxyClient {
 
   async getSessionMessages(sessionId: string, params?: SessionMessageListParams): Promise<SessionMessageListResponse> {
     const searchParams = new URLSearchParams();
-    
-    if (params?.page) searchParams.set('page', params.page.toString());
+
+    // New API parameters (cursor-based pagination)
+    if (params?.before !== undefined) searchParams.set('before', params.before.toString());
+    if (params?.after !== undefined) searchParams.set('after', params.after.toString());
+
+    // Limit and direction parameters
     if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.direction) searchParams.set('direction', params.direction);
+
+    // Context-based pagination
+    if (params?.around !== undefined) searchParams.set('around', params.around.toString());
+    if (params?.context !== undefined) searchParams.set('context', params.context.toString());
+
+    // Deprecated parameters (kept for backwards compatibility)
+    if (params?.page) searchParams.set('page', params.page.toString());
     if (params?.from) searchParams.set('from', params.from);
     if (params?.to) searchParams.set('to', params.to);
 
     const endpoint = `/${sessionId}/messages${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Fetching messages for session ${sessionId} with params:`, Object.fromEntries(searchParams));
+    }
+
     const result = await this.makeRequest<SessionMessageListResponse>(endpoint);
-    
+
     return {
       ...result,
       messages: result.messages || []

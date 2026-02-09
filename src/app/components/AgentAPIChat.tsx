@@ -140,8 +140,11 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             // Session-based connection: load latest messages
             try {
               if (!agentAPIRef.current) return;
-              // Fetch only the latest 50 messages initially
-              const sessionMessagesResponse = await agentAPIRef.current.getSessionMessages(sessionId, { limit: 50 });
+              // Fetch only the latest 50 messages initially (direction: tail gets most recent)
+              const sessionMessagesResponse = await agentAPIRef.current.getSessionMessages(sessionId, {
+                limit: 50,
+                direction: 'tail'
+              });
 
               // Validate and safely handle session messages response
               if (!isValidSessionMessageResponse(sessionMessagesResponse)) {
@@ -152,8 +155,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
               const fetchedMessages = sessionMessagesResponse?.messages || [];
               setMessages(fetchedMessages);
 
-              // Check if there might be more messages
-              setHasMoreMessages(fetchedMessages.length >= 50);
+              // Check if there are more messages using hasMore field or total count
+              const hasMore = sessionMessagesResponse?.hasMore ??
+                             (sessionMessagesResponse?.total ? sessionMessagesResponse.total > fetchedMessages.length : false);
+              setHasMoreMessages(hasMore);
               setError(null);
               return;
             } catch (err) {
@@ -266,17 +271,21 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
     setIsLoadingMore(true);
     try {
-      // Get the oldest message timestamp
+      // Get the oldest message ID (smallest ID)
       const oldestMessage = messages[0];
-      if (!oldestMessage) {
+      if (!oldestMessage || typeof oldestMessage.id !== 'number') {
+        console.error('Invalid oldest message:', oldestMessage);
         setIsLoadingMore(false);
+        setHasMoreMessages(false);
         return;
       }
 
-      // Fetch 50 messages before the oldest one
+      console.log('[loadMoreMessages] Fetching messages before ID:', oldestMessage.id);
+
+      // Fetch messages before the oldest message ID using cursor-based pagination
       const response = await agentAPIRef.current.getSessionMessages(sessionId, {
-        limit: 50,
-        to: oldestMessage.timestamp
+        before: oldestMessage.id,
+        limit: 50
       });
 
       if (!isValidSessionMessageResponse(response)) {
@@ -286,20 +295,27 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       }
 
       const olderMessages = response?.messages || [];
+      console.log(`[loadMoreMessages] Fetched ${olderMessages.length} older messages`);
 
       if (olderMessages.length > 0) {
         // Prepend older messages to the beginning
         setMessages(prev => [...olderMessages, ...prev]);
-        setHasMoreMessages(olderMessages.length >= 50);
+
+        // Use hasMore field from response to determine if there are more messages
+        const hasMore = response?.hasMore ?? (olderMessages.length >= 50);
+        setHasMoreMessages(hasMore);
 
         // Restore scroll position after DOM update
         setTimeout(() => {
           if (container) {
             const newScrollHeight = container.scrollHeight;
-            container.scrollTop = previousScrollTop + (newScrollHeight - previousScrollHeight);
+            const scrollDiff = newScrollHeight - previousScrollHeight;
+            container.scrollTop = previousScrollTop + scrollDiff;
+            console.log('[loadMoreMessages] Restored scroll position, scrollDiff:', scrollDiff);
           }
         }, 0);
       } else {
+        console.log('[loadMoreMessages] No more older messages');
         setHasMoreMessages(false);
       }
     } catch (err) {
@@ -421,15 +437,18 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     if (!isConnected || !sessionId || !agentAPIRef.current) return;
 
     try {
-      // Get the latest message timestamp for polling new messages only
+      // Get the latest message ID for polling new messages only
       const latestMessage = messages[messages.length - 1];
-      const fromTimestamp = latestMessage?.timestamp;
+      const latestMessageId = latestMessage && typeof latestMessage.id === 'number' ? latestMessage.id : undefined;
 
       // Poll messages, status, and pending actions
       const [sessionMessagesResponse, sessionStatus, pendingActions] = await Promise.all([
-        agentAPIRef.current.getSessionMessages(sessionId, {
+        agentAPIRef.current.getSessionMessages(sessionId, latestMessageId !== undefined ? {
+          after: latestMessageId, // Get messages with ID > latestMessageId (newer messages)
+          limit: 50
+        } : {
           limit: 50,
-          from: fromTimestamp
+          direction: 'tail' // If no messages yet, get latest 50
         }),
         agentAPIRef.current.getSessionStatus(sessionId),
         agentAPIRef.current.getPendingActions(sessionId)
@@ -732,7 +751,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     const callbacks = new Map<string, () => void>();
     messages.forEach(message => {
       if (message.type === 'plan') {
-        callbacks.set(message.id, () => handleShowPlanModal(message.content));
+        callbacks.set(message.id.toString(), () => handleShowPlanModal(message.content));
       }
     });
     return callbacks;
@@ -1073,7 +1092,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {(() => {
             const renderedMessages: JSX.Element[] = [];
-            const processedIds = new Set<string>();
+            const processedIds = new Set<number>();
 
             messages.forEach((message) => {
               // すでに処理済みのメッセージはスキップ
@@ -1103,7 +1122,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     toolResult={toolResult}
                     formatTimestamp={formatTimestamp}
                     fontSettings={fontSettings}
-                    onShowPlanModal={planModalCallbacks.get(message.id)}
+                    onShowPlanModal={planModalCallbacks.get(message.id.toString())}
                     isClaudeAgent={agentType === 'claude'}
                   />
                 );
@@ -1119,7 +1138,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     message={message}
                     formatTimestamp={formatTimestamp}
                     fontSettings={fontSettings}
-                    onShowPlanModal={planModalCallbacks.get(message.id)}
+                    onShowPlanModal={planModalCallbacks.get(message.id.toString())}
                     isClaudeAgent={agentType === 'claude'}
                   />
                 );
