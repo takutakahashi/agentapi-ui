@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, prepareSettingsForSave } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, MCPServerSettings, MarketplaceSettings, PluginSettings } from '@/components/settings'
+import { BedrockSettings, SettingsAccordion, MCPServerSettings, MarketplaceSettings, PluginSettings, EnvVarsSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -89,6 +89,14 @@ export default function TeamSettingsPage() {
 
   const handleMCPServersChange = (servers: Record<string, APIMCPServerConfig>) => {
     setSettings((prev) => ({ ...prev, mcp_servers: servers }))
+  }
+
+  const handleEnvVarsChange = (updates: Record<string, string>) => {
+    setSettings((prev) => {
+      const existingEnvVars = prev.env_vars || {}
+      const newEnvVars = { ...existingEnvVars, ...updates }
+      return { ...prev, env_vars: newEnvVars }
+    })
   }
 
   const handleSave = async () => {
@@ -225,6 +233,14 @@ export default function TeamSettingsPage() {
             defaultOpen
           >
             <MCPServerSettings servers={settings.mcp_servers} onChange={handleMCPServersChange} />
+          </SettingsAccordion>
+
+          <SettingsAccordion
+            title="Environment Variables"
+            description="Configure custom environment variables for team sessions"
+            defaultOpen
+          >
+            <EnvVarsSettings envVarKeys={settings.env_var_keys} onChange={handleEnvVarsChange} />
           </SettingsAccordion>
 
           <div className="flex justify-end">

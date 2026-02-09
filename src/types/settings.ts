@@ -48,6 +48,8 @@ export interface SettingsData {
   claude_code_oauth_token?: string;  // Claude Code OAuth トークン（保存時のみ使用）
   has_claude_code_oauth_token?: boolean;  // OAuth トークンが設定されているか（読み取り時のみ）
   auth_mode?: AuthMode;  // 認証モード（oauth または bedrock）
+  env_vars?: Record<string, string>;  // カスタム環境変数（保存時のみ使用）
+  env_var_keys?: string[];  // 環境変数のキーのみ（読み取り時のみ、セキュリティのため値は含まない）
 }
 
 // Personal settings
@@ -242,6 +244,19 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
   // Auth Mode の処理
   if (data.auth_mode) {
     prepared.auth_mode = data.auth_mode
+  }
+
+  // Environment Variables の処理
+  // data.env_vars が存在する場合は、空でも送信する（削除を反映するため）
+  if (data.env_vars !== undefined) {
+    const envVars: Record<string, string> = {}
+    for (const [key, value] of Object.entries(data.env_vars)) {
+      if (key.trim() && value.trim()) {
+        envVars[key.trim()] = value.trim()
+      }
+    }
+    // 空のオブジェクトでも送信（サーバー側で削除を反映するため）
+    prepared.env_vars = envVars
   }
 
   return prepared

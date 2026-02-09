@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, getUseClaudeAgentAPI, setUseClaudeAgentAPI, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings } from '@/components/settings'
+import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings } from '@/components/settings'
 import { OneClickPushNotifications } from '@/app/components/OneClickPushNotifications'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
@@ -94,6 +94,14 @@ export default function PersonalSettingsPage() {
 
   const handleMCPServersChange = (servers: Record<string, APIMCPServerConfig>) => {
     setSettings((prev) => ({ ...prev, mcp_servers: servers }))
+  }
+
+  const handleEnvVarsChange = (updates: Record<string, string>) => {
+    setSettings((prev) => {
+      const existingEnvVars = prev.env_vars || {}
+      const newEnvVars = { ...existingEnvVars, ...updates }
+      return { ...prev, env_vars: newEnvVars }
+    })
   }
 
   const handleGithubTokenChange = (enabled: boolean) => {
@@ -227,6 +235,14 @@ export default function PersonalSettingsPage() {
             defaultOpen
           >
             <MCPServerSettings servers={settings.mcp_servers} onChange={handleMCPServersChange} />
+          </SettingsAccordion>
+
+          <SettingsAccordion
+            title="Environment Variables"
+            description="Configure custom environment variables for sessions"
+            defaultOpen
+          >
+            <EnvVarsSettings envVarKeys={settings.env_var_keys} onChange={handleEnvVarsChange} />
           </SettingsAccordion>
 
           <SettingsAccordion
