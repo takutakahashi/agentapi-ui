@@ -37,9 +37,7 @@ interface TriggerFormData {
   goTemplate?: string
   environment: Record<string, string>
   tags: Record<string, string>
-  paramsMessage?: string
-  paramsGithubToken?: string
-  paramsAgentType?: string
+  showAdvanced: boolean
 }
 
 const emptyTrigger: TriggerFormData = {
@@ -55,9 +53,7 @@ const emptyTrigger: TriggerFormData = {
   goTemplate: '',
   environment: {},
   tags: {},
-  paramsMessage: '',
-  paramsGithubToken: '',
-  paramsAgentType: '',
+  showAdvanced: false,
 }
 
 export default function WebhookFormModal({
@@ -109,9 +105,7 @@ export default function WebhookFormModal({
             goTemplate: t.conditions.go_template || '',
             environment: t.session_config?.environment || {},
             tags: t.session_config?.tags || {},
-            paramsMessage: t.session_config?.params?.message || '',
-            paramsGithubToken: t.session_config?.params?.github_token || '',
-            paramsAgentType: t.session_config?.params?.agent_type || '',
+            showAdvanced: false,
           }))
         )
       } else {
@@ -369,20 +363,6 @@ export default function WebhookFormModal({
         // Add tags if present
         if (Object.keys(t.tags).length > 0) {
           session_config.tags = t.tags
-        }
-
-        // Add params if any field is present
-        if (t.paramsMessage?.trim() || t.paramsGithubToken?.trim() || t.paramsAgentType?.trim()) {
-          session_config.params = {}
-          if (t.paramsMessage?.trim()) {
-            session_config.params.message = t.paramsMessage.trim()
-          }
-          if (t.paramsGithubToken?.trim()) {
-            session_config.params.github_token = t.paramsGithubToken.trim()
-          }
-          if (t.paramsAgentType?.trim()) {
-            session_config.params.agent_type = t.paramsAgentType.trim()
-          }
         }
 
         return {
@@ -865,177 +845,143 @@ export default function WebhookFormModal({
                         </p>
                       </div>
 
-                      {/* Environment Variables */}
+                      {/* Advanced Settings Toggle */}
                       <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            環境変数
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => addKeyValuePair(index, 'environment')}
-                            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1"
+                        <button
+                          type="button"
+                          onClick={() => updateTrigger(index, 'showAdvanced', !trigger.showAdvanced)}
+                          className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                        >
+                          <svg
+                            className={`w-4 h-4 transition-transform ${trigger.showAdvanced ? 'rotate-90' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
                           >
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                            </svg>
-                            追加
-                          </button>
-                        </div>
-                        {Object.entries(trigger.environment).length > 0 ? (
-                          <div className="space-y-2">
-                            {Object.entries(trigger.environment).map(([key, value]) => (
-                              <div key={key} className="flex flex-col sm:flex-row gap-2">
-                                <input
-                                  type="text"
-                                  value={key}
-                                  onChange={(e) => updateKeyValuePair(index, 'environment', key, e.target.value, value)}
-                                  placeholder="KEY"
-                                  className="w-full sm:w-1/3 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono dark:bg-gray-700 dark:text-white"
-                                />
-                                <input
-                                  type="text"
-                                  value={value}
-                                  onChange={(e) => updateKeyValuePair(index, 'environment', key, key, e.target.value)}
-                                  placeholder="value (テンプレート可)"
-                                  className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono dark:bg-gray-700 dark:text-white"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => removeKeyValuePair(index, 'environment', key)}
-                                  className="text-red-500 hover:text-red-700 px-2 self-start sm:self-center"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                </button>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                          高度な設定
+                        </button>
+                      </div>
+
+                      {/* Advanced Settings Content */}
+                      {trigger.showAdvanced && (
+                        <div className="space-y-4 pl-6 border-l-2 border-gray-200 dark:border-gray-700">
+                          {/* Environment Variables */}
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                環境変数
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => addKeyValuePair(index, 'environment')}
+                                className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                                追加
+                              </button>
+                            </div>
+                            {Object.entries(trigger.environment).length > 0 ? (
+                              <div className="space-y-2">
+                                {Object.entries(trigger.environment).map(([key, value]) => (
+                                  <div key={key} className="flex flex-col sm:flex-row gap-2">
+                                    <input
+                                      type="text"
+                                      value={key}
+                                      onChange={(e) => updateKeyValuePair(index, 'environment', key, e.target.value, value)}
+                                      placeholder="KEY"
+                                      className="w-full sm:w-1/3 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono dark:bg-gray-700 dark:text-white"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={value}
+                                      onChange={(e) => updateKeyValuePair(index, 'environment', key, key, e.target.value)}
+                                      placeholder="value (テンプレート可)"
+                                      className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono dark:bg-gray-700 dark:text-white"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => removeKeyValuePair(index, 'environment', key)}
+                                      className="text-red-500 hover:text-red-700 px-2 self-start sm:self-center"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
+                            ) : (
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                環境変数は設定されていません
+                              </p>
+                            )}
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              値にGoテンプレート構文を使用できます。例: {'{{.pull_request.number}}'}
+                            </p>
                           </div>
-                        ) : (
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            環境変数は設定されていません
-                          </p>
-                        )}
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          値にGoテンプレート構文を使用できます。例: {'{{.pull_request.number}}'}
-                        </p>
-                      </div>
 
-                      {/* Tags */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            タグ
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => addKeyValuePair(index, 'tags')}
-                            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1"
-                          >
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                            </svg>
-                            追加
-                          </button>
-                        </div>
-                        {Object.entries(trigger.tags).length > 0 ? (
-                          <div className="space-y-2">
-                            {Object.entries(trigger.tags).map(([key, value]) => (
-                              <div key={key} className="flex flex-col sm:flex-row gap-2">
-                                <input
-                                  type="text"
-                                  value={key}
-                                  onChange={(e) => updateKeyValuePair(index, 'tags', key, e.target.value, value)}
-                                  placeholder="key"
-                                  className="w-full sm:w-1/3 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono dark:bg-gray-700 dark:text-white"
-                                />
-                                <input
-                                  type="text"
-                                  value={value}
-                                  onChange={(e) => updateKeyValuePair(index, 'tags', key, key, e.target.value)}
-                                  placeholder="value (テンプレート可)"
-                                  className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono dark:bg-gray-700 dark:text-white"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => removeKeyValuePair(index, 'tags', key)}
-                                  className="text-red-500 hover:text-red-700 px-2 self-start sm:self-center"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                </button>
+                          {/* Tags */}
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                タグ
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => addKeyValuePair(index, 'tags')}
+                                className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                                追加
+                              </button>
+                            </div>
+                            {Object.entries(trigger.tags).length > 0 ? (
+                              <div className="space-y-2">
+                                {Object.entries(trigger.tags).map(([key, value]) => (
+                                  <div key={key} className="flex flex-col sm:flex-row gap-2">
+                                    <input
+                                      type="text"
+                                      value={key}
+                                      onChange={(e) => updateKeyValuePair(index, 'tags', key, e.target.value, value)}
+                                      placeholder="key"
+                                      className="w-full sm:w-1/3 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono dark:bg-gray-700 dark:text-white"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={value}
+                                      onChange={(e) => updateKeyValuePair(index, 'tags', key, key, e.target.value)}
+                                      placeholder="value (テンプレート可)"
+                                      className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono dark:bg-gray-700 dark:text-white"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => removeKeyValuePair(index, 'tags', key)}
+                                      className="text-red-500 hover:text-red-700 px-2 self-start sm:self-center"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
+                            ) : (
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                タグは設定されていません
+                              </p>
+                            )}
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              値にGoテンプレート構文を使用できます。例: {'{{.pull_request.number}}'}
+                            </p>
                           </div>
-                        ) : (
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            タグは設定されていません
-                          </p>
-                        )}
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          値にGoテンプレート構文を使用できます。例: {'{{.pull_request.number}}'}
-                        </p>
-                      </div>
-
-                      {/* Session Parameters */}
-                      <div className="space-y-3 border-t border-gray-200 dark:border-gray-700 pt-4">
-                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          セッションパラメータ
-                        </h4>
-
-                        {/* Params Message */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            メッセージ（params.message）
-                          </label>
-                          <textarea
-                            value={trigger.paramsMessage || ''}
-                            onChange={(e) => updateTrigger(index, 'paramsMessage', e.target.value)}
-                            placeholder={'例: Review PR #{{.pull_request.number}}'}
-                            rows={2}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm font-mono resize-y"
-                          />
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            初期メッセージより優先されます。Goテンプレート構文を使用できます。
-                          </p>
                         </div>
-
-                        {/* Params GitHub Token */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            GitHub トークン（params.github_token）
-                          </label>
-                          <input
-                            type="text"
-                            value={trigger.paramsGithubToken || ''}
-                            onChange={(e) => updateTrigger(index, 'paramsGithubToken', e.target.value)}
-                            placeholder={'例: {{.installation_token}} または固定値'}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm font-mono"
-                          />
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            セッションで使用するGitHubトークン。Goテンプレート構文を使用できます。
-                          </p>
-                        </div>
-
-                        {/* Params Agent Type */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            エージェントタイプ（params.agent_type）
-                          </label>
-                          <input
-                            type="text"
-                            value={trigger.paramsAgentType || ''}
-                            onChange={(e) => updateTrigger(index, 'paramsAgentType', e.target.value)}
-                            placeholder={'例: {{.event_type}} または固定値'}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm font-mono"
-                          />
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            セッションで使用するエージェントタイプ。Goテンプレート構文を使用できます。
-                          </p>
-                        </div>
-                      </div>
+                      )}
 
                       {/* Reuse Session Toggle */}
                       <div className="flex items-center gap-2">
