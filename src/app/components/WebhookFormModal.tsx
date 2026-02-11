@@ -35,6 +35,9 @@ interface TriggerFormData {
   reuseSession: boolean
   mountPayload: boolean
   goTemplate?: string
+  environment: Record<string, string>
+  tags: Record<string, string>
+  showAdvanced: boolean
 }
 
 const emptyTrigger: TriggerFormData = {
@@ -48,6 +51,9 @@ const emptyTrigger: TriggerFormData = {
   reuseSession: false,
   mountPayload: false,
   goTemplate: '',
+  environment: {},
+  tags: {},
+  showAdvanced: false,
 }
 
 export default function WebhookFormModal({
@@ -97,6 +103,9 @@ export default function WebhookFormModal({
             reuseSession: t.session_config?.reuse_session ?? false,
             mountPayload: t.session_config?.mount_payload ?? false,
             goTemplate: t.conditions.go_template || '',
+            environment: t.session_config?.environment || {},
+            tags: t.session_config?.tags || {},
+            showAdvanced: false,
           }))
         )
       } else {
@@ -236,6 +245,43 @@ export default function WebhookFormModal({
     return allActions
   }
 
+  // Helper function to add key-value pair
+  const addKeyValuePair = (index: number, field: 'environment' | 'tags') => {
+    const trigger = triggers[index]
+    const newKey = `key_${Object.keys(trigger[field]).length + 1}`
+    updateTrigger(index, field, { ...trigger[field], [newKey]: '' })
+  }
+
+  // Helper function to update key-value pair
+  const updateKeyValuePair = (
+    index: number,
+    field: 'environment' | 'tags',
+    oldKey: string,
+    newKey: string,
+    newValue: string
+  ) => {
+    const trigger = triggers[index]
+    const updated = { ...trigger[field] }
+
+    // If key changed, remove old key and add new key
+    if (oldKey !== newKey) {
+      delete updated[oldKey]
+      updated[newKey] = newValue
+    } else {
+      updated[oldKey] = newValue
+    }
+
+    updateTrigger(index, field, updated)
+  }
+
+  // Helper function to remove key-value pair
+  const removeKeyValuePair = (index: number, field: 'environment' | 'tags', key: string) => {
+    const trigger = triggers[index]
+    const updated = { ...trigger[field] }
+    delete updated[key]
+    updateTrigger(index, field, updated)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -308,6 +354,16 @@ export default function WebhookFormModal({
         session_config.reuse_session = t.reuseSession
         // Always set mount_payload explicitly (true or false)
         session_config.mount_payload = t.mountPayload
+
+        // Add environment variables if present
+        if (Object.keys(t.environment).length > 0) {
+          session_config.environment = t.environment
+        }
+
+        // Add tags if present
+        if (Object.keys(t.tags).length > 0) {
+          session_config.tags = t.tags
+        }
 
         return {
           id: t.id,
@@ -788,6 +844,144 @@ export default function WebhookFormModal({
                           Goテンプレート形式。例: {'{{.pull_request.Number}}'}
                         </p>
                       </div>
+
+                      {/* Advanced Settings Toggle */}
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => updateTrigger(index, 'showAdvanced', !trigger.showAdvanced)}
+                          className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                        >
+                          <svg
+                            className={`w-4 h-4 transition-transform ${trigger.showAdvanced ? 'rotate-90' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                          高度な設定
+                        </button>
+                      </div>
+
+                      {/* Advanced Settings Content */}
+                      {trigger.showAdvanced && (
+                        <div className="space-y-4 pl-6 border-l-2 border-gray-200 dark:border-gray-700">
+                          {/* Environment Variables */}
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                環境変数
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => addKeyValuePair(index, 'environment')}
+                                className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                                追加
+                              </button>
+                            </div>
+                            {Object.entries(trigger.environment).length > 0 ? (
+                              <div className="space-y-2">
+                                {Object.entries(trigger.environment).map(([key, value]) => (
+                                  <div key={key} className="flex flex-col sm:flex-row gap-2">
+                                    <input
+                                      type="text"
+                                      value={key}
+                                      onChange={(e) => updateKeyValuePair(index, 'environment', key, e.target.value, value)}
+                                      placeholder="KEY"
+                                      className="w-full sm:w-1/3 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono dark:bg-gray-700 dark:text-white"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={value}
+                                      onChange={(e) => updateKeyValuePair(index, 'environment', key, key, e.target.value)}
+                                      placeholder="value (テンプレート可)"
+                                      className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono dark:bg-gray-700 dark:text-white"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => removeKeyValuePair(index, 'environment', key)}
+                                      className="text-red-500 hover:text-red-700 px-2 self-start sm:self-center"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                環境変数は設定されていません
+                              </p>
+                            )}
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              値にGoテンプレート構文を使用できます。例: {'{{.pull_request.number}}'}
+                            </p>
+                          </div>
+
+                          {/* Tags */}
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                タグ
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => addKeyValuePair(index, 'tags')}
+                                className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                                追加
+                              </button>
+                            </div>
+                            {Object.entries(trigger.tags).length > 0 ? (
+                              <div className="space-y-2">
+                                {Object.entries(trigger.tags).map(([key, value]) => (
+                                  <div key={key} className="flex flex-col sm:flex-row gap-2">
+                                    <input
+                                      type="text"
+                                      value={key}
+                                      onChange={(e) => updateKeyValuePair(index, 'tags', key, e.target.value, value)}
+                                      placeholder="key"
+                                      className="w-full sm:w-1/3 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono dark:bg-gray-700 dark:text-white"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={value}
+                                      onChange={(e) => updateKeyValuePair(index, 'tags', key, key, e.target.value)}
+                                      placeholder="value (テンプレート可)"
+                                      className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono dark:bg-gray-700 dark:text-white"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => removeKeyValuePair(index, 'tags', key)}
+                                      className="text-red-500 hover:text-red-700 px-2 self-start sm:self-center"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                タグは設定されていません
+                              </p>
+                            )}
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              値にGoテンプレート構文を使用できます。例: {'{{.pull_request.number}}'}
+                            </p>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Reuse Session Toggle */}
                       <div className="flex items-center gap-2">

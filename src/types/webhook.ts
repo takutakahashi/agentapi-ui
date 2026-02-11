@@ -31,6 +31,13 @@ export interface TriggerConditions {
   go_template?: string;
 }
 
+// Session parameters for webhook triggers
+export interface SessionParams {
+  message?: string;
+  github_token?: string;
+  agent_type?: string;
+}
+
 // Session configuration for webhook triggers
 export interface WebhookSessionConfig {
   environment?: Record<string, string>;
@@ -39,10 +46,7 @@ export interface WebhookSessionConfig {
   reuse_message_template?: string;
   reuse_session?: boolean;
   mount_payload?: boolean;
-  params?: {
-    github_token?: string;
-    [key: string]: unknown;
-  };
+  params?: SessionParams;
 }
 
 // Webhook trigger
