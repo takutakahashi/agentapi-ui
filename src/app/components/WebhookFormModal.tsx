@@ -885,13 +885,13 @@ export default function WebhookFormModal({
                         {Object.entries(trigger.environment).length > 0 ? (
                           <div className="space-y-2">
                             {Object.entries(trigger.environment).map(([key, value]) => (
-                              <div key={key} className="flex gap-2">
+                              <div key={key} className="flex flex-col sm:flex-row gap-2">
                                 <input
                                   type="text"
                                   value={key}
                                   onChange={(e) => updateKeyValuePair(index, 'environment', key, e.target.value, value)}
                                   placeholder="KEY"
-                                  className="w-1/3 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono dark:bg-gray-700 dark:text-white"
+                                  className="w-full sm:w-1/3 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono dark:bg-gray-700 dark:text-white"
                                 />
                                 <input
                                   type="text"
@@ -903,7 +903,7 @@ export default function WebhookFormModal({
                                 <button
                                   type="button"
                                   onClick={() => removeKeyValuePair(index, 'environment', key)}
-                                  className="text-red-500 hover:text-red-700 px-2"
+                                  className="text-red-500 hover:text-red-700 px-2 self-start sm:self-center"
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -942,13 +942,13 @@ export default function WebhookFormModal({
                         {Object.entries(trigger.tags).length > 0 ? (
                           <div className="space-y-2">
                             {Object.entries(trigger.tags).map(([key, value]) => (
-                              <div key={key} className="flex gap-2">
+                              <div key={key} className="flex flex-col sm:flex-row gap-2">
                                 <input
                                   type="text"
                                   value={key}
                                   onChange={(e) => updateKeyValuePair(index, 'tags', key, e.target.value, value)}
                                   placeholder="key"
-                                  className="w-1/3 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono dark:bg-gray-700 dark:text-white"
+                                  className="w-full sm:w-1/3 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono dark:bg-gray-700 dark:text-white"
                                 />
                                 <input
                                   type="text"
@@ -960,7 +960,7 @@ export default function WebhookFormModal({
                                 <button
                                   type="button"
                                   onClick={() => removeKeyValuePair(index, 'tags', key)}
-                                  className="text-red-500 hover:text-red-700 px-2"
+                                  className="text-red-500 hover:text-red-700 px-2 self-start sm:self-center"
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
