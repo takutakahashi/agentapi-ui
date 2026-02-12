@@ -34,6 +34,7 @@ interface TriggerFormData {
   reuseMessageTemplate?: string
   reuseSession: boolean
   mountPayload: boolean
+  oneshot: boolean
   goTemplate?: string
   environment: Record<string, string>
   tags: Record<string, string>
@@ -50,6 +51,7 @@ const emptyTrigger: TriggerFormData = {
   reuseMessageTemplate: '',
   reuseSession: false,
   mountPayload: false,
+  oneshot: false,
   goTemplate: '',
   environment: {},
   tags: {},
@@ -102,6 +104,7 @@ export default function WebhookFormModal({
             reuseMessageTemplate: t.session_config?.reuse_message_template || '',
             reuseSession: t.session_config?.reuse_session ?? false,
             mountPayload: t.session_config?.mount_payload ?? false,
+            oneshot: t.session_config?.params?.oneshot ?? false,
             goTemplate: t.conditions.go_template || '',
             environment: t.session_config?.environment || {},
             tags: t.session_config?.tags || {},
@@ -364,6 +367,13 @@ export default function WebhookFormModal({
         if (Object.keys(t.tags).length > 0) {
           session_config.tags = t.tags
         }
+
+        // Build params
+        if (!session_config.params) {
+          session_config.params = {}
+        }
+        // Always set oneshot explicitly (true or false)
+        session_config.params.oneshot = t.oneshot
 
         return {
           id: t.id,
@@ -1015,6 +1025,23 @@ export default function WebhookFormModal({
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400 -mt-3 ml-6">
                         有効にすると、Webhookペイロードが /opt/webhook/payload.json としてセッションコンテナにマウントされます
+                      </p>
+
+                      {/* Oneshot Toggle */}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`trigger-oneshot-${index}`}
+                          checked={trigger.oneshot}
+                          onChange={(e) => updateTrigger(index, 'oneshot', e.target.checked)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <label htmlFor={`trigger-oneshot-${index}`} className="text-sm text-gray-700 dark:text-gray-300">
+                          ワンショットセッション
+                        </label>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 -mt-3 ml-6">
+                        有効にすると、セッション終了後に自動的に削除されます
                       </p>
 
                       {/* Reuse Message Template */}
