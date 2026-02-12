@@ -104,7 +104,7 @@ export default function WebhookFormModal({
             reuseMessageTemplate: t.session_config?.reuse_message_template || '',
             reuseSession: t.session_config?.reuse_session ?? false,
             mountPayload: t.session_config?.mount_payload ?? false,
-            oneshot: t.session_config?.oneshot ?? false,
+            oneshot: t.session_config?.params?.oneshot ?? false,
             goTemplate: t.conditions.go_template || '',
             environment: t.session_config?.environment || {},
             tags: t.session_config?.tags || {},
@@ -357,8 +357,6 @@ export default function WebhookFormModal({
         session_config.reuse_session = t.reuseSession
         // Always set mount_payload explicitly (true or false)
         session_config.mount_payload = t.mountPayload
-        // Always set oneshot explicitly (true or false)
-        session_config.oneshot = t.oneshot
 
         // Add environment variables if present
         if (Object.keys(t.environment).length > 0) {
@@ -369,6 +367,13 @@ export default function WebhookFormModal({
         if (Object.keys(t.tags).length > 0) {
           session_config.tags = t.tags
         }
+
+        // Build params
+        if (!session_config.params) {
+          session_config.params = {}
+        }
+        // Always set oneshot explicitly (true or false)
+        session_config.params.oneshot = t.oneshot
 
         return {
           id: t.id,

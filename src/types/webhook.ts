@@ -36,6 +36,7 @@ export interface SessionParams {
   message?: string;
   github_token?: string;
   agent_type?: string;
+  oneshot?: boolean;
 }
 
 // Session configuration for webhook triggers
@@ -46,7 +47,6 @@ export interface WebhookSessionConfig {
   reuse_message_template?: string;
   reuse_session?: boolean;
   mount_payload?: boolean;
-  oneshot?: boolean;
   params?: SessionParams;
 }
 
