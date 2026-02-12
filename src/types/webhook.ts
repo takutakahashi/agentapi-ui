@@ -46,6 +46,7 @@ export interface WebhookSessionConfig {
   reuse_message_template?: string;
   reuse_session?: boolean;
   mount_payload?: boolean;
+  oneshot?: boolean;
   params?: SessionParams;
 }
 
