@@ -6,28 +6,11 @@ import { Webhook } from '../../../types/webhook'
 import { createAgentAPIProxyClientFromStorage } from '../../../lib/agentapi-proxy-client'
 import TopBar from '../../components/TopBar'
 import NavigationTabs from '../../components/NavigationTabs'
-import WebhookStatusBadge from '../../components/WebhookStatusBadge'
 import WebhookTriggerTest from '../../components/WebhookTriggerTest'
 import LoadingSpinner from '../../components/LoadingSpinner'
 
 interface WebhookDetailPageProps {
   params: Promise<{ id: string }>
-}
-
-function formatDateTime(isoString?: string): string {
-  if (!isoString) return '-'
-  try {
-    const date = new Date(isoString)
-    return date.toLocaleString('ja-JP', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  } catch {
-    return isoString
-  }
 }
 
 export default function WebhookDetailPage({ params }: WebhookDetailPageProps) {
@@ -107,7 +90,7 @@ export default function WebhookDetailPage({ params }: WebhookDetailPageProps) {
         {/* Back Button */}
         <button
           onClick={handleBack}
-          className="mb-4 flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+          className="mb-6 flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
         >
           <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -115,27 +98,8 @@ export default function WebhookDetailPage({ params }: WebhookDetailPageProps) {
           Back to Webhooks
         </button>
 
-        <div className="space-y-6">
-          {/* Basic Info */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                  {webhook.name}
-                </h1>
-                <div className="flex items-center gap-2">
-                  <WebhookStatusBadge status={webhook.status} />
-                  <span className="px-2 py-1 text-xs font-medium rounded bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
-                    {webhook.type}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Trigger Test */}
-          <WebhookTriggerTest webhook={webhook} />
-        </div>
+        {/* Trigger Test */}
+        <WebhookTriggerTest webhook={webhook} />
       </div>
     </main>
   )
