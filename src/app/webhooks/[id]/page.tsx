@@ -92,7 +92,7 @@ export default function WebhookDetailPage({ params }: WebhookDetailPageProps) {
           </div>
         </TopBar>
         <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
-          <LoadingSpinner size="large" />
+          <LoadingSpinner />
         </div>
       </main>
     )
