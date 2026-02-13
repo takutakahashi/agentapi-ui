@@ -192,3 +192,29 @@ export const GITHUB_ACTIONS = {
     { label: 'Released', value: 'released' },
   ],
 };
+
+// Trigger webhook request
+export interface TriggerWebhookRequest {
+  payload: Record<string, unknown>;
+  event?: string;
+  dry_run?: boolean;
+}
+
+// Matched trigger info
+export interface TriggerMatchedTriggerInfo {
+  id: string;
+  name: string;
+}
+
+// Trigger webhook response
+export interface TriggerWebhookResponse {
+  matched: boolean;
+  matched_trigger?: TriggerMatchedTriggerInfo;
+  session_id?: string;
+  session_reused?: boolean;
+  dry_run: boolean;
+  initial_message?: string;
+  tags?: Record<string, string>;
+  environment?: Record<string, string>;
+  error?: string;
+}
