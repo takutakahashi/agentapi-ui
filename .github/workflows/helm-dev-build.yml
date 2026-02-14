@@ -138,7 +138,7 @@ jobs:
           BASE_VERSION="${BASE_VERSION#v}"
 
           SUFFIX="${{ inputs.chart_version_suffix || '-dev' }}"
-          CHART_VERSION="${BASE_VERSION}${SUFFIX}.${{ steps.commit.outputs.sha }}"
+          CHART_VERSION="${BASE_VERSION}${SUFFIX}.sha${{ steps.commit.outputs.sha }}"
 
           # Generate image tag (use full SHA to match docker-dev.yaml format)
           if [ "${{ needs.build-image.outputs.image_tag }}" != "" ]; then
