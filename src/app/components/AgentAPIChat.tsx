@@ -477,19 +477,23 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     if (!isConnected || !sessionId || !agentAPIRef.current) return;
 
     try {
-      // Get the latest message ID for polling new messages only
+      // Get the latest message ID for polling new messages only (claude agent only)
       const latestMessage = messages[messages.length - 1];
       const latestMessageId = latestMessage && typeof latestMessage.id === 'number' ? latestMessage.id : undefined;
 
       // Poll messages, status, and pending actions
+      // For claude agents: fetch only new messages using 'after' parameter
+      // For other agents: always fetch all messages to ensure timeline is updated
       const [sessionMessagesResponse, sessionStatus, pendingActions] = await Promise.all([
-        agentAPIRef.current.getSessionMessages(sessionId, latestMessageId !== undefined ? {
-          after: latestMessageId, // Get messages with ID > latestMessageId (newer messages)
-          limit: 50
-        } : {
-          limit: 50,
-          direction: 'tail' // If no messages yet, get latest 50
-        }),
+        agentAPIRef.current.getSessionMessages(sessionId,
+          agentType === 'claude' && latestMessageId !== undefined ? {
+            after: latestMessageId, // Get messages with ID > latestMessageId (newer messages)
+            limit: 50
+          } : {
+            limit: 50,
+            direction: 'tail' // Get latest 50 messages
+          }
+        ),
         agentAPIRef.current.getSessionStatus(sessionId),
         agentAPIRef.current.getPendingActions(sessionId)
       ]);
@@ -503,16 +507,22 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       // Use SessionMessage directly for display
       const newMessages = sessionMessagesResponse?.messages || [];
 
-      // Filter out messages we already have and append only truly new ones
+      // Handle message updates based on agent type
       if (newMessages.length > 0) {
-        setMessages(prevMessages => {
-          const existingIds = new Set(prevMessages.map(m => m.id));
-          const trulyNewMessages = newMessages.filter(m => !existingIds.has(m.id));
+        if (agentType === 'claude') {
+          // For claude agents: filter and append only truly new messages
+          setMessages(prevMessages => {
+            const existingIds = new Set(prevMessages.map(m => m.id));
+            const trulyNewMessages = newMessages.filter(m => !existingIds.has(m.id));
 
-          if (trulyNewMessages.length === 0) return prevMessages;
+            if (trulyNewMessages.length === 0) return prevMessages;
 
-          return [...prevMessages, ...trulyNewMessages];
-        });
+            return [...prevMessages, ...trulyNewMessages];
+          });
+        } else {
+          // For other agents: always update with all messages to reflect timeline changes
+          setMessages(newMessages);
+        }
       }
 
       // Handle pending actions
@@ -534,7 +544,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         setError(`Failed to update messages: ${err.message}`);
       }
     }
-  }, [isConnected, sessionId, pendingAction, messages]); // agentAPIを依存配列から除去
+  }, [isConnected, sessionId, pendingAction, messages, agentType]); // agentAPIを依存配列から除去
 
   const handleAnswerSubmit = useCallback(async (answers: Record<string, string | string[]>) => {
     if (!sessionId || !agentAPIRef.current || !pendingAction) return;
