@@ -31,7 +31,9 @@ import {
   WebhookListResponse,
   CreateWebhookRequest,
   UpdateWebhookRequest,
-  RegenerateSecretResponse
+  RegenerateSecretResponse,
+  TriggerWebhookRequest,
+  TriggerWebhookResponse
 } from '../types/webhook';
 import {
   CreateShareResponse,
@@ -1055,6 +1057,26 @@ export class AgentAPIProxyClient {
 
     if (this.debug) {
       console.log(`[AgentAPIProxy] Regenerated secret for webhook ${webhookId}`);
+    }
+
+    return result;
+  }
+
+  /**
+   * Trigger a webhook with a test payload
+   */
+  async triggerWebhook(webhookId: string, data: TriggerWebhookRequest): Promise<TriggerWebhookResponse> {
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Triggering webhook ${webhookId} with payload:`, data);
+    }
+
+    const result = await this.makeRequest<TriggerWebhookResponse>(`/webhooks/${webhookId}/trigger`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Webhook ${webhookId} trigger result:`, result);
     }
 
     return result;
