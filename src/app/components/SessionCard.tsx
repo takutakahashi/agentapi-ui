@@ -11,9 +11,11 @@ interface SessionCardProps {
   session: Session
   onDelete?: (sessionId: string) => Promise<void>
   isDeleting?: boolean
+  isSelected?: boolean
+  onToggleSelect?: (sessionId: string) => void
 }
 
-export default function SessionCard({ session, onDelete, isDeleting }: SessionCardProps) {
+export default function SessionCard({ session, onDelete, isDeleting, isSelected, onToggleSelect }: SessionCardProps) {
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -43,10 +45,24 @@ export default function SessionCard({ session, onDelete, isDeleting }: SessionCa
 
   return (
     <div
-      className="border-b border-gray-200 dark:border-gray-700 px-3 py-4 sm:px-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+      className={`border-b border-gray-200 dark:border-gray-700 px-3 py-4 sm:px-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
       style={isOld ? { filter: 'grayscale(50%)', opacity: 0.7 } : {}}
     >
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
+      <div className="flex gap-3">
+        {/* チェックボックス */}
+        {onToggleSelect && (
+          <div className="flex-shrink-0 pt-1">
+            <input
+              type="checkbox"
+              checked={isSelected ?? false}
+              onChange={() => onToggleSelect(session.session_id)}
+              onClick={(e) => e.stopPropagation()}
+              className="w-4 h-4 accent-blue-600 cursor-pointer"
+              aria-label={`セッション ${session.session_id.substring(0, 8)} を選択`}
+            />
+          </div>
+        )}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0 flex-1 min-w-0">
         <div className="flex-1 min-w-0">
           {/* タイトルとステータス */}
           <div className="flex items-start gap-3 mb-2">
@@ -145,6 +161,7 @@ export default function SessionCard({ session, onDelete, isDeleting }: SessionCa
             </button>
           )}
         </div>
+      </div>
       </div>
     </div>
   )

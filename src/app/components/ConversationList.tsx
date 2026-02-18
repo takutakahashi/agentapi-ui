@@ -49,6 +49,8 @@ export default function ConversationList() {
   const [quickStartMessage, setQuickStartMessage] = useState('')
   const [isCreatingQuickSession, setIsCreatingQuickSession] = useState(false)
   const [deletingSession, setDeletingSession] = useState<string | null>(null)
+  const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set())
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
   const [sidebarVisible, setSidebarVisible] = useState(false)
   const [sortBy, setSortBy] = useState<SortField>(() => {
     if (typeof window !== 'undefined') {
@@ -208,7 +210,7 @@ export default function ConversationList() {
 
     try {
       setDeletingSession(sessionId)
-      
+
       await agentAPI.delete(sessionId)
 
       // セッション一覧を更新
@@ -218,6 +220,47 @@ export default function ConversationList() {
       setError('セッションの削除に失敗しました')
     } finally {
       setDeletingSession(null)
+    }
+  }
+
+  const toggleSessionSelection = (sessionId: string) => {
+    setSelectedSessions(prev => {
+      const next = new Set(prev)
+      if (next.has(sessionId)) {
+        next.delete(sessionId)
+      } else {
+        next.add(sessionId)
+      }
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedSessions.size === paginatedSessions.length && paginatedSessions.length > 0) {
+      setSelectedSessions(new Set())
+    } else {
+      setSelectedSessions(new Set(paginatedSessions.map(s => s.session_id)))
+    }
+  }
+
+  const deleteSelectedSessions = async () => {
+    const count = selectedSessions.size
+    if (count === 0) return
+    if (!confirm(`${count}件のセッションを削除してもよろしいですか？`)) return
+
+    try {
+      setIsBulkDeleting(true)
+      setError(null)
+
+      await agentAPI.deleteBatch(Array.from(selectedSessions))
+
+      setSelectedSessions(new Set())
+      fetchSessions()
+    } catch (err) {
+      console.error('Failed to bulk delete sessions:', err)
+      setError('セッションの一括削除に失敗しました')
+    } finally {
+      setIsBulkDeleting(false)
     }
   }
 
@@ -312,10 +355,65 @@ export default function ConversationList() {
         </button>
       </div>
 
+        {/* 一括操作バー */}
+        {selectedSessions.size > 0 && (
+          <div className="flex items-center justify-between gap-3 px-4 py-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                {selectedSessions.size}件選択中
+              </span>
+              <button
+                onClick={() => setSelectedSessions(new Set())}
+                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline"
+              >
+                選択解除
+              </button>
+            </div>
+            <button
+              onClick={deleteSelectedSessions}
+              disabled={isBulkDeleting}
+              className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
+            >
+              {isBulkDeleting ? (
+                <>
+                  <svg className="animate-spin w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  削除中...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  選択したセッションを削除
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
         {/* Filter Summary Bar */}
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={paginatedSessions.length > 0 && selectedSessions.size === paginatedSessions.length}
+                  ref={(el) => {
+                    if (el) {
+                      el.indeterminate = selectedSessions.size > 0 && selectedSessions.size < paginatedSessions.length
+                    }
+                  }}
+                  onChange={toggleSelectAll}
+                  className="w-4 h-4 accent-blue-600 cursor-pointer"
+                  aria-label="全て選択"
+                />
+                <span className="text-xs text-gray-500 dark:text-gray-400">全て選択</span>
+              </label>
+
               <button
                 onClick={() => setSidebarVisible(!sidebarVisible)}
                 className="inline-flex items-center px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
@@ -405,11 +503,13 @@ export default function ConversationList() {
           ) : (
             <div>
               {paginatedSessions.map((session) => (
-                <SessionCard 
-                  key={session.session_id} 
-                  session={session} 
+                <SessionCard
+                  key={session.session_id}
+                  session={session}
                   onDelete={deleteSession}
                   isDeleting={deletingSession === session.session_id}
+                  isSelected={selectedSessions.has(session.session_id)}
+                  onToggleSelect={toggleSessionSelection}
                 />
               ))}
 

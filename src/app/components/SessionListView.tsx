@@ -42,6 +42,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   const [deletingSession, setDeletingSession] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [sessionAgentStatus, setSessionAgentStatus] = useState<{ [sessionId: string]: AgentStatus }>({})
+  const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set())
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+
   const [sortBy, setSortBy] = useState<'started_at' | 'updated_at'>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem('sessionListSortBy') as 'started_at' | 'updated_at') || 'updated_at'
@@ -373,6 +376,52 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     }
   }
 
+  const toggleSessionSelection = (sessionId: string) => {
+    setSelectedSessions(prev => {
+      const next = new Set(prev)
+      if (next.has(sessionId)) {
+        next.delete(sessionId)
+      } else {
+        next.add(sessionId)
+      }
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedSessions.size === paginatedSessions.length && paginatedSessions.length > 0) {
+      setSelectedSessions(new Set())
+    } else {
+      setSelectedSessions(new Set(paginatedSessions.map(s => s.session_id)))
+    }
+  }
+
+  const deleteSelectedSessions = async () => {
+    const count = selectedSessions.size
+    if (count === 0) return
+    if (!confirm(`${count}件のセッションを削除してもよろしいですか？`)) return
+
+    try {
+      setIsBulkDeleting(true)
+      setError(null)
+      setSuccess(null)
+
+      await agentAPI.deleteBatch!(Array.from(selectedSessions))
+
+      setSelectedSessions(new Set())
+      fetchSessions()
+      onSessionsUpdate()
+
+      setSuccess(`${count}件のセッションを削除しました`)
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      console.error('Failed to bulk delete sessions:', err)
+      setError('セッションの一括削除に失敗しました')
+    } finally {
+      setIsBulkDeleting(false)
+    }
+  }
+
 
   const getStatusText = (status: CreatingSession['status']) => {
     switch (status) {
@@ -495,9 +544,11 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       )}
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-        <h3 className="hidden sm:block text-lg font-medium text-gray-900 dark:text-white">
-          セッション一覧 ({filteredSessions.length + creatingSessions.length})
-        </h3>
+        <div className="flex items-center gap-3">
+          <h3 className="hidden sm:block text-lg font-medium text-gray-900 dark:text-white">
+            セッション一覧 ({filteredSessions.length + creatingSessions.length})
+          </h3>
+        </div>
         <div className="flex items-center gap-2">
           {/* ソート機能 */}
           <select
@@ -536,6 +587,45 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
           </button>
         </div>
       </div>
+
+      {/* 一括操作バー */}
+      {selectedSessions.size > 0 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+              {selectedSessions.size}件選択中
+            </span>
+            <button
+              onClick={() => setSelectedSessions(new Set())}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline"
+            >
+              選択解除
+            </button>
+          </div>
+          <button
+            onClick={deleteSelectedSessions}
+            disabled={isBulkDeleting}
+            className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
+          >
+            {isBulkDeleting ? (
+              <>
+                <svg className="animate-spin w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                削除中...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                選択したセッションを削除
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* 作成中セッション */}
       {creatingSessions.length > 0 && (
@@ -687,6 +777,24 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
           {filteredSessions.length > 0 && (
             <div>
               <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
+                {/* 全選択ヘッダー行 */}
+                <div className="px-3 py-2 sm:px-4 bg-gray-50 dark:bg-gray-800/50 flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={paginatedSessions.length > 0 && selectedSessions.size === paginatedSessions.length}
+                    ref={(el) => {
+                      if (el) {
+                        el.indeterminate = selectedSessions.size > 0 && selectedSessions.size < paginatedSessions.length
+                      }
+                    }}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 accent-blue-600 cursor-pointer"
+                    aria-label="全て選択"
+                  />
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {selectedSessions.size > 0 ? `${selectedSessions.size}件選択中` : '全て選択'}
+                  </span>
+                </div>
                 {paginatedSessions.map((session) => {
                   const isNew = isNewSession(session.started_at)
                   const agentStatusInfo = getAgentStatusForSession(session)
@@ -705,7 +813,19 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                     }`}
                     style={isOld ? { filter: 'grayscale(50%)', opacity: 0.7 } : {}}
                   >
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
+                    <div className="flex gap-3">
+                      {/* チェックボックス */}
+                      <div className="flex-shrink-0 pt-1">
+                        <input
+                          type="checkbox"
+                          checked={selectedSessions.has(session.session_id)}
+                          onChange={() => toggleSessionSelection(session.session_id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-4 h-4 accent-blue-600 cursor-pointer"
+                          aria-label={`セッション ${session.session_id.substring(0, 8)} を選択`}
+                        />
+                      </div>
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0 flex-1 min-w-0">
                       <div className="flex-1 min-w-0">
                         {/* タイトルとステータス */}
                         <div className="flex items-start gap-3 mb-2">
@@ -885,6 +1005,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                           <span className="hidden sm:inline">{deletingSession === session.session_id ? '削除中...' : '削除'}</span>
                         </button>
                       </div>
+                    </div>
                     </div>
                   </div>
                   )
