@@ -49,6 +49,9 @@ export default function ConversationList() {
   const [quickStartMessage, setQuickStartMessage] = useState('')
   const [isCreatingQuickSession, setIsCreatingQuickSession] = useState(false)
   const [deletingSession, setDeletingSession] = useState<string | null>(null)
+  const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set())
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const [isSelectionMode, setIsSelectionMode] = useState(false)
   const [sidebarVisible, setSidebarVisible] = useState(false)
   const [sortBy, setSortBy] = useState<SortField>(() => {
     if (typeof window !== 'undefined') {
@@ -208,7 +211,7 @@ export default function ConversationList() {
 
     try {
       setDeletingSession(sessionId)
-      
+
       await agentAPI.delete(sessionId)
 
       // セッション一覧を更新
@@ -218,6 +221,47 @@ export default function ConversationList() {
       setError('セッションの削除に失敗しました')
     } finally {
       setDeletingSession(null)
+    }
+  }
+
+  const toggleSessionSelection = (sessionId: string) => {
+    setSelectedSessions(prev => {
+      const next = new Set(prev)
+      if (next.has(sessionId)) {
+        next.delete(sessionId)
+      } else {
+        next.add(sessionId)
+      }
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedSessions.size === paginatedSessions.length && paginatedSessions.length > 0) {
+      setSelectedSessions(new Set())
+    } else {
+      setSelectedSessions(new Set(paginatedSessions.map(s => s.session_id)))
+    }
+  }
+
+  const deleteSelectedSessions = async () => {
+    const count = selectedSessions.size
+    if (count === 0) return
+    if (!confirm(`${count}件のセッションを削除してもよろしいですか？`)) return
+
+    try {
+      setIsBulkDeleting(true)
+      setError(null)
+
+      await agentAPI.deleteBatch(Array.from(selectedSessions))
+
+      setSelectedSessions(new Set())
+      fetchSessions()
+    } catch (err) {
+      console.error('Failed to bulk delete sessions:', err)
+      setError('セッションの一括削除に失敗しました')
+    } finally {
+      setIsBulkDeleting(false)
     }
   }
 
@@ -312,10 +356,62 @@ export default function ConversationList() {
         </button>
       </div>
 
+        {/* フローティング一括操作バー */}
+        <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-full shadow-2xl transition-all duration-300 ${selectedSessions.size > 0 ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
+          <span className="text-sm font-semibold tabular-nums whitespace-nowrap">{selectedSessions.size}件選択中</span>
+          <div className="w-px h-4 bg-gray-600 dark:bg-gray-400" />
+          <button
+            onClick={() => setSelectedSessions(new Set())}
+            className="text-sm font-medium text-gray-300 dark:text-gray-600 hover:text-white dark:hover:text-gray-900 transition-colors whitespace-nowrap"
+          >
+            選択解除
+          </button>
+          <button
+            onClick={deleteSelectedSessions}
+            disabled={isBulkDeleting}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-full transition-colors whitespace-nowrap"
+          >
+            {isBulkDeleting ? (
+              <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : (
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            )}
+            {isBulkDeleting ? '削除中...' : '削除'}
+          </button>
+        </div>
+
         {/* Filter Summary Bar */}
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
+              <button
+                onClick={toggleSelectAll}
+                className="flex items-center gap-2.5 cursor-pointer select-none group/selectall"
+                aria-label="全て選択"
+              >
+                <span className={`flex-shrink-0 flex w-4 h-4 rounded border-2 items-center justify-center transition-colors duration-150 group-hover/selectall:border-blue-400 ${
+                  selectedSessions.size > 0
+                    ? 'bg-blue-600 border-blue-600'
+                    : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600'
+                }`}>
+                  {selectedSessions.size > 0 && selectedSessions.size < paginatedSessions.length ? (
+                    <span className="block w-2 h-0.5 bg-white rounded-full" />
+                  ) : selectedSessions.size > 0 ? (
+                    <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : null}
+                </span>
+                <span className={`text-xs font-medium transition-colors duration-150 ${selectedSessions.size > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 group-hover/selectall:text-gray-700 dark:group-hover/selectall:text-gray-300'}`}>
+                  全て選択
+                </span>
+              </button>
+
               <button
                 onClick={() => setSidebarVisible(!sidebarVisible)}
                 className="inline-flex items-center px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
@@ -335,6 +431,28 @@ export default function ConversationList() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* 選択モードトグルボタン */}
+              <button
+                onClick={() => {
+                  setIsSelectionMode(prev => {
+                    if (prev) setSelectedSessions(new Set())
+                    return !prev
+                  })
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors font-medium ${
+                  isSelectionMode
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 dark:bg-blue-900/30 dark:border-blue-500 dark:text-blue-300'
+                    : 'bg-gray-50 border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                title="複数選択モード"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <rect x="3" y="3" width="18" height="18" rx="2" strokeWidth="2" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4" />
+                </svg>
+                選択
+              </button>
+              <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
               {/* Sort Controls */}
               <select
                 value={sortBy}
@@ -405,11 +523,14 @@ export default function ConversationList() {
           ) : (
             <div>
               {paginatedSessions.map((session) => (
-                <SessionCard 
-                  key={session.session_id} 
-                  session={session} 
+                <SessionCard
+                  key={session.session_id}
+                  session={session}
                   onDelete={deleteSession}
                   isDeleting={deletingSession === session.session_id}
+                  isSelected={selectedSessions.has(session.session_id)}
+                  onToggleSelect={toggleSessionSelection}
+                  isSelectionMode={isSelectionMode}
                 />
               ))}
 

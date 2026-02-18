@@ -11,9 +11,12 @@ interface SessionCardProps {
   session: Session
   onDelete?: (sessionId: string) => Promise<void>
   isDeleting?: boolean
+  isSelected?: boolean
+  onToggleSelect?: (sessionId: string) => void
+  isSelectionMode?: boolean
 }
 
-export default function SessionCard({ session, onDelete, isDeleting }: SessionCardProps) {
+export default function SessionCard({ session, onDelete, isDeleting, isSelected, onToggleSelect, isSelectionMode }: SessionCardProps) {
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -43,10 +46,40 @@ export default function SessionCard({ session, onDelete, isDeleting }: SessionCa
 
   return (
     <div
-      className="border-b border-gray-200 dark:border-gray-700 px-3 py-4 sm:px-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+      onClick={isSelectionMode && onToggleSelect ? () => onToggleSelect(session.session_id) : undefined}
+      className={`group border-b border-gray-200 dark:border-gray-700 px-3 py-4 sm:px-4 transition-colors duration-150 ${
+        isSelectionMode ? 'cursor-pointer' : ''
+      } ${
+        isSelected
+          ? 'bg-blue-50 dark:bg-blue-900/20 border-l-2 border-l-blue-500'
+          : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
+      }`}
       style={isOld ? { filter: 'grayscale(50%)', opacity: 0.7 } : {}}
     >
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
+      <div className="flex gap-3">
+        {/* カスタムチェックボックス（ホバー時 or 選択時に表示） */}
+        {onToggleSelect && (
+          <div className="flex-shrink-0 pt-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleSelect(session.session_id) }}
+              aria-label={`セッション ${session.session_id.substring(0, 8)} を選択`}
+              className={`flex w-4 h-4 rounded border-2 items-center justify-center transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+                isSelected
+                  ? 'bg-blue-600 border-blue-600 opacity-100'
+                  : isSelectionMode
+                  ? 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-blue-400 opacity-100'
+                  : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-blue-400 opacity-0 group-hover:opacity-100'
+              }`}
+            >
+              {isSelected && (
+                <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </button>
+          </div>
+        )}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0 flex-1 min-w-0">
         <div className="flex-1 min-w-0">
           {/* タイトルとステータス */}
           <div className="flex items-start gap-3 mb-2">
@@ -99,7 +132,7 @@ export default function SessionCard({ session, onDelete, isDeleting }: SessionCa
         </div>
 
         {/* アクションボタン - モバイルでは横並び */}
-        <div className="flex flex-row sm:flex-row items-center space-x-2 sm:space-x-2 sm:ml-4">
+        <div className="flex flex-row sm:flex-row items-center space-x-2 sm:space-x-2 sm:ml-4" onClick={(e) => e.stopPropagation()}>
           {session.status === 'active' && (
             <Link
               href={`/sessions/${session.session_id}`}
@@ -145,6 +178,7 @@ export default function SessionCard({ session, onDelete, isDeleting }: SessionCa
             </button>
           )}
         </div>
+      </div>
       </div>
     </div>
   )
