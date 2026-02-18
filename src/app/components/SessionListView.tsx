@@ -531,6 +531,35 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
 
   return (
     <div className="space-y-4">
+      {/* フローティング一括操作バー */}
+      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-full shadow-2xl transition-all duration-300 ${selectedSessions.size > 0 ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
+        <span className="text-sm font-semibold tabular-nums whitespace-nowrap">{selectedSessions.size}件選択中</span>
+        <div className="w-px h-4 bg-gray-600 dark:bg-gray-400" />
+        <button
+          onClick={() => setSelectedSessions(new Set())}
+          className="text-sm font-medium text-gray-300 dark:text-gray-600 hover:text-white dark:hover:text-gray-900 transition-colors whitespace-nowrap"
+        >
+          選択解除
+        </button>
+        <button
+          onClick={deleteSelectedSessions}
+          disabled={isBulkDeleting}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-full transition-colors whitespace-nowrap"
+        >
+          {isBulkDeleting ? (
+            <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          )}
+          {isBulkDeleting ? '削除中...' : '削除'}
+        </button>
+      </div>
+
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
@@ -587,45 +616,6 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
           </button>
         </div>
       </div>
-
-      {/* 一括操作バー */}
-      {selectedSessions.size > 0 && (
-        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-              {selectedSessions.size}件選択中
-            </span>
-            <button
-              onClick={() => setSelectedSessions(new Set())}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline"
-            >
-              選択解除
-            </button>
-          </div>
-          <button
-            onClick={deleteSelectedSessions}
-            disabled={isBulkDeleting}
-            className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
-          >
-            {isBulkDeleting ? (
-              <>
-                <svg className="animate-spin w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                削除中...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                選択したセッションを削除
-              </>
-            )}
-          </button>
-        </div>
-      )}
 
       {/* 作成中セッション */}
       {creatingSessions.length > 0 && (
@@ -778,22 +768,30 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
             <div>
               <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
                 {/* 全選択ヘッダー行 */}
-                <div className="px-3 py-2 sm:px-4 bg-gray-50 dark:bg-gray-800/50 flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={paginatedSessions.length > 0 && selectedSessions.size === paginatedSessions.length}
-                    ref={(el) => {
-                      if (el) {
-                        el.indeterminate = selectedSessions.size > 0 && selectedSessions.size < paginatedSessions.length
-                      }
-                    }}
-                    onChange={toggleSelectAll}
-                    className="w-4 h-4 accent-blue-600 cursor-pointer"
+                <div className={`px-3 py-2 sm:px-4 flex items-center gap-3 transition-colors duration-150 ${selectedSessions.size > 0 ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-gray-50 dark:bg-gray-800/50'}`}>
+                  <button
+                    onClick={toggleSelectAll}
+                    className="flex items-center gap-2.5 cursor-pointer select-none group"
                     aria-label="全て選択"
-                  />
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {selectedSessions.size > 0 ? `${selectedSessions.size}件選択中` : '全て選択'}
-                  </span>
+                  >
+                    {/* カスタムチェックボックス */}
+                    <span className={`flex-shrink-0 flex w-4 h-4 rounded border-2 items-center justify-center transition-colors duration-150 group-hover:border-blue-400 ${
+                      selectedSessions.size > 0
+                        ? 'bg-blue-600 border-blue-600'
+                        : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600'
+                    }`}>
+                      {selectedSessions.size > 0 && selectedSessions.size < paginatedSessions.length ? (
+                        <span className="block w-2 h-0.5 bg-white rounded-full" />
+                      ) : selectedSessions.size > 0 ? (
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : null}
+                    </span>
+                    <span className={`text-xs font-medium transition-colors duration-150 ${selectedSessions.size > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300'}`}>
+                      {selectedSessions.size > 0 ? `${selectedSessions.size}件選択中` : '全て選択'}
+                    </span>
+                  </button>
                 </div>
                 {paginatedSessions.map((session) => {
                   const isNew = isNewSession(session.started_at)
@@ -801,11 +799,14 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                   const description = getSessionDescription(session)
                   const isOld = isOldSession(session)
 
+                  const isSelected = selectedSessions.has(session.session_id)
                   return (
                   <div
                     key={session.session_id}
-                    className={`px-3 py-4 sm:px-4 transition-colors ${
-                      session.status === 'creating' || session.status === 'starting'
+                    className={`group px-3 py-4 sm:px-4 transition-colors duration-150 ${
+                      isSelected
+                        ? 'bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-500'
+                        : session.status === 'creating' || session.status === 'starting'
                         ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/30 dark:hover:to-indigo-900/30 border-l-4 border-blue-500'
                         : isNew
                         ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20'
@@ -814,16 +815,23 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                     style={isOld ? { filter: 'grayscale(50%)', opacity: 0.7 } : {}}
                   >
                     <div className="flex gap-3">
-                      {/* チェックボックス */}
+                      {/* カスタムチェックボックス（ホバー時 or 選択時に表示） */}
                       <div className="flex-shrink-0 pt-1">
-                        <input
-                          type="checkbox"
-                          checked={selectedSessions.has(session.session_id)}
-                          onChange={() => toggleSessionSelection(session.session_id)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-4 h-4 accent-blue-600 cursor-pointer"
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleSessionSelection(session.session_id) }}
                           aria-label={`セッション ${session.session_id.substring(0, 8)} を選択`}
-                        />
+                          className={`flex w-4 h-4 rounded border-2 items-center justify-center transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+                            isSelected
+                              ? 'bg-blue-600 border-blue-600 opacity-100'
+                              : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-blue-400 opacity-0 group-hover:opacity-100'
+                          }`}
+                        >
+                          {isSelected && (
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </button>
                       </div>
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0 flex-1 min-w-0">
                       <div className="flex-1 min-w-0">
