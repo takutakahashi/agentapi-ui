@@ -13,9 +13,10 @@ interface SessionCardProps {
   isDeleting?: boolean
   isSelected?: boolean
   onToggleSelect?: (sessionId: string) => void
+  isSelectionMode?: boolean
 }
 
-export default function SessionCard({ session, onDelete, isDeleting, isSelected, onToggleSelect }: SessionCardProps) {
+export default function SessionCard({ session, onDelete, isDeleting, isSelected, onToggleSelect, isSelectionMode }: SessionCardProps) {
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -45,7 +46,10 @@ export default function SessionCard({ session, onDelete, isDeleting, isSelected,
 
   return (
     <div
+      onClick={isSelectionMode && onToggleSelect ? () => onToggleSelect(session.session_id) : undefined}
       className={`group border-b border-gray-200 dark:border-gray-700 px-3 py-4 sm:px-4 transition-colors duration-150 ${
+        isSelectionMode ? 'cursor-pointer' : ''
+      } ${
         isSelected
           ? 'bg-blue-50 dark:bg-blue-900/20 border-l-2 border-l-blue-500'
           : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
@@ -62,6 +66,8 @@ export default function SessionCard({ session, onDelete, isDeleting, isSelected,
               className={`flex w-4 h-4 rounded border-2 items-center justify-center transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
                 isSelected
                   ? 'bg-blue-600 border-blue-600 opacity-100'
+                  : isSelectionMode
+                  ? 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-blue-400 opacity-100'
                   : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-blue-400 opacity-0 group-hover:opacity-100'
               }`}
             >
@@ -126,7 +132,7 @@ export default function SessionCard({ session, onDelete, isDeleting, isSelected,
         </div>
 
         {/* アクションボタン - モバイルでは横並び */}
-        <div className="flex flex-row sm:flex-row items-center space-x-2 sm:space-x-2 sm:ml-4">
+        <div className="flex flex-row sm:flex-row items-center space-x-2 sm:space-x-2 sm:ml-4" onClick={(e) => e.stopPropagation()}>
           {session.status === 'active' && (
             <Link
               href={`/sessions/${session.session_id}`}

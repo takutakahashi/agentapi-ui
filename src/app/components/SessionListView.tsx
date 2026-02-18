@@ -44,6 +44,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   const [sessionAgentStatus, setSessionAgentStatus] = useState<{ [sessionId: string]: AgentStatus }>({})
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set())
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const [isSelectionMode, setIsSelectionMode] = useState(false)
 
   const [sortBy, setSortBy] = useState<'started_at' | 'updated_at'>(() => {
     if (typeof window !== 'undefined') {
@@ -579,6 +580,28 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
           </h3>
         </div>
         <div className="flex items-center gap-2">
+          {/* 選択モードトグルボタン */}
+          <button
+            onClick={() => {
+              setIsSelectionMode(prev => {
+                if (prev) setSelectedSessions(new Set())
+                return !prev
+              })
+            }}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors font-medium ${
+              isSelectionMode
+                ? 'bg-blue-50 border-blue-400 text-blue-700 dark:bg-blue-900/30 dark:border-blue-500 dark:text-blue-300'
+                : 'bg-gray-50 border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+            title="複数選択モード"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <rect x="3" y="3" width="18" height="18" rx="2" strokeWidth="2" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4" />
+            </svg>
+            選択
+          </button>
+          <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
           {/* ソート機能 */}
           <select
             value={sortBy}
@@ -803,7 +826,10 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                   return (
                   <div
                     key={session.session_id}
+                    onClick={isSelectionMode ? () => toggleSessionSelection(session.session_id) : undefined}
                     className={`group px-3 py-4 sm:px-4 transition-colors duration-150 ${
+                      isSelectionMode ? 'cursor-pointer' : ''
+                    } ${
                       isSelected
                         ? 'bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-500'
                         : session.status === 'creating' || session.status === 'starting'
@@ -815,7 +841,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                     style={isOld ? { filter: 'grayscale(50%)', opacity: 0.7 } : {}}
                   >
                     <div className="flex gap-3">
-                      {/* カスタムチェックボックス（ホバー時 or 選択時に表示） */}
+                      {/* カスタムチェックボックス（選択モード時は常時表示、非選択モードではホバー時のみ表示） */}
                       <div className="flex-shrink-0 pt-1">
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleSessionSelection(session.session_id) }}
@@ -823,6 +849,8 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                           className={`flex w-4 h-4 rounded border-2 items-center justify-center transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
                             isSelected
                               ? 'bg-blue-600 border-blue-600 opacity-100'
+                              : isSelectionMode
+                              ? 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-blue-400 opacity-100'
                               : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-blue-400 opacity-0 group-hover:opacity-100'
                           }`}
                         >
@@ -953,7 +981,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                       </div>
 
                       {/* アクションボタン - モバイルでは縦並び */}
-                      <div className="flex flex-row sm:flex-row items-center space-x-2 sm:space-x-2 sm:ml-4">
+                      <div className="flex flex-row sm:flex-row items-center space-x-2 sm:space-x-2 sm:ml-4" onClick={(e) => e.stopPropagation()}>
                         {session.status === 'active' && (
                           <button
                             onClick={() => navigateToChat(session.session_id)}

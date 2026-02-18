@@ -51,6 +51,7 @@ export default function ConversationList() {
   const [deletingSession, setDeletingSession] = useState<string | null>(null)
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set())
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const [isSelectionMode, setIsSelectionMode] = useState(false)
   const [sidebarVisible, setSidebarVisible] = useState(false)
   const [sortBy, setSortBy] = useState<SortField>(() => {
     if (typeof window !== 'undefined') {
@@ -430,6 +431,28 @@ export default function ConversationList() {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* 選択モードトグルボタン */}
+              <button
+                onClick={() => {
+                  setIsSelectionMode(prev => {
+                    if (prev) setSelectedSessions(new Set())
+                    return !prev
+                  })
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors font-medium ${
+                  isSelectionMode
+                    ? 'bg-blue-50 border-blue-400 text-blue-700 dark:bg-blue-900/30 dark:border-blue-500 dark:text-blue-300'
+                    : 'bg-gray-50 border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                title="複数選択モード"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <rect x="3" y="3" width="18" height="18" rx="2" strokeWidth="2" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4" />
+                </svg>
+                選択
+              </button>
+              <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
               {/* Sort Controls */}
               <select
                 value={sortBy}
@@ -507,6 +530,7 @@ export default function ConversationList() {
                   isDeleting={deletingSession === session.session_id}
                   isSelected={selectedSessions.has(session.session_id)}
                   onToggleSelect={toggleSessionSelection}
+                  isSelectionMode={isSelectionMode}
                 />
               ))}
 
