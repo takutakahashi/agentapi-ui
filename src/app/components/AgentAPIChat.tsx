@@ -13,6 +13,7 @@ import { recentMessagesManager } from '../../utils/recentMessagesManager';
 import { pushNotificationManager } from '../../utils/pushNotification';
 import { getEnterKeyBehavior, getFontSettings, FontSettings, setFontSettings as saveFontSettings, FontFamily } from '../../types/settings';
 import ShareSessionButton from './ShareSessionButton';
+import ExportSessionButton from './ExportSessionButton';
 import MessageItem from './MessageItem';
 import ToolExecutionPane from './ToolExecutionPane';
 import PlanApprovalModal from './PlanApprovalModal';
@@ -1082,6 +1083,11 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             {/* Share Session Button */}
             {sessionId && agentAPI && (
               <ShareSessionButton sessionId={sessionId} agentAPI={agentAPI} />
+            )}
+
+            {/* Export Session Button */}
+            {sessionId && agentAPI && (
+              <ExportSessionButton sessionId={sessionId} agentAPI={agentAPI} />
             )}
 
             {/* Settings Navigation Button */}
