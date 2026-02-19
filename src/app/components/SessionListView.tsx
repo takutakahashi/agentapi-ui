@@ -790,8 +790,8 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
           {filteredSessions.length > 0 && (
             <div>
               <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
-                {/* 全選択ヘッダー行 */}
-                <div className={`px-3 py-2 sm:px-4 flex items-center gap-3 transition-colors duration-150 ${selectedSessions.size > 0 ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-gray-50 dark:bg-gray-800/50'}`}>
+                {/* 全選択ヘッダー行（複数選択モード時のみ表示） */}
+                {isSelectionMode && <div className={`px-3 py-2 sm:px-4 flex items-center gap-3 transition-colors duration-150 ${selectedSessions.size > 0 ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-gray-50 dark:bg-gray-800/50'}`}>
                   <button
                     onClick={toggleSelectAll}
                     className="flex items-center gap-2.5 cursor-pointer select-none group"
@@ -815,7 +815,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                       {selectedSessions.size > 0 ? `${selectedSessions.size}件選択中` : '全て選択'}
                     </span>
                   </button>
-                </div>
+                </div>}
                 {paginatedSessions.map((session) => {
                   const isNew = isNewSession(session.started_at)
                   const agentStatusInfo = getAgentStatusForSession(session)
