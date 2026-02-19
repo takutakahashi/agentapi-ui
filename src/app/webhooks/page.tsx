@@ -6,7 +6,6 @@ import WebhookFilterSidebar from '../components/WebhookFilterSidebar'
 import WebhookListView from '../components/WebhookListView'
 import WebhookFormModal from '../components/WebhookFormModal'
 import TopBar from '../components/TopBar'
-import NavigationTabs from '../components/NavigationTabs'
 
 export default function WebhooksPage() {
   const [statusFilter, setStatusFilter] = useState<WebhookStatus | null>(null)
@@ -46,13 +45,9 @@ export default function WebhooksPage() {
         title="Webhooks"
         showFilterButton={true}
         showSettingsButton={true}
+        showNavigationTabs={true}
         onFilterToggle={() => setSidebarVisible(!sidebarVisible)}
-      >
-        {/* Mobile Navigation Tabs */}
-        <div className="md:hidden">
-          <NavigationTabs />
-        </div>
-      </TopBar>
+      />
 
       <div className="flex">
         {/* Filter Sidebar */}
