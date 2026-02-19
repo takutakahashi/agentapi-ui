@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, getUseClaudeAgentAPI, setUseClaudeAgentAPI, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
+import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, getAgentType, setAgentType, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
 import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings } from '@/components/settings'
 import { OneClickPushNotifications } from '@/app/components/OneClickPushNotifications'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
@@ -15,7 +15,8 @@ export default function PersonalSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sendGithubToken, setSendGithubToken] = useState(false)
-  const [useClaudeAgentAPI, setUseClaudeAgentAPIState] = useState(false)
+  const [agentType, setAgentTypeState] = useState('')
+  const [customAgentType, setCustomAgentType] = useState('')
   const [enterKeyBehavior, setEnterKeyBehaviorState] = useState<EnterKeyBehavior>('send')
   const [fontSettings, setFontSettingsState] = useState<FontSettingsType>({ fontSize: 14, fontFamily: 'sans-serif' })
   const { showToast } = useToast()
@@ -46,8 +47,16 @@ export default function PersonalSettingsPage() {
   useEffect(() => {
     // GitHub Token 設定を読み込み
     setSendGithubToken(getSendGithubTokenOnSessionStart())
-    // Claude AgentAPI 設定を読み込み
-    setUseClaudeAgentAPIState(getUseClaudeAgentAPI())
+    // Agent Type 設定を読み込み
+    const savedAgentType = getAgentType()
+    const knownAgentTypes = ['', 'claude-agentapi']
+    if (knownAgentTypes.includes(savedAgentType)) {
+      setAgentTypeState(savedAgentType)
+    } else {
+      // 既知の値でない場合は「その他」として扱う
+      setAgentTypeState('__custom__')
+      setCustomAgentType(savedAgentType)
+    }
     // Enter キー設定を読み込み
     setEnterKeyBehaviorState(getEnterKeyBehavior())
     // Font 設定を読み込み
@@ -133,13 +142,16 @@ export default function PersonalSettingsPage() {
     setSendGithubTokenOnSessionStart(enabled)
   }
 
-  const handleUseClaudeAgentAPIChange = (enabled: boolean) => {
-    console.log('[PersonalSettings] Changing useClaudeAgentAPI to:', enabled)
-    setUseClaudeAgentAPIState(enabled)
-    setUseClaudeAgentAPI(enabled)
-    // Verify it was saved
-    const saved = getUseClaudeAgentAPI()
-    console.log('[PersonalSettings] Verified saved value:', saved)
+  const handleAgentTypeChange = (value: string) => {
+    setAgentTypeState(value)
+    if (value !== '__custom__') {
+      setAgentType(value)
+    }
+  }
+
+  const handleCustomAgentTypeChange = (value: string) => {
+    setCustomAgentType(value)
+    setAgentType(value)
   }
 
   const handleEnterKeyBehaviorChange = (behavior: EnterKeyBehavior) => {
@@ -285,23 +297,67 @@ export default function PersonalSettingsPage() {
                 <GithubTokenSettings enabled={sendGithubToken} onChange={handleGithubTokenChange} />
               </div>
               <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                <div className="flex items-start">
-                  <div className="flex items-center h-5">
-                    <input
-                      id="use-claude-agentapi"
-                      type="checkbox"
-                      checked={useClaudeAgentAPI}
-                      onChange={(e) => handleUseClaudeAgentAPIChange(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                    />
-                  </div>
-                  <div className="ml-3 text-sm">
-                    <label htmlFor="use-claude-agentapi" className="font-medium text-gray-700 dark:text-gray-300">
-                      新しいエージェントを使用 (Claude AgentAPI)
-                    </label>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">
-                      有効にすると、セッション作成時に agent_type パラメーターに claude-agentapi が設定されます
-                    </p>
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    エージェントの種類 (agent_type)
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                    セッション作成時に使用する agent_type を選択してください
+                  </p>
+                  <div className="space-y-3">
+                    {[
+                      { value: '', label: '使用しない', description: 'agent_type パラメーターを送信しません' },
+                      { value: 'claude-agentapi', label: 'claude-agentapi', description: 'Claude AgentAPI エージェントを使用します' },
+                    ].map((option) => (
+                      <div key={option.value} className="flex items-start">
+                        <div className="flex items-center h-5">
+                          <input
+                            id={`agent-type-${option.value || 'none'}`}
+                            type="radio"
+                            name="agent-type"
+                            value={option.value}
+                            checked={agentType === option.value}
+                            onChange={() => handleAgentTypeChange(option.value)}
+                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                          />
+                        </div>
+                        <div className="ml-3 text-sm">
+                          <label htmlFor={`agent-type-${option.value || 'none'}`} className="font-medium text-gray-700 dark:text-gray-300">
+                            {option.label}
+                          </label>
+                          <p className="text-gray-500 dark:text-gray-400">{option.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {/* その他 (自由記述) */}
+                    <div className="flex items-start">
+                      <div className="flex items-center h-5">
+                        <input
+                          id="agent-type-custom"
+                          type="radio"
+                          name="agent-type"
+                          value="__custom__"
+                          checked={agentType === '__custom__'}
+                          onChange={() => handleAgentTypeChange('__custom__')}
+                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                        />
+                      </div>
+                      <div className="ml-3 text-sm flex-1">
+                        <label htmlFor="agent-type-custom" className="font-medium text-gray-700 dark:text-gray-300">
+                          その他 (自由記述)
+                        </label>
+                        <p className="text-gray-500 dark:text-gray-400">入力した値をそのまま agent_type に使用します</p>
+                        {agentType === '__custom__' && (
+                          <input
+                            type="text"
+                            value={customAgentType}
+                            onChange={(e) => handleCustomAgentTypeChange(e.target.value)}
+                            placeholder="agent_type を入力してください"
+                            className="mt-2 block w-full max-w-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

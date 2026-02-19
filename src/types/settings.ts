@@ -104,7 +104,8 @@ export interface GlobalSettings {
   messageTemplates: MessageTemplate[]
   githubAuth?: GitHubOAuthSettings
   sendGithubTokenOnSessionStart?: boolean  // デフォルト true
-  useClaudeAgentAPI?: boolean  // デフォルト false (新しいエージェントを使用するか)
+  useClaudeAgentAPI?: boolean  // デフォルト false (後方互換のため残す)
+  agentType?: string  // セッション作成時に使用する agent_type (空文字/未設定 = 使用しない)
   enterKeyBehavior?: EnterKeyBehavior  // デフォルト 'send' (Enter で送信、Shift+Enter で改行)
   fontSettings?: FontSettings  // デフォルト { fontSize: 14, fontFamily: 'sans-serif' }
   created_at: string
@@ -646,7 +647,7 @@ export const setFontSettings = (fontSettings: FontSettings): void => {
   }
 }
 
-// Use Claude AgentAPI utilities
+// Use Claude AgentAPI utilities (後方互換のため残す)
 export const getUseClaudeAgentAPI = (): boolean => {
   const settings = loadFullGlobalSettings()
   // デフォルトは false
@@ -661,4 +662,26 @@ export const setUseClaudeAgentAPI = (enabled: boolean): void => {
   settings.useClaudeAgentAPI = enabled
   saveFullGlobalSettings(settings)
   console.log('[setUseClaudeAgentAPI] Saved successfully')
+}
+
+// Agent Type utilities
+export const getAgentType = (): string => {
+  const settings = loadFullGlobalSettings()
+  // agentType が設定されている場合はそれを使用
+  if (settings.agentType !== undefined) {
+    return settings.agentType
+  }
+  // 後方互換: useClaudeAgentAPI が true の場合は claude-agentapi を返す
+  if (settings.useClaudeAgentAPI) {
+    return 'claude-agentapi'
+  }
+  return ''
+}
+
+export const setAgentType = (agentType: string): void => {
+  const settings = loadFullGlobalSettings()
+  settings.agentType = agentType
+  // 後方互換フィールドも同期
+  settings.useClaudeAgentAPI = agentType === 'claude-agentapi'
+  saveFullGlobalSettings(settings)
 }
