@@ -6,7 +6,6 @@ import TagFilterSidebar from '../components/TagFilterSidebar'
 import SessionListView from '../components/SessionListView'
 import TopBar from '../components/TopBar'
 import FloatingNewSessionButton from '../components/FloatingNewSessionButton'
-import NavigationTabs from '../components/NavigationTabs'
 
 interface TagFilter {
   [key: string]: string[]
@@ -49,24 +48,18 @@ export default function ChatsPage() {
         showFilterButton={true}
         showSettingsButton={true}
         onFilterToggle={() => setSidebarVisible(!sidebarVisible)}
-      >
-        {/* Mobile Navigation Tabs */}
-        <div className="md:hidden">
-          <NavigationTabs />
-        </div>
-      </TopBar>
+      />
 
-      <div className="flex">
-        {/* フィルタサイドバー */}
-        <TagFilterSidebar
-          onFiltersChange={setTagFilters}
-          currentFilters={tagFilters}
-          isVisible={sidebarVisible}
-          onToggleVisibility={() => setSidebarVisible(!sidebarVisible)}
-        />
+      {/* フィルタサイドバー（fixed オーバーレイ） */}
+      <TagFilterSidebar
+        onFiltersChange={setTagFilters}
+        currentFilters={tagFilters}
+        isVisible={sidebarVisible}
+        onToggleVisibility={() => setSidebarVisible(!sidebarVisible)}
+      />
 
-        {/* メインコンテンツ */}
-        <div className="flex-1 px-4 md:px-6 lg:px-8 pt-6 md:pt-8 pb-6 md:pb-8">
+      {/* メインコンテンツ */}
+      <div className="px-4 md:px-6 lg:px-8 pt-6 md:pt-8 pb-6 md:pb-8">
           {/* セッション開始ボタン（デスクトップのみ） */}
           <div className="mb-6 flex justify-end hidden md:flex">
             <Link
@@ -128,7 +121,6 @@ export default function ChatsPage() {
             onSessionsUpdate={handleSessionsUpdate}
             key={refreshKey}
           />
-        </div>
       </div>
 
       {/* フローティング新セッションボタン */}

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { LogOut } from 'lucide-react'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
+import NavigationTabs from './NavigationTabs'
 
 interface TopBarProps {
   title: string
@@ -263,6 +264,11 @@ export default function TopBar({
               </button>
             )}
           </div>
+        </div>
+
+        {/* ナビゲーションタブ（デスクトップ・モバイル共通） */}
+        <div className="mt-3">
+          <NavigationTabs />
         </div>
 
         {/* 追加コンテンツ */}
