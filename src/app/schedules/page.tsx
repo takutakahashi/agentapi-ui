@@ -6,6 +6,7 @@ import ScheduleFilterSidebar from '../components/ScheduleFilterSidebar'
 import ScheduleListView from '../components/ScheduleListView'
 import ScheduleFormModal from '../components/ScheduleFormModal'
 import TopBar from '../components/TopBar'
+import NavigationTabs from '../components/NavigationTabs'
 
 export default function SchedulesPage() {
   const [statusFilter, setStatusFilter] = useState<ScheduleStatus | null>(null)
@@ -44,9 +45,13 @@ export default function SchedulesPage() {
         title="Schedules"
         showFilterButton={true}
         showSettingsButton={true}
-        showNavigationTabs={true}
         onFilterToggle={() => setSidebarVisible(!sidebarVisible)}
-      />
+      >
+        {/* Mobile Navigation Tabs */}
+        <div className="md:hidden">
+          <NavigationTabs />
+        </div>
+      </TopBar>
 
       <div className="flex">
         {/* Filter Sidebar */}

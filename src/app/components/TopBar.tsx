@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { LogOut } from 'lucide-react'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
-import NavigationTabs from './NavigationTabs'
 
 interface TopBarProps {
   title: string
@@ -16,7 +15,6 @@ interface TopBarProps {
   showLogoutButton?: boolean
   showNewSessionButton?: boolean
   onNewSession?: () => void
-  showNavigationTabs?: boolean
   children?: React.ReactNode
 }
 
@@ -30,7 +28,6 @@ export default function TopBar({
   showLogoutButton = true,
   showNewSessionButton = false,
   onNewSession,
-  showNavigationTabs = false,
   children
 }: TopBarProps) {
   const router = useRouter()
@@ -112,21 +109,14 @@ export default function TopBar({
       <div className="relative px-4 md:px-6 lg:px-8 py-3 md:py-4">
         {/* ヘッダーセクション */}
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 flex-1 min-w-0">
-            <div className="flex-shrink-0">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                {title}
-              </h1>
-              {subtitle && (
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
-                  {subtitle}
-                </p>
-              )}
-            </div>
-
-            {/* インラインナビゲーションタブ */}
-            {showNavigationTabs && (
-              <NavigationTabs variant="inline" />
+          <div className="flex-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+              {title}
+            </h1>
+            {subtitle && (
+              <p className="text-gray-600 dark:text-gray-400 mt-1">
+                {subtitle}
+              </p>
             )}
           </div>
 
@@ -274,13 +264,6 @@ export default function TopBar({
             )}
           </div>
         </div>
-
-        {/* モバイル用ナビゲーションタブ */}
-        {showNavigationTabs && (
-          <div className="mt-3 md:hidden">
-            <NavigationTabs variant="dropdown" />
-          </div>
-        )}
 
         {/* 追加コンテンツ */}
         {children && <div className="mt-3">{children}</div>}

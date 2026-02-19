@@ -12,7 +12,6 @@ interface Tab {
 
 interface NavigationTabsProps {
   className?: string
-  variant?: 'dropdown' | 'inline'
 }
 
 const allTabs: Tab[] = [
@@ -45,7 +44,7 @@ const allTabs: Tab[] = [
   },
 ]
 
-export default function NavigationTabs({ className = '', variant = 'dropdown' }: NavigationTabsProps) {
+export default function NavigationTabs({ className = '' }: NavigationTabsProps) {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -76,34 +75,6 @@ export default function NavigationTabs({ className = '', variant = 'dropdown' }:
     return null
   }
 
-  // インラインタブ表示（TopBar内で横並び）
-  if (variant === 'inline') {
-    return (
-      <nav className={`hidden md:flex items-center gap-1 ${className}`}>
-        {tabs.map((tab) => {
-          const active = isActive(tab.href)
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={`
-                flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors
-                ${active
-                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }
-              `}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-            </Link>
-          )
-        })}
-      </nav>
-    )
-  }
-
-  // ドロップダウン表示（モバイル等）
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
       <button

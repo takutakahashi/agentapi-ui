@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { agentAPI } from '../../lib/api'
+import NavigationTabs from './NavigationTabs'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
 
 interface Tag {
@@ -167,9 +168,15 @@ export default function TagFilterSidebar({
       {/* Sidebar */}
       <div className={`
         fixed inset-y-0 left-0 z-10 w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out overflow-y-auto
+        md:relative md:translate-x-0 md:inset-auto md:w-80 md:h-screen
         ${isVisible ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="p-4 pt-16">
+        <div className="p-4">
+          {/* Navigation Tabs */}
+          <div className="mb-6">
+            <NavigationTabs />
+          </div>
+
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -270,10 +277,10 @@ export default function TagFilterSidebar({
         </div>
       </div>
 
-      {/* Overlay (mobile and desktop) */}
+      {/* Mobile overlay */}
       {isVisible && onToggleVisibility && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-[5]"
+          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-[5]"
           onClick={onToggleVisibility}
         />
       )}
