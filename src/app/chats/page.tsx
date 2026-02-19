@@ -62,7 +62,7 @@ export default function ChatsPage() {
       {/* メインコンテンツ */}
       <div className="px-4 md:px-6 lg:px-8 pt-6 md:pt-8 pb-6 md:pb-8">
           {/* セッション開始ボタン（デスクトップのみ） */}
-          <div className="mb-6 flex justify-end hidden md:flex">
+          <div className="hidden md:flex md:mb-6 justify-end">
             <Link
               href="/sessions/new"
               className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
