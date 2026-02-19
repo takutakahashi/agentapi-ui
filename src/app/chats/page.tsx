@@ -60,7 +60,7 @@ export default function ChatsPage() {
       />
 
       {/* メインコンテンツ */}
-      <div className="px-4 md:px-6 lg:px-8 pt-6 md:pt-8 pb-6 md:pb-8">
+      <div className="px-4 md:px-6 lg:px-8 pt-4 pb-4 md:pb-6">
           {/* セッション開始ボタン（デスクトップのみ） */}
           <div className="hidden md:flex md:mb-6 justify-end">
             <Link
