@@ -1148,8 +1148,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
               // すでに処理済みのメッセージはスキップ
               if (processedIds.has(message.id)) return;
 
-              // tool_result は親の tool_use と一緒に表示されるのでスキップ
-              if (message.role === 'tool_result') {
+              // parentToolUseId を持つ tool_result は親の tool_use と一緒に表示されるのでスキップ
+              if (message.role === 'tool_result' && message.parentToolUseId) {
                 processedIds.add(message.id);
                 return;
               }
@@ -1180,8 +1180,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 return;
               }
 
-              // 通常のメッセージ (user, assistant, agent without toolUseId)
-              if (message.role === 'user' || message.role === 'assistant' || message.role === 'agent') {
+              // 通常のメッセージ (user, assistant, agent without toolUseId, standalone tool_result)
+              if (
+                message.role === 'user' ||
+                message.role === 'assistant' ||
+                message.role === 'agent' ||
+                message.role === 'tool_result'
+              ) {
                 renderedMessages.push(
                   <MessageItem
                     key={message.id}
