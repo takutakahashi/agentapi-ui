@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, getUseClaudeAgentAPI, setUseClaudeAgentAPI, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
+import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, AgentApiType, getAgentApiType, setAgentApiType, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
 import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings } from '@/components/settings'
 import { OneClickPushNotifications } from '@/app/components/OneClickPushNotifications'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
@@ -15,7 +15,7 @@ export default function PersonalSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sendGithubToken, setSendGithubToken] = useState(false)
-  const [useClaudeAgentAPI, setUseClaudeAgentAPIState] = useState(false)
+  const [agentApiType, setAgentApiTypeState] = useState<AgentApiType>('default')
   const [enterKeyBehavior, setEnterKeyBehaviorState] = useState<EnterKeyBehavior>('send')
   const [fontSettings, setFontSettingsState] = useState<FontSettingsType>({ fontSize: 14, fontFamily: 'sans-serif' })
   const { showToast } = useToast()
@@ -46,8 +46,8 @@ export default function PersonalSettingsPage() {
   useEffect(() => {
     // GitHub Token 設定を読み込み
     setSendGithubToken(getSendGithubTokenOnSessionStart())
-    // Claude AgentAPI 設定を読み込み
-    setUseClaudeAgentAPIState(getUseClaudeAgentAPI())
+    // AgentAPI タイプ設定を読み込み
+    setAgentApiTypeState(getAgentApiType())
     // Enter キー設定を読み込み
     setEnterKeyBehaviorState(getEnterKeyBehavior())
     // Font 設定を読み込み
@@ -133,13 +133,9 @@ export default function PersonalSettingsPage() {
     setSendGithubTokenOnSessionStart(enabled)
   }
 
-  const handleUseClaudeAgentAPIChange = (enabled: boolean) => {
-    console.log('[PersonalSettings] Changing useClaudeAgentAPI to:', enabled)
-    setUseClaudeAgentAPIState(enabled)
-    setUseClaudeAgentAPI(enabled)
-    // Verify it was saved
-    const saved = getUseClaudeAgentAPI()
-    console.log('[PersonalSettings] Verified saved value:', saved)
+  const handleAgentApiTypeChange = (type: AgentApiType) => {
+    setAgentApiTypeState(type)
+    setAgentApiType(type)
   }
 
   const handleEnterKeyBehaviorChange = (behavior: EnterKeyBehavior) => {
@@ -285,23 +281,38 @@ export default function PersonalSettingsPage() {
                 <GithubTokenSettings enabled={sendGithubToken} onChange={handleGithubTokenChange} />
               </div>
               <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                <div className="flex items-start">
-                  <div className="flex items-center h-5">
-                    <input
-                      id="use-claude-agentapi"
-                      type="checkbox"
-                      checked={useClaudeAgentAPI}
-                      onChange={(e) => handleUseClaudeAgentAPIChange(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                    />
-                  </div>
-                  <div className="ml-3 text-sm">
-                    <label htmlFor="use-claude-agentapi" className="font-medium text-gray-700 dark:text-gray-300">
-                      新しいエージェントを使用 (Claude AgentAPI)
-                    </label>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">
-                      有効にすると、セッション作成時に agent_type パラメーターに claude-agentapi が設定されます
-                    </p>
+                <div className="text-sm">
+                  <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    エージェントタイプ
+                  </p>
+                  <p className="text-gray-500 dark:text-gray-400 mb-3">
+                    セッション作成時に送信する agent_type を選択します。&quot;デフォルト&quot; を選択すると agent_type は送信されません。
+                  </p>
+                  <div className="space-y-2">
+                    {([
+                      { value: 'default', label: 'デフォルト', description: 'agent_type を送信しない（バックエンドのデフォルト動作）' },
+                      { value: 'claude-agentapi', label: 'Claude AgentAPI', description: 'agent_type=claude-agentapi を送信' },
+                      { value: 'codex-agentapi', label: 'Codex AgentAPI', description: 'agent_type=codex-agentapi を送信' },
+                    ] as { value: AgentApiType; label: string; description: string }[]).map(({ value, label, description }) => (
+                      <label key={value} className="flex items-start cursor-pointer group">
+                        <input
+                          type="radio"
+                          name="agent-api-type"
+                          value={value}
+                          checked={agentApiType === value}
+                          onChange={() => handleAgentApiTypeChange(value)}
+                          className="mt-0.5 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                        />
+                        <span className="ml-3">
+                          <span className="block font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            {label}
+                          </span>
+                          <span className="block text-gray-500 dark:text-gray-400 text-xs mt-0.5">
+                            {description}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
                   </div>
                 </div>
               </div>

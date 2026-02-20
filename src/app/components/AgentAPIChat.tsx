@@ -847,12 +847,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
 
     try {
-      if (agentType === 'claude') {
-        // claude-agentapi: Use /action endpoint
+      if (agentType !== null) {
+        // agentapi ベースのエージェント（claude, codex など）: /action エンドポイントを使用
         await agentAPIRef.current.sendAction(sessionId, { type: 'stop_agent' });
-        console.log('Stop signal sent via /action endpoint (claude agent)');
+        console.log('Stop signal sent via /action endpoint (agent type:', agentType, ')');
       } else {
-        // Other agents: Send Ctrl+C as raw message
+        // 素のシェルセッション（agentType 不明）: Ctrl+C を送信
         await agentAPIRef.current.sendSessionMessage(sessionId, {
           content: '\x03', // Ctrl+C
           type: 'raw'
@@ -1148,8 +1148,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
               // すでに処理済みのメッセージはスキップ
               if (processedIds.has(message.id)) return;
 
-              // tool_result は親の tool_use と一緒に表示されるのでスキップ
-              if (message.role === 'tool_result') {
+              // parentToolUseId を持つ tool_result は親の tool_use と一緒に表示されるのでスキップ
+              if (message.role === 'tool_result' && message.parentToolUseId) {
                 processedIds.add(message.id);
                 return;
               }
@@ -1180,8 +1180,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 return;
               }
 
-              // 通常のメッセージ (user, assistant, agent without toolUseId)
-              if (message.role === 'user' || message.role === 'assistant' || message.role === 'agent') {
+              // 通常のメッセージ (user, assistant, agent without toolUseId, standalone tool_result)
+              if (
+                message.role === 'user' ||
+                message.role === 'assistant' ||
+                message.role === 'agent' ||
+                message.role === 'tool_result'
+              ) {
                 renderedMessages.push(
                   <MessageItem
                     key={message.id}
