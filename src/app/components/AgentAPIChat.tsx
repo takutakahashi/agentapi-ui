@@ -847,8 +847,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
 
     try {
-      if (agentType === 'claude-agentapi' || agentType === 'codex-agentapi') {
-        // agentapi ベースのエージェント（claude-agentapi, codex-agentapi）: /action エンドポイントを使用
+      if (agentType === 'claude' || agentType === 'codex') {
+        // agentapi ベースのエージェント（claude, codex）: /action エンドポイントを使用
         await agentAPIRef.current.sendAction(sessionId, { type: 'stop_agent' });
         console.log('Stop signal sent via /action endpoint (agent type:', agentType, ')');
       } else {
@@ -1173,7 +1173,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     formatTimestamp={formatTimestamp}
                     fontSettings={fontSettings}
                     onShowPlanModal={planModalCallbacks.get(message.id.toString())}
-                    isClaudeAgent={agentType === 'claude'}
+                    isClaudeAgent={agentType === 'claude' || agentType === 'codex'}
                   />
                 );
                 processedIds.add(message.id);
@@ -1194,7 +1194,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     formatTimestamp={formatTimestamp}
                     fontSettings={fontSettings}
                     onShowPlanModal={planModalCallbacks.get(message.id.toString())}
-                    isClaudeAgent={agentType === 'claude'}
+                    isClaudeAgent={agentType === 'claude' || agentType === 'codex'}
                   />
                 );
                 processedIds.add(message.id);
