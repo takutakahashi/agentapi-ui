@@ -238,9 +238,9 @@ function formatTextWithLinks(text: string): JSX.Element {
   );
 }
 
-// コンテンツをレンダリングする関数（Markdown か通常のテキストかをコンテンツから自動判断）
-function renderContent(content: string): JSX.Element {
-  if (!hasMarkdownSyntax(content)) {
+// コンテンツをレンダリングする関数（enableMarkdown が true のときのみ Markdown 変換を行う）
+function renderContent(content: string, enableMarkdown: boolean = false): JSX.Element {
+  if (!enableMarkdown || !hasMarkdownSyntax(content)) {
     return <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full">{formatTextWithLinks(content)}</div>;
   }
   return <MarkdownContent content={content} />;
@@ -264,6 +264,7 @@ function MessageItem({
   formatTimestamp,
   fontSettings,
   onShowPlanModal,
+  isClaudeAgent,
 }: MessageItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -522,7 +523,7 @@ function MessageItem({
               </span>
             </div>
             <div className="text-gray-700 dark:text-gray-300">
-              {renderContent(message.content)}
+              {renderContent(message.content, isClaudeAgent)}
             </div>
           </div>
         </div>
@@ -568,7 +569,7 @@ function MessageItem({
             }`}
             style={{ fontSize: `${fontSettings.fontSize}px` }}
           >
-            {renderContent(message.content)}
+            {renderContent(message.content, isClaudeAgent)}
           </div>
         </div>
       </div>
