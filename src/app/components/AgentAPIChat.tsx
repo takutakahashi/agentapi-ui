@@ -847,12 +847,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
 
     try {
-      if (agentType !== null) {
-        // agentapi ベースのエージェント（claude, codex など）: /action エンドポイントを使用
+      if (agentType === 'claude-agentapi' || agentType === 'codex-agentapi') {
+        // agentapi ベースのエージェント（claude-agentapi, codex-agentapi）: /action エンドポイントを使用
         await agentAPIRef.current.sendAction(sessionId, { type: 'stop_agent' });
         console.log('Stop signal sent via /action endpoint (agent type:', agentType, ')');
       } else {
-        // 素のシェルセッション（agentType 不明）: Ctrl+C を送信
+        // デフォルト・素のシェルセッション: Ctrl+C を送信
         await agentAPIRef.current.sendSessionMessage(sessionId, {
           content: '\x03', // Ctrl+C
           type: 'raw'
