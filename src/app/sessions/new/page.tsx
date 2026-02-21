@@ -9,7 +9,7 @@ import { messageTemplateManager } from '../../../utils/messageTemplateManager'
 import { MessageTemplate } from '../../../types/messageTemplate'
 import { recentMessagesManager } from '../../../utils/recentMessagesManager'
 import { OrganizationHistory } from '../../../utils/organizationHistory'
-import { addRepositoryToHistory, getAgentApiType } from '../../../types/settings'
+import { addRepositoryToHistory, getAgentApiType, AgentApiType } from '../../../types/settings'
 import TopBar from '../../components/TopBar'
 import SessionCreationProgressModal from '../../components/SessionCreationProgressModal'
 import { SessionCreationProgress, SessionCreationStatus } from '../../../types/sessionProgress'
@@ -31,10 +31,14 @@ export default function NewSessionPage() {
   const [showFreeFormRepositorySuggestions, setShowFreeFormRepositorySuggestions] = useState(false)
   const [showProgressModal, setShowProgressModal] = useState(false)
   const [creationProgress, setCreationProgress] = useState<SessionCreationProgress | null>(null)
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
+  const [selectedAgentType, setSelectedAgentType] = useState<AgentApiType>('default')
 
   useEffect(() => {
     loadTemplates()
     loadRecentMessages()
+    // 設定からデフォルトのエージェントタイプを読み込む
+    setSelectedAgentType(getAgentApiType())
   }, [])
 
   // ESCキーで戻る
@@ -87,7 +91,8 @@ export default function NewSessionPage() {
   const createSession = async (
     client: AgentAPIProxyClient,
     message: string,
-    repo: string
+    repo: string,
+    agentType: AgentApiType
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       console.log('Starting session creation with initial message...')
@@ -116,9 +121,8 @@ export default function NewSessionPage() {
       }
 
       // agent_type はデフォルト以外の場合のみ送信
-      const agentApiType = getAgentApiType()
-      if (agentApiType !== 'default') {
-        params.agent_type = agentApiType
+      if (agentType !== 'default') {
+        params.agent_type = agentType
       }
 
       console.log('[NewSessionPage] Final params:', params)
@@ -189,7 +193,8 @@ export default function NewSessionPage() {
     const result = await createSession(
       client,
       currentMessage,
-      currentRepository
+      currentRepository,
+      selectedAgentType
     )
 
     if (result.success) {
@@ -383,6 +388,61 @@ export default function NewSessionPage() {
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                 リポジトリを指定しない場合は一般的なチャットになります
               </p>
+            </div>
+
+            {/* その他の設定 */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+                className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-40"
+                disabled={isCreating}
+              >
+                <svg
+                  className={`w-3 h-3 transition-transform ${showAdvancedSettings ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                その他の設定
+                {selectedAgentType !== 'default' && (
+                  <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-xs rounded-full">
+                    {selectedAgentType === 'claude-agentapi' ? 'Claude AgentAPI' : 'Codex AgentAPI'}
+                  </span>
+                )}
+              </button>
+
+              {showAdvancedSettings && (
+                <div className="mt-3 pl-1 space-y-2">
+                  {([
+                    { value: 'default', label: 'デフォルト', description: 'agent_type を送信しない' },
+                    { value: 'claude-agentapi', label: 'Claude AgentAPI', description: 'agent_type=claude-agentapi を送信' },
+                    { value: 'codex-agentapi', label: 'Codex AgentAPI', description: 'agent_type=codex-agentapi を送信' },
+                  ] as { value: AgentApiType; label: string; description: string }[]).map(({ value, label, description }) => (
+                    <label key={value} className="flex items-start cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="session-agent-type"
+                        value={value}
+                        checked={selectedAgentType === value}
+                        onChange={() => setSelectedAgentType(value)}
+                        className="mt-0.5 w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+                        disabled={isCreating}
+                      />
+                      <span className="ml-2">
+                        <span className="block text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-gray-800 dark:group-hover:text-gray-200">
+                          {label}
+                        </span>
+                        <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                          {description}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* エラー表示 */}
