@@ -254,16 +254,19 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
   }
 
   // Environment Variables の処理
-  // data.env_vars が存在する場合は、空でも送信する（削除を反映するため）
+  // data.env_vars が存在する場合は送信する
+  // 空文字列の値はバックエンドでの削除を意味する（キーを送信しないと自動保持される）
   if (data.env_vars !== undefined) {
     const envVars: Record<string, string> = {}
     for (const [key, value] of Object.entries(data.env_vars)) {
-      if (key.trim() && value.trim()) {
+      if (key.trim()) {
+        // 空文字列はバックエンドへの削除指示として送信する（value.trim()チェックを除去）
         envVars[key.trim()] = value.trim()
       }
     }
-    // 空のオブジェクトでも送信（サーバー側で削除を反映するため）
-    prepared.env_vars = envVars
+    if (Object.keys(envVars).length > 0) {
+      prepared.env_vars = envVars
+    }
   }
 
   return prepared
