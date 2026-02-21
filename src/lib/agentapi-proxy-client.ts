@@ -42,6 +42,7 @@ import {
 } from '../types/share';
 import {
   Task,
+  TaskStatus,
   TaskListResponse,
   TaskListParams
 } from '../types/task';
@@ -1110,6 +1111,16 @@ export class AgentAPIProxyClient {
    */
   async getTask(taskId: string): Promise<Task> {
     return this.makeRequest<Task>(`/tasks/${taskId}`);
+  }
+
+  /**
+   * Update a task (e.g., mark as done/todo)
+   */
+  async updateTask(taskId: string, updates: { status?: TaskStatus; title?: string; description?: string }): Promise<Task> {
+    return this.makeRequest<Task>(`/tasks/${taskId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
   }
 }
 
