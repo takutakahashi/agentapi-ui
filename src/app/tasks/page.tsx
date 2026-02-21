@@ -115,8 +115,9 @@ export default function TasksPage() {
 
   const sortTasks = (tasks: Task[]) =>
     [...tasks].sort((a, b) => {
-      if (a.status === b.status) return 0
-      return a.status === 'todo' ? -1 : 1
+      // todo → done の順、同じステータス内では作成日時が新しい順
+      if (a.status !== b.status) return a.status === 'todo' ? -1 : 1
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     })
 
   const fetchTasks = useCallback(async () => {

@@ -132,11 +132,11 @@ export default function TaskListPanel() {
         client.getTasks({ scope: 'user', task_type: 'agent' }),
       ])
 
-      // Sort: todo first, then done
+      // Sort: todo first, then done; within same status, newest first
       const sortTasks = (tasks: Task[]) =>
         [...tasks].sort((a, b) => {
-          if (a.status === b.status) return 0
-          return a.status === 'todo' ? -1 : 1
+          if (a.status !== b.status) return a.status === 'todo' ? -1 : 1
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         })
 
       setUserTasks(sortTasks(userResult.tasks))
