@@ -1,7 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { WebhookStatus, WebhookType } from '../../types/webhook'
 import NavigationTabs from './NavigationTabs'
+import TaskListPanel from './TaskListPanel'
 
 interface WebhookFilterSidebarProps {
   statusFilter: WebhookStatus | null
@@ -32,6 +34,7 @@ export default function WebhookFilterSidebar({
   isVisible = true,
   onToggleVisibility,
 }: WebhookFilterSidebarProps) {
+  const [activeTab, setActiveTab] = useState<'filter' | 'tasks'>('filter')
   const hasFilter = statusFilter !== null || typeFilter !== null
 
   return (
@@ -46,17 +49,37 @@ export default function WebhookFilterSidebar({
       >
         <div className="p-4">
           {/* Navigation Tabs */}
-          <div className="mb-6">
+          <div className="mb-4">
             <NavigationTabs />
           </div>
 
-          {/* Header */}
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              フィルタ
-            </h2>
-            {/* Close button for mobile */}
-            {onToggleVisibility && (
+          {/* Tab Switcher */}
+          <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4">
+            <button
+              onClick={() => setActiveTab('filter')}
+              className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                activeTab === 'filter'
+                  ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              フィルター
+            </button>
+            <button
+              onClick={() => setActiveTab('tasks')}
+              className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                activeTab === 'tasks'
+                  ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              タスク
+            </button>
+          </div>
+
+          {/* Close button for mobile */}
+          {onToggleVisibility && (
+            <div className="flex justify-end mb-2">
               <button
                 onClick={onToggleVisibility}
                 className="md:hidden text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -65,76 +88,87 @@ export default function WebhookFilterSidebar({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-            )}
-          </div>
-
-          {/* Status Filter */}
-          <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Status
-            </h3>
-            <div className="space-y-2">
-              {statusOptions.map((option) => (
-                <button
-                  key={option.value ?? 'all-status'}
-                  onClick={() => onStatusFilterChange(option.value)}
-                  className={`
-                    w-full text-left px-3 py-2 rounded-md transition-colors
-                    ${
-                      statusFilter === option.value
-                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }
-                  `}
-                >
-                  <div className="font-medium text-sm">{option.label}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {option.description}
-                  </div>
-                </button>
-              ))}
             </div>
-          </div>
+          )}
 
-          {/* Type Filter */}
-          <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Type
-            </h3>
-            <div className="space-y-2">
-              {typeOptions.map((option) => (
+          {activeTab === 'filter' ? (
+            <>
+              {/* Header */}
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                フィルタ
+              </h2>
+
+              {/* Status Filter */}
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Status
+                </h3>
+                <div className="space-y-2">
+                  {statusOptions.map((option) => (
+                    <button
+                      key={option.value ?? 'all-status'}
+                      onClick={() => onStatusFilterChange(option.value)}
+                      className={`
+                        w-full text-left px-3 py-2 rounded-md transition-colors
+                        ${
+                          statusFilter === option.value
+                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }
+                      `}
+                    >
+                      <div className="font-medium text-sm">{option.label}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {option.description}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Type Filter */}
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Type
+                </h3>
+                <div className="space-y-2">
+                  {typeOptions.map((option) => (
+                    <button
+                      key={option.value ?? 'all-type'}
+                      onClick={() => onTypeFilterChange(option.value)}
+                      className={`
+                        w-full text-left px-3 py-2 rounded-md transition-colors
+                        ${
+                          typeFilter === option.value
+                            ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }
+                      `}
+                    >
+                      <div className="font-medium text-sm">{option.label}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {option.description}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Clear Filter */}
+              {hasFilter && (
                 <button
-                  key={option.value ?? 'all-type'}
-                  onClick={() => onTypeFilterChange(option.value)}
-                  className={`
-                    w-full text-left px-3 py-2 rounded-md transition-colors
-                    ${
-                      typeFilter === option.value
-                        ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }
-                  `}
+                  onClick={() => {
+                    onStatusFilterChange(null)
+                    onTypeFilterChange(null)
+                  }}
+                  className="w-full text-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                 >
-                  <div className="font-medium text-sm">{option.label}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {option.description}
-                  </div>
+                  フィルタをクリア
                 </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Clear Filter */}
-          {hasFilter && (
-            <button
-              onClick={() => {
-                onStatusFilterChange(null)
-                onTypeFilterChange(null)
-              }}
-              className="w-full text-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-            >
-              フィルタをクリア
-            </button>
+              )}
+            </>
+          ) : (
+            <TaskListPanel />
           )}
         </div>
       </div>

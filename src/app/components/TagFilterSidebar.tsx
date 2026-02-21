@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { agentAPI } from '../../lib/api'
 import NavigationTabs from './NavigationTabs'
+import TaskListPanel from './TaskListPanel'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
 
 interface Tag {
@@ -28,6 +29,7 @@ export default function TagFilterSidebar({
   onToggleVisibility
 }: TagFilterSidebarProps) {
   const { selectedTeam } = useTeamScope()
+  const [activeTab, setActiveTab] = useState<'filter' | 'tasks'>('filter')
   const [tags, setTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set())
@@ -173,54 +175,96 @@ export default function TagFilterSidebar({
       `}>
         <div className="p-4">
           {/* Navigation Tabs */}
-          <div className="mb-6">
+          <div className="mb-4">
             <NavigationTabs />
           </div>
 
-          {/* Header */}
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Tags
-            </h2>
-            <div className="flex items-center gap-2">
-              {/* Close button for mobile */}
-              {onToggleVisibility && (
-                <button
-                  onClick={onToggleVisibility}
-                  className="md:hidden text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-              {hasActiveFilters && (
-                <button
-                  onClick={clearAllFilters}
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-                >
-                  Clear All
-                </button>
-              )}
-              <button
-                onClick={fetchTags}
-                disabled={loading}
-                className="text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 disabled:opacity-50"
-              >
-                {loading ? 'Loading...' : 'Refresh'}
-              </button>
-            </div>
+          {/* Tab Switcher */}
+          <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4">
+            <button
+              onClick={() => setActiveTab('filter')}
+              className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                activeTab === 'filter'
+                  ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              フィルター
+            </button>
+            <button
+              onClick={() => setActiveTab('tasks')}
+              className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                activeTab === 'tasks'
+                  ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              タスク
+            </button>
           </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <svg className="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            </div>
+          {activeTab === 'tasks' ? (
+            <>
+              {/* Close button for mobile (tasks tab) */}
+              {onToggleVisibility && (
+                <div className="flex justify-end mb-2">
+                  <button
+                    onClick={onToggleVisibility}
+                    className="md:hidden text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+              <TaskListPanel />
+            </>
           ) : (
             <>
+              {/* Filter header with close button and actions */}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Tags
+                </h2>
+                <div className="flex items-center gap-2">
+                  {onToggleVisibility && (
+                    <button
+                      onClick={onToggleVisibility}
+                      className="md:hidden text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                  {hasActiveFilters && (
+                    <button
+                      onClick={clearAllFilters}
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                    >
+                      Clear All
+                    </button>
+                  )}
+                  <button
+                    onClick={fetchTags}
+                    disabled={loading}
+                    className="text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 disabled:opacity-50"
+                  >
+                    {loading ? 'Loading...' : 'Refresh'}
+                  </button>
+                </div>
+              </div>
+
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <svg className="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+              ) : (
+              <>
               {/* Tag Filters */}
               {tags.map((tag) => (
                 <div key={tag.key} className="mb-4">
@@ -271,6 +315,8 @@ export default function TagFilterSidebar({
                   No tags available.
                   Start some sessions with metadata to see tag options.
                 </div>
+              )}
+              </>
               )}
             </>
           )}
