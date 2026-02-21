@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { LogOut } from 'lucide-react'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
+import TaskButton from './TaskButton'
 
 interface TopBarProps {
   title: string
@@ -236,6 +237,9 @@ export default function TopBar({
                 )}
               </div>
             )}
+
+            {/* タスクボタン */}
+            <TaskButton />
 
             {/* 設定ボタン */}
             {showSettingsButton && (
