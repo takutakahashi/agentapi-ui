@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { LogOut } from 'lucide-react'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
+import TaskButton from './TaskButton'
 
 interface TopBarProps {
   title: string
@@ -237,6 +238,9 @@ export default function TopBar({
               </div>
             )}
 
+            {/* タスクボタン */}
+            <TaskButton />
+
             {/* 設定ボタン */}
             {showSettingsButton && (
               <button
@@ -251,17 +255,6 @@ export default function TopBar({
               </button>
             )}
 
-            {/* ログアウトボタン */}
-            {showLogoutButton && (
-              <button
-                onClick={handleLogout}
-                disabled={loggingOut}
-                className="p-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors disabled:opacity-50"
-                title="ログアウト"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
-            )}
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, AgentApiType, getAgentApiType, setAgentApiType, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
 import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings } from '@/components/settings'
 import { OneClickPushNotifications } from '@/app/components/OneClickPushNotifications'
@@ -8,11 +9,13 @@ import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-clien
 import { useToast } from '@/contexts/ToastContext'
 
 export default function PersonalSettingsPage() {
+  const router = useRouter()
   const [settings, setSettings] = useState<SettingsData>({})
   const [originalSettings, setOriginalSettings] = useState<SettingsData>({})
   const [userName, setUserName] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sendGithubToken, setSendGithubToken] = useState(false)
   const [agentApiType, setAgentApiTypeState] = useState<AgentApiType>('default')
@@ -146,6 +149,21 @@ export default function PersonalSettingsPage() {
   const handleFontSettingsChange = (settings: FontSettingsType) => {
     setFontSettingsState(settings)
     setFontSettings(settings)
+  }
+
+  const handleLogout = async () => {
+    if (loggingOut) return
+    setLoggingOut(true)
+    try {
+      const response = await fetch('/api/auth/logout', { method: 'POST' })
+      if (response.ok) {
+        router.push('/login')
+      }
+    } catch (err) {
+      console.error('Logout failed:', err)
+    } finally {
+      setLoggingOut(false)
+    }
   }
 
   const handleSave = async () => {
@@ -346,6 +364,26 @@ export default function PersonalSettingsPage() {
               )}
               {saving ? 'Saving...' : 'Save'}
             </button>
+          </div>
+
+          {/* ログアウト */}
+          <div className="mt-8 pt-6 border-t border-red-200 dark:border-red-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">ログアウト</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">アカウントからサインアウトします</p>
+              </div>
+              <button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="px-4 py-2 text-sm text-red-600 dark:text-red-400 border border-red-200 dark:border-red-700 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              >
+                {loggingOut && (
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600"></div>
+                )}
+                {loggingOut ? 'ログアウト中...' : 'ログアウト'}
+              </button>
+            </div>
           </div>
         </>
       )}

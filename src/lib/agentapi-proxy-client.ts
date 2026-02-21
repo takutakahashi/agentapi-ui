@@ -40,6 +40,12 @@ import {
   ShareStatus,
   RevokeShareResponse
 } from '../types/share';
+import {
+  Task,
+  TaskStatus,
+  TaskListResponse,
+  TaskListParams
+} from '../types/task';
 import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, getSendGithubTokenOnSessionStart } from '../types/settings';
 import { ProxyUserInfo } from '../types/user';
 
@@ -1080,6 +1086,41 @@ export class AgentAPIProxyClient {
     }
 
     return result;
+  }
+
+  // Task operations
+
+  /**
+   * Get list of tasks
+   */
+  async getTasks(params?: TaskListParams): Promise<TaskListResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.scope) searchParams.set('scope', params.scope);
+    if (params?.team_id) searchParams.set('team_id', params.team_id);
+    if (params?.group_id) searchParams.set('group_id', params.group_id);
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.task_type) searchParams.set('task_type', params.task_type);
+
+    const endpoint = `/tasks${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const result = await this.makeRequest<TaskListResponse>(endpoint);
+    return { ...result, tasks: result.tasks || [] };
+  }
+
+  /**
+   * Get a specific task by ID
+   */
+  async getTask(taskId: string): Promise<Task> {
+    return this.makeRequest<Task>(`/tasks/${taskId}`);
+  }
+
+  /**
+   * Update a task (e.g., mark as done/todo)
+   */
+  async updateTask(taskId: string, updates: { status?: TaskStatus; title?: string; description?: string }): Promise<Task> {
+    return this.makeRequest<Task>(`/tasks/${taskId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
   }
 }
 
