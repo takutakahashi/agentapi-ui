@@ -1,5 +1,5 @@
 # Use the official Bun image as base
-FROM oven/bun:1.2.11-alpine AS base
+FROM oven/bun:1.3.5-alpine AS base
 
 # Set working directory
 WORKDIR /app
@@ -18,7 +18,7 @@ RUN bun install --frozen-lockfile
 RUN bun run build
 
 # Production stage
-FROM oven/bun:1.2.11-debian AS runner
+FROM oven/bun:1.3.5-alpine AS runner
 WORKDIR /app
 
 # Create non-root user
