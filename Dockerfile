@@ -18,7 +18,7 @@ RUN bun install --frozen-lockfile
 RUN bun run build
 
 # Production stage
-FROM oven/bun:1.3.5-debian AS runner
+FROM oven/bun:1.3.5-alpine AS runner
 WORKDIR /app
 
 # Create non-root user
