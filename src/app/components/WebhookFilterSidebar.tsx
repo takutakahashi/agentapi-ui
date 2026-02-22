@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { WebhookStatus, WebhookType } from '../../types/webhook'
 import NavigationTabs from './NavigationTabs'
 import TaskListPanel from './TaskListPanel'
+
+const SIDEBAR_ACTIVE_TAB_KEY = 'sidebar_active_tab'
 
 interface WebhookFilterSidebarProps {
   statusFilter: WebhookStatus | null
@@ -34,7 +36,19 @@ export default function WebhookFilterSidebar({
   isVisible = true,
   onToggleVisibility,
 }: WebhookFilterSidebarProps) {
-  const [activeTab, setActiveTab] = useState<'filter' | 'tasks'>('filter')
+  const [activeTab, setActiveTab] = useState<'filter' | 'tasks'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(SIDEBAR_ACTIVE_TAB_KEY)
+      if (saved === 'filter' || saved === 'tasks') return saved
+    }
+    return 'filter'
+  })
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(SIDEBAR_ACTIVE_TAB_KEY, activeTab)
+    }
+  }, [activeTab])
   const hasFilter = statusFilter !== null || typeFilter !== null
 
   return (

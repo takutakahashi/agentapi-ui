@@ -1,6 +1,8 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+
+const CHATS_TAG_FILTERS_KEY = 'chats_tag_filters'
 import Link from 'next/link'
 import TagFilterSidebar from '../components/TagFilterSidebar'
 import SessionListView from '../components/SessionListView'
@@ -13,7 +15,32 @@ interface TagFilter {
 }
 
 export default function ChatsPage() {
-  const [tagFilters, setTagFilters] = useState<TagFilter>({})
+  const [tagFilters, setTagFilters] = useState<TagFilter>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(CHATS_TAG_FILTERS_KEY)
+        if (saved) return JSON.parse(saved) as TagFilter
+      } catch {
+        // ignore parse error
+      }
+    }
+    return {}
+  })
+
+  const isFirstRender = useRef(true)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    if (typeof window !== 'undefined') {
+      if (Object.keys(tagFilters).length === 0) {
+        localStorage.removeItem(CHATS_TAG_FILTERS_KEY)
+      } else {
+        localStorage.setItem(CHATS_TAG_FILTERS_KEY, JSON.stringify(tagFilters))
+      }
+    }
+  }, [tagFilters])
   const [refreshKey, setRefreshKey] = useState(0)
   const [sidebarVisible, setSidebarVisible] = useState(false)
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Webhook, WebhookStatus, WebhookType } from '../../types/webhook'
 import WebhookFilterSidebar from '../components/WebhookFilterSidebar'
 import WebhookListView from '../components/WebhookListView'
@@ -8,9 +8,44 @@ import WebhookFormModal from '../components/WebhookFormModal'
 import TopBar from '../components/TopBar'
 import NavigationTabs from '../components/NavigationTabs'
 
+const WEBHOOKS_STATUS_FILTER_KEY = 'webhooks_status_filter'
+const WEBHOOKS_TYPE_FILTER_KEY = 'webhooks_type_filter'
+
 export default function WebhooksPage() {
-  const [statusFilter, setStatusFilter] = useState<WebhookStatus | null>(null)
-  const [typeFilter, setTypeFilter] = useState<WebhookType | null>(null)
+  const [statusFilter, setStatusFilter] = useState<WebhookStatus | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(WEBHOOKS_STATUS_FILTER_KEY)
+      if (saved === 'active' || saved === 'paused') return saved
+    }
+    return null
+  })
+  const [typeFilter, setTypeFilter] = useState<WebhookType | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(WEBHOOKS_TYPE_FILTER_KEY)
+      if (saved === 'github' || saved === 'custom') return saved
+    }
+    return null
+  })
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (statusFilter === null) {
+        localStorage.removeItem(WEBHOOKS_STATUS_FILTER_KEY)
+      } else {
+        localStorage.setItem(WEBHOOKS_STATUS_FILTER_KEY, statusFilter)
+      }
+    }
+  }, [statusFilter])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (typeFilter === null) {
+        localStorage.removeItem(WEBHOOKS_TYPE_FILTER_KEY)
+      } else {
+        localStorage.setItem(WEBHOOKS_TYPE_FILTER_KEY, typeFilter)
+      }
+    }
+  }, [typeFilter])
   const [sidebarVisible, setSidebarVisible] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [isFormModalOpen, setIsFormModalOpen] = useState(false)
