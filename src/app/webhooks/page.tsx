@@ -2,14 +2,14 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { Webhook, WebhookStatus, WebhookType } from '../../types/webhook'
-
-const WEBHOOKS_STATUS_FILTER_KEY = 'webhooks_status_filter'
-const WEBHOOKS_TYPE_FILTER_KEY = 'webhooks_type_filter'
 import WebhookFilterSidebar from '../components/WebhookFilterSidebar'
 import WebhookListView from '../components/WebhookListView'
 import WebhookFormModal from '../components/WebhookFormModal'
 import TopBar from '../components/TopBar'
 import NavigationTabs from '../components/NavigationTabs'
+
+const WEBHOOKS_STATUS_FILTER_KEY = 'webhooks_status_filter'
+const WEBHOOKS_TYPE_FILTER_KEY = 'webhooks_type_filter'
 
 export default function WebhooksPage() {
   const [statusFilter, setStatusFilter] = useState<WebhookStatus | null>(() => {

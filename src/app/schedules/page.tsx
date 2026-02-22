@@ -2,13 +2,13 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { Schedule, ScheduleStatus } from '../../types/schedule'
-
-const SCHEDULES_STATUS_FILTER_KEY = 'schedules_status_filter'
 import ScheduleFilterSidebar from '../components/ScheduleFilterSidebar'
 import ScheduleListView from '../components/ScheduleListView'
 import ScheduleFormModal from '../components/ScheduleFormModal'
 import TopBar from '../components/TopBar'
 import NavigationTabs from '../components/NavigationTabs'
+
+const SCHEDULES_STATUS_FILTER_KEY = 'schedules_status_filter'
 
 export default function SchedulesPage() {
   const [statusFilter, setStatusFilter] = useState<ScheduleStatus | null>(() => {
