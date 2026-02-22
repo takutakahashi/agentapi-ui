@@ -107,10 +107,10 @@ function TaskItem({
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                className="inline-flex items-start gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
               >
-                <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                <span className="truncate">{link.title || link.url}</span>
+                <ExternalLink className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                <span className="break-all">{link.title || link.url}</span>
               </a>
             ))}
           </div>
