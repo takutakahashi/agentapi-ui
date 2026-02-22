@@ -10,6 +10,8 @@ import { Task } from '../../types/task'
 
 type FilterStatus = 'all' | 'todo' | 'done'
 
+const TASKS_FILTER_STATUS_KEY = 'tasks_filter_status'
+
 function TaskItem({
   task,
   onToggle,
@@ -124,7 +126,19 @@ export default function TasksPage() {
   const [agentTasks, setAgentTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all')
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(TASKS_FILTER_STATUS_KEY)
+      if (saved === 'all' || saved === 'todo' || saved === 'done') return saved
+    }
+    return 'all'
+  })
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(TASKS_FILTER_STATUS_KEY, filterStatus)
+    }
+  }, [filterStatus])
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null)
 
   const sortTasks = (tasks: Task[]) =>

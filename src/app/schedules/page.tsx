@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Schedule, ScheduleStatus } from '../../types/schedule'
+
+const SCHEDULES_STATUS_FILTER_KEY = 'schedules_status_filter'
 import ScheduleFilterSidebar from '../components/ScheduleFilterSidebar'
 import ScheduleListView from '../components/ScheduleListView'
 import ScheduleFormModal from '../components/ScheduleFormModal'
@@ -9,7 +11,23 @@ import TopBar from '../components/TopBar'
 import NavigationTabs from '../components/NavigationTabs'
 
 export default function SchedulesPage() {
-  const [statusFilter, setStatusFilter] = useState<ScheduleStatus | null>(null)
+  const [statusFilter, setStatusFilter] = useState<ScheduleStatus | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(SCHEDULES_STATUS_FILTER_KEY)
+      if (saved === 'active' || saved === 'paused' || saved === 'completed') return saved
+    }
+    return null
+  })
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (statusFilter === null) {
+        localStorage.removeItem(SCHEDULES_STATUS_FILTER_KEY)
+      } else {
+        localStorage.setItem(SCHEDULES_STATUS_FILTER_KEY, statusFilter)
+      }
+    }
+  }, [statusFilter])
   const [sidebarVisible, setSidebarVisible] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [isFormModalOpen, setIsFormModalOpen] = useState(false)

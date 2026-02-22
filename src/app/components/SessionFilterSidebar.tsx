@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { FilterGroup, SessionFilter } from '../../lib/filter-utils'
 import TaskListPanel from './TaskListPanel'
 
+const SIDEBAR_ACTIVE_TAB_KEY = 'sidebar_active_tab'
+
 interface SessionFilterSidebarProps {
   filterGroups: FilterGroup[]
   currentFilters: SessionFilter
@@ -19,7 +21,19 @@ export default function SessionFilterSidebar({
   isVisible = true,
   onToggleVisibility
 }: SessionFilterSidebarProps) {
-  const [activeTab, setActiveTab] = useState<'filter' | 'tasks'>('filter')
+  const [activeTab, setActiveTab] = useState<'filter' | 'tasks'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(SIDEBAR_ACTIVE_TAB_KEY)
+      if (saved === 'filter' || saved === 'tasks') return saved
+    }
+    return 'filter'
+  })
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(SIDEBAR_ACTIVE_TAB_KEY, activeTab)
+    }
+  }, [activeTab])
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
   // ESCキーでサイドバーを閉じる
