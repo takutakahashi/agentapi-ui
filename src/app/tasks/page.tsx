@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ExternalLink, RefreshCw, CheckCircle2, Circle, AlertCircle, ClipboardList, ArrowLeft } from 'lucide-react'
+import Link from 'next/link'
+import { ExternalLink, Terminal, RefreshCw, CheckCircle2, Circle, AlertCircle, ClipboardList, ArrowLeft } from 'lucide-react'
 import TopBar from '../components/TopBar'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import { Task } from '../../types/task'
@@ -19,7 +20,6 @@ function TaskItem({
   isUpdating: boolean
 }) {
   const isDone = task.status === 'done'
-  const firstLink = task.links?.[0]
 
   return (
     <div
@@ -88,16 +88,30 @@ function TaskItem({
           )}
         </div>
 
-        {firstLink && (
-          <a
-            href={firstLink.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 mt-1.5 text-xs text-blue-600 dark:text-blue-400 hover:underline truncate max-w-full"
-          >
-            <ExternalLink className="w-3 h-3 flex-shrink-0" />
-            <span className="truncate">{firstLink.title || firstLink.url}</span>
-          </a>
+        {(task.session_id || task.links?.length > 0) && (
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
+            {task.session_id && (
+              <Link
+                href={`/sessions/${task.session_id}`}
+                className="inline-flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                <Terminal className="w-3 h-3 flex-shrink-0" />
+                <span>セッション</span>
+              </Link>
+            )}
+            {task.links?.map((link) => (
+              <a
+                key={link.id}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate">{link.title || link.url}</span>
+              </a>
+            ))}
+          </div>
         )}
       </div>
     </div>
