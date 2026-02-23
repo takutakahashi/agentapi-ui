@@ -203,6 +203,30 @@ async function handleProxyRequest(
       }
     }
 
+    // Inject session_config.params.github_token for personal slackbots
+    if ((path === 'slackbots' || path.startsWith('slackbots/')) && (method === 'POST' || method === 'PUT') && apiKey && body) {
+      try {
+        const bodyData = JSON.parse(body);
+        // Only inject for personal (user) scope slackbots
+        if (bodyData.scope === 'user' || (!bodyData.scope && !bodyData.team_id)) {
+          if (!bodyData.session_config) {
+            bodyData.session_config = {};
+          }
+          if (!bodyData.session_config.params) {
+            bodyData.session_config.params = {};
+          }
+          bodyData.session_config.params.github_token = apiKey;
+          body = JSON.stringify(bodyData);
+          debugLog('[API Proxy] Injected session_config.params.github_token for personal slackbot');
+        } else {
+          debugLog('[API Proxy] Skipping github_token injection for team-scoped slackbot');
+        }
+      } catch {
+        // JSON parse failed, continue with original body
+        debugLog('[API Proxy] Failed to inject github_token for slackbot: body is not valid JSON');
+      }
+    }
+
     // Prepare headers
     const headers = new Headers();
     // Only add Authorization header for non-OAuth endpoints
