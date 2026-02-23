@@ -1165,7 +1165,12 @@ export class AgentAPIProxyClient {
     if (params?.limit) searchParams.set('limit', params.limit.toString());
 
     const endpoint = `/slackbots${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
-    const result = await this.makeRequest<SlackBotListResponse>(endpoint);
+    const result = await this.makeRequest<SlackBot[] | SlackBotListResponse>(endpoint);
+
+    // API returns array directly (not wrapped in object)
+    if (Array.isArray(result)) {
+      return { slackbots: result };
+    }
 
     return {
       ...result,
