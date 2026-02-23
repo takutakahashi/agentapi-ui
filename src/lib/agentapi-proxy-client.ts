@@ -195,8 +195,12 @@ export class AgentAPIProxyClient {
               );
             }
 
+            // Handle 204 No Content (empty body)
+            if (fallbackResponse.status === 204) {
+              return undefined as T;
+            }
             const fallbackData = await fallbackResponse.json();
-            
+
             if (this.debug) {
               console.log(`[AgentAPIProxy] Response (fallback):`, { data: fallbackData });
             }
@@ -221,8 +225,12 @@ export class AgentAPIProxyClient {
           );
         }
 
+        // Handle 204 No Content (empty body)
+        if (response.status === 204) {
+          return undefined as T;
+        }
         const data = await response.json();
-        
+
         if (this.debug) {
           console.log(`[AgentAPIProxy] Response:`, { data });
         }
@@ -278,8 +286,12 @@ export class AgentAPIProxyClient {
         );
       }
 
+      // Handle 204 No Content (empty body)
+      if (response.status === 204) {
+        return undefined as T;
+      }
       const data = await response.json();
-      
+
       if (this.debug) {
         console.log(`[AgentAPIProxy] Response:`, { data });
       }
