@@ -5,7 +5,6 @@ import {
   SlackBot,
   CreateSlackBotRequest,
   UpdateSlackBotRequest,
-  SLACK_EVENT_TYPES,
 } from '../../types/slackbot'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
@@ -34,9 +33,6 @@ export default function SlackbotFormModal({
   const [botTokenSecretKey, setBotTokenSecretKey] = useState('')
   const [maxSessions, setMaxSessions] = useState<number>(10)
 
-  // Allowed event types
-  const [allowedEventTypes, setAllowedEventTypes] = useState<string[]>([])
-
   // Allowed channel names (chip/tag input, partial match)
   const [allowedChannelNames, setAllowedChannelNames] = useState<string[]>([])
   const [channelNameInput, setChannelNameInput] = useState('')
@@ -49,7 +45,6 @@ export default function SlackbotFormModal({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showBotTokenSection, setShowBotTokenSection] = useState(false)
-  const [showEventConfig, setShowEventConfig] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   const isEditing = !!editingSlackbot
@@ -62,7 +57,6 @@ export default function SlackbotFormModal({
       setBotTokenSecretName(editingSlackbot.bot_token_secret_name || '')
       setBotTokenSecretKey(editingSlackbot.bot_token_secret_key || '')
       setMaxSessions(editingSlackbot.max_sessions ?? 10)
-      setAllowedEventTypes(editingSlackbot.allowed_event_types || [])
       setAllowedChannelNames(editingSlackbot.allowed_channel_names || [])
 
       const sc = editingSlackbot.session_config
@@ -83,10 +77,8 @@ export default function SlackbotFormModal({
 
       // Auto-expand sections if data exists
       const hasBotToken = !!(editingSlackbot.bot_token_secret_name || editingSlackbot.signing_secret)
-      const hasEventConfig = !!(editingSlackbot.allowed_event_types && editingSlackbot.allowed_event_types.length > 0)
       setShowBotTokenSection(hasBotToken)
-      setShowEventConfig(hasEventConfig)
-      if (hasBotToken || hasEventConfig) {
+      if (hasBotToken) {
         setShowAdvanced(true)
       }
     } else {
@@ -96,13 +88,11 @@ export default function SlackbotFormModal({
       setBotTokenSecretName('')
       setBotTokenSecretKey('')
       setMaxSessions(10)
-      setAllowedEventTypes([])
       setAllowedChannelNames([])
       setChannelNameInput('')
       setEnvPairs([{ key: '', value: '' }])
       setTagPairs([{ key: '', value: '' }])
       setShowBotTokenSection(false)
-      setShowEventConfig(false)
       setShowAdvanced(false)
     }
     setError(null)
@@ -122,13 +112,6 @@ export default function SlackbotFormModal({
     }
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, handleKeyDown])
-
-  // Allowed event types toggle
-  const toggleEventType = (value: string) => {
-    setAllowedEventTypes((prev) =>
-      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
-    )
-  }
 
   // Channel name chip input (partial match)
   const addChannelName = () => {
@@ -227,7 +210,6 @@ export default function SlackbotFormModal({
           ...(signingSecret.trim() ? { signing_secret: signingSecret.trim() } : {}),
           ...(botTokenSecretName.trim() ? { bot_token_secret_name: botTokenSecretName.trim() } : {}),
           ...(botTokenSecretKey.trim() ? { bot_token_secret_key: botTokenSecretKey.trim() } : {}),
-          allowed_event_types: allowedEventTypes,
           allowed_channel_names: allowedChannelNames,
           max_sessions: maxSessions,
           ...(Object.keys(sessionConfig).length > 0 ? { session_config: sessionConfig } : {}),
@@ -240,7 +222,6 @@ export default function SlackbotFormModal({
           ...(signingSecret.trim() ? { signing_secret: signingSecret.trim() } : {}),
           ...(botTokenSecretName.trim() ? { bot_token_secret_name: botTokenSecretName.trim() } : {}),
           ...(botTokenSecretKey.trim() ? { bot_token_secret_key: botTokenSecretKey.trim() } : {}),
-          allowed_event_types: allowedEventTypes,
           allowed_channel_names: allowedChannelNames,
           max_sessions: maxSessions,
           ...(Object.keys(sessionConfig).length > 0 ? { session_config: sessionConfig } : {}),
@@ -385,134 +366,7 @@ export default function SlackbotFormModal({
 
               {showAdvanced && (
                 <div className="mt-4 space-y-5 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
-                  {/* Custom Bot Token */}
-                  <div>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={showBotTokenSection}
-                        onChange={(e) => {
-                          setShowBotTokenSection(e.target.checked)
-                          if (!e.target.checked) {
-                            setSigningSecret('')
-                            setBotTokenSecretName('')
-                            setBotTokenSecretKey('')
-                          }
-                        }}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        カスタム Bot Token を利用する
-                      </span>
-                    </label>
-                    <p className="mt-1 ml-6 text-xs text-gray-500 dark:text-gray-400">
-                      独自の Slack Bot Token を使用する場合に有効にしてください
-                    </p>
-                    {showBotTokenSection && (
-                      <div className="mt-3 ml-6 space-y-3">
-                        {/* Signing Secret */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Signing Secret {!isEditing && <span className="text-red-500">*</span>}
-                          </label>
-                          <input
-                            type="password"
-                            value={signingSecret}
-                            onChange={(e) => setSigningSecret(e.target.value)}
-                            placeholder={isEditing ? '変更する場合のみ入力' : 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxs'}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-                          />
-                          {isEditing && (
-                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                              変更しない場合は空のままにしてください
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Bot Token Secret Name */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Bot Token Secret Name <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={botTokenSecretName}
-                            onChange={(e) => setBotTokenSecretName(e.target.value)}
-                            placeholder="例: slack-bot-token"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-                          />
-                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            Bot Token が格納された Kubernetes Secret 名
-                          </p>
-                        </div>
-
-                        {/* Bot Token Secret Key */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Bot Token Secret Key
-                          </label>
-                          <input
-                            type="text"
-                            value={botTokenSecretKey}
-                            onChange={(e) => setBotTokenSecretKey(e.target.value)}
-                            placeholder="bot-token"
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-                          />
-                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            未入力の場合は &quot;bot-token&quot; を使用
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Event Config */}
-                  <div>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={showEventConfig}
-                        onChange={(e) => {
-                          setShowEventConfig(e.target.checked)
-                          if (!e.target.checked) {
-                            setAllowedEventTypes([])
-                          }
-                        }}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        イベントを設定する
-                      </span>
-                      {allowedEventTypes.length > 0 && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                          {allowedEventTypes.length}
-                        </span>
-                      )}
-                    </label>
-                    <p className="mt-1 ml-6 text-xs text-gray-500 dark:text-gray-400">
-                      処理する Slack イベントを絞り込む場合に設定（未設定ですべて処理）
-                    </p>
-                    {showEventConfig && (
-                      <div className="mt-3 ml-6 space-y-2">
-                        {SLACK_EVENT_TYPES.map((et) => (
-                          <label key={et.value} className="flex items-start gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={allowedEventTypes.includes(et.value)}
-                              onChange={() => toggleEventType(et.value)}
-                              className="mt-0.5 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-700 dark:text-gray-300">
-                              {et.label}
-                              <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
-                                — {et.description}
-                              </span>
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  {/* Custom Bot Token - TODO: 一旦非表示 */}
 
                   {/* Max Sessions */}
                   <div>
