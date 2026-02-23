@@ -31,7 +31,7 @@ export interface SlackBot {
   bot_token_secret_name?: string;
   bot_token_secret_key?: string;
   allowed_event_types?: string[];
-  allowed_channel_ids?: string[];
+  allowed_channel_names?: string[];
   session_config?: SlackBotSessionConfig;
   max_sessions?: number;
   created_at: string;
@@ -47,7 +47,7 @@ export interface CreateSlackBotRequest {
   bot_token_secret_name?: string;
   bot_token_secret_key?: string;
   allowed_event_types?: string[];
-  allowed_channel_ids?: string[];
+  allowed_channel_names?: string[];
   session_config?: SlackBotSessionConfig;
   max_sessions?: number;
 }
@@ -60,7 +60,7 @@ export interface UpdateSlackBotRequest {
   bot_token_secret_name?: string;
   bot_token_secret_key?: string;
   allowed_event_types?: string[];
-  allowed_channel_ids?: string[];
+  allowed_channel_names?: string[];
   session_config?: SlackBotSessionConfig;
   max_sessions?: number;
 }

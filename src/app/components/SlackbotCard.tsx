@@ -143,22 +143,22 @@ export default function SlackbotCard({
         </div>
       )}
 
-      {/* Allowed Channel IDs */}
-      {slackbot.allowed_channel_ids && slackbot.allowed_channel_ids.length > 0 && (
+      {/* Allowed Channel Names */}
+      {slackbot.allowed_channel_names && slackbot.allowed_channel_names.length > 0 && (
         <div className="mb-3">
-          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">許可チャンネル</div>
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">許可チャンネル（部分一致）</div>
           <div className="flex flex-wrap gap-1">
-            {slackbot.allowed_channel_ids.slice(0, 3).map((channelId) => (
+            {slackbot.allowed_channel_names.slice(0, 3).map((channelName) => (
               <span
-                key={channelId}
-                className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 font-mono"
+                key={channelName}
+                className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
               >
-                {channelId}
+                {channelName}
               </span>
             ))}
-            {slackbot.allowed_channel_ids.length > 3 && (
+            {slackbot.allowed_channel_names.length > 3 && (
               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-                +{slackbot.allowed_channel_ids.length - 3}
+                +{slackbot.allowed_channel_names.length - 3}
               </span>
             )}
           </div>
