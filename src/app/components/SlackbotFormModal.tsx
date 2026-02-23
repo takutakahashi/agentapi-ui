@@ -179,6 +179,10 @@ export default function SlackbotFormModal({
       setError('名前は必須です')
       return
     }
+    if (allowedChannelNames.length === 0) {
+      setError('チャンネル名を1つ以上指定してください')
+      return
+    }
     if (showBotTokenSection) {
       if (!isEditing && !signingSecret.trim()) {
         setError('カスタム Bot Token 使用時は Signing Secret が必須です')
@@ -304,10 +308,10 @@ export default function SlackbotFormModal({
             {/* Allowed Channel Names */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                チャンネル名フィルタ
+                チャンネル名フィルタ <span className="text-red-500">*</span>
               </label>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                特定チャンネルのみ処理する場合に指定。チャンネル名の部分一致で絞り込みます。未指定ですべて処理。Enter またはカンマで追加
+                処理するチャンネル名を1つ以上指定してください。チャンネル名の部分一致で絞り込みます。Enter またはカンマで追加
               </p>
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {allowedChannelNames.map((name) => (
@@ -334,7 +338,11 @@ export default function SlackbotFormModal({
                   onKeyDown={handleChannelNameKeyDown}
                   onBlur={addChannelName}
                   placeholder="例: dev-alerts, backend"
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`flex-1 px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    allowedChannelNames.length === 0
+                      ? 'border-red-400 dark:border-red-500'
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}
                 />
                 <button
                   type="button"
