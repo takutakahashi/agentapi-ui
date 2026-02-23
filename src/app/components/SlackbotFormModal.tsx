@@ -50,6 +50,8 @@ export default function SlackbotFormModal({
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showBotTokenSection, setShowBotTokenSection] = useState(false)
+  const [showEventConfig, setShowEventConfig] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   const isEditing = !!editingSlackbot
@@ -82,6 +84,10 @@ export default function SlackbotFormModal({
       } else {
         setTagPairs([{ key: '', value: '' }])
       }
+
+      // Auto-expand sections if data exists
+      setShowBotTokenSection(!!(editingSlackbot.bot_token_secret_name || editingSlackbot.signing_secret))
+      setShowEventConfig(!!(editingSlackbot.allowed_event_types && editingSlackbot.allowed_event_types.length > 0))
     } else {
       // Reset form
       setName('')
@@ -96,6 +102,8 @@ export default function SlackbotFormModal({
       setReuseMessageTemplate('')
       setEnvPairs([{ key: '', value: '' }])
       setTagPairs([{ key: '', value: '' }])
+      setShowBotTokenSection(false)
+      setShowEventConfig(false)
       setShowAdvanced(false)
     }
     setError(null)
@@ -188,6 +196,16 @@ export default function SlackbotFormModal({
     if (!name.trim()) {
       setError('名前は必須です')
       return
+    }
+    if (showBotTokenSection) {
+      if (!isEditing && !signingSecret.trim()) {
+        setError('カスタム Bot Token 使用時は Signing Secret が必須です')
+        return
+      }
+      if (!botTokenSecretName.trim()) {
+        setError('カスタム Bot Token 使用時は Bot Token Secret Name が必須です')
+        return
+      }
     }
 
     setIsSubmitting(true)
@@ -303,101 +321,203 @@ export default function SlackbotFormModal({
               />
             </div>
 
-            {/* Signing Secret */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Signing Secret
-                <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
-                  {isEditing ? '（変更する場合のみ入力）' : '（省略可）'}
-                </span>
-              </label>
-              <input
-                type="password"
-                value={signingSecret}
-                onChange={(e) => setSigningSecret(e.target.value)}
-                placeholder={isEditing ? '変更する場合のみ入力してください' : '未入力の場合はサーバーデフォルトを使用'}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-              />
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Slack App の「Basic Information」→「App Credentials」から取得。Bot Token を個別登録する場合に指定してください
-              </p>
-            </div>
-
-            {/* Allowed Event Types */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                許可するイベント種別
-              </label>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                未選択の場合はすべてのイベントを処理します
-              </p>
-              <div className="space-y-2">
-                {SLACK_EVENT_TYPES.map((eventType) => (
-                  <label
-                    key={eventType.value}
-                    className="flex items-start gap-2 cursor-pointer group"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={allowedEventTypes.includes(eventType.value)}
-                      onChange={() => toggleEventType(eventType.value)}
-                      className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
-                    />
-                    <div>
-                      <span className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
-                        {eventType.label}
-                      </span>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{eventType.description}</p>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Allowed Channel IDs */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                許可するチャンネル ID
-              </label>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                未指定の場合はすべてのチャンネルを処理します。Enter または カンマ で追加
-              </p>
-              {/* Chips */}
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {allowedChannelIds.map((id) => (
-                  <span
-                    key={id}
-                    className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-mono"
-                  >
-                    {id}
-                    <button
-                      type="button"
-                      onClick={() => removeChannelId(id)}
-                      className="ml-1 text-purple-500 hover:text-purple-700 dark:hover:text-purple-200"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2">
+            {/* Custom Bot Token Section */}
+            <div className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
+              <label className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <input
-                  type="text"
-                  value={channelIdInput}
-                  onChange={(e) => setChannelIdInput(e.target.value)}
-                  onKeyDown={handleChannelIdKeyDown}
-                  onBlur={addChannelId}
-                  placeholder="C1234567890"
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  type="checkbox"
+                  checked={showBotTokenSection}
+                  onChange={(e) => {
+                    setShowBotTokenSection(e.target.checked)
+                    if (!e.target.checked) {
+                      setSigningSecret('')
+                      setBotTokenSecretName('')
+                      setBotTokenSecretKey('')
+                    }
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                 />
-                <button
-                  type="button"
-                  onClick={addChannelId}
-                  className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                <div>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    カスタム Bot Token を利用する
+                  </span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Slack App 固有の Bot Token と Signing Secret を設定します
+                  </p>
+                </div>
+              </label>
+
+              {showBotTokenSection && (
+                <div className="px-4 pb-4 space-y-4 border-t border-gray-200 dark:border-gray-600 pt-4">
+                  {/* Signing Secret */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Signing Secret <span className="text-red-500">*</span>
+                      {isEditing && <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">（変更する場合のみ入力）</span>}
+                    </label>
+                    <input
+                      type="password"
+                      value={signingSecret}
+                      onChange={(e) => setSigningSecret(e.target.value)}
+                      placeholder={isEditing ? '変更する場合のみ入力してください' : 'Slack App の Signing Secret'}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                    />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Slack App の「Basic Information」→「App Credentials」から取得できます
+                    </p>
+                  </div>
+
+                  {/* Bot Token Secret Name */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Bot Token Secret Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={botTokenSecretName}
+                      onChange={(e) => setBotTokenSecretName(e.target.value)}
+                      placeholder="例: my-slack-bot-token"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Slack Bot Token (xoxb-...) を格納する Kubernetes Secret 名
+                    </p>
+                  </div>
+
+                  {/* Bot Token Secret Key */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Bot Token Secret Key
+                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">（省略可）</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={botTokenSecretKey}
+                      onChange={(e) => setBotTokenSecretKey(e.target.value)}
+                      placeholder="bot-token"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Secret 内のキー名（省略時は「bot-token」を使用）
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Event Config Section */}
+            <div className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowEventConfig(!showEventConfig)}
+                className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <div className="text-left">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      イベントを設定する
+                    </span>
+                    {(allowedEventTypes.length > 0 || allowedChannelIds.length > 0) && (
+                      <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                        {allowedEventTypes.length > 0 ? `${allowedEventTypes.length} イベント` : ''}
+                        {allowedEventTypes.length > 0 && allowedChannelIds.length > 0 ? ' / ' : ''}
+                        {allowedChannelIds.length > 0 ? `${allowedChannelIds.length} チャンネル` : ''}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <svg
+                  className={`w-4 h-4 text-gray-400 transition-transform ${showEventConfig ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  追加
-                </button>
-              </div>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showEventConfig && (
+                <div className="px-4 pb-4 space-y-4 border-t border-gray-200 dark:border-gray-600 pt-4">
+                  {/* Allowed Event Types */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      許可するイベント種別
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                      未選択の場合はすべてのイベントを処理します
+                    </p>
+                    <div className="space-y-2">
+                      {SLACK_EVENT_TYPES.map((eventType) => (
+                        <label
+                          key={eventType.value}
+                          className="flex items-start gap-2 cursor-pointer group"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={allowedEventTypes.includes(eventType.value)}
+                            onChange={() => toggleEventType(eventType.value)}
+                            className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                          />
+                          <div>
+                            <span className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
+                              {eventType.label}
+                            </span>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{eventType.description}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Allowed Channel IDs */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      許可するチャンネル ID
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      未指定の場合はすべてのチャンネルを処理します。Enter またはカンマで追加
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {allowedChannelIds.map((id) => (
+                        <span
+                          key={id}
+                          className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-mono"
+                        >
+                          {id}
+                          <button
+                            type="button"
+                            onClick={() => removeChannelId(id)}
+                            className="ml-1 text-purple-500 hover:text-purple-700 dark:hover:text-purple-200"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={channelIdInput}
+                        onChange={(e) => setChannelIdInput(e.target.value)}
+                        onKeyDown={handleChannelIdKeyDown}
+                        onBlur={addChannelId}
+                        placeholder="C1234567890"
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={addChannelId}
+                        className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                      >
+                        追加
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Initial Message Template */}
@@ -450,39 +570,6 @@ export default function SlackbotFormModal({
                       onChange={(e) => setMaxSessions(Number(e.target.value))}
                       className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                  </div>
-
-                  {/* Bot Token Secret */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Bot Token Secret Name
-                    </label>
-                    <input
-                      type="text"
-                      value={botTokenSecretName}
-                      onChange={(e) => setBotTokenSecretName(e.target.value)}
-                      placeholder="例: my-slack-bot-token"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Slack Bot Token (xoxb-...) を格納する Kubernetes Secret 名。未指定の場合はグローバルデフォルトを使用
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Bot Token Secret Key
-                    </label>
-                    <input
-                      type="text"
-                      value={botTokenSecretKey}
-                      onChange={(e) => setBotTokenSecretKey(e.target.value)}
-                      placeholder="bot-token"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Secret 内のキー名（デフォルト: bot-token）
-                    </p>
                   </div>
 
                   {/* Reuse Message Template */}
