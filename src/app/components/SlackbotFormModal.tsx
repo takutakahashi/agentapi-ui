@@ -37,9 +37,9 @@ export default function SlackbotFormModal({
   // Allowed event types
   const [allowedEventTypes, setAllowedEventTypes] = useState<string[]>([])
 
-  // Allowed channel IDs (chip/tag input)
-  const [allowedChannelIds, setAllowedChannelIds] = useState<string[]>([])
-  const [channelIdInput, setChannelIdInput] = useState('')
+  // Allowed channel names (chip/tag input, partial match)
+  const [allowedChannelNames, setAllowedChannelNames] = useState<string[]>([])
+  const [channelNameInput, setChannelNameInput] = useState('')
 
   // Session config
   const [envPairs, setEnvPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
@@ -63,7 +63,7 @@ export default function SlackbotFormModal({
       setBotTokenSecretKey(editingSlackbot.bot_token_secret_key || '')
       setMaxSessions(editingSlackbot.max_sessions ?? 10)
       setAllowedEventTypes(editingSlackbot.allowed_event_types || [])
-      setAllowedChannelIds(editingSlackbot.allowed_channel_ids || [])
+      setAllowedChannelNames(editingSlackbot.allowed_channel_names || [])
 
       const sc = editingSlackbot.session_config
 
@@ -97,8 +97,8 @@ export default function SlackbotFormModal({
       setBotTokenSecretKey('')
       setMaxSessions(10)
       setAllowedEventTypes([])
-      setAllowedChannelIds([])
-      setChannelIdInput('')
+      setAllowedChannelNames([])
+      setChannelNameInput('')
       setEnvPairs([{ key: '', value: '' }])
       setTagPairs([{ key: '', value: '' }])
       setShowBotTokenSection(false)
@@ -130,24 +130,24 @@ export default function SlackbotFormModal({
     )
   }
 
-  // Channel ID chip input
-  const addChannelId = () => {
-    const trimmed = channelIdInput.trim()
-    if (trimmed && !allowedChannelIds.includes(trimmed)) {
-      setAllowedChannelIds((prev) => [...prev, trimmed])
+  // Channel name chip input (partial match)
+  const addChannelName = () => {
+    const trimmed = channelNameInput.trim()
+    if (trimmed && !allowedChannelNames.includes(trimmed)) {
+      setAllowedChannelNames((prev) => [...prev, trimmed])
     }
-    setChannelIdInput('')
+    setChannelNameInput('')
   }
 
-  const handleChannelIdKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleChannelNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault()
-      addChannelId()
+      addChannelName()
     }
   }
 
-  const removeChannelId = (id: string) => {
-    setAllowedChannelIds((prev) => prev.filter((c) => c !== id))
+  const removeChannelName = (name: string) => {
+    setAllowedChannelNames((prev) => prev.filter((c) => c !== name))
   }
 
   // Key-value pair helpers
@@ -228,7 +228,7 @@ export default function SlackbotFormModal({
           ...(botTokenSecretName.trim() ? { bot_token_secret_name: botTokenSecretName.trim() } : {}),
           ...(botTokenSecretKey.trim() ? { bot_token_secret_key: botTokenSecretKey.trim() } : {}),
           allowed_event_types: allowedEventTypes,
-          allowed_channel_ids: allowedChannelIds,
+          allowed_channel_names: allowedChannelNames,
           max_sessions: maxSessions,
           ...(Object.keys(sessionConfig).length > 0 ? { session_config: sessionConfig } : {}),
         }
@@ -241,7 +241,7 @@ export default function SlackbotFormModal({
           ...(botTokenSecretName.trim() ? { bot_token_secret_name: botTokenSecretName.trim() } : {}),
           ...(botTokenSecretKey.trim() ? { bot_token_secret_key: botTokenSecretKey.trim() } : {}),
           allowed_event_types: allowedEventTypes,
-          allowed_channel_ids: allowedChannelIds,
+          allowed_channel_names: allowedChannelNames,
           max_sessions: maxSessions,
           ...(Object.keys(sessionConfig).length > 0 ? { session_config: sessionConfig } : {}),
           ...scopeParams,
@@ -320,24 +320,24 @@ export default function SlackbotFormModal({
               />
             </div>
 
-            {/* Allowed Channel IDs */}
+            {/* Allowed Channel Names */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                チャンネルフィルタ
+                チャンネル名フィルタ
               </label>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                特定チャンネルのみ処理する場合に指定。未指定ですべて処理。Enter またはカンマで追加
+                特定チャンネルのみ処理する場合に指定。チャンネル名の部分一致で絞り込みます。未指定ですべて処理。Enter またはカンマで追加
               </p>
               <div className="flex flex-wrap gap-1.5 mb-2">
-                {allowedChannelIds.map((id) => (
+                {allowedChannelNames.map((name) => (
                   <span
-                    key={id}
-                    className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-mono"
+                    key={name}
+                    className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
                   >
-                    {id}
+                    {name}
                     <button
                       type="button"
-                      onClick={() => removeChannelId(id)}
+                      onClick={() => removeChannelName(name)}
                       className="ml-1 text-purple-500 hover:text-purple-700 dark:hover:text-purple-200"
                     >
                       ×
@@ -348,16 +348,16 @@ export default function SlackbotFormModal({
               <div className="flex gap-2">
                 <input
                   type="text"
-                  value={channelIdInput}
-                  onChange={(e) => setChannelIdInput(e.target.value)}
-                  onKeyDown={handleChannelIdKeyDown}
-                  onBlur={addChannelId}
-                  placeholder="C1234567890"
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={channelNameInput}
+                  onChange={(e) => setChannelNameInput(e.target.value)}
+                  onKeyDown={handleChannelNameKeyDown}
+                  onBlur={addChannelName}
+                  placeholder="例: dev-alerts, backend"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <button
                   type="button"
-                  onClick={addChannelId}
+                  onClick={addChannelName}
                   className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
                 >
                   追加
