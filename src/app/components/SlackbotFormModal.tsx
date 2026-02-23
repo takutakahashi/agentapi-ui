@@ -42,8 +42,6 @@ export default function SlackbotFormModal({
   const [channelIdInput, setChannelIdInput] = useState('')
 
   // Session config
-  const [initialMessageTemplate, setInitialMessageTemplate] = useState('')
-  const [reuseMessageTemplate, setReuseMessageTemplate] = useState('')
   const [envPairs, setEnvPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
   const [tagPairs, setTagPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
 
@@ -68,8 +66,6 @@ export default function SlackbotFormModal({
       setAllowedChannelIds(editingSlackbot.allowed_channel_ids || [])
 
       const sc = editingSlackbot.session_config
-      setInitialMessageTemplate(sc?.initial_message_template || '')
-      setReuseMessageTemplate(sc?.reuse_message_template || '')
 
       if (sc?.environment && Object.keys(sc.environment).length > 0) {
         setEnvPairs(Object.entries(sc.environment).map(([key, value]) => ({ key, value })))
@@ -103,8 +99,6 @@ export default function SlackbotFormModal({
       setAllowedEventTypes([])
       setAllowedChannelIds([])
       setChannelIdInput('')
-      setInitialMessageTemplate('')
-      setReuseMessageTemplate('')
       setEnvPairs([{ key: '', value: '' }])
       setTagPairs([{ key: '', value: '' }])
       setShowBotTokenSection(false)
@@ -221,8 +215,8 @@ export default function SlackbotFormModal({
       const tags = pairsToRecord(tagPairs)
 
       const sessionConfig = {
-        ...(initialMessageTemplate.trim() ? { initial_message_template: initialMessageTemplate.trim() } : {}),
-        ...(reuseMessageTemplate.trim() ? { reuse_message_template: reuseMessageTemplate.trim() } : {}),
+        initial_message_template: '{{ .event.text }}',
+        reuse_message_template: '{{ .event.text }}',
         ...(Object.keys(environment).length > 0 ? { environment } : {}),
         ...(Object.keys(tags).length > 0 ? { tags } : {}),
       }
@@ -369,23 +363,6 @@ export default function SlackbotFormModal({
                   追加
                 </button>
               </div>
-            </div>
-
-            {/* Initial Message Template */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                初期メッセージテンプレート
-              </label>
-              <textarea
-                value={initialMessageTemplate}
-                onChange={(e) => setInitialMessageTemplate(e.target.value)}
-                placeholder="例: Slackから「{{.event.text}}」というメッセージが届きました。対応してください。"
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              />
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Go テンプレート形式。<code className="font-mono">{'{{.event.text}}'}</code>、<code className="font-mono">{'{{.event.channel}}'}</code> などが使用可能
-              </p>
             </div>
 
             {/* Advanced Section */}
@@ -549,20 +526,6 @@ export default function SlackbotFormModal({
                       value={maxSessions}
                       onChange={(e) => setMaxSessions(Number(e.target.value))}
                       className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  {/* Reuse Message Template */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      再利用メッセージテンプレート
-                    </label>
-                    <textarea
-                      value={reuseMessageTemplate}
-                      onChange={(e) => setReuseMessageTemplate(e.target.value)}
-                      placeholder="既存セッションを再利用する際のメッセージ"
-                      rows={2}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     />
                   </div>
 
