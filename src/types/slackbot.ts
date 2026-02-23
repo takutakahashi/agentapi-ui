@@ -41,7 +41,7 @@ export interface SlackBot {
 // Create SlackBot request
 export interface CreateSlackBotRequest {
   name: string;
-  signing_secret: string;
+  signing_secret?: string;
   scope?: ResourceScope;
   team_id?: string;
   bot_token_secret_name?: string;

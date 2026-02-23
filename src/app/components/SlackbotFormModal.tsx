@@ -189,10 +189,6 @@ export default function SlackbotFormModal({
       setError('名前は必須です')
       return
     }
-    if (!isEditing && !signingSecret.trim()) {
-      setError('Signing Secret は必須です')
-      return
-    }
 
     setIsSubmitting(true)
     try {
@@ -224,7 +220,7 @@ export default function SlackbotFormModal({
         const scopeParams = getScopeParams()
         const createData: CreateSlackBotRequest = {
           name: name.trim(),
-          signing_secret: signingSecret.trim(),
+          ...(signingSecret.trim() ? { signing_secret: signingSecret.trim() } : {}),
           ...(botTokenSecretName.trim() ? { bot_token_secret_name: botTokenSecretName.trim() } : {}),
           ...(botTokenSecretKey.trim() ? { bot_token_secret_key: botTokenSecretKey.trim() } : {}),
           allowed_event_types: allowedEventTypes,
@@ -310,19 +306,20 @@ export default function SlackbotFormModal({
             {/* Signing Secret */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Signing Secret {!isEditing && <span className="text-red-500">*</span>}
-                {isEditing && <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">（変更する場合のみ入力）</span>}
+                Signing Secret
+                <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                  {isEditing ? '（変更する場合のみ入力）' : '（省略可）'}
+                </span>
               </label>
               <input
                 type="password"
                 value={signingSecret}
                 onChange={(e) => setSigningSecret(e.target.value)}
-                placeholder={isEditing ? '変更する場合のみ入力してください' : 'Slack App の Signing Secret'}
+                placeholder={isEditing ? '変更する場合のみ入力してください' : '未入力の場合はサーバーデフォルトを使用'}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-                {...(!isEditing ? { required: true } : {})}
               />
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Slack App の「Basic Information」→「App Credentials」から取得できます
+                Slack App の「Basic Information」→「App Credentials」から取得。Bot Token を個別登録する場合に指定してください
               </p>
             </div>
 
