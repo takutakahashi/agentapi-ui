@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Schedule, CreateScheduleRequest, COMMON_TIMEZONES } from '../../types/schedule'
+import { Schedule, CreateScheduleRequest, UpdateScheduleRequest, COMMON_TIMEZONES } from '../../types/schedule'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import CronExpressionInput from './CronExpressionInput'
 import { OrganizationHistory } from '../../utils/organizationHistory'
@@ -179,7 +179,12 @@ export default function ScheduleFormModal({
       }
 
       if (isEditing && editingSchedule) {
-        await client.updateSchedule(editingSchedule.id, scheduleData)
+        const updateData: UpdateScheduleRequest = {
+          ...scheduleData,
+          // 完了済みスケジュールを更新する場合はアクティブ状態に戻す
+          ...(editingSchedule.status === 'completed' ? { status: 'active' } : {}),
+        }
+        await client.updateSchedule(editingSchedule.id, updateData)
       } else {
         await client.createSchedule(scheduleData)
       }
@@ -221,6 +226,20 @@ export default function ScheduleFormModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Completed schedule notice */}
+          {isEditing && editingSchedule?.status === 'completed' && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+              <div className="flex items-start gap-2">
+                <svg className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  完了済みのスケジュールです。更新すると再度アクティブ状態になり、設定した日時に実行されます。
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Schedule Name */}
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
