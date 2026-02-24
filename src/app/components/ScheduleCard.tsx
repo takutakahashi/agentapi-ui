@@ -66,6 +66,7 @@ export default function ScheduleCard({
 
   const isPaused = schedule.status === 'paused'
   const isCompleted = schedule.status === 'completed'
+  const isOneTime = !schedule.cron_expr && !!schedule.scheduled_at
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
@@ -142,12 +143,13 @@ export default function ScheduleCard({
       <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
         <button
           onClick={() => onEdit(schedule)}
+          title={isCompleted && isOneTime ? '新しい実行日時を設定して再アクティブ化できます' : undefined}
           className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
           </svg>
-          編集
+          {isCompleted && isOneTime ? '編集して再実行' : '編集'}
         </button>
 
         {!isCompleted && (
