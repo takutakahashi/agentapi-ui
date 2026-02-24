@@ -63,34 +63,6 @@ export default function SlackbotCard({
         <SlackbotStatusBadge status={slackbot.status} />
       </div>
 
-      {/* Allowed Event Types */}
-      {slackbot.allowed_event_types && slackbot.allowed_event_types.length > 0 && (
-        <div className="mb-3">
-          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">許可イベント</div>
-          <div className="flex flex-wrap gap-1">
-            {slackbot.allowed_event_types.slice(0, 4).map((eventType) => (
-              <span
-                key={eventType}
-                className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
-              >
-                {eventType}
-              </span>
-            ))}
-            {slackbot.allowed_event_types.length > 4 && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-                +{slackbot.allowed_event_types.length - 4}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-      {(!slackbot.allowed_event_types || slackbot.allowed_event_types.length === 0) && (
-        <div className="mb-3">
-          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">許可イベント</div>
-          <span className="text-xs text-gray-500 dark:text-gray-400 italic">すべてのイベント</span>
-        </div>
-      )}
-
       {/* Allowed Channel Names */}
       {slackbot.allowed_channel_names && slackbot.allowed_channel_names.length > 0 && (
         <div className="mb-3">
