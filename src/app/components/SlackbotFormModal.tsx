@@ -28,7 +28,6 @@ export default function SlackbotFormModal({
 
   // Basic fields
   const [name, setName] = useState('')
-  const [signingSecret, setSigningSecret] = useState('')
   const [botTokenSecretName, setBotTokenSecretName] = useState('')
   const [botTokenSecretKey, setBotTokenSecretKey] = useState('')
   const [maxSessions, setMaxSessions] = useState<number>(10)
@@ -53,7 +52,6 @@ export default function SlackbotFormModal({
   useEffect(() => {
     if (editingSlackbot) {
       setName(editingSlackbot.name)
-      setSigningSecret('') // Don't prefill secret on edit
       setBotTokenSecretName(editingSlackbot.bot_token_secret_name || '')
       setBotTokenSecretKey(editingSlackbot.bot_token_secret_key || '')
       setMaxSessions(editingSlackbot.max_sessions ?? 10)
@@ -76,7 +74,7 @@ export default function SlackbotFormModal({
       }
 
       // Auto-expand sections if data exists
-      const hasBotToken = !!(editingSlackbot.bot_token_secret_name || editingSlackbot.signing_secret)
+      const hasBotToken = !!editingSlackbot.bot_token_secret_name
       setShowBotTokenSection(hasBotToken)
       if (hasBotToken) {
         setShowAdvanced(true)
@@ -84,7 +82,6 @@ export default function SlackbotFormModal({
     } else {
       // Reset form
       setName('')
-      setSigningSecret('')
       setBotTokenSecretName('')
       setBotTokenSecretKey('')
       setMaxSessions(10)
@@ -184,10 +181,6 @@ export default function SlackbotFormModal({
       return
     }
     if (showBotTokenSection) {
-      if (!isEditing && !signingSecret.trim()) {
-        setError('カスタム Bot Token 使用時は Signing Secret が必須です')
-        return
-      }
       if (!botTokenSecretName.trim()) {
         setError('カスタム Bot Token 使用時は Bot Token Secret Name が必須です')
         return
@@ -211,7 +204,6 @@ export default function SlackbotFormModal({
       if (isEditing && editingSlackbot) {
         const updateData: UpdateSlackBotRequest = {
           name: name.trim(),
-          ...(signingSecret.trim() ? { signing_secret: signingSecret.trim() } : {}),
           ...(botTokenSecretName.trim() ? { bot_token_secret_name: botTokenSecretName.trim() } : {}),
           ...(botTokenSecretKey.trim() ? { bot_token_secret_key: botTokenSecretKey.trim() } : {}),
           allowed_channel_names: allowedChannelNames,
@@ -223,7 +215,6 @@ export default function SlackbotFormModal({
         const scopeParams = getScopeParams()
         const createData: CreateSlackBotRequest = {
           name: name.trim(),
-          ...(signingSecret.trim() ? { signing_secret: signingSecret.trim() } : {}),
           ...(botTokenSecretName.trim() ? { bot_token_secret_name: botTokenSecretName.trim() } : {}),
           ...(botTokenSecretKey.trim() ? { bot_token_secret_key: botTokenSecretKey.trim() } : {}),
           allowed_channel_names: allowedChannelNames,

@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { SlackBot, SlackBotStatus } from '../../types/slackbot'
 import SlackbotStatusBadge from './SlackbotStatusBadge'
 
@@ -21,20 +20,6 @@ export default function SlackbotCard({
   isDeleting = false,
   isTogglingStatus = false,
 }: SlackbotCardProps) {
-  const [copiedUrl, setCopiedUrl] = useState(false)
-
-  const handleCopyUrl = async () => {
-    if (!slackbot.hook_url) return
-    try {
-      await navigator.clipboard.writeText(slackbot.hook_url)
-      setCopiedUrl(true)
-      setTimeout(() => setCopiedUrl(false), 2000)
-    } catch {
-      // Fallback: show the URL in a prompt
-      prompt('Hook URL をコピーしてください:', slackbot.hook_url)
-    }
-  }
-
   const handleDelete = () => {
     if (confirm(`"${slackbot.name}" を削除してもよいですか？`)) {
       onDelete(slackbot.id)
@@ -77,43 +62,6 @@ export default function SlackbotCard({
         </div>
         <SlackbotStatusBadge status={slackbot.status} />
       </div>
-
-      {/* Hook URL */}
-      {slackbot.hook_url && (
-        <div className="mb-3">
-          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Hook URL</div>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1.5 rounded font-mono truncate">
-              {slackbot.hook_url}
-            </code>
-            <button
-              onClick={handleCopyUrl}
-              className="flex-shrink-0 p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-              title="URLをコピー"
-            >
-              {copiedUrl ? (
-                <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Signing secret (masked) */}
-      {slackbot.signing_secret && (
-        <div className="mb-3">
-          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Signing Secret</div>
-          <code className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded font-mono">
-            {slackbot.signing_secret}
-          </code>
-        </div>
-      )}
 
       {/* Allowed Event Types */}
       {slackbot.allowed_event_types && slackbot.allowed_event_types.length > 0 && (

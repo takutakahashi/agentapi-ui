@@ -26,8 +26,6 @@ export interface SlackBot {
   scope?: ResourceScope;
   team_id?: string;
   status: SlackBotStatus;
-  signing_secret?: string; // masked in response
-  hook_url?: string;       // computed by server: /hooks/slack/:id
   bot_token_secret_name?: string;
   bot_token_secret_key?: string;
   allowed_event_types?: string[];
@@ -41,7 +39,6 @@ export interface SlackBot {
 // Create SlackBot request
 export interface CreateSlackBotRequest {
   name: string;
-  signing_secret?: string;
   scope?: ResourceScope;
   team_id?: string;
   bot_token_secret_name?: string;
@@ -56,7 +53,6 @@ export interface CreateSlackBotRequest {
 export interface UpdateSlackBotRequest {
   name?: string;
   status?: SlackBotStatus;
-  signing_secret?: string;
   bot_token_secret_name?: string;
   bot_token_secret_key?: string;
   allowed_event_types?: string[];
