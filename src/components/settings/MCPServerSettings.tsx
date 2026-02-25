@@ -127,16 +127,30 @@ export function MCPServerSettings({ servers, onChange }: MCPServerSettingsProps)
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 truncate">
                     {getServerDescription(config)}
                   </p>
-                  {config.env && Object.keys(config.env).length > 0 && (
-                    <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                      Env: {Object.keys(config.env).join(', ')}
-                    </p>
-                  )}
-                  {config.headers && Object.keys(config.headers).length > 0 && (
-                    <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                      Headers: {Object.keys(config.headers).join(', ')}
-                    </p>
-                  )}
+                  {(() => {
+                    const envKeys = config.env_keys?.length
+                      ? config.env_keys
+                      : config.env
+                        ? Object.keys(config.env)
+                        : []
+                    return envKeys.length > 0 ? (
+                      <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                        Env: {envKeys.join(', ')}
+                      </p>
+                    ) : null
+                  })()}
+                  {(() => {
+                    const headerKeys = config.header_keys?.length
+                      ? config.header_keys
+                      : config.headers
+                        ? Object.keys(config.headers)
+                        : []
+                    return headerKeys.length > 0 ? (
+                      <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                        Headers: {headerKeys.join(', ')}
+                      </p>
+                    ) : null
+                  })()}
                 </div>
                 <div className="flex gap-2 ml-4">
                   <button
@@ -191,12 +205,26 @@ function MCPServerModal({ server, existingNames, onSave, onClose }: MCPServerMod
   const [name, setName] = useState(server.name)
   const [config, setConfig] = useState<APIMCPServerConfig>(server.config)
   const [argsText, setArgsText] = useState(server.config.args?.join('\n') || '')
-  const [envPairs, setEnvPairs] = useState<Array<{ key: string; value: string }>>(
-    Object.entries(server.config.env || {}).map(([key, value]) => ({ key, value }))
-  )
-  const [headerPairs, setHeaderPairs] = useState<Array<{ key: string; value: string }>>(
-    Object.entries(server.config.headers || {}).map(([key, value]) => ({ key, value }))
-  )
+  const [envPairs, setEnvPairs] = useState<Array<{ key: string; value: string }>>(() => {
+    if (server.config.env && Object.keys(server.config.env).length > 0) {
+      return Object.entries(server.config.env).map(([key, value]) => ({ key, value }))
+    }
+    if (server.config.env_keys && server.config.env_keys.length > 0) {
+      // API から取得したキーのみ（値は空でユーザーに再入力を促す）
+      return server.config.env_keys.map((key) => ({ key, value: '' }))
+    }
+    return []
+  })
+  const [headerPairs, setHeaderPairs] = useState<Array<{ key: string; value: string }>>(() => {
+    if (server.config.headers && Object.keys(server.config.headers).length > 0) {
+      return Object.entries(server.config.headers).map(([key, value]) => ({ key, value }))
+    }
+    if (server.config.header_keys && server.config.header_keys.length > 0) {
+      // API から取得したキーのみ（値は空でユーザーに再入力を促す）
+      return server.config.header_keys.map((key) => ({ key, value: '' }))
+    }
+    return []
+  })
   const [error, setError] = useState<string | null>(null)
 
   const handleTypeChange = (type: APIMCPServerConfig['type']) => {
