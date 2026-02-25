@@ -22,8 +22,10 @@ export interface APIMCPServerConfig {
   command?: string;                   // stdio用コマンド
   url?: string;                       // http/sse用URL
   args?: string[];                    // stdio用コマンド引数
-  env?: Record<string, string>;       // 環境変数
-  headers?: Record<string, string>;   // http/sse用ヘッダー
+  env?: Record<string, string>;       // 環境変数（書き込み時）
+  env_keys?: string[];                // 環境変数キーのみ（API読み取り時）
+  headers?: Record<string, string>;   // http/sse用ヘッダー（書き込み時）
+  header_keys?: string[];             // ヘッダーキーのみ（API読み取り時）
 }
 
 // APIレスポンス用（セキュリティ対策：env/headersは値を含まない）
