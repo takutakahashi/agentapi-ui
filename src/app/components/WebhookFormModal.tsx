@@ -67,6 +67,7 @@ export default function WebhookFormModal({
   const { getScopeParams } = useTeamScope()
   const [name, setName] = useState('')
   const [webhookType, setWebhookType] = useState<WebhookType>('github')
+  const [secret, setSecret] = useState('')
   const [signatureHeader, setSignatureHeader] = useState('X-Signature')
   const [signatureType, setSignatureType] = useState<WebhookSignatureType>('hmac')
   const [allowedEvents, setAllowedEvents] = useState<string[]>([])
@@ -86,6 +87,7 @@ export default function WebhookFormModal({
     if (editingWebhook) {
       setName(editingWebhook.name)
       setWebhookType(editingWebhook.type)
+      setSecret('')
       setSignatureHeader(editingWebhook.signature_header || 'X-Signature')
       setSignatureType(editingWebhook.signature_type || 'hmac')
       setAllowedEvents(editingWebhook.github?.allowed_events || [])
@@ -139,6 +141,7 @@ export default function WebhookFormModal({
   const resetForm = () => {
     setName('')
     setWebhookType('github')
+    setSecret('')
     setSignatureHeader('X-Signature')
     setSignatureType('hmac')
     setAllowedEvents([])
@@ -387,6 +390,7 @@ export default function WebhookFormModal({
       const webhookData: CreateWebhookRequest = {
         name: name.trim(),
         type: webhookType,
+        secret: secret.trim() || undefined,
         signature_header: signatureHeader.trim() || undefined,
         signature_type: signatureType,
         github:
@@ -543,6 +547,25 @@ export default function WebhookFormModal({
               </select>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 署名検証方式（HMAC推奨）
+              </p>
+            </div>
+
+            {/* Secret */}
+            <div>
+              <label htmlFor="secret" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                シークレット（省略時は自動生成）
+              </label>
+              <input
+                id="secret"
+                type="password"
+                value={secret}
+                onChange={(e) => setSecret(e.target.value)}
+                placeholder="外部サービスの Client Secret（例: Sentry Client Secret）"
+                disabled={isSubmitting}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                外部サービスが指定するシークレットを入力します。空の場合はシークレットが自動生成されます。
               </p>
             </div>
           </div>
