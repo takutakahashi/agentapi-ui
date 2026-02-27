@@ -70,6 +70,7 @@ export default function WebhookFormModal({
   const [secret, setSecret] = useState('')
   const [signatureHeader, setSignatureHeader] = useState('X-Signature')
   const [signatureType, setSignatureType] = useState<WebhookSignatureType>('hmac')
+  const [signaturePrefix, setSignaturePrefix] = useState('')
   const [allowedEvents, setAllowedEvents] = useState<string[]>([])
   const [allowedRepositories, setAllowedRepositories] = useState('')
   const [triggers, setTriggers] = useState<TriggerFormData[]>([{ ...emptyTrigger }])
@@ -90,6 +91,7 @@ export default function WebhookFormModal({
       setSecret('')
       setSignatureHeader(editingWebhook.signature_header || 'X-Signature')
       setSignatureType(editingWebhook.signature_type || 'hmac')
+      setSignaturePrefix(editingWebhook.signature_prefix || '')
       setAllowedEvents(editingWebhook.github?.allowed_events || [])
       setAllowedRepositories(editingWebhook.github?.allowed_repositories?.join(', ') || '')
 
@@ -144,6 +146,7 @@ export default function WebhookFormModal({
     setSecret('')
     setSignatureHeader('X-Signature')
     setSignatureType('hmac')
+    setSignaturePrefix('')
     setAllowedEvents([])
     setAllowedRepositories('')
     setTriggers([{ ...emptyTrigger }])
@@ -393,6 +396,7 @@ export default function WebhookFormModal({
         secret: secret.trim() || undefined,
         signature_header: signatureHeader.trim() || undefined,
         signature_type: signatureType,
+        signature_prefix: signaturePrefix.trim() || undefined,
         github:
           webhookType === 'github'
             ? {
@@ -549,6 +553,27 @@ export default function WebhookFormModal({
                 署名検証方式（HMAC推奨）
               </p>
             </div>
+
+            {/* Signature Prefix */}
+            {signatureType === 'hmac' && (
+              <div>
+                <label htmlFor="signaturePrefix" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  署名プレフィックス
+                </label>
+                <input
+                  id="signaturePrefix"
+                  type="text"
+                  value={signaturePrefix}
+                  onChange={(e) => setSignaturePrefix(e.target.value)}
+                  placeholder="例: sha256= (GitHub形式) / 空欄で自動検出"
+                  disabled={isSubmitting}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  署名ヘッダーの値から取り除くプレフィックス。空欄の場合は自動検出（<code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">sha256=hexdigest</code> 形式も <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">hexdigest</code> のみの形式も対応）。Sentry など plain hex を送るサービスは空欄のままで動作します。
+                </p>
+              </div>
+            )}
 
             {/* Secret */}
             <div>

@@ -85,6 +85,7 @@ export interface Webhook {
   webhook_url?: string;
   signature_header?: string;
   signature_type?: WebhookSignatureType;
+  signature_prefix?: string;
   github?: GitHubWebhookConfig;
   triggers: WebhookTrigger[];
   session_config?: WebhookSessionConfig;
@@ -101,6 +102,7 @@ export interface CreateWebhookRequest {
   secret?: string;
   signature_header?: string;
   signature_type?: WebhookSignatureType;
+  signature_prefix?: string;
   github?: GitHubWebhookConfig;
   triggers: WebhookTrigger[];
   session_config?: WebhookSessionConfig;
@@ -113,6 +115,9 @@ export interface UpdateWebhookRequest {
   name?: string;
   status?: WebhookStatus;
   secret?: string;
+  signature_header?: string;
+  signature_type?: WebhookSignatureType;
+  signature_prefix?: string;
   github?: GitHubWebhookConfig;
   triggers?: WebhookTrigger[];
   session_config?: WebhookSessionConfig;
