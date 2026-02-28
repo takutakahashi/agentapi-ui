@@ -13,6 +13,7 @@ export default function PersonalSettingsPage() {
   const [settings, setSettings] = useState<SettingsData>({})
   const [originalSettings, setOriginalSettings] = useState<SettingsData>({})
   const [userName, setUserName] = useState('')
+  const [userTeams, setUserTeams] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
@@ -65,6 +66,7 @@ export default function PersonalSettingsPage() {
 
         if (proxyUserInfo.username) {
           setUserName(proxyUserInfo.username)
+          setUserTeams(proxyUserInfo.teams || [])
         } else {
           setError('ユーザー情報の取得に失敗しました')
           setLoading(false)
@@ -129,6 +131,10 @@ export default function PersonalSettingsPage() {
       const newEnvVars = { ...existingEnvVars, ...updates }
       return { ...prev, env_vars: newEnvVars }
     })
+  }
+
+  const handlePreferredTeamChange = (teamId: string) => {
+    setSettings((prev) => ({ ...prev, preferred_team_id: teamId }))
   }
 
   const handleGithubTokenChange = (enabled: boolean) => {
@@ -255,6 +261,32 @@ export default function PersonalSettingsPage() {
             defaultOpen
           >
             <div className="space-y-6">
+              {/* Team Selector - チームが存在する場合のみ表示 */}
+              {userTeams.length > 0 && (
+                <div className="pb-6 border-b border-gray-200 dark:border-gray-700">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    使用するチーム設定
+                  </label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    選択したチームの設定（Bedrock、MCP servers、環境変数など）がセッションに適用されます。未選択の場合はすべてのチームの設定がマージされます。
+                  </p>
+                  <select
+                    value={settings.preferred_team_id || ''}
+                    onChange={(e) => handlePreferredTeamChange(e.target.value)}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  >
+                    <option value="">すべてのチームの設定をマージして使用</option>
+                    {userTeams.map((team) => (
+                      <option key={team} value={team}>{team}</option>
+                    ))}
+                  </select>
+                  {settings.preferred_team_id && (
+                    <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                      セッションは <strong>{settings.preferred_team_id}</strong> の設定のみを使用します
+                    </p>
+                  )}
+                </div>
+              )}
               <ClaudeOAuthSettings
                 hasToken={settings.has_claude_code_oauth_token ?? false}
                 authMode={settings.auth_mode}

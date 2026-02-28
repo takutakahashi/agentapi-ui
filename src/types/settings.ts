@@ -52,6 +52,7 @@ export interface SettingsData {
   auth_mode?: AuthMode;  // 認証モード（oauth または bedrock）
   env_vars?: Record<string, string>;  // カスタム環境変数（保存時のみ使用）
   env_var_keys?: string[];  // 環境変数のキーのみ（読み取り時のみ、セキュリティのため値は含まない）
+  preferred_team_id?: string;  // 使用するチームの ID（"org/team-slug" 形式）
 }
 
 // Personal settings
@@ -269,6 +270,13 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
     if (Object.keys(envVars).length > 0) {
       prepared.env_vars = envVars
     }
+  }
+
+  // Preferred Team ID の処理
+  // undefined の場合はフィールドを送信しない（バックエンドが auto-select ロジックを適用する）
+  // 空文字列の場合は明示的にクリア（全チームマージに戻す）
+  if (data.preferred_team_id !== undefined) {
+    prepared.preferred_team_id = data.preferred_team_id
   }
 
   return prepared
