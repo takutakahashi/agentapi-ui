@@ -32,6 +32,8 @@ export interface SlackBot {
   allowed_channel_names?: string[];
   session_config?: SlackBotSessionConfig;
   max_sessions?: number;
+  /** セッション作成時に Slack へ通知メッセージを投稿するかどうか。デフォルト true */
+  notify_on_session_created?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -47,6 +49,8 @@ export interface CreateSlackBotRequest {
   allowed_channel_names?: string[];
   session_config?: SlackBotSessionConfig;
   max_sessions?: number;
+  /** セッション作成時に Slack へ通知メッセージを投稿するかどうか。デフォルト true */
+  notify_on_session_created?: boolean;
 }
 
 // Update SlackBot request
@@ -59,6 +63,8 @@ export interface UpdateSlackBotRequest {
   allowed_channel_names?: string[];
   session_config?: SlackBotSessionConfig;
   max_sessions?: number;
+  /** セッション作成時に Slack へ通知メッセージを投稿するかどうか。デフォルト true */
+  notify_on_session_created?: boolean;
 }
 
 // SlackBot list parameters
