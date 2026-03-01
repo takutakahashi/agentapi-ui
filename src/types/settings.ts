@@ -117,6 +117,8 @@ export interface GlobalSettings {
   agentApiType?: AgentApiType  // デフォルト 'default'
   enterKeyBehavior?: EnterKeyBehavior  // デフォルト 'send' (Enter で送信、Shift+Enter で改行)
   fontSettings?: FontSettings  // デフォルト { fontSize: 14, fontFamily: 'sans-serif' }
+  memoryEnabled?: boolean  // デフォルト true（メモリ機能の有効/無効）
+  memorySummarizeDrafts?: boolean  // デフォルト undefined（プロキシのグローバル設定に従う）
   created_at: string
   updated_at: string
 }
@@ -690,4 +692,28 @@ export const getUseClaudeAgentAPI = (): boolean => getAgentApiType() === 'claude
 // @deprecated: setAgentApiType を使用してください
 export const setUseClaudeAgentAPI = (enabled: boolean): void => {
   setAgentApiType(enabled ? 'claude-agentapi' : 'default')
+}
+
+// Memory Settings utilities
+export const getMemoryEnabled = (): boolean => {
+  const settings = loadFullGlobalSettings()
+  // デフォルトは true（メモリ機能は有効）
+  return settings.memoryEnabled ?? true
+}
+
+export const setMemoryEnabled = (enabled: boolean): void => {
+  const settings = loadFullGlobalSettings()
+  settings.memoryEnabled = enabled
+  saveFullGlobalSettings(settings)
+}
+
+export const getMemorySummarizeDrafts = (): boolean | undefined => {
+  const settings = loadFullGlobalSettings()
+  return settings.memorySummarizeDrafts
+}
+
+export const setMemorySummarizeDrafts = (enabled: boolean | undefined): void => {
+  const settings = loadFullGlobalSettings()
+  settings.memorySummarizeDrafts = enabled
+  saveFullGlobalSettings(settings)
 }

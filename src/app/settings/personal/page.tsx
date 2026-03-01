@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, AgentApiType, getAgentApiType, setAgentApiType, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings } from '@/components/settings'
+import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, AgentApiType, getAgentApiType, setAgentApiType, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings, getMemoryEnabled, setMemoryEnabled, getMemorySummarizeDrafts, setMemorySummarizeDrafts } from '@/types/settings'
+import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings, MemorySettings } from '@/components/settings'
 import { OneClickPushNotifications } from '@/app/components/OneClickPushNotifications'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
@@ -22,6 +22,8 @@ export default function PersonalSettingsPage() {
   const [agentApiType, setAgentApiTypeState] = useState<AgentApiType>('default')
   const [enterKeyBehavior, setEnterKeyBehaviorState] = useState<EnterKeyBehavior>('send')
   const [fontSettings, setFontSettingsState] = useState<FontSettingsType>({ fontSize: 14, fontFamily: 'sans-serif' })
+  const [memoryEnabled, setMemoryEnabledState] = useState(true)
+  const [memorySummarizeDrafts, setMemorySummarizeDraftsState] = useState<boolean | undefined>(undefined)
   const { showToast } = useToast()
   const hasUnsavedChangesRef = useRef(false)
 
@@ -56,6 +58,9 @@ export default function PersonalSettingsPage() {
     setEnterKeyBehaviorState(getEnterKeyBehavior())
     // Font 設定を読み込み
     setFontSettingsState(getFontSettings())
+    // メモリ設定を読み込み
+    setMemoryEnabledState(getMemoryEnabled())
+    setMemorySummarizeDraftsState(getMemorySummarizeDrafts())
   }, [])
 
   useEffect(() => {
@@ -155,6 +160,16 @@ export default function PersonalSettingsPage() {
   const handleFontSettingsChange = (settings: FontSettingsType) => {
     setFontSettingsState(settings)
     setFontSettings(settings)
+  }
+
+  const handleMemoryEnabledChange = (enabled: boolean) => {
+    setMemoryEnabledState(enabled)
+    setMemoryEnabled(enabled)
+  }
+
+  const handleMemorySummarizeDraftsChange = (enabled: boolean | undefined) => {
+    setMemorySummarizeDraftsState(enabled)
+    setMemorySummarizeDrafts(enabled)
   }
 
   const handleLogout = async () => {
@@ -367,6 +382,19 @@ export default function PersonalSettingsPage() {
                 </div>
               </div>
             </div>
+          </SettingsAccordion>
+
+          <SettingsAccordion
+            title="Memory"
+            description="メモリ機能の有効/無効とドラフト集約の設定"
+            defaultOpen
+          >
+            <MemorySettings
+              memoryEnabled={memoryEnabled}
+              memorySummarizeDrafts={memorySummarizeDrafts}
+              onMemoryEnabledChange={handleMemoryEnabledChange}
+              onMemorySummarizeDraftsChange={handleMemorySummarizeDraftsChange}
+            />
           </SettingsAccordion>
 
           <SettingsAccordion
