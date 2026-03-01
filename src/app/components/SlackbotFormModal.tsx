@@ -37,6 +37,10 @@ export default function SlackbotFormModal({
   const [allowedChannelNames, setAllowedChannelNames] = useState<string[]>([])
   const [channelNameInput, setChannelNameInput] = useState('')
 
+  // Message templates
+  const [initialMessageTemplate, setInitialMessageTemplate] = useState('{{ .event.text }}')
+  const [reuseMessageTemplate, setReuseMessageTemplate] = useState('{{ .event.text }}')
+
   // Session config
   const [envPairs, setEnvPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
   const [tagPairs, setTagPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
@@ -60,6 +64,8 @@ export default function SlackbotFormModal({
       setAllowedChannelNames(editingSlackbot.allowed_channel_names || [])
 
       const sc = editingSlackbot.session_config
+      setInitialMessageTemplate(sc?.initial_message_template ?? '{{ .event.text }}')
+      setReuseMessageTemplate(sc?.reuse_message_template ?? '{{ .event.text }}')
 
       if (sc?.environment && Object.keys(sc.environment).length > 0) {
         setEnvPairs(Object.entries(sc.environment).map(([key, value]) => ({ key, value })))
@@ -90,6 +96,8 @@ export default function SlackbotFormModal({
       setNotifyOnSessionCreated(true)
       setAllowedChannelNames([])
       setChannelNameInput('')
+      setInitialMessageTemplate('{{ .event.text }}')
+      setReuseMessageTemplate('{{ .event.text }}')
       setEnvPairs([{ key: '', value: '' }])
       setTagPairs([{ key: '', value: '' }])
       setShowBotTokenSection(false)
@@ -198,8 +206,8 @@ export default function SlackbotFormModal({
       const tags = pairsToRecord(tagPairs)
 
       const sessionConfig = {
-        initial_message_template: '{{ .event.text }}',
-        reuse_message_template: '{{ .event.text }}',
+        ...(initialMessageTemplate.trim() ? { initial_message_template: initialMessageTemplate.trim() } : {}),
+        ...(reuseMessageTemplate.trim() ? { reuse_message_template: reuseMessageTemplate.trim() } : {}),
         ...(Object.keys(environment).length > 0 ? { environment } : {}),
         ...(Object.keys(tags).length > 0 ? { tags } : {}),
       }
@@ -371,6 +379,40 @@ export default function SlackbotFormModal({
               {showAdvanced && (
                 <div className="mt-4 space-y-5 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
                   {/* Custom Bot Token - TODO: 一旦非表示 */}
+
+                  {/* Initial Message Template */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      初期メッセージテンプレート
+                    </label>
+                    <textarea
+                      value={initialMessageTemplate}
+                      onChange={(e) => setInitialMessageTemplate(e.target.value)}
+                      placeholder="例: {{ .event.text }}"
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono resize-y"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      新規セッション作成時に送信されるメッセージ。Goテンプレート形式。例: <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">{'{{ .event.text }}'}</code>
+                    </p>
+                  </div>
+
+                  {/* Reuse Message Template */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      再利用メッセージテンプレート
+                    </label>
+                    <textarea
+                      value={reuseMessageTemplate}
+                      onChange={(e) => setReuseMessageTemplate(e.target.value)}
+                      placeholder="例: {{ .event.text }}"
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono resize-y"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      既存セッションを再利用する際に送信されるメッセージ。Goテンプレート形式。例: <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">{'{{ .event.text }}'}</code>
+                    </p>
+                  </div>
 
                   {/* Notify on session created */}
                   <div className="flex items-center justify-between">
