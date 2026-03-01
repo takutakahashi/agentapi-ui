@@ -31,6 +31,7 @@ export default function SlackbotFormModal({
   const [botTokenSecretName, setBotTokenSecretName] = useState('')
   const [botTokenSecretKey, setBotTokenSecretKey] = useState('')
   const [maxSessions, setMaxSessions] = useState<number>(10)
+  const [notifyOnSessionCreated, setNotifyOnSessionCreated] = useState<boolean>(true)
 
   // Allowed channel names (chip/tag input, partial match)
   const [allowedChannelNames, setAllowedChannelNames] = useState<string[]>([])
@@ -55,6 +56,7 @@ export default function SlackbotFormModal({
       setBotTokenSecretName(editingSlackbot.bot_token_secret_name || '')
       setBotTokenSecretKey(editingSlackbot.bot_token_secret_key || '')
       setMaxSessions(editingSlackbot.max_sessions ?? 10)
+      setNotifyOnSessionCreated(editingSlackbot.notify_on_session_created ?? true)
       setAllowedChannelNames(editingSlackbot.allowed_channel_names || [])
 
       const sc = editingSlackbot.session_config
@@ -85,6 +87,7 @@ export default function SlackbotFormModal({
       setBotTokenSecretName('')
       setBotTokenSecretKey('')
       setMaxSessions(10)
+      setNotifyOnSessionCreated(true)
       setAllowedChannelNames([])
       setChannelNameInput('')
       setEnvPairs([{ key: '', value: '' }])
@@ -208,6 +211,7 @@ export default function SlackbotFormModal({
           ...(botTokenSecretKey.trim() ? { bot_token_secret_key: botTokenSecretKey.trim() } : {}),
           allowed_channel_names: allowedChannelNames,
           max_sessions: maxSessions,
+          notify_on_session_created: notifyOnSessionCreated,
           ...(Object.keys(sessionConfig).length > 0 ? { session_config: sessionConfig } : {}),
         }
         await client.updateSlackBot(editingSlackbot.id, updateData)
@@ -219,6 +223,7 @@ export default function SlackbotFormModal({
           ...(botTokenSecretKey.trim() ? { bot_token_secret_key: botTokenSecretKey.trim() } : {}),
           allowed_channel_names: allowedChannelNames,
           max_sessions: maxSessions,
+          notify_on_session_created: notifyOnSessionCreated,
           ...(Object.keys(sessionConfig).length > 0 ? { session_config: sessionConfig } : {}),
           ...scopeParams,
         }
@@ -366,6 +371,35 @@ export default function SlackbotFormModal({
               {showAdvanced && (
                 <div className="mt-4 space-y-5 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
                   {/* Custom Bot Token - TODO: 一旦非表示 */}
+
+                  {/* Notify on session created */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        セッション作成通知
+                      </label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        セッション作成時に Slack へ URL 通知を投稿する
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={notifyOnSessionCreated}
+                      onClick={() => setNotifyOnSessionCreated((prev) => !prev)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        notifyOnSessionCreated
+                          ? 'bg-blue-600'
+                          : 'bg-gray-300 dark:bg-gray-600'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                          notifyOnSessionCreated ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
 
                   {/* Max Sessions */}
                   <div>
