@@ -53,7 +53,7 @@ import {
   TaskListResponse,
   TaskListParams
 } from '../types/task';
-import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, getSendGithubTokenOnSessionStart } from '../types/settings';
+import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, getSendGithubTokenOnSessionStart, getMemoryEnabled, getMemorySummarizeDrafts } from '../types/settings';
 import { ProxyUserInfo } from '../types/user';
 
 // GitHubUser type (moved from profile.ts)
@@ -334,6 +334,24 @@ export class AgentAPIProxyClient {
       data = {
         metadata: (sessionData as Record<string, unknown>) || { source: 'agentapi-ui' }
       };
+    }
+
+    // Apply memory settings from global settings
+    if (typeof window !== 'undefined') {
+      const memoryEnabled = getMemoryEnabled();
+      if (!memoryEnabled) {
+        // メモリ機能が無効の場合: memory_key を空のオブジェクトに設定し、
+        // かつ tags も空にすることでメモリ統合を無効化する
+        data.memory_key = {};
+        // memory_summarize_drafts も false に設定してドラフト集約を抑制する
+        data.memory_summarize_drafts = false;
+      } else {
+        // メモリ機能が有効の場合: memory_summarize_drafts の設定を適用する
+        const memorySummarizeDrafts = getMemorySummarizeDrafts();
+        if (memorySummarizeDrafts !== undefined) {
+          data.memory_summarize_drafts = memorySummarizeDrafts;
+        }
+      }
     }
 
     // Check if GitHub token injection is enabled
