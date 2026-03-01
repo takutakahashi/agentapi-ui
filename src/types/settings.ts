@@ -53,6 +53,8 @@ export interface SettingsData {
   env_vars?: Record<string, string>;  // カスタム環境変数（保存時のみ使用）
   env_var_keys?: string[];  // 環境変数のキーのみ（読み取り時のみ、セキュリティのため値は含まない）
   preferred_team_id?: string;  // 使用するチームの ID（"org/team-slug" 形式）
+  memory_enabled?: boolean;  // メモリ機能の有効/無効（チーム設定で使用）
+  memory_summarize_drafts?: boolean;  // ドラフトメモリの自動集約設定（チーム設定で使用）
 }
 
 // Personal settings
@@ -279,6 +281,18 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
   // 空文字列の場合は明示的にクリア（全チームマージに戻す）
   if (data.preferred_team_id !== undefined) {
     prepared.preferred_team_id = data.preferred_team_id
+  }
+
+  // Memory Enabled の処理
+  // undefined の場合はフィールドを送信しない（設定なし扱い）
+  if (data.memory_enabled !== undefined) {
+    prepared.memory_enabled = data.memory_enabled
+  }
+
+  // Memory Summarize Drafts の処理
+  // undefined の場合はフィールドを送信しない（プロキシのデフォルト設定に従う）
+  if (data.memory_summarize_drafts !== undefined) {
+    prepared.memory_summarize_drafts = data.memory_summarize_drafts
   }
 
   return prepared
