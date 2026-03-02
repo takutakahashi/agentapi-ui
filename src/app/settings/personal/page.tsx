@@ -58,7 +58,7 @@ export default function PersonalSettingsPage() {
     setEnterKeyBehaviorState(getEnterKeyBehavior())
     // Font 設定を読み込み
     setFontSettingsState(getFontSettings())
-    // メモリ設定を読み込み
+    // メモリ設定を localStorage から読み込み（APIロード前の初期値として使用）
     setMemoryEnabledState(getMemoryEnabled())
     setMemorySummarizeDraftsState(getMemorySummarizeDrafts())
   }, [])
@@ -95,6 +95,18 @@ export default function PersonalSettingsPage() {
         const data = await client.getSettings(userName)
         setSettings(data)
         setOriginalSettings(data)
+
+        // API の設定を優先してメモリ設定を同期
+        // memory_enabled が API に保存されていれば state と localStorage を更新
+        if (data.memory_enabled !== undefined) {
+          setMemoryEnabledState(data.memory_enabled)
+          setMemoryEnabled(data.memory_enabled)
+        }
+        // memory_summarize_drafts が API に保存されていれば state と localStorage を更新
+        if (data.memory_summarize_drafts !== undefined) {
+          setMemorySummarizeDraftsState(data.memory_summarize_drafts)
+          setMemorySummarizeDrafts(data.memory_summarize_drafts)
+        }
       } catch (err) {
         console.error('Failed to load personal settings:', err)
         setError('Failed to load settings')
@@ -164,12 +176,14 @@ export default function PersonalSettingsPage() {
 
   const handleMemoryEnabledChange = (enabled: boolean) => {
     setMemoryEnabledState(enabled)
-    setMemoryEnabled(enabled)
+    setMemoryEnabled(enabled) // localStorage にも即時反映（他コンポーネント用）
+    setSettings((prev) => ({ ...prev, memory_enabled: enabled })) // API 保存対象に追加
   }
 
   const handleMemorySummarizeDraftsChange = (enabled: boolean | undefined) => {
     setMemorySummarizeDraftsState(enabled)
-    setMemorySummarizeDrafts(enabled)
+    setMemorySummarizeDrafts(enabled) // localStorage にも即時反映（他コンポーネント用）
+    setSettings((prev) => ({ ...prev, memory_summarize_drafts: enabled })) // API 保存対象に追加
   }
 
   const handleLogout = async () => {
