@@ -43,6 +43,13 @@ import {
   UpdateSlackBotRequest
 } from '../types/slackbot';
 import {
+  Memory,
+  MemoryListParams,
+  MemoryListResponse,
+  CreateMemoryRequest,
+  UpdateMemoryRequest
+} from '../types/memory';
+import {
   CreateShareResponse,
   ShareStatus,
   RevokeShareResponse
@@ -1250,6 +1257,91 @@ export class AgentAPIProxyClient {
     if (this.debug) {
       console.log(`[AgentAPIProxy] Deleted slackbot: ${slackbotId}`);
     }
+  }
+
+  // ============================================================
+  // Memory methods
+  // ============================================================
+
+  /**
+   * List memory entries
+   * includeTags is expanded to include_tag.{key}={value} query params
+   */
+  async listMemories(params?: MemoryListParams): Promise<MemoryListResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.scope) searchParams.set('scope', params.scope);
+    if (params?.team_id) searchParams.set('team_id', params.team_id);
+    if (params?.includeTags) {
+      for (const [key, value] of Object.entries(params.includeTags)) {
+        searchParams.set(`include_tag.${key}`, value);
+      }
+    }
+    const endpoint = `/memories${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const result = await this.makeRequest<Memory[] | MemoryListResponse>(endpoint);
+    if (Array.isArray(result)) {
+      return { memories: result, total: result.length };
+    }
+    return {
+      memories: result.memories || [],
+      total: result.total ?? (result.memories?.length ?? 0),
+    };
+  }
+
+  /**
+   * Create a memory entry
+   */
+  async createMemory(data: CreateMemoryRequest): Promise<Memory> {
+    if (this.debug) {
+      console.log('[AgentAPIProxy] Creating memory:', data);
+    }
+    const memory = await this.makeRequest<Memory>('/memories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Created memory: ${memory.id}`);
+    }
+    return memory;
+  }
+
+  /**
+   * Get a specific memory entry by ID
+   */
+  async getMemory(memoryId: string): Promise<Memory> {
+    return this.makeRequest<Memory>(`/memories/${memoryId}`);
+  }
+
+  /**
+   * Update a memory entry
+   */
+  async updateMemory(memoryId: string, data: UpdateMemoryRequest): Promise<Memory> {
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Updating memory ${memoryId}:`, data);
+    }
+    const memory = await this.makeRequest<Memory>(`/memories/${memoryId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Updated memory: ${memory.id}`);
+    }
+    return memory;
+  }
+
+  /**
+   * Delete a memory entry
+   */
+  async deleteMemory(memoryId: string): Promise<{ success: boolean }> {
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Deleting memory: ${memoryId}`);
+    }
+    const result = await this.makeRequest<{ success: boolean }>(`/memories/${memoryId}`, {
+      method: 'DELETE',
+    });
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Deleted memory: ${memoryId}`);
+    }
+    return result;
   }
 }
 
