@@ -34,6 +34,8 @@ export interface SlackBot {
   max_sessions?: number;
   /** セッション作成時に Slack へ通知メッセージを投稿するかどうか。デフォルト true */
   notify_on_session_created?: boolean;
+  /** 他のボットからのメンションにも反応するかどうか。デフォルト false */
+  allow_bot_messages?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -51,6 +53,8 @@ export interface CreateSlackBotRequest {
   max_sessions?: number;
   /** セッション作成時に Slack へ通知メッセージを投稿するかどうか。デフォルト true */
   notify_on_session_created?: boolean;
+  /** 他のボットからのメンションにも反応するかどうか。デフォルト false */
+  allow_bot_messages?: boolean;
 }
 
 // Update SlackBot request
@@ -65,6 +69,8 @@ export interface UpdateSlackBotRequest {
   max_sessions?: number;
   /** セッション作成時に Slack へ通知メッセージを投稿するかどうか。デフォルト true */
   notify_on_session_created?: boolean;
+  /** 他のボットからのメンションにも反応するかどうか。デフォルト false */
+  allow_bot_messages?: boolean;
 }
 
 // SlackBot list parameters

@@ -32,6 +32,7 @@ export default function SlackbotFormModal({
   const [botTokenSecretKey, setBotTokenSecretKey] = useState('')
   const [maxSessions, setMaxSessions] = useState<number>(10)
   const [notifyOnSessionCreated, setNotifyOnSessionCreated] = useState<boolean>(true)
+  const [allowBotMessages, setAllowBotMessages] = useState<boolean>(false)
 
   // Allowed channel names (chip/tag input, partial match)
   const [allowedChannelNames, setAllowedChannelNames] = useState<string[]>([])
@@ -61,6 +62,7 @@ export default function SlackbotFormModal({
       setBotTokenSecretKey(editingSlackbot.bot_token_secret_key || '')
       setMaxSessions(editingSlackbot.max_sessions ?? 10)
       setNotifyOnSessionCreated(editingSlackbot.notify_on_session_created ?? true)
+      setAllowBotMessages(editingSlackbot.allow_bot_messages ?? false)
       setAllowedChannelNames(editingSlackbot.allowed_channel_names || [])
 
       const sc = editingSlackbot.session_config
@@ -94,6 +96,7 @@ export default function SlackbotFormModal({
       setBotTokenSecretKey('')
       setMaxSessions(10)
       setNotifyOnSessionCreated(true)
+      setAllowBotMessages(false)
       setAllowedChannelNames([])
       setChannelNameInput('')
       setInitialMessageTemplate('{{ .event.text }}')
@@ -220,6 +223,7 @@ export default function SlackbotFormModal({
           allowed_channel_names: allowedChannelNames,
           max_sessions: maxSessions,
           notify_on_session_created: notifyOnSessionCreated,
+          allow_bot_messages: allowBotMessages,
           ...(Object.keys(sessionConfig).length > 0 ? { session_config: sessionConfig } : {}),
         }
         await client.updateSlackBot(editingSlackbot.id, updateData)
@@ -232,6 +236,7 @@ export default function SlackbotFormModal({
           allowed_channel_names: allowedChannelNames,
           max_sessions: maxSessions,
           notify_on_session_created: notifyOnSessionCreated,
+          allow_bot_messages: allowBotMessages,
           ...(Object.keys(sessionConfig).length > 0 ? { session_config: sessionConfig } : {}),
           ...scopeParams,
         }
@@ -438,6 +443,35 @@ export default function SlackbotFormModal({
                       <span
                         className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
                           notifyOnSessionCreated ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Allow bot messages */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        ボットからのメンションに反応する
+                      </label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        有効にすると、他のボットからのメンションにも反応する（デフォルト: 無効）
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={allowBotMessages}
+                      onClick={() => setAllowBotMessages((prev) => !prev)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        allowBotMessages
+                          ? 'bg-blue-600'
+                          : 'bg-gray-300 dark:bg-gray-600'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                          allowBotMessages ? 'translate-x-6' : 'translate-x-1'
                         }`}
                       />
                     </button>
