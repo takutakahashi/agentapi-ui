@@ -614,8 +614,8 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
               onClick={() => setShowHiddenSessions(prev => !prev)}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors font-medium ${
                 showHiddenSessions
-                  ? 'bg-gray-100 border-gray-300 text-gray-600 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400'
-                  : 'bg-gray-50 border-gray-200 text-gray-400 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-400'
+                  ? 'bg-blue-50 border-blue-400 text-blue-700 dark:bg-blue-900/30 dark:border-blue-500 dark:text-blue-300'
+                  : 'bg-gray-50 border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
               title={showHiddenSessions ? `非表示セッションを隠す (${hiddenSessionsCount}件)` : `非表示セッションを表示 (${hiddenSessionsCount}件)`}
             >
