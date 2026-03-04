@@ -2,23 +2,50 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { User, Users, ArrowLeft } from 'lucide-react'
+import { User, Users, ArrowLeft, ShieldCheck } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 
-const settingsNavItems = [
+const baseNavItems = [
   {
     label: 'Personal',
     href: '/settings/personal',
     icon: User,
+    adminOnly: false,
   },
   {
     label: 'Team',
     href: '/settings/team',
     icon: Users,
+    adminOnly: false,
+  },
+  {
+    label: 'Admin',
+    href: '/settings/admin',
+    icon: ShieldCheck,
+    adminOnly: true,
   },
 ]
 
 export function SettingsSidebar() {
   const pathname = usePathname()
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      try {
+        const client = createAgentAPIProxyClientFromStorage()
+        const userInfo = await client.getUserInfo()
+        setIsAdmin(userInfo?.is_admin === true)
+      } catch {
+        setIsAdmin(false)
+      }
+    }
+
+    checkAdminStatus()
+  }, [])
+
+  const navItems = baseNavItems.filter((item) => !item.adminOnly || isAdmin)
 
   return (
     <nav className="w-full md:w-64 flex-shrink-0">
@@ -32,7 +59,7 @@ export function SettingsSidebar() {
         </Link>
       </div>
       <ul className="space-y-1">
-        {settingsNavItems.map((item) => {
+        {navItems.map((item) => {
           const isActive = pathname === item.href
           const Icon = item.icon
           return (

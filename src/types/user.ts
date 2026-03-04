@@ -5,6 +5,7 @@ export interface ProxyUserInfo {
   username: string
   teams: string[]
   repositories?: string[]
+  is_admin?: boolean
 }
 
 // 統合されたユーザー情報
