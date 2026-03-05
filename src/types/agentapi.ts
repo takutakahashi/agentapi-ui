@@ -200,6 +200,7 @@ export interface CreateSessionRequest {
   params?: {
     message?: string;
     github_token?: string;
+    oneshot?: boolean;
     [key: string]: unknown;
   };
   scope?: ResourceScope;

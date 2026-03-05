@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Schedule, CreateScheduleRequest, UpdateScheduleRequest, COMMON_TIMEZONES } from '../../types/schedule'
+import { Schedule, CreateScheduleRequest, UpdateScheduleRequest, ScheduleSessionConfig, COMMON_TIMEZONES } from '../../types/schedule'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import CronExpressionInput from './CronExpressionInput'
 import { OrganizationHistory } from '../../utils/organizationHistory'
@@ -33,6 +33,7 @@ export default function ScheduleFormModal({
   const [repositorySuggestions, setRepositorySuggestions] = useState<string[]>([])
   const [showRepositorySuggestions, setShowRepositorySuggestions] = useState(false)
 
+  const [oneshot, setOneshot] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -45,6 +46,7 @@ export default function ScheduleFormModal({
       setTimezone(editingSchedule.timezone || 'Asia/Tokyo')
       setMessage(editingSchedule.session_config?.params?.message || '')
       setRepository(editingSchedule.session_config?.tags?.repository || '')
+      setOneshot(editingSchedule.session_config?.params?.oneshot === true)
 
       if (editingSchedule.cron_expr) {
         setExecutionType('recurring')
@@ -85,6 +87,7 @@ export default function ScheduleFormModal({
     setTimezone('Asia/Tokyo')
     setMessage('')
     setRepository('')
+    setOneshot(false)
     setError(null)
   }
 
@@ -162,11 +165,16 @@ export default function ScheduleFormModal({
       // Get scope parameters from context
       const scopeParams = getScopeParams()
 
+      const sessionParams: ScheduleSessionConfig['params'] = {}
+      if (message.trim()) sessionParams.message = message.trim()
+      if (oneshot) sessionParams.oneshot = true
+      const hasParams = Object.keys(sessionParams).length > 0
+
       const scheduleData: CreateScheduleRequest = {
         name: name.trim(),
         timezone,
         session_config: {
-          params: message.trim() ? { message: message.trim() } : undefined,
+          params: hasParams ? sessionParams : undefined,
           tags: repository.trim() ? { repository: repository.trim() } : undefined,
         },
         ...scopeParams,
@@ -395,6 +403,26 @@ export default function ScheduleFormModal({
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               owner/repository-name の形式で入力してください
             </p>
+          </div>
+
+          {/* Oneshot Option */}
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="oneshot"
+              checked={oneshot}
+              onChange={(e) => setOneshot(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              disabled={isSubmitting}
+            />
+            <div>
+              <label htmlFor="oneshot" className="block text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                エージェントが終了したら自動的に削除する
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                セッションが停止した後、自動的にセッションを削除します。
+              </p>
+            </div>
           </div>
 
           {/* Error */}
