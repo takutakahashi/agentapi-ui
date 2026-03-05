@@ -7,7 +7,7 @@ import { BedrockSettings, SettingsAccordion, MCPServerSettings, MarketplaceSetti
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
-const BASE_SETTINGS_NAME = '__base__'
+const BASE_SETTINGS_NAME = 'base'
 
 export default function AdminSettingsPage() {
   const router = useRouter()
@@ -190,7 +190,7 @@ export default function AdminSettingsPage() {
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
           </svg>
           <p className="text-sm text-blue-700 dark:text-blue-300">
-            These are the base settings (<code className="font-mono bg-blue-100 dark:bg-blue-800 px-1 rounded">__base__</code>) that serve as organization-wide defaults. Individual users and teams can override any of these settings in their own configuration.
+            These are the base settings (<code className="font-mono bg-blue-100 dark:bg-blue-800 px-1 rounded">base</code>) that serve as organization-wide defaults. Individual users and teams can override any of these settings in their own configuration.
           </p>
         </div>
       </div>
