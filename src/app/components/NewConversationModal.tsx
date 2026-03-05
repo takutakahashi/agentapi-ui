@@ -31,6 +31,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
   const [error, setError] = useState<string | null>(null)
   const [repositorySuggestions, setRepositorySuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [oneshot, setOneshot] = useState(false)
   
   // Initialize with current filter values
   const initializeFromFilters = useCallback(() => {
@@ -131,6 +132,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
     setMetadataVars([{ key: '', value: '' }])
     setError(null)
     setShowSuggestions(false)
+    setOneshot(false)
   }
 
   const handleClose = () => {
@@ -232,7 +234,8 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
         metadata: sessionData.metadata,
         tags: sessionData.tags,
         params: {
-          message: description.trim()
+          message: description.trim(),
+          ...(oneshot ? { oneshot: true } : {})
         },
         ...scopeParams
       })
@@ -358,6 +361,26 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
               placeholder="Describe what this session is about"
               disabled={isCreating}
             />
+          </div>
+
+          {/* Oneshot Option */}
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="oneshot"
+              checked={oneshot}
+              onChange={(e) => setOneshot(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              disabled={isCreating}
+            />
+            <div>
+              <label htmlFor="oneshot" className="block text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                エージェントが終了したら自動的に削除する
+              </label>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                セッションが停止した後、自動的にセッションを削除します。
+              </p>
+            </div>
           </div>
 
           {/* Environment Variables */}
