@@ -6,6 +6,7 @@ import { useTeamScope } from '../../contexts/TeamScopeContext'
 import { SessionFilter, getFilterValuesForSessionCreation } from '../../lib/filter-utils'
 import { OrganizationHistory } from '../../utils/organizationHistory'
 import { addRepositoryToHistory } from '../../types/settings'
+import MemoryKeyInput, { MemoryKeyPair, memoryKeyPairsToRecord } from './MemoryKeyInput'
 
 interface NewConversationModalProps {
   isOpen: boolean
@@ -20,6 +21,8 @@ interface EnvironmentVariable {
   value: string
 }
 
+type KeyValuePair = MemoryKeyPair
+
 export default function NewConversationModal({ isOpen, onClose, onSuccess, currentFilters, initialRepository }: NewConversationModalProps) {
   const { selectedTeam } = useTeamScope()
   const [description, setDescription] = useState('')
@@ -32,6 +35,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
   const [repositorySuggestions, setRepositorySuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [oneshot, setOneshot] = useState(false)
+  const [memoryKeyPairs, setMemoryKeyPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
   
   // Initialize with current filter values
   const initializeFromFilters = useCallback(() => {
@@ -130,6 +134,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
     setRepository('')
     setEnvVars([{ key: '', value: '' }])
     setMetadataVars([{ key: '', value: '' }])
+    setMemoryKeyPairs([{ key: '', value: '' }])
     setError(null)
     setShowSuggestions(false)
     setOneshot(false)
@@ -229,6 +234,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
       console.log('[NewConversationModal] Creating session with scope params:', scopeParams)
 
       const agentAPI = createAgentAPIProxyClientFromStorage()
+      const memoryKey = memoryKeyPairsToRecord(memoryKeyPairs)
       await agentAPI.start({
         environment: sessionData.environment,
         metadata: sessionData.metadata,
@@ -237,6 +243,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
           message: description.trim(),
           ...(oneshot ? { oneshot: true } : {})
         },
+        ...(memoryKey ? { memory_key: memoryKey } : {}),
         ...scopeParams
       })
 
@@ -491,6 +498,21 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
               Metadata fields for categorizing and filtering sessions.
             </p>
+          </div>
+
+          {/* Memory Key */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                メモリキー (任意)
+              </label>
+            </div>
+            <MemoryKeyInput
+              pairs={memoryKeyPairs}
+              onChange={setMemoryKeyPairs}
+              disabled={isCreating}
+              helpText="メモリを識別するタグマップ。未指定の場合はセッションのタグが使われます。"
+            />
           </div>
 
           {/* Error Message */}

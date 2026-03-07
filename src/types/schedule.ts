@@ -13,6 +13,7 @@ export interface ScheduleSessionConfig {
     oneshot?: boolean;
     [key: string]: unknown;
   };
+  memory_key?: Record<string, string>;
 }
 
 // Schedule entity

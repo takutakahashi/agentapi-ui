@@ -6,6 +6,7 @@ import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-c
 import CronExpressionInput from './CronExpressionInput'
 import { OrganizationHistory } from '../../utils/organizationHistory'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
+import MemoryKeyInput, { MemoryKeyPair, memoryKeyPairsToRecord, recordToMemoryKeyPairs } from './MemoryKeyInput'
 
 interface ScheduleFormModalProps {
   isOpen: boolean
@@ -34,6 +35,7 @@ export default function ScheduleFormModal({
   const [showRepositorySuggestions, setShowRepositorySuggestions] = useState(false)
 
   const [oneshot, setOneshot] = useState(false)
+  const [memoryKeyPairs, setMemoryKeyPairs] = useState<MemoryKeyPair[]>([{ key: '', value: '' }])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -47,6 +49,7 @@ export default function ScheduleFormModal({
       setMessage(editingSchedule.session_config?.params?.message || '')
       setRepository(editingSchedule.session_config?.tags?.repository || '')
       setOneshot(editingSchedule.session_config?.params?.oneshot === true)
+      setMemoryKeyPairs(recordToMemoryKeyPairs(editingSchedule.session_config?.memory_key))
 
       if (editingSchedule.cron_expr) {
         setExecutionType('recurring')
@@ -88,6 +91,7 @@ export default function ScheduleFormModal({
     setMessage('')
     setRepository('')
     setOneshot(false)
+    setMemoryKeyPairs([{ key: '', value: '' }])
     setError(null)
   }
 
@@ -170,12 +174,15 @@ export default function ScheduleFormModal({
       if (oneshot) sessionParams.oneshot = true
       const hasParams = Object.keys(sessionParams).length > 0
 
+      const memoryKey = memoryKeyPairsToRecord(memoryKeyPairs)
+
       const scheduleData: CreateScheduleRequest = {
         name: name.trim(),
         timezone,
         session_config: {
           params: hasParams ? sessionParams : undefined,
           tags: repository.trim() ? { repository: repository.trim() } : undefined,
+          ...(memoryKey ? { memory_key: memoryKey } : {}),
         },
         ...scopeParams,
       }
@@ -423,6 +430,19 @@ export default function ScheduleFormModal({
                 セッションが停止した後、自動的にセッションを削除します。
               </p>
             </div>
+          </div>
+
+          {/* Memory Key */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              メモリキー (任意)
+            </label>
+            <MemoryKeyInput
+              pairs={memoryKeyPairs}
+              onChange={setMemoryKeyPairs}
+              disabled={isSubmitting}
+              helpText="メモリを識別するタグマップ。未指定の場合はセッションのタグが使われます。"
+            />
           </div>
 
           {/* Error */}
