@@ -6,7 +6,6 @@ import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-c
 import CronExpressionInput from './CronExpressionInput'
 import { OrganizationHistory } from '../../utils/organizationHistory'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
-import MemoryKeyInput, { MemoryKeyPair, memoryKeyPairsToRecord, recordToMemoryKeyPairs } from './MemoryKeyInput'
 
 interface ScheduleFormModalProps {
   isOpen: boolean
@@ -36,7 +35,6 @@ export default function ScheduleFormModal({
 
   const [oneshot, setOneshot] = useState(false)
   const [enableMemory, setEnableMemory] = useState(false)
-  const [memoryKeyPairs, setMemoryKeyPairs] = useState<MemoryKeyPair[]>([{ key: '', value: '' }])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -52,7 +50,6 @@ export default function ScheduleFormModal({
       setOneshot(editingSchedule.session_config?.params?.oneshot === true)
       const existingMemoryKey = editingSchedule.session_config?.memory_key
       setEnableMemory(existingMemoryKey !== undefined)
-      setMemoryKeyPairs(recordToMemoryKeyPairs(existingMemoryKey))
 
       if (editingSchedule.cron_expr) {
         setExecutionType('recurring')
@@ -95,7 +92,6 @@ export default function ScheduleFormModal({
     setRepository('')
     setOneshot(false)
     setEnableMemory(false)
-    setMemoryKeyPairs([{ key: '', value: '' }])
     setError(null)
   }
 
@@ -178,21 +174,12 @@ export default function ScheduleFormModal({
       if (oneshot) sessionParams.oneshot = true
       const hasParams = Object.keys(sessionParams).length > 0
 
-      // memory_key: enableMemory=true のとき memory_key を送信する。
-      // カスタムキーが指定されていない場合は空オブジェクト {} を送り、セッションタグをメモリキーとして使用する。
-      // enableMemory=false のときは memory_key を送信しない。
-      let memoryKey: Record<string, string> | undefined
-      if (enableMemory) {
-        memoryKey = memoryKeyPairsToRecord(memoryKeyPairs) ?? {}
-      }
-
       const scheduleData: CreateScheduleRequest = {
         name: name.trim(),
         timezone,
         session_config: {
           params: hasParams ? sessionParams : undefined,
           tags: repository.trim() ? { repository: repository.trim() } : undefined,
-          ...(memoryKey !== undefined ? { memory_key: memoryKey } : {}),
         },
         ...scopeParams,
       }
@@ -204,6 +191,13 @@ export default function ScheduleFormModal({
       }
 
       if (isEditing && editingSchedule) {
+        // 編集時: memory_key にスケジュール ID を設定
+        if (enableMemory) {
+          scheduleData.session_config = {
+            ...scheduleData.session_config,
+            memory_key: { schedule_id: editingSchedule.id },
+          }
+        }
         const updateData: UpdateScheduleRequest = {
           ...scheduleData,
           // 完了済みスケジュールを更新する場合はアクティブ状態に戻す
@@ -211,7 +205,17 @@ export default function ScheduleFormModal({
         }
         await client.updateSchedule(editingSchedule.id, updateData)
       } else {
-        await client.createSchedule(scheduleData)
+        // 新規作成時: まずスケジュールを作成して ID を取得し、
+        // その後 memory_key にスケジュール ID を設定して更新する
+        const created = await client.createSchedule(scheduleData)
+        if (enableMemory) {
+          await client.updateSchedule(created.id, {
+            session_config: {
+              ...scheduleData.session_config,
+              memory_key: { schedule_id: created.id },
+            },
+          })
+        }
       }
 
       onSuccess()
@@ -457,19 +461,16 @@ export default function ScheduleFormModal({
                 記憶を有効にする
               </label>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                セッション起動時にメモリ統合を有効にします。有効にすると、セッションのタグをメモリキーとして使用します。
+                セッション起動時にメモリ統合を有効にします。スケジュール ID がメモリキーとして自動設定されます。
               </p>
-              {enableMemory && (
-                <div className="mt-3">
-                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                    カスタムメモリキー (任意)
-                  </p>
-                  <MemoryKeyInput
-                    pairs={memoryKeyPairs}
-                    onChange={setMemoryKeyPairs}
-                    disabled={isSubmitting}
-                    helpText="メモリを識別するカスタムタグマップ。未指定の場合はセッションのタグが使われます。"
-                  />
+              {enableMemory && isEditing && editingSchedule && (
+                <div className="mt-2 px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-md font-mono text-xs text-gray-600 dark:text-gray-300">
+                  schedule_id: <span className="text-blue-600 dark:text-blue-400">{editingSchedule.id}</span>
+                </div>
+              )}
+              {enableMemory && !isEditing && (
+                <div className="mt-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-md text-xs text-blue-600 dark:text-blue-400">
+                  作成後にスケジュール ID が自動的にメモリキーとして設定されます。
                 </div>
               )}
             </div>
