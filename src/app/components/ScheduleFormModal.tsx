@@ -35,6 +35,7 @@ export default function ScheduleFormModal({
   const [showRepositorySuggestions, setShowRepositorySuggestions] = useState(false)
 
   const [oneshot, setOneshot] = useState(false)
+  const [enableMemory, setEnableMemory] = useState(false)
   const [memoryKeyPairs, setMemoryKeyPairs] = useState<MemoryKeyPair[]>([{ key: '', value: '' }])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -49,7 +50,9 @@ export default function ScheduleFormModal({
       setMessage(editingSchedule.session_config?.params?.message || '')
       setRepository(editingSchedule.session_config?.tags?.repository || '')
       setOneshot(editingSchedule.session_config?.params?.oneshot === true)
-      setMemoryKeyPairs(recordToMemoryKeyPairs(editingSchedule.session_config?.memory_key))
+      const existingMemoryKey = editingSchedule.session_config?.memory_key
+      setEnableMemory(existingMemoryKey !== undefined)
+      setMemoryKeyPairs(recordToMemoryKeyPairs(existingMemoryKey))
 
       if (editingSchedule.cron_expr) {
         setExecutionType('recurring')
@@ -91,6 +94,7 @@ export default function ScheduleFormModal({
     setMessage('')
     setRepository('')
     setOneshot(false)
+    setEnableMemory(false)
     setMemoryKeyPairs([{ key: '', value: '' }])
     setError(null)
   }
@@ -174,7 +178,13 @@ export default function ScheduleFormModal({
       if (oneshot) sessionParams.oneshot = true
       const hasParams = Object.keys(sessionParams).length > 0
 
-      const memoryKey = memoryKeyPairsToRecord(memoryKeyPairs)
+      // memory_key: enableMemory=true のとき memory_key を送信する。
+      // カスタムキーが指定されていない場合は空オブジェクト {} を送り、セッションタグをメモリキーとして使用する。
+      // enableMemory=false のときは memory_key を送信しない。
+      let memoryKey: Record<string, string> | undefined
+      if (enableMemory) {
+        memoryKey = memoryKeyPairsToRecord(memoryKeyPairs) ?? {}
+      }
 
       const scheduleData: CreateScheduleRequest = {
         name: name.trim(),
@@ -182,7 +192,7 @@ export default function ScheduleFormModal({
         session_config: {
           params: hasParams ? sessionParams : undefined,
           tags: repository.trim() ? { repository: repository.trim() } : undefined,
-          ...(memoryKey ? { memory_key: memoryKey } : {}),
+          ...(memoryKey !== undefined ? { memory_key: memoryKey } : {}),
         },
         ...scopeParams,
       }
@@ -432,17 +442,37 @@ export default function ScheduleFormModal({
             </div>
           </div>
 
-          {/* Memory Key */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              メモリキー (任意)
-            </label>
-            <MemoryKeyInput
-              pairs={memoryKeyPairs}
-              onChange={setMemoryKeyPairs}
+          {/* Enable Memory */}
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="enableMemory"
+              checked={enableMemory}
+              onChange={(e) => setEnableMemory(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               disabled={isSubmitting}
-              helpText="メモリを識別するタグマップ。未指定の場合はセッションのタグが使われます。"
             />
+            <div className="flex-1">
+              <label htmlFor="enableMemory" className="block text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                記憶を有効にする
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                セッション起動時にメモリ統合を有効にします。有効にすると、セッションのタグをメモリキーとして使用します。
+              </p>
+              {enableMemory && (
+                <div className="mt-3">
+                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                    カスタムメモリキー (任意)
+                  </p>
+                  <MemoryKeyInput
+                    pairs={memoryKeyPairs}
+                    onChange={setMemoryKeyPairs}
+                    disabled={isSubmitting}
+                    helpText="メモリを識別するカスタムタグマップ。未指定の場合はセッションのタグが使われます。"
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Error */}
