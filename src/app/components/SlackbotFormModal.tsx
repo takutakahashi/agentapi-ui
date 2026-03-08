@@ -8,9 +8,7 @@ import {
 } from '../../types/slackbot'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
-import MemoryKeyInput, { MemoryKeyPair, memoryKeyPairsToRecord } from './MemoryKeyInput'
-
-type MemoryScope = 'none' | 'bot' | 'channel' | 'custom'
+import MemoryKeyInput, { MemoryKeyPair, memoryKeyPairsToRecord, recordToMemoryKeyPairs } from './MemoryKeyInput'
 
 interface SlackbotFormModalProps {
   isOpen: boolean
@@ -50,7 +48,6 @@ export default function SlackbotFormModal({
   const [tagPairs, setTagPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
 
   // Memory key
-  const [memoryScope, setMemoryScope] = useState<MemoryScope>('none')
   const [memoryKeyPairs, setMemoryKeyPairs] = useState<MemoryKeyPair[]>([{ key: '', value: '' }])
 
   // UI state
@@ -90,22 +87,11 @@ export default function SlackbotFormModal({
         setTagPairs([{ key: '', value: '' }])
       }
 
-      // Restore memory scope from existing memory_key
+      // Restore memory key pairs from existing memory_key
       if (sc?.memory_key && Object.keys(sc.memory_key).length > 0) {
-        const keys = Object.keys(sc.memory_key)
-        if (keys.length === 1 && keys[0] === 'bot_id') {
-          setMemoryScope('bot')
-          setMemoryKeyPairs([{ key: '', value: '' }])
-        } else if (keys.length === 1 && keys[0] === 'channel') {
-          setMemoryScope('channel')
-          setMemoryKeyPairs([{ key: '', value: '' }])
-        } else {
-          setMemoryScope('custom')
-          setMemoryKeyPairs(Object.entries(sc.memory_key).map(([key, value]) => ({ key, value })))
-        }
+        setMemoryKeyPairs(recordToMemoryKeyPairs(sc.memory_key as Record<string, string>))
         setShowAdvanced(true)
       } else {
-        setMemoryScope('none')
         setMemoryKeyPairs([{ key: '', value: '' }])
       }
 
@@ -129,7 +115,6 @@ export default function SlackbotFormModal({
       setReuseMessageTemplate('{{ .event.text }}')
       setEnvPairs([{ key: '', value: '' }])
       setTagPairs([{ key: '', value: '' }])
-      setMemoryScope('none')
       setMemoryKeyPairs([{ key: '', value: '' }])
       setShowBotTokenSection(false)
       setShowAdvanced(false)
@@ -236,18 +221,13 @@ export default function SlackbotFormModal({
       const environment = pairsToRecord(envPairs)
       const tags = pairsToRecord(tagPairs)
 
-      // Build memory_key based on selected scope
+      // Build memory_key: pairs with key='bot_id' and empty value are auto-filled with actual bot ID
       const buildMemoryKey = (botId: string): Record<string, string> | undefined => {
-        switch (memoryScope) {
-          case 'bot':
-            return botId ? { bot_id: botId } : undefined
-          case 'channel':
-            return { channel: '{{ .event.channel }}' }
-          case 'custom':
-            return memoryKeyPairsToRecord(memoryKeyPairs)
-          default:
-            return undefined
-        }
+        const resolvedPairs = memoryKeyPairs.map((p) => ({
+          key: p.key,
+          value: p.key === 'bot_id' && !p.value.trim() ? botId : p.value,
+        }))
+        return memoryKeyPairsToRecord(resolvedPairs)
       }
 
       const sessionConfig = {
@@ -288,20 +268,10 @@ export default function SlackbotFormModal({
         }
         const createdBot = await client.createSlackBot(createData)
 
-        // For 'bot' scope: update with the actual bot ID after creation
-        if (memoryScope === 'bot' && createdBot?.id) {
+        // Apply memory_key after creation (bot_id with empty value gets auto-filled)
+        if (createdBot?.id) {
           const memoryKey = buildMemoryKey(createdBot.id)
           if (memoryKey) {
-            await client.updateSlackBot(createdBot.id, {
-              session_config: {
-                ...sessionConfig,
-                memory_key: memoryKey,
-              },
-            })
-          }
-        } else if (memoryScope !== 'none') {
-          const memoryKey = buildMemoryKey('')
-          if (memoryKey && createdBot?.id) {
             await client.updateSlackBot(createdBot.id, {
               session_config: {
                 ...sessionConfig,
@@ -608,64 +578,54 @@ export default function SlackbotFormModal({
                     </div>
                   </div>
 
-                  {/* Memory Scope */}
+                  {/* Memory Key */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      メモリ継承スコープ
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      メモリキー
                     </label>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                      セッション間でメモリを引き継ぐ範囲を指定します。
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      セッション間でメモリを引き継ぐキーを指定します。Goテンプレート形式で記述できます。
                     </p>
-                    <div className="space-y-2">
-                      {(
-                        [
-                          { value: 'none', label: '無効', description: 'メモリ統合を使用しません（セッションのタグが使われます）' },
-                          { value: 'bot', label: 'Bot 全体', description: '同一Botのすべてのセッション間でメモリを共有します（Bot ID をキーとして使用）' },
-                          { value: 'channel', label: 'チャンネルごと', description: 'チャンネルごとにメモリを分離します（チャンネル ID をキーとして使用）' },
-                          { value: 'custom', label: 'カスタム', description: '独自のキーと値を指定します（Goテンプレート形式可）' },
-                        ] as { value: MemoryScope; label: string; description: string }[]
-                      ).map(({ value, label, description }) => (
-                        <label key={value} className="flex items-start gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="memoryScope"
-                            value={value}
-                            checked={memoryScope === value}
-                            onChange={() => setMemoryScope(value)}
-                            className="mt-0.5 text-blue-600 focus:ring-blue-500"
-                          />
-                          <div>
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
-                          </div>
-                        </label>
-                      ))}
+                    {/* Template preset buttons */}
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 self-center">テンプレート:</span>
+                      <button
+                        type="button"
+                        onClick={() => setMemoryKeyPairs([{ key: 'bot_id', value: isEditing && editingSlackbot ? editingSlackbot.id : '' }])}
+                        className="px-2 py-0.5 text-xs rounded-full border border-purple-300 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                        title="Bot ID をメモリキーとして使用（全セッションでメモリを共有）"
+                      >
+                        Bot 全体
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMemoryKeyPairs([{ key: 'channel', value: '{{ .event.channel }}' }])}
+                        className="px-2 py-0.5 text-xs rounded-full border border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                        title="チャンネル ID をメモリキーとして使用（チャンネルごとにメモリを分離）"
+                      >
+                        チャンネルごと
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMemoryKeyPairs([{ key: 'user', value: '{{ .event.user }}' }])}
+                        className="px-2 py-0.5 text-xs rounded-full border border-green-300 dark:border-green-600 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                        title="ユーザー ID をメモリキーとして使用（ユーザーごとにメモリを分離）"
+                      >
+                        ユーザーごと
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMemoryKeyPairs([{ key: '', value: '' }])}
+                        className="px-2 py-0.5 text-xs rounded-full border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        クリア
+                      </button>
                     </div>
-
-                    {/* Custom key-value input */}
-                    {memoryScope === 'custom' && (
-                      <div className="mt-3 pl-6">
-                        <MemoryKeyInput
-                          pairs={memoryKeyPairs}
-                          onChange={setMemoryKeyPairs}
-                          helpText="Goテンプレート形式で値を指定できます（例: {{ .event.channel }}）"
-                        />
-                      </div>
-                    )}
-
-                    {/* Preview of generated memory_key */}
-                    {memoryScope !== 'none' && memoryScope !== 'custom' && (
-                      <div className="mt-3 pl-6">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">設定される memory_key:</p>
-                        <code className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded block font-mono">
-                          {memoryScope === 'bot'
-                            ? isEditing && editingSlackbot
-                              ? `{ "bot_id": "${editingSlackbot.id}" }`
-                              : '{ "bot_id": "<作成後に自動設定>" }'
-                            : '{ "channel": "{{ .event.channel }}" }'}
-                        </code>
-                      </div>
-                    )}
+                    <MemoryKeyInput
+                      pairs={memoryKeyPairs}
+                      onChange={setMemoryKeyPairs}
+                      helpText='Goテンプレート形式で値を指定できます（例: {{ .event.channel }}、{{ .event.user }}）。"Bot 全体" テンプレートの場合、値を空にすると作成後に自動設定されます。'
+                    />
                   </div>
 
                   {/* Tags */}

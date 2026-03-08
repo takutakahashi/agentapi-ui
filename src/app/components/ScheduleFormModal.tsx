@@ -6,6 +6,7 @@ import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-c
 import CronExpressionInput from './CronExpressionInput'
 import { OrganizationHistory } from '../../utils/organizationHistory'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
+import MemoryKeyInput, { MemoryKeyPair, memoryKeyPairsToRecord, recordToMemoryKeyPairs } from './MemoryKeyInput'
 
 interface ScheduleFormModalProps {
   isOpen: boolean
@@ -34,7 +35,7 @@ export default function ScheduleFormModal({
   const [showRepositorySuggestions, setShowRepositorySuggestions] = useState(false)
 
   const [oneshot, setOneshot] = useState(false)
-  const [enableMemory, setEnableMemory] = useState(false)
+  const [memoryKeyPairs, setMemoryKeyPairs] = useState<MemoryKeyPair[]>([{ key: '', value: '' }])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -48,8 +49,7 @@ export default function ScheduleFormModal({
       setMessage(editingSchedule.session_config?.params?.message || '')
       setRepository(editingSchedule.session_config?.tags?.repository || '')
       setOneshot(editingSchedule.session_config?.params?.oneshot === true)
-      const existingMemoryKey = editingSchedule.session_config?.memory_key
-      setEnableMemory(existingMemoryKey !== undefined)
+      setMemoryKeyPairs(recordToMemoryKeyPairs(editingSchedule.session_config?.memory_key as Record<string, string> | undefined))
 
       if (editingSchedule.cron_expr) {
         setExecutionType('recurring')
@@ -91,7 +91,7 @@ export default function ScheduleFormModal({
     setMessage('')
     setRepository('')
     setOneshot(false)
-    setEnableMemory(false)
+    setMemoryKeyPairs([{ key: '', value: '' }])
     setError(null)
   }
 
@@ -190,13 +190,20 @@ export default function ScheduleFormModal({
         scheduleData.scheduled_at = new Date(scheduledAt).toISOString()
       }
 
+      // Build memory_key: pairs with key='schedule_id' and empty value are auto-filled
+      const buildMemoryKey = (scheduleId: string): Record<string, string> | undefined => {
+        const resolvedPairs = memoryKeyPairs.map((p) => ({
+          key: p.key,
+          value: p.key === 'schedule_id' && !p.value.trim() ? scheduleId : p.value,
+        }))
+        return memoryKeyPairsToRecord(resolvedPairs)
+      }
+
       if (isEditing && editingSchedule) {
-        // 編集時: memory_key にスケジュール ID を設定
-        if (enableMemory) {
-          scheduleData.session_config = {
-            ...scheduleData.session_config,
-            memory_key: { schedule_id: editingSchedule.id },
-          }
+        const memoryKey = buildMemoryKey(editingSchedule.id)
+        scheduleData.session_config = {
+          ...scheduleData.session_config,
+          ...(memoryKey ? { memory_key: memoryKey } : {}),
         }
         const updateData: UpdateScheduleRequest = {
           ...scheduleData,
@@ -205,14 +212,24 @@ export default function ScheduleFormModal({
         }
         await client.updateSchedule(editingSchedule.id, updateData)
       } else {
-        // 新規作成時: まずスケジュールを作成して ID を取得し、
-        // その後 memory_key にスケジュール ID を設定して更新する
+        // 新規作成時: schedule_id が空の場合、作成後に ID を取得して更新する
         const created = await client.createSchedule(scheduleData)
-        if (enableMemory) {
+        const memoryKey = buildMemoryKey(created.id)
+        const hasScheduleIdAutoFill = memoryKeyPairs.some(
+          (p) => p.key === 'schedule_id' && !p.value.trim()
+        )
+        if (memoryKey && hasScheduleIdAutoFill) {
           await client.updateSchedule(created.id, {
             session_config: {
               ...scheduleData.session_config,
-              memory_key: { schedule_id: created.id },
+              memory_key: memoryKey,
+            },
+          })
+        } else if (memoryKey) {
+          await client.updateSchedule(created.id, {
+            session_config: {
+              ...scheduleData.session_config,
+              memory_key: memoryKey,
             },
           })
         }
@@ -446,34 +463,41 @@ export default function ScheduleFormModal({
             </div>
           </div>
 
-          {/* Enable Memory */}
-          <div className="flex items-start gap-3">
-            <input
-              type="checkbox"
-              id="enableMemory"
-              checked={enableMemory}
-              onChange={(e) => setEnableMemory(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              disabled={isSubmitting}
-            />
-            <div className="flex-1">
-              <label htmlFor="enableMemory" className="block text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
-                記憶を有効にする
-              </label>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                セッション起動時にメモリ統合を有効にします。スケジュール ID がメモリキーとして自動設定されます。
-              </p>
-              {enableMemory && isEditing && editingSchedule && (
-                <div className="mt-2 px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-md font-mono text-xs text-gray-600 dark:text-gray-300">
-                  schedule_id: <span className="text-blue-600 dark:text-blue-400">{editingSchedule.id}</span>
-                </div>
-              )}
-              {enableMemory && !isEditing && (
-                <div className="mt-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-md text-xs text-blue-600 dark:text-blue-400">
-                  作成後にスケジュール ID が自動的にメモリキーとして設定されます。
-                </div>
-              )}
+          {/* Memory Key */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              メモリキー
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+              セッション間でメモリを引き継ぐキーを指定します。Goテンプレート形式で記述できます。
+            </p>
+            {/* Template preset buttons */}
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              <span className="text-xs text-gray-400 dark:text-gray-500 self-center">テンプレート:</span>
+              <button
+                type="button"
+                onClick={() => setMemoryKeyPairs([{ key: 'schedule_id', value: '' }])}
+                disabled={isSubmitting}
+                className="px-2 py-0.5 text-xs rounded-full border border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50"
+                title="スケジュール ID をメモリキーとして使用（作成後に自動設定）"
+              >
+                スケジュール ID
+              </button>
+              <button
+                type="button"
+                onClick={() => setMemoryKeyPairs([{ key: '', value: '' }])}
+                disabled={isSubmitting}
+                className="px-2 py-0.5 text-xs rounded-full border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                クリア
+              </button>
             </div>
+            <MemoryKeyInput
+              pairs={memoryKeyPairs}
+              onChange={setMemoryKeyPairs}
+              disabled={isSubmitting}
+              helpText='Goテンプレート形式で値を指定できます（例: {{ .event.channel }}）。"スケジュール ID" テンプレートの場合、値を空にすると作成後に自動設定されます。'
+            />
           </div>
 
           {/* Error */}
