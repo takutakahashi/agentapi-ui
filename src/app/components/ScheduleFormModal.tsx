@@ -36,6 +36,7 @@ export default function ScheduleFormModal({
 
   const [oneshot, setOneshot] = useState(false)
   const [memoryKeyPairs, setMemoryKeyPairs] = useState<MemoryKeyPair[]>([{ key: '', value: '' }])
+  const [showCustomMemory, setShowCustomMemory] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -49,7 +50,13 @@ export default function ScheduleFormModal({
       setMessage(editingSchedule.session_config?.params?.message || '')
       setRepository(editingSchedule.session_config?.tags?.repository || '')
       setOneshot(editingSchedule.session_config?.params?.oneshot === true)
-      setMemoryKeyPairs(recordToMemoryKeyPairs(editingSchedule.session_config?.memory_key as Record<string, string> | undefined))
+      const loadedPairs = recordToMemoryKeyPairs(editingSchedule.session_config?.memory_key as Record<string, string> | undefined)
+      setMemoryKeyPairs(loadedPairs)
+      // カスタム判定: presetに合致しないがキーがある場合はカスタム表示
+      const mk = editingSchedule.session_config?.memory_key as Record<string, string> | undefined
+      const isKnownPreset = !mk || Object.keys(mk).length === 0
+        || (Object.keys(mk).length === 1 && mk['schedule_id'] === '{{ .schedule_id }}')
+      setShowCustomMemory(!isKnownPreset)
 
       if (editingSchedule.cron_expr) {
         setExecutionType('recurring')
@@ -92,6 +99,7 @@ export default function ScheduleFormModal({
     setRepository('')
     setOneshot(false)
     setMemoryKeyPairs([{ key: '', value: '' }])
+    setShowCustomMemory(false)
     setError(null)
   }
 
@@ -444,35 +452,62 @@ export default function ScheduleFormModal({
               セッション間の記憶を有効化する
             </label>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-              スケジュールを繰り返し実行するとき、前回のセッションの記憶を引き継ぐことができます。キーを指定しない場合は記憶を引き継ぎません。
+              スケジュールを繰り返し実行するとき、前回のセッションの記憶を引き継ぐことができます。
             </p>
-            {/* Template preset buttons */}
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              <span className="text-xs text-gray-400 dark:text-gray-500 self-center">よく使う設定:</span>
+            {/* Preset + Custom buttons */}
+            <div className="flex flex-wrap gap-1.5">
+              {/* このスケジュールで共有 */}
               <button
                 type="button"
-                onClick={() => setMemoryKeyPairs([{ key: 'schedule_id', value: '{{ .schedule_id }}' }])}
+                onClick={() => { setMemoryKeyPairs([{ key: 'schedule_id', value: '{{ .schedule_id }}' }]); setShowCustomMemory(false) }}
                 disabled={isSubmitting}
-                className="px-2 py-0.5 text-xs rounded-full border border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50"
+                className={`px-2.5 py-1 text-xs rounded-md border transition-colors disabled:opacity-50 ${
+                  !showCustomMemory && memoryKeyPairs.some(p => p.key === 'schedule_id')
+                    ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-500 text-blue-700 dark:text-blue-300 font-medium'
+                    : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
                 title="このスケジュールの実行ごとに同じ記憶を引き継ぎます"
               >
                 このスケジュールで共有
               </button>
+              {/* カスタム */}
               <button
                 type="button"
-                onClick={() => setMemoryKeyPairs([{ key: '', value: '' }])}
+                onClick={() => setShowCustomMemory(true)}
                 disabled={isSubmitting}
-                className="px-2 py-0.5 text-xs rounded-full border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                className={`px-2.5 py-1 text-xs rounded-md border transition-colors disabled:opacity-50 ${
+                  showCustomMemory
+                    ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-500 text-blue-700 dark:text-blue-300 font-medium'
+                    : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
               >
-                クリア（無効）
+                カスタム
+              </button>
+              {/* 無効 */}
+              <button
+                type="button"
+                onClick={() => { setMemoryKeyPairs([{ key: '', value: '' }]); setShowCustomMemory(false) }}
+                disabled={isSubmitting}
+                className={`px-2.5 py-1 text-xs rounded-md border transition-colors disabled:opacity-50 ${
+                  !showCustomMemory && memoryKeyPairs.every(p => !p.key)
+                    ? 'bg-gray-100 dark:bg-gray-600 border-gray-400 dark:border-gray-500 text-gray-700 dark:text-gray-200 font-medium'
+                    : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+              >
+                無効
               </button>
             </div>
-            <MemoryKeyInput
-              pairs={memoryKeyPairs}
-              onChange={setMemoryKeyPairs}
-              disabled={isSubmitting}
-              helpText='記憶を識別するキーと値を入力します。Goテンプレート形式も使用できます（例: {{ .schedule_id }} でこのスケジュールのID）'
-            />
+            {/* カスタム入力欄 */}
+            {showCustomMemory && (
+              <div className="mt-3">
+                <MemoryKeyInput
+                  pairs={memoryKeyPairs}
+                  onChange={setMemoryKeyPairs}
+                  disabled={isSubmitting}
+                  helpText='記憶を識別するキーと値を入力します。Goテンプレート形式も使用できます（例: {{ .schedule_id }}）'
+                />
+              </div>
+            )}
           </div>
 
           {/* Error */}

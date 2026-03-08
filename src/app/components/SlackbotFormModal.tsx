@@ -49,6 +49,7 @@ export default function SlackbotFormModal({
 
   // Memory key
   const [memoryKeyPairs, setMemoryKeyPairs] = useState<MemoryKeyPair[]>([{ key: '', value: '' }])
+  const [showCustomMemory, setShowCustomMemory] = useState(false)
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -89,10 +90,23 @@ export default function SlackbotFormModal({
 
       // Restore memory key pairs from existing memory_key
       if (sc?.memory_key && Object.keys(sc.memory_key).length > 0) {
-        setMemoryKeyPairs(recordToMemoryKeyPairs(sc.memory_key as Record<string, string>))
+        const mk = sc.memory_key as Record<string, string>
+        setMemoryKeyPairs(recordToMemoryKeyPairs(mk))
         setShowAdvanced(true)
+        // カスタム判定: 既知のプリセットに合致しない場合はカスタム表示
+        const knownPresets = [
+          { bot_id: '{{ .bot_id }}' },
+          { channel: '{{ .event.channel }}' },
+          { user: '{{ .event.user }}' },
+        ]
+        const isKnown = knownPresets.some(preset =>
+          Object.keys(preset).length === Object.keys(mk).length &&
+          Object.entries(preset).every(([k, v]) => mk[k] === v)
+        )
+        setShowCustomMemory(!isKnown)
       } else {
         setMemoryKeyPairs([{ key: '', value: '' }])
+        setShowCustomMemory(false)
       }
 
       // Auto-expand sections if data exists
@@ -116,6 +130,7 @@ export default function SlackbotFormModal({
       setEnvPairs([{ key: '', value: '' }])
       setTagPairs([{ key: '', value: '' }])
       setMemoryKeyPairs([{ key: '', value: '' }])
+      setShowCustomMemory(false)
       setShowBotTokenSection(false)
       setShowAdvanced(false)
     }
@@ -567,45 +582,56 @@ export default function SlackbotFormModal({
                       Slackのメッセージをきっかけに起動するセッション間で、記憶を引き継ぐ範囲を指定します。指定しない場合は記憶を引き継ぎません。
                     </p>
                     {/* Template preset buttons */}
-                    <div className="flex flex-wrap gap-1.5 mb-3">
-                      <span className="text-xs text-gray-400 dark:text-gray-500 self-center">よく使う設定:</span>
+                    <div className="flex flex-wrap gap-1.5">
                       <button
                         type="button"
-                        onClick={() => setMemoryKeyPairs([{ key: 'bot_id', value: '{{ .bot_id }}' }])}
-                        className="px-2 py-0.5 text-xs rounded-full border border-purple-300 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                        onClick={() => { setMemoryKeyPairs([{ key: 'bot_id', value: '{{ .bot_id }}' }]); setShowCustomMemory(false) }}
+                        className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${!showCustomMemory && memoryKeyPairs.length === 1 && memoryKeyPairs[0].key === 'bot_id' && memoryKeyPairs[0].value === '{{ .bot_id }}' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300' : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                         title="このBotの全セッションで記憶を共有します"
                       >
                         Bot 全体で共有
                       </button>
                       <button
                         type="button"
-                        onClick={() => setMemoryKeyPairs([{ key: 'channel', value: '{{ .event.channel }}' }])}
-                        className="px-2 py-0.5 text-xs rounded-full border border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                        onClick={() => { setMemoryKeyPairs([{ key: 'channel', value: '{{ .event.channel }}' }]); setShowCustomMemory(false) }}
+                        className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${!showCustomMemory && memoryKeyPairs.length === 1 && memoryKeyPairs[0].key === 'channel' && memoryKeyPairs[0].value === '{{ .event.channel }}' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                         title="同じチャンネルのセッション間で記憶を共有します"
                       >
                         チャンネルごとに分ける
                       </button>
                       <button
                         type="button"
-                        onClick={() => setMemoryKeyPairs([{ key: 'user', value: '{{ .event.user }}' }])}
-                        className="px-2 py-0.5 text-xs rounded-full border border-green-300 dark:border-green-600 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                        onClick={() => { setMemoryKeyPairs([{ key: 'user', value: '{{ .event.user }}' }]); setShowCustomMemory(false) }}
+                        className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${!showCustomMemory && memoryKeyPairs.length === 1 && memoryKeyPairs[0].key === 'user' && memoryKeyPairs[0].value === '{{ .event.user }}' ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                         title="同じユーザーのセッション間で記憶を共有します"
                       >
                         ユーザーごとに分ける
                       </button>
                       <button
                         type="button"
-                        onClick={() => setMemoryKeyPairs([{ key: '', value: '' }])}
-                        className="px-2 py-0.5 text-xs rounded-full border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        onClick={() => setShowCustomMemory(true)}
+                        className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${showCustomMemory ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300' : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                       >
-                        クリア（無効）
+                        カスタム
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setMemoryKeyPairs([{ key: '', value: '' }]); setShowCustomMemory(false) }}
+                        className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${!showCustomMemory && memoryKeyPairs.every(p => !p.key) ? 'border-gray-500 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                      >
+                        無効
                       </button>
                     </div>
-                    <MemoryKeyInput
-                      pairs={memoryKeyPairs}
-                      onChange={setMemoryKeyPairs}
-                      helpText='記憶を識別するキーと値を入力します。Goテンプレート形式も使用できます（例: {{ .event.channel }} でチャンネルID、{{ .bot_id }} でBot ID）'
-                    />
+                    {showCustomMemory && (
+                      <div className="mt-3">
+                        <MemoryKeyInput
+                          pairs={memoryKeyPairs}
+                          onChange={setMemoryKeyPairs}
+                          disabled={isSubmitting}
+                          helpText='記憶を識別するキーと値を入力します。Goテンプレート形式も使用できます（例: {{ .event.channel }} でチャンネルID、{{ .bot_id }} でBot ID）'
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Tags */}
