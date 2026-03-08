@@ -561,50 +561,50 @@ export default function SlackbotFormModal({
                   {/* Memory Key */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      メモリキー
+                      セッション間の記憶を有効化する
                     </label>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                      セッション間でメモリを引き継ぐキーを指定します。Goテンプレート形式で記述できます。
+                      Slackのメッセージをきっかけに起動するセッション間で、記憶を引き継ぐ範囲を指定します。指定しない場合は記憶を引き継ぎません。
                     </p>
                     {/* Template preset buttons */}
                     <div className="flex flex-wrap gap-1.5 mb-3">
-                      <span className="text-xs text-gray-400 dark:text-gray-500 self-center">テンプレート:</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 self-center">よく使う設定:</span>
                       <button
                         type="button"
                         onClick={() => setMemoryKeyPairs([{ key: 'bot_id', value: '{{ .bot_id }}' }])}
                         className="px-2 py-0.5 text-xs rounded-full border border-purple-300 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
-                        title="Bot ID をメモリキーとして使用（Goテンプレートで自動解決）"
+                        title="このBotの全セッションで記憶を共有します"
                       >
-                        Bot 全体
+                        Bot 全体で共有
                       </button>
                       <button
                         type="button"
                         onClick={() => setMemoryKeyPairs([{ key: 'channel', value: '{{ .event.channel }}' }])}
                         className="px-2 py-0.5 text-xs rounded-full border border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                        title="チャンネル ID をメモリキーとして使用（チャンネルごとにメモリを分離）"
+                        title="同じチャンネルのセッション間で記憶を共有します"
                       >
-                        チャンネルごと
+                        チャンネルごとに分ける
                       </button>
                       <button
                         type="button"
                         onClick={() => setMemoryKeyPairs([{ key: 'user', value: '{{ .event.user }}' }])}
                         className="px-2 py-0.5 text-xs rounded-full border border-green-300 dark:border-green-600 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
-                        title="ユーザー ID をメモリキーとして使用（ユーザーごとにメモリを分離）"
+                        title="同じユーザーのセッション間で記憶を共有します"
                       >
-                        ユーザーごと
+                        ユーザーごとに分ける
                       </button>
                       <button
                         type="button"
                         onClick={() => setMemoryKeyPairs([{ key: '', value: '' }])}
                         className="px-2 py-0.5 text-xs rounded-full border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                       >
-                        クリア
+                        クリア（無効）
                       </button>
                     </div>
                     <MemoryKeyInput
                       pairs={memoryKeyPairs}
                       onChange={setMemoryKeyPairs}
-                      helpText='Goテンプレート形式で値を指定できます。例: {{ .bot_id }}（Bot ID）、{{ .event.channel }}（チャンネル）、{{ .event.user }}（ユーザー）'
+                      helpText='記憶を識別するキーと値を入力します。Goテンプレート形式も使用できます（例: {{ .event.channel }} でチャンネルID、{{ .bot_id }} でBot ID）'
                     />
                   </div>
 

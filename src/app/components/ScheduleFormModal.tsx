@@ -441,22 +441,22 @@ export default function ScheduleFormModal({
           {/* Memory Key */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              メモリキー
+              セッション間の記憶を有効化する
             </label>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-              セッション間でメモリを引き継ぐキーを指定します。Goテンプレート形式で記述できます。
+              スケジュールを繰り返し実行するとき、前回のセッションの記憶を引き継ぐことができます。キーを指定しない場合は記憶を引き継ぎません。
             </p>
             {/* Template preset buttons */}
             <div className="flex flex-wrap gap-1.5 mb-3">
-              <span className="text-xs text-gray-400 dark:text-gray-500 self-center">テンプレート:</span>
+              <span className="text-xs text-gray-400 dark:text-gray-500 self-center">よく使う設定:</span>
               <button
                 type="button"
                 onClick={() => setMemoryKeyPairs([{ key: 'schedule_id', value: '{{ .schedule_id }}' }])}
                 disabled={isSubmitting}
                 className="px-2 py-0.5 text-xs rounded-full border border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50"
-                title="スケジュール ID をメモリキーとして使用（Goテンプレートで自動解決）"
+                title="このスケジュールの実行ごとに同じ記憶を引き継ぎます"
               >
-                スケジュール ID
+                このスケジュールで共有
               </button>
               <button
                 type="button"
@@ -464,14 +464,14 @@ export default function ScheduleFormModal({
                 disabled={isSubmitting}
                 className="px-2 py-0.5 text-xs rounded-full border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
               >
-                クリア
+                クリア（無効）
               </button>
             </div>
             <MemoryKeyInput
               pairs={memoryKeyPairs}
               onChange={setMemoryKeyPairs}
               disabled={isSubmitting}
-              helpText='Goテンプレート形式で値を指定できます。例: {{ .schedule_id }}（スケジュールID）、{{ .schedule_name }}（スケジュール名）'
+              helpText='記憶を識別するキーと値を入力します。Goテンプレート形式も使用できます（例: {{ .schedule_id }} でこのスケジュールのID）'
             />
           </div>
 
