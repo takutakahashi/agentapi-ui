@@ -190,21 +190,16 @@ export default function ScheduleFormModal({
         scheduleData.scheduled_at = new Date(scheduledAt).toISOString()
       }
 
-      // Build memory_key: pairs with key='schedule_id' and empty value are auto-filled
-      const buildMemoryKey = (scheduleId: string): Record<string, string> | undefined => {
-        const resolvedPairs = memoryKeyPairs.map((p) => ({
-          key: p.key,
-          value: p.key === 'schedule_id' && !p.value.trim() ? scheduleId : p.value,
-        }))
-        return memoryKeyPairsToRecord(resolvedPairs)
+      // Build memory_key from pairs (Go template values like {{ .schedule_id }} are resolved server-side at runtime)
+      const memoryKey = memoryKeyPairsToRecord(memoryKeyPairs)
+      if (memoryKey) {
+        scheduleData.session_config = {
+          ...scheduleData.session_config,
+          memory_key: memoryKey,
+        }
       }
 
       if (isEditing && editingSchedule) {
-        const memoryKey = buildMemoryKey(editingSchedule.id)
-        scheduleData.session_config = {
-          ...scheduleData.session_config,
-          ...(memoryKey ? { memory_key: memoryKey } : {}),
-        }
         const updateData: UpdateScheduleRequest = {
           ...scheduleData,
           // 完了済みスケジュールを更新する場合はアクティブ状態に戻す
@@ -212,27 +207,7 @@ export default function ScheduleFormModal({
         }
         await client.updateSchedule(editingSchedule.id, updateData)
       } else {
-        // 新規作成時: schedule_id が空の場合、作成後に ID を取得して更新する
-        const created = await client.createSchedule(scheduleData)
-        const memoryKey = buildMemoryKey(created.id)
-        const hasScheduleIdAutoFill = memoryKeyPairs.some(
-          (p) => p.key === 'schedule_id' && !p.value.trim()
-        )
-        if (memoryKey && hasScheduleIdAutoFill) {
-          await client.updateSchedule(created.id, {
-            session_config: {
-              ...scheduleData.session_config,
-              memory_key: memoryKey,
-            },
-          })
-        } else if (memoryKey) {
-          await client.updateSchedule(created.id, {
-            session_config: {
-              ...scheduleData.session_config,
-              memory_key: memoryKey,
-            },
-          })
-        }
+        await client.createSchedule(scheduleData)
       }
 
       onSuccess()
@@ -476,10 +451,10 @@ export default function ScheduleFormModal({
               <span className="text-xs text-gray-400 dark:text-gray-500 self-center">テンプレート:</span>
               <button
                 type="button"
-                onClick={() => setMemoryKeyPairs([{ key: 'schedule_id', value: '' }])}
+                onClick={() => setMemoryKeyPairs([{ key: 'schedule_id', value: '{{ .schedule_id }}' }])}
                 disabled={isSubmitting}
                 className="px-2 py-0.5 text-xs rounded-full border border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50"
-                title="スケジュール ID をメモリキーとして使用（作成後に自動設定）"
+                title="スケジュール ID をメモリキーとして使用（Goテンプレートで自動解決）"
               >
                 スケジュール ID
               </button>
@@ -496,7 +471,7 @@ export default function ScheduleFormModal({
               pairs={memoryKeyPairs}
               onChange={setMemoryKeyPairs}
               disabled={isSubmitting}
-              helpText='Goテンプレート形式で値を指定できます（例: {{ .event.channel }}）。"スケジュール ID" テンプレートの場合、値を空にすると作成後に自動設定されます。'
+              helpText='Goテンプレート形式で値を指定できます。例: {{ .schedule_id }}（スケジュールID）、{{ .schedule_name }}（スケジュール名）'
             />
           </div>
 

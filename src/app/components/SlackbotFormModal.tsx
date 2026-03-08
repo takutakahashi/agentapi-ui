@@ -221,14 +221,8 @@ export default function SlackbotFormModal({
       const environment = pairsToRecord(envPairs)
       const tags = pairsToRecord(tagPairs)
 
-      // Build memory_key: pairs with key='bot_id' and empty value are auto-filled with actual bot ID
-      const buildMemoryKey = (botId: string): Record<string, string> | undefined => {
-        const resolvedPairs = memoryKeyPairs.map((p) => ({
-          key: p.key,
-          value: p.key === 'bot_id' && !p.value.trim() ? botId : p.value,
-        }))
-        return memoryKeyPairsToRecord(resolvedPairs)
-      }
+      // Build memory_key from pairs (Go template values like {{ .bot_id }} are resolved server-side at runtime)
+      const memoryKey = memoryKeyPairsToRecord(memoryKeyPairs)
 
       const sessionConfig = {
         ...(initialMessageTemplate.trim() ? { initial_message_template: initialMessageTemplate.trim() } : {}),
@@ -238,7 +232,6 @@ export default function SlackbotFormModal({
       }
 
       if (isEditing && editingSlackbot) {
-        const memoryKey = buildMemoryKey(editingSlackbot.id)
         const updateData: UpdateSlackBotRequest = {
           name: name.trim(),
           ...(botTokenSecretName.trim() ? { bot_token_secret_name: botTokenSecretName.trim() } : {}),
@@ -266,20 +259,7 @@ export default function SlackbotFormModal({
           ...(Object.keys(sessionConfig).length > 0 ? { session_config: sessionConfig } : {}),
           ...scopeParams,
         }
-        const createdBot = await client.createSlackBot(createData)
-
-        // Apply memory_key after creation (bot_id with empty value gets auto-filled)
-        if (createdBot?.id) {
-          const memoryKey = buildMemoryKey(createdBot.id)
-          if (memoryKey) {
-            await client.updateSlackBot(createdBot.id, {
-              session_config: {
-                ...sessionConfig,
-                memory_key: memoryKey,
-              },
-            })
-          }
-        }
+        await client.createSlackBot(createData)
       }
 
       onSuccess()
@@ -591,9 +571,9 @@ export default function SlackbotFormModal({
                       <span className="text-xs text-gray-400 dark:text-gray-500 self-center">テンプレート:</span>
                       <button
                         type="button"
-                        onClick={() => setMemoryKeyPairs([{ key: 'bot_id', value: isEditing && editingSlackbot ? editingSlackbot.id : '' }])}
+                        onClick={() => setMemoryKeyPairs([{ key: 'bot_id', value: '{{ .bot_id }}' }])}
                         className="px-2 py-0.5 text-xs rounded-full border border-purple-300 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
-                        title="Bot ID をメモリキーとして使用（全セッションでメモリを共有）"
+                        title="Bot ID をメモリキーとして使用（Goテンプレートで自動解決）"
                       >
                         Bot 全体
                       </button>
@@ -624,7 +604,7 @@ export default function SlackbotFormModal({
                     <MemoryKeyInput
                       pairs={memoryKeyPairs}
                       onChange={setMemoryKeyPairs}
-                      helpText='Goテンプレート形式で値を指定できます（例: {{ .event.channel }}、{{ .event.user }}）。"Bot 全体" テンプレートの場合、値を空にすると作成後に自動設定されます。'
+                      helpText='Goテンプレート形式で値を指定できます。例: {{ .bot_id }}（Bot ID）、{{ .event.channel }}（チャンネル）、{{ .event.user }}（ユーザー）'
                     />
                   </div>
 
