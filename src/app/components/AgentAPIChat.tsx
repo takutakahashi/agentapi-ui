@@ -133,6 +133,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     if (agentAPI && sessionId) {
       // Reset initial load flag when session changes
       setIsInitialLoadComplete(false);
+      setIsStarting(false);
+      // Clear any pending retry timer
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
 
       const initializeChat = async () => {
         try {
@@ -163,6 +169,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                              (sessionMessagesResponse?.total ? sessionMessagesResponse.total > fetchedMessages.length : false);
               setHasMoreMessages(hasMore);
               setError(null);
+              setIsStarting(false);
 
               // Mark initial load as complete
               setIsInitialLoadComplete(true);
@@ -176,6 +183,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             } catch (err) {
               console.error('Failed to load session messages:', err);
               setIsConnected(false); // Only set disconnected on actual error
+              if (err instanceof AgentAPIProxyError && (err.status === 502 || err.status === 503)) {
+                // サービス起動中の可能性があるため、処理中として扱い再試行
+                setIsStarting(true);
+                retryTimerRef.current = setTimeout(initializeChat, 2000);
+                return;
+              }
               if (err instanceof AgentAPIProxyError) {
                 setError(`セッションメッセージの読み込みに失敗しました: ${err.message} (セッション: ${sessionId})`);
               } else {
@@ -191,6 +204,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         } catch (err) {
           console.error('Failed to initialize chat:', err);
           setIsConnected(false);
+          if (err instanceof AgentAPIProxyError && (err.status === 502 || err.status === 503)) {
+            // サービス起動中の可能性があるため、処理中として扱い再試行
+            setIsStarting(true);
+            retryTimerRef.current = setTimeout(initializeChat, 2000);
+            return;
+          }
           if (err instanceof AgentAPIProxyError) {
             setError(`接続に失敗しました: ${err.message}`);
           } else {
@@ -201,7 +220,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
       // Use setTimeout to defer heavy initialization
       const timeoutId = setTimeout(initializeChat, 0);
-      return () => clearTimeout(timeoutId);
+      return () => {
+        clearTimeout(timeoutId);
+        if (retryTimerRef.current) {
+          clearTimeout(retryTimerRef.current);
+          retryTimerRef.current = null;
+        }
+      };
     }
   }, [sessionId, agentAPI]);
 
@@ -216,6 +241,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const [showControlPanel, setShowControlPanel] = useState(false);
@@ -541,7 +568,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     } catch (err) {
       console.error('Failed to poll session data:', err);
       if (err instanceof AgentAPIProxyError) {
-        setError(`Failed to update messages: ${err.message}`);
+        if (err.status === 502 || err.status === 503) {
+          // サービス一時停止の可能性があるため、エラーを表示せず継続
+          console.warn('Received 502/503 during polling, continuing...');
+        } else {
+          setError(`Failed to update messages: ${err.message}`);
+        }
       }
     }
   }, [isConnected, sessionId, pendingAction, messages, agentType]); // agentAPIを依存配列から除去
@@ -1116,6 +1148,16 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           transform: 'translateZ(0)' // GPU acceleration
         }}
       >
+        {isStarting && !isConnected && (
+          <div className="text-center text-gray-500 dark:text-gray-400 py-12">
+            <div className="mb-3">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            </div>
+            <p className="text-lg font-medium">処理中...</p>
+            <p className="text-sm mt-1">セッションへの接続を待機しています</p>
+          </div>
+        )}
+
         {messages.length === 0 && isConnected && (
           <div className="text-center text-gray-500 dark:text-gray-400 py-12">
             <div className="mb-3">
