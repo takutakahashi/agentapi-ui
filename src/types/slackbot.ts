@@ -46,6 +46,10 @@ export interface CreateSlackBotRequest {
   name: string;
   scope?: ResourceScope;
   team_id?: string;
+  /** Slack Bot Token (xoxb-...). write-only, レスポンスには返らない */
+  bot_token?: string;
+  /** Slack App-Level Token (xapp-...). write-only, レスポンスには返らない */
+  app_token?: string;
   bot_token_secret_name?: string;
   bot_token_secret_key?: string;
   allowed_event_types?: string[];
@@ -62,6 +66,10 @@ export interface CreateSlackBotRequest {
 export interface UpdateSlackBotRequest {
   name?: string;
   status?: SlackBotStatus;
+  /** Slack Bot Token (xoxb-...). write-only, レスポンスには返らない */
+  bot_token?: string;
+  /** Slack App-Level Token (xapp-...). write-only, レスポンスには返らない */
+  app_token?: string;
   bot_token_secret_name?: string;
   bot_token_secret_key?: string;
   allowed_event_types?: string[];

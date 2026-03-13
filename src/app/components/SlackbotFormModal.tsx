@@ -29,6 +29,8 @@ export default function SlackbotFormModal({
 
   // Basic fields
   const [name, setName] = useState('')
+  const [botToken, setBotToken] = useState('')
+  const [appToken, setAppToken] = useState('')
   const [botTokenSecretName, setBotTokenSecretName] = useState('')
   const [botTokenSecretKey, setBotTokenSecretKey] = useState('')
   const [maxSessions, setMaxSessions] = useState<number>(10)
@@ -118,6 +120,8 @@ export default function SlackbotFormModal({
     } else {
       // Reset form
       setName('')
+      setBotToken('')
+      setAppToken('')
       setBotTokenSecretName('')
       setBotTokenSecretKey('')
       setMaxSessions(10)
@@ -249,6 +253,8 @@ export default function SlackbotFormModal({
       if (isEditing && editingSlackbot) {
         const updateData: UpdateSlackBotRequest = {
           name: name.trim(),
+          ...(botToken.trim() ? { bot_token: botToken.trim() } : {}),
+          ...(appToken.trim() ? { app_token: appToken.trim() } : {}),
           ...(botTokenSecretName.trim() ? { bot_token_secret_name: botTokenSecretName.trim() } : {}),
           ...(botTokenSecretKey.trim() ? { bot_token_secret_key: botTokenSecretKey.trim() } : {}),
           allowed_channel_names: allowedChannelNames,
@@ -265,6 +271,8 @@ export default function SlackbotFormModal({
         const scopeParams = getScopeParams()
         const createData: CreateSlackBotRequest = {
           name: name.trim(),
+          ...(botToken.trim() ? { bot_token: botToken.trim() } : {}),
+          ...(appToken.trim() ? { app_token: appToken.trim() } : {}),
           ...(botTokenSecretName.trim() ? { bot_token_secret_name: botTokenSecretName.trim() } : {}),
           ...(botTokenSecretKey.trim() ? { bot_token_secret_key: botTokenSecretKey.trim() } : {}),
           allowed_channel_names: allowedChannelNames,
@@ -397,6 +405,76 @@ export default function SlackbotFormModal({
               </div>
             </div>
 
+            {/* Custom Slack App Checkbox */}
+            <div>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showBotTokenSection}
+                  onChange={(e) => setShowBotTokenSection(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    独自の Slack App を利用する
+                  </span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    通常は必要ありません。独自の Slack App Token を設定する場合のみチェックしてください。
+                  </p>
+                </div>
+              </label>
+
+              {showBotTokenSection && (
+                <div className="mt-4 space-y-4 pl-4 border-l-2 border-blue-200 dark:border-blue-700">
+                  {/* Bot Token */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Bot Token
+                    </label>
+                    {isEditing && (
+                      <p className="text-xs text-yellow-600 dark:text-yellow-400 mb-1">
+                        変更する場合のみ入力してください。空欄の場合は現在の値が保持されます。
+                      </p>
+                    )}
+                    <input
+                      type="password"
+                      value={botToken}
+                      onChange={(e) => setBotToken(e.target.value)}
+                      placeholder={isEditing ? '変更する場合のみ入力 (xoxb-...)' : 'xoxb-...'}
+                      autoComplete="new-password"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 font-mono"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Slack Bot Token（xoxb- で始まるトークン）。レスポンスには返りません。
+                    </p>
+                  </div>
+
+                  {/* App Token */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      App-Level Token
+                    </label>
+                    {isEditing && (
+                      <p className="text-xs text-yellow-600 dark:text-yellow-400 mb-1">
+                        変更する場合のみ入力してください。空欄の場合は現在の値が保持されます。
+                      </p>
+                    )}
+                    <input
+                      type="password"
+                      value={appToken}
+                      onChange={(e) => setAppToken(e.target.value)}
+                      placeholder={isEditing ? '変更する場合のみ入力 (xapp-...)' : 'xapp-...'}
+                      autoComplete="new-password"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 font-mono"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Slack App-Level Token（xapp- で始まるトークン）。レスポンスには返りません。
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Advanced Section */}
             <div>
               <button
@@ -417,8 +495,6 @@ export default function SlackbotFormModal({
 
               {showAdvanced && (
                 <div className="mt-4 space-y-5 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
-                  {/* Custom Bot Token - TODO: 一旦非表示 */}
-
                   {/* Initial Message Template */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
