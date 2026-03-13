@@ -405,26 +405,27 @@ export default function SlackbotFormModal({
               </div>
             </div>
 
-            {/* Advanced Section */}
+            {/* Custom Slack App Checkbox */}
             <div>
-              <button
-                type="button"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-              >
-                <svg
-                  className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-90' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-                詳細設定
-              </button>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showBotTokenSection}
+                  onChange={(e) => setShowBotTokenSection(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    独自の Slack App を利用する
+                  </span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    通常は必要ありません。独自の Slack App Token を設定する場合のみチェックしてください。
+                  </p>
+                </div>
+              </label>
 
-              {showAdvanced && (
-                <div className="mt-4 space-y-5 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
+              {showBotTokenSection && (
+                <div className="mt-4 space-y-4 pl-4 border-l-2 border-blue-200 dark:border-blue-700">
                   {/* Bot Token */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -470,7 +471,30 @@ export default function SlackbotFormModal({
                       Slack App-Level Token（xapp- で始まるトークン）。レスポンスには返りません。
                     </p>
                   </div>
+                </div>
+              )}
+            </div>
 
+            {/* Advanced Section */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+              >
+                <svg
+                  className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-90' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                詳細設定
+              </button>
+
+              {showAdvanced && (
+                <div className="mt-4 space-y-5 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
                   {/* Initial Message Template */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
