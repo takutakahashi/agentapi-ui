@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, AgentApiType, getAgentApiType, setAgentApiType, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings, getMemoryEnabled, setMemoryEnabled, getMemorySummarizeDrafts, setMemorySummarizeDrafts } from '@/types/settings'
 import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings, MemorySettings, SlackSettings } from '@/components/settings'
-import { OneClickPushNotifications } from '@/app/components/OneClickPushNotifications'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -25,6 +24,7 @@ export default function PersonalSettingsPage() {
   const [memoryEnabled, setMemoryEnabledState] = useState(true)
   const [memorySummarizeDrafts, setMemorySummarizeDraftsState] = useState<boolean | undefined>(undefined)
   const [slackUserId, setSlackUserId] = useState<string>('')
+  const [notificationChannels, setNotificationChannels] = useState<string[] | undefined>(undefined)
   const { showToast } = useToast()
   const hasUnsavedChangesRef = useRef(false)
 
@@ -110,6 +110,7 @@ export default function PersonalSettingsPage() {
         }
         // Slack User ID を設定
         setSlackUserId(data.slack_user_id || '')
+        setNotificationChannels(data.notification_channels)
       } catch (err) {
         console.error('Failed to load personal settings:', err)
         setError('Failed to load settings')
@@ -192,6 +193,11 @@ export default function PersonalSettingsPage() {
   const handleSlackUserIdChange = (value: string) => {
     setSlackUserId(value)
     setSettings((prev) => ({ ...prev, slack_user_id: value }))
+  }
+
+  const handleNotificationChannelsChange = (channels: string[]) => {
+    setNotificationChannels(channels)
+    setSettings((prev) => ({ ...prev, notification_channels: channels }))
   }
 
   const handleLogout = async () => {
@@ -420,21 +426,15 @@ export default function PersonalSettingsPage() {
           </SettingsAccordion>
 
           <SettingsAccordion
-            title="Push Notifications"
-            description="Configure push notification settings"
-            defaultOpen
-          >
-            <OneClickPushNotifications />
-          </SettingsAccordion>
-
-          <SettingsAccordion
-            title="Slack 通知"
-            description="Slack DM で通知を受け取る設定"
+            title="通知設定"
+            description="通知チャネルの設定"
             defaultOpen
           >
             <SlackSettings
               slackUserId={slackUserId}
-              onChange={handleSlackUserIdChange}
+              notificationChannels={notificationChannels}
+              onSlackUserIdChange={handleSlackUserIdChange}
+              onChannelsChange={handleNotificationChannelsChange}
             />
           </SettingsAccordion>
 
