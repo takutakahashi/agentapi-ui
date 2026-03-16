@@ -29,10 +29,8 @@ export function SlackSettings({
       newChannels = [...channels.filter((c) => c !== channel), channel];
     } else {
       newChannels = channels.filter((c) => c !== channel);
-      // When disabling slack, also clear the Slack User ID
-      if (channel === "slack") {
-        onSlackUserIdChange("");
-      }
+      // Note: we intentionally keep Slack User ID when disabling the channel
+      // so it can be re-enabled without re-entering the ID
     }
     onChannelsChange(newChannels);
   };
