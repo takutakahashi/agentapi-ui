@@ -55,6 +55,8 @@ export interface SettingsData {
   preferred_team_id?: string;  // 使用するチームの ID（"org/team-slug" 形式）
   memory_enabled?: boolean;  // メモリ機能の有効/無効（個人・チーム設定で使用）
   memory_summarize_drafts?: boolean;  // ドラフトメモリの自動集約設定（個人・チーム設定で使用）
+  slack_user_id?: string;  // Slack User ID（設定すると Slack DM 通知が有効になる）
+  notification_channels?: string[];  // Active notification channels (e.g. ["web", "slack"])
 }
 
 // Personal settings
@@ -293,6 +295,19 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
   // undefined の場合はフィールドを送信しない（プロキシのデフォルト設定に従う）
   if (data.memory_summarize_drafts !== undefined) {
     prepared.memory_summarize_drafts = data.memory_summarize_drafts
+  }
+
+  // Slack User ID の処理
+  // undefined の場合はフィールドを送信しない
+  // 空文字列の場合は送信する（Slack 購読を削除するため）
+  if (data.slack_user_id !== undefined) {
+    prepared.slack_user_id = data.slack_user_id
+  }
+
+  // Notification Channels の処理
+  // undefined の場合はフィールドを送信しない
+  if (data.notification_channels !== undefined) {
+    prepared.notification_channels = data.notification_channels
   }
 
   return prepared
