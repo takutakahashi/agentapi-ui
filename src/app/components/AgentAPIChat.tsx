@@ -23,6 +23,8 @@ interface AgentStatus {
   status: 'stable' | 'running' | 'error';
   last_activity?: string;
   current_task?: string;
+  /** Provisioner error message when status is 'error' */
+  message?: string;
 }
 
 // Type guard function to validate session message response
@@ -153,7 +155,21 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
               console.error('Failed to load session messages:', err);
               setIsConnected(false); // Only set disconnected on actual error
               if (err instanceof AgentAPIProxyError && (err.status === 502 || err.status === 503)) {
-                // サービス起動中の可能性があるため、処理中として扱い再試行
+                // サービス起動中の可能性があるため、プロビジョナーのステータスを確認してから再試行
+                if (agentAPIRef.current) {
+                  try {
+                    const provStatus = await agentAPIRef.current.getSessionStatus(sessionId);
+                    if (provStatus.status === 'error') {
+                      // プロビジョナーが恒久的に失敗した場合は再試行を停止してエラーを表示
+                      const detail = provStatus.message || '不明なエラー';
+                      setError(`セッションの起動に失敗しました: ${detail}`);
+                      setIsStarting(false);
+                      return;
+                    }
+                  } catch {
+                    // ステータス確認に失敗した場合は通常の再試行を続行
+                  }
+                }
                 setIsStarting(true);
                 retryTimerRef.current = setTimeout(initializeChat, 2000);
                 return;
@@ -518,6 +534,14 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       }
 
       setAgentStatus(sessionStatus);
+      // When the provisioner has permanently failed, surface the error once.
+      if (
+        sessionStatus.status === 'error' &&
+        prevAgentStatusRef.current?.status !== 'error'
+      ) {
+        const detail = sessionStatus.message || '不明なエラー';
+        setError(`セッションの起動に失敗しました: ${detail}`);
+      }
       prevAgentStatusRef.current = sessionStatus;
     } catch (err) {
       console.error('Failed to poll session data:', err);
@@ -981,7 +1005,25 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           transform: 'translateZ(0)' // GPU acceleration
         }}
       >
-        {isStarting && !isConnected && (
+        {agentStatus?.status === 'error' && (
+          <div className="flex flex-col items-center justify-center py-12 px-6">
+            <div className="mb-4 text-red-500 dark:text-red-400">
+              <svg className="w-14 h-14 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
+            <p className="text-lg font-semibold text-red-600 dark:text-red-400">セッションの起動に失敗しました</p>
+            {agentStatus.message && (
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 max-w-lg text-center break-words">
+                {agentStatus.message}
+              </p>
+            )}
+            <p className="mt-4 text-xs text-gray-400 dark:text-gray-500">セッションを削除して再作成してください</p>
+          </div>
+        )}
+
+        {isStarting && !isConnected && agentStatus?.status !== 'error' && (
           <div className="text-center text-gray-500 dark:text-gray-400 py-12">
             <div className="mb-3">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>

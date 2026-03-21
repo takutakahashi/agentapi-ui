@@ -78,6 +78,8 @@ interface AgentStatus {
   last_activity?: string;
   current_task?: string;
   agent_type?: string;
+  /** Provisioner error message when status is 'error' */
+  message?: string;
 }
 
 export interface AgentAPIProxyClientConfig {
@@ -515,7 +517,16 @@ export class AgentAPIProxyClient {
   }
 
   async getSessionStatus(sessionId: string): Promise<AgentStatus> {
-    return this.makeRequest<AgentStatus>(`/${sessionId}/status`);
+    try {
+      return await this.makeRequest<AgentStatus>(`/${sessionId}/status`);
+    } catch (err) {
+      if (err instanceof AgentAPIProxyError && err.status === 500) {
+        // Provisioner has permanently failed – return the error status so polling
+        // continues for other data without throwing and surface the message.
+        return { status: 'error', message: err.message };
+      }
+      throw err;
+    }
   }
 
   /**
