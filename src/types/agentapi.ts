@@ -5,6 +5,8 @@ export interface AgentStatus {
   status: 'stable' | 'running' | 'error';
   last_activity?: string;
   current_task?: string;
+  /** Provisioner error message when status is 'error' */
+  message?: string;
 }
 
 export interface Agent {
