@@ -31,8 +31,6 @@ export default function SlackbotFormModal({
   const [name, setName] = useState('')
   const [botToken, setBotToken] = useState('')
   const [appToken, setAppToken] = useState('')
-  const [botTokenSecretName, setBotTokenSecretName] = useState('')
-  const [botTokenSecretKey, setBotTokenSecretKey] = useState('')
   const [maxSessions, setMaxSessions] = useState<number>(10)
   const [notifyOnSessionCreated, setNotifyOnSessionCreated] = useState<boolean>(true)
   const [allowBotMessages, setAllowBotMessages] = useState<boolean>(false)
@@ -65,8 +63,6 @@ export default function SlackbotFormModal({
   useEffect(() => {
     if (editingSlackbot) {
       setName(editingSlackbot.name)
-      setBotTokenSecretName(editingSlackbot.bot_token_secret_name || '')
-      setBotTokenSecretKey(editingSlackbot.bot_token_secret_key || '')
       setMaxSessions(editingSlackbot.max_sessions ?? 10)
       setNotifyOnSessionCreated(editingSlackbot.notify_on_session_created ?? true)
       setAllowBotMessages(editingSlackbot.allow_bot_messages ?? false)
@@ -122,8 +118,6 @@ export default function SlackbotFormModal({
       setName('')
       setBotToken('')
       setAppToken('')
-      setBotTokenSecretName('')
-      setBotTokenSecretKey('')
       setMaxSessions(10)
       setNotifyOnSessionCreated(true)
       setAllowBotMessages(false)
@@ -226,13 +220,6 @@ export default function SlackbotFormModal({
       setError('チャンネル名を1つ以上指定してください')
       return
     }
-    if (showBotTokenSection) {
-      if (!botTokenSecretName.trim()) {
-        setError('カスタム Bot Token 使用時は Bot Token Secret Name が必須です')
-        return
-      }
-    }
-
     setIsSubmitting(true)
     try {
       const client = createAgentAPIProxyClientFromStorage()
@@ -251,12 +238,14 @@ export default function SlackbotFormModal({
       }
 
       if (isEditing && editingSlackbot) {
+        // When showBotTokenSection is false, explicitly send empty string to clear the custom token.
+        // When true, omit bot_token_secret_name — the backend auto-sets it from the bot ID
+        // when bot_token/app_token are provided.
         const updateData: UpdateSlackBotRequest = {
           name: name.trim(),
           ...(botToken.trim() ? { bot_token: botToken.trim() } : {}),
           ...(appToken.trim() ? { app_token: appToken.trim() } : {}),
-          ...(botTokenSecretName.trim() ? { bot_token_secret_name: botTokenSecretName.trim() } : {}),
-          ...(botTokenSecretKey.trim() ? { bot_token_secret_key: botTokenSecretKey.trim() } : {}),
+          ...(!showBotTokenSection ? { bot_token_secret_name: '', bot_token_secret_key: '' } : {}),
           allowed_channel_names: allowedChannelNames,
           max_sessions: maxSessions,
           notify_on_session_created: notifyOnSessionCreated,
@@ -273,8 +262,6 @@ export default function SlackbotFormModal({
           name: name.trim(),
           ...(botToken.trim() ? { bot_token: botToken.trim() } : {}),
           ...(appToken.trim() ? { app_token: appToken.trim() } : {}),
-          ...(botTokenSecretName.trim() ? { bot_token_secret_name: botTokenSecretName.trim() } : {}),
-          ...(botTokenSecretKey.trim() ? { bot_token_secret_key: botTokenSecretKey.trim() } : {}),
           allowed_channel_names: allowedChannelNames,
           max_sessions: maxSessions,
           notify_on_session_created: notifyOnSessionCreated,
