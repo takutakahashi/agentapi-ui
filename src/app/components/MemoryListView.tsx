@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Memory, MemoryScope } from '../../types/memory'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import MemoryCard from './MemoryCard'
@@ -19,13 +19,15 @@ export default function MemoryListView({
   onMemoryEdit,
   onMemoriesUpdate,
 }: MemoryListViewProps) {
-  const { getScopeParams, selectedTeam } = useTeamScope()
+  const { getScopeParams } = useTeamScope()
   const [memories, setMemories] = useState<Memory[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
+  const fetchIdRef = useRef(0)
 
   const fetchMemories = useCallback(async () => {
+    const fetchId = ++fetchIdRef.current
     try {
       setLoading(true)
       setError(null)
@@ -43,18 +45,22 @@ export default function MemoryListView({
       }
 
       const response = await client.listMemories(params)
+      if (fetchId !== fetchIdRef.current) return
       setMemories(response.memories || [])
     } catch (err) {
+      if (fetchId !== fetchIdRef.current) return
       console.error('Failed to fetch memories:', err)
       setError(err instanceof Error ? err.message : 'メモリの取得に失敗しました')
     } finally {
-      setLoading(false)
+      if (fetchId === fetchIdRef.current) {
+        setLoading(false)
+      }
     }
   }, [scopeFilter, tagFilter, getScopeParams])
 
   useEffect(() => {
     fetchMemories()
-  }, [fetchMemories, selectedTeam])
+  }, [fetchMemories])
 
   const handleDelete = async (memoryId: string) => {
     setDeletingIds((prev) => new Set(prev).add(memoryId))

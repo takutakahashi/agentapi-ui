@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { SlackBot, SlackBotStatus } from '../../types/slackbot'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import SlackbotCard from './SlackbotCard'
@@ -17,14 +17,16 @@ export default function SlackbotListView({
   onSlackbotEdit,
   onSlackbotsUpdate,
 }: SlackbotListViewProps) {
-  const { getScopeParams, selectedTeam } = useTeamScope()
+  const { getScopeParams } = useTeamScope()
   const [slackbots, setSlackbots] = useState<SlackBot[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set())
+  const fetchIdRef = useRef(0)
 
   const fetchSlackbots = useCallback(async () => {
+    const fetchId = ++fetchIdRef.current
     try {
       setLoading(true)
       setError(null)
@@ -37,19 +39,23 @@ export default function SlackbotListView({
         ...scopeParams,
       })
 
+      if (fetchId !== fetchIdRef.current) return
       setSlackbots(response.slackbots || [])
     } catch (err) {
+      if (fetchId !== fetchIdRef.current) return
       console.error('Failed to fetch slackbots:', err)
       setError(err instanceof Error ? err.message : 'Slackbotの取得に失敗しました')
     } finally {
-      setLoading(false)
+      if (fetchId === fetchIdRef.current) {
+        setLoading(false)
+      }
     }
   }, [statusFilter, getScopeParams])
 
   // Refetch slackbots when team scope changes
   useEffect(() => {
     fetchSlackbots()
-  }, [fetchSlackbots, selectedTeam])
+  }, [fetchSlackbots])
 
   const handleDelete = async (slackbotId: string) => {
     setDeletingIds((prev) => new Set(prev).add(slackbotId))
