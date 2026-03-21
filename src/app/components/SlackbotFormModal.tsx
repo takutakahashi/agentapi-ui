@@ -251,12 +251,14 @@ export default function SlackbotFormModal({
       }
 
       if (isEditing && editingSlackbot) {
+        // When showBotTokenSection is false, explicitly send empty string to clear the custom token
+        // (backend treats null/omitted as "no change", and "" as "clear to global default")
         const updateData: UpdateSlackBotRequest = {
           name: name.trim(),
           ...(botToken.trim() ? { bot_token: botToken.trim() } : {}),
           ...(appToken.trim() ? { app_token: appToken.trim() } : {}),
-          ...(botTokenSecretName.trim() ? { bot_token_secret_name: botTokenSecretName.trim() } : {}),
-          ...(botTokenSecretKey.trim() ? { bot_token_secret_key: botTokenSecretKey.trim() } : {}),
+          bot_token_secret_name: showBotTokenSection ? botTokenSecretName.trim() : '',
+          bot_token_secret_key: showBotTokenSection ? botTokenSecretKey.trim() : '',
           allowed_channel_names: allowedChannelNames,
           max_sessions: maxSessions,
           notify_on_session_created: notifyOnSessionCreated,
