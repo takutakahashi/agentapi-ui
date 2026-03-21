@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Schedule, ScheduleStatus } from '../../types/schedule'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import ScheduleCard from './ScheduleCard'
@@ -17,12 +17,14 @@ export default function ScheduleListView({
   onScheduleEdit,
   onSchedulesUpdate,
 }: ScheduleListViewProps) {
-  const { getScopeParams, selectedTeam } = useTeamScope()
+  const { getScopeParams } = useTeamScope()
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const fetchIdRef = useRef(0)
 
   const fetchSchedules = useCallback(async () => {
+    const fetchId = ++fetchIdRef.current
     try {
       setLoading(true)
       setError(null)
@@ -36,19 +38,23 @@ export default function ScheduleListView({
         ...scopeParams,
       })
 
+      if (fetchId !== fetchIdRef.current) return
       setSchedules(response.schedules || [])
     } catch (err) {
+      if (fetchId !== fetchIdRef.current) return
       console.error('Failed to fetch schedules:', err)
       setError(err instanceof Error ? err.message : 'スケジュールの取得に失敗しました')
     } finally {
-      setLoading(false)
+      if (fetchId === fetchIdRef.current) {
+        setLoading(false)
+      }
     }
   }, [statusFilter, getScopeParams])
 
   // Refetch schedules when team scope changes
   useEffect(() => {
     fetchSchedules()
-  }, [fetchSchedules, selectedTeam])
+  }, [fetchSchedules])
 
   const handleDelete = async (scheduleId: string) => {
     try {

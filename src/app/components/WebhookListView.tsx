@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Webhook, WebhookStatus, WebhookType } from '../../types/webhook'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import WebhookCard from './WebhookCard'
@@ -19,12 +19,14 @@ export default function WebhookListView({
   onWebhookEdit,
   onWebhooksUpdate,
 }: WebhookListViewProps) {
-  const { getScopeParams, selectedTeam } = useTeamScope()
+  const { getScopeParams } = useTeamScope()
   const [webhooks, setWebhooks] = useState<Webhook[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const fetchIdRef = useRef(0)
 
   const fetchWebhooks = useCallback(async () => {
+    const fetchId = ++fetchIdRef.current
     try {
       setLoading(true)
       setError(null)
@@ -39,19 +41,23 @@ export default function WebhookListView({
         ...scopeParams,
       })
 
+      if (fetchId !== fetchIdRef.current) return
       setWebhooks(response.webhooks || [])
     } catch (err) {
+      if (fetchId !== fetchIdRef.current) return
       console.error('Failed to fetch webhooks:', err)
       setError(err instanceof Error ? err.message : 'Webhookの取得に失敗しました')
     } finally {
-      setLoading(false)
+      if (fetchId === fetchIdRef.current) {
+        setLoading(false)
+      }
     }
   }, [statusFilter, typeFilter, getScopeParams])
 
   // Refetch webhooks when team scope changes
   useEffect(() => {
     fetchWebhooks()
-  }, [fetchWebhooks, selectedTeam])
+  }, [fetchWebhooks])
 
   const handleDelete = async (webhookId: string) => {
     try {
