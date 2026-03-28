@@ -420,28 +420,76 @@ export default function NewSessionPage() {
             {/* セッションマネージャー選択 */}
             {availableManagers.length > 0 && (
               <div>
-                <label htmlFor="managerSelect" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <p className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                   セッションマネージャー
-                </label>
-                <select
-                  id="managerSelect"
-                  value={selectedManagerId}
-                  onChange={(e) => setSelectedManagerId(e.target.value)}
-                  disabled={isCreating}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-base"
-                >
-                  <option value="">デフォルト（ローカル）</option>
-                  {availableManagers.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                      {m.default ? ' ★' : ''}
-                      {' '}({m.source === 'team' ? `チーム: ${m.source_name}` : '個人'})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                  セッションを作成するマネージャーを選択します
                 </p>
+                <div className="space-y-2">
+                  {/* ローカル（マネージャーなし）オプション */}
+                  <label
+                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      selectedManagerId === ''
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                    } ${isCreating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="session-manager"
+                      value=""
+                      checked={selectedManagerId === ''}
+                      onChange={() => setSelectedManagerId('')}
+                      disabled={isCreating}
+                      className="mt-0.5 w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 flex-shrink-0"
+                    />
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm font-medium text-gray-800 dark:text-gray-200">
+                        ローカル
+                      </span>
+                      <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        このサーバー上でセッションを作成します
+                      </span>
+                    </span>
+                  </label>
+                  {/* 各マネージャーオプション */}
+                  {availableManagers.map((m) => (
+                    <label
+                      key={m.id}
+                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        selectedManagerId === m.id
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                      } ${isCreating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        name="session-manager"
+                        value={m.id}
+                        checked={selectedManagerId === m.id}
+                        onChange={() => setSelectedManagerId(m.id)}
+                        disabled={isCreating}
+                        className="mt-0.5 w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 flex-shrink-0"
+                      />
+                      <span className="flex-1 min-w-0">
+                        <span className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                            {m.name}
+                          </span>
+                          {m.default && (
+                            <span className="px-1.5 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full flex-shrink-0">
+                              デフォルト
+                            </span>
+                          )}
+                          <span className="px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full flex-shrink-0">
+                            {m.source === 'team' ? `チーム: ${m.source_name}` : '個人'}
+                          </span>
+                        </span>
+                        <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate" title={m.url}>
+                          {m.url}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
             )}
 
