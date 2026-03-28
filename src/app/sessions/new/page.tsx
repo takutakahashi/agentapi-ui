@@ -10,6 +10,8 @@ import { MessageTemplate } from '../../../types/messageTemplate'
 import { recentMessagesManager } from '../../../utils/recentMessagesManager'
 import { OrganizationHistory } from '../../../utils/organizationHistory'
 import { addRepositoryToHistory, getAgentApiType, AgentApiType } from '../../../types/settings'
+import { AvailableManager } from '../../../types/settings'
+import { createAgentAPIProxyClientFromStorage } from '../../../lib/agentapi-proxy-client'
 import TopBar from '../../components/TopBar'
 import SessionCreationProgressModal from '../../components/SessionCreationProgressModal'
 import { SessionCreationProgress, SessionCreationStatus } from '../../../types/sessionProgress'
@@ -33,12 +35,15 @@ export default function NewSessionPage() {
   const [creationProgress, setCreationProgress] = useState<SessionCreationProgress | null>(null)
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
   const [selectedAgentType, setSelectedAgentType] = useState<AgentApiType>('default')
+  const [availableManagers, setAvailableManagers] = useState<AvailableManager[]>([])
+  const [selectedManagerId, setSelectedManagerId] = useState<string>('')
 
   useEffect(() => {
     loadTemplates()
     loadRecentMessages()
     // 設定からデフォルトのエージェントタイプを読み込む
     setSelectedAgentType(getAgentApiType())
+    loadAvailableManagers()
   }, [])
 
   // ESCキーで戻る
@@ -76,6 +81,21 @@ export default function NewSessionPage() {
     }
   }
 
+  const loadAvailableManagers = async () => {
+    try {
+      const client = createAgentAPIProxyClientFromStorage()
+      const managers = await client.getAvailableManagers()
+      setAvailableManagers(managers)
+      // auto-select the default manager if one exists
+      const defaultManager = managers.find(m => m.default)
+      if (defaultManager) {
+        setSelectedManagerId(defaultManager.id)
+      }
+    } catch (error) {
+      console.error('Failed to load available managers:', error)
+    }
+  }
+
   // 進捗状態を更新するヘルパー関数
   const updateProgress = (status: SessionCreationStatus, errorMessage?: string) => {
     setCreationProgress(prev => {
@@ -92,7 +112,8 @@ export default function NewSessionPage() {
     client: AgentAPIProxyClient,
     message: string,
     repo: string,
-    agentType: AgentApiType
+    agentType: AgentApiType,
+    managerId: string
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       console.log('Starting session creation with initial message...')
@@ -123,6 +144,11 @@ export default function NewSessionPage() {
       // agent_type はデフォルト以外の場合のみ送信
       if (agentType !== 'default') {
         params.agent_type = agentType
+      }
+
+      // セッションマネージャーが指定されている場合は送信
+      if (managerId) {
+        params.manager_id = managerId
       }
 
       console.log('[NewSessionPage] Final params:', params)
@@ -194,7 +220,8 @@ export default function NewSessionPage() {
       client,
       currentMessage,
       currentRepository,
-      selectedAgentType
+      selectedAgentType,
+      selectedManagerId
     )
 
     if (result.success) {
@@ -389,6 +416,34 @@ export default function NewSessionPage() {
                 リポジトリを指定しない場合は一般的なチャットになります
               </p>
             </div>
+
+            {/* セッションマネージャー選択 */}
+            {availableManagers.length > 0 && (
+              <div>
+                <label htmlFor="managerSelect" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  セッションマネージャー
+                </label>
+                <select
+                  id="managerSelect"
+                  value={selectedManagerId}
+                  onChange={(e) => setSelectedManagerId(e.target.value)}
+                  disabled={isCreating}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-base"
+                >
+                  <option value="">デフォルト（ローカル）</option>
+                  {availableManagers.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                      {m.default ? ' ★' : ''}
+                      {' '}({m.source === 'team' ? `チーム: ${m.source_name}` : '個人'})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                  セッションを作成するマネージャーを選択します
+                </p>
+              </div>
+            )}
 
             {/* その他の設定 */}
             <div>
