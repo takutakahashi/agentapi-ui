@@ -60,7 +60,7 @@ import {
   TaskListResponse,
   TaskListParams
 } from '../types/task';
-import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, getSendGithubTokenOnSessionStart, getMemoryEnabled, getMemorySummarizeDrafts } from '../types/settings';
+import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, getSendGithubTokenOnSessionStart, getMemoryEnabled, getMemorySummarizeDrafts, AvailableManager } from '../types/settings';
 import { ProxyUserInfo } from '../types/user';
 
 // GitHubUser type (moved from profile.ts)
@@ -907,17 +907,38 @@ export class AgentAPIProxyClient {
    * @param name - User name or team name
    * @param data - Settings data to save
    */
-  async saveSettings(name: string, data: SettingsData): Promise<void> {
+  async saveSettings(name: string, data: SettingsData): Promise<SettingsData> {
     const normalizedName = this.normalizeSettingsName(name);
     if (this.debug) {
       console.log(`[AgentAPIProxy] Saving settings for: ${name} (normalized: ${normalizedName})`, data);
     }
-    await this.makeRequest<void>(`/settings/${encodeURIComponent(normalizedName)}`, {
+    const result = await this.makeRequest<SettingsData>(`/settings/${encodeURIComponent(normalizedName)}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
     if (this.debug) {
-      console.log(`[AgentAPIProxy] Successfully saved settings for: ${name}`);
+      console.log(`[AgentAPIProxy] Successfully saved settings for: ${name}`, result);
+    }
+    return result;
+  }
+
+  /**
+   * Get all external session managers available to the authenticated user
+   * (from user's own settings + all team settings they belong to)
+   * GET /settings/managers
+   */
+  async getAvailableManagers(): Promise<AvailableManager[]> {
+    try {
+      const result = await this.makeRequest<{ managers: AvailableManager[] }>('/settings/managers');
+      return result.managers || [];
+    } catch (error) {
+      if (error instanceof AgentAPIProxyError && error.status === 404) {
+        if (this.debug) {
+          console.log('[AgentAPIProxy] /settings/managers not available, returning empty list');
+        }
+        return [];
+      }
+      throw error;
     }
   }
 

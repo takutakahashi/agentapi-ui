@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, AgentApiType, getAgentApiType, setAgentApiType, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings, getMemoryEnabled, setMemoryEnabled, getMemorySummarizeDrafts, setMemorySummarizeDrafts } from '@/types/settings'
+import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, ExternalSessionManagerConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, AgentApiType, getAgentApiType, setAgentApiType, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings, getMemoryEnabled, setMemoryEnabled, getMemorySummarizeDrafts, setMemorySummarizeDrafts } from '@/types/settings'
 import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings, MemorySettings, SlackSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
@@ -25,6 +25,14 @@ export default function PersonalSettingsPage() {
   const [memorySummarizeDrafts, setMemorySummarizeDraftsState] = useState<boolean | undefined>(undefined)
   const [slackUserId, setSlackUserId] = useState<string>('')
   const [notificationChannels, setNotificationChannels] = useState<string[] | undefined>(undefined)
+  const [esmList, setEsmList] = useState<ExternalSessionManagerConfig[]>([])
+  const [newEsm, setNewEsm] = useState<{ name: string; url: string; default: boolean }>({ name: '', url: '', default: false })
+  const [showAddEsm, setShowAddEsm] = useState(false)
+  const [editingEsmIndex, setEditingEsmIndex] = useState<number | null>(null)
+  const [editEsm, setEditEsm] = useState<{ name: string; url: string; default: boolean }>({ name: '', url: '', default: false })
+  const [revealedSecrets, setRevealedSecrets] = useState<Record<string, string>>({})
+  const [copiedSecretId, setCopiedSecretId] = useState<string | null>(null)
+  const [regeneratingEsmId, setRegeneratingEsmId] = useState<string | null>(null)
   const { showToast } = useToast()
   const hasUnsavedChangesRef = useRef(false)
 
@@ -111,6 +119,8 @@ export default function PersonalSettingsPage() {
         // Slack User ID を設定
         setSlackUserId(data.slack_user_id || '')
         setNotificationChannels(data.notification_channels)
+        // External session managers を設定
+        setEsmList(data.external_session_managers || [])
       } catch (err) {
         console.error('Failed to load personal settings:', err)
         setError('Failed to load settings')
@@ -200,6 +210,107 @@ export default function PersonalSettingsPage() {
     setSettings((prev) => ({ ...prev, notification_channels: channels }))
   }
 
+  const handleAddEsm = () => {
+    if (!newEsm.name.trim() || !newEsm.url.trim()) return
+    // If new ESM is default, clear default from others
+    const updatedList = newEsm.default
+      ? esmList.map(e => ({ ...e, default: false }))
+      : [...esmList]
+    const updated = [...updatedList, { name: newEsm.name.trim(), url: newEsm.url.trim(), default: newEsm.default }]
+    setEsmList(updated)
+    setSettings((prev) => ({ ...prev, external_session_managers: updated }))
+    setNewEsm({ name: '', url: '', default: false })
+    setShowAddEsm(false)
+  }
+
+  const handleDeleteEsm = (index: number) => {
+    const updated = esmList.filter((_, i) => i !== index)
+    setEsmList(updated)
+    setSettings((prev) => ({ ...prev, external_session_managers: updated }))
+  }
+
+  const handleToggleEsmDefault = (index: number) => {
+    const updated = esmList.map((e, i) => ({ ...e, default: i === index ? !e.default : false }))
+    setEsmList(updated)
+    setSettings((prev) => ({ ...prev, external_session_managers: updated }))
+  }
+
+  const handleStartEditEsm = (index: number) => {
+    const esm = esmList[index]
+    setEditingEsmIndex(index)
+    setEditEsm({ name: esm.name, url: esm.url, default: esm.default ?? false })
+  }
+
+  const handleSaveEditEsm = () => {
+    if (editingEsmIndex === null) return
+    if (!editEsm.name.trim() || !editEsm.url.trim()) return
+    const updatedList = editEsm.default
+      ? esmList.map((e, i) => ({ ...e, default: false }))
+      : [...esmList]
+    updatedList[editingEsmIndex] = {
+      ...esmList[editingEsmIndex],
+      name: editEsm.name.trim(),
+      url: editEsm.url.trim(),
+      default: editEsm.default,
+    }
+    setEsmList(updatedList)
+    setSettings((prev) => ({ ...prev, external_session_managers: updatedList }))
+    setEditingEsmIndex(null)
+  }
+
+  const handleCopySecret = async (id: string) => {
+    const secret = revealedSecrets[id]
+    if (!secret) return
+    await navigator.clipboard.writeText(secret)
+    setCopiedSecretId(id)
+    setTimeout(() => setCopiedSecretId(null), 2000)
+  }
+
+  const generateHmacSecret = (): string => {
+    const bytes = new Uint8Array(32)
+    crypto.getRandomValues(bytes)
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
+  }
+
+  const handleRegenerateSecret = async (index: number) => {
+    const esm = esmList[index]
+    const newSecret = generateHmacSecret()
+    const updatedList = esmList.map((e, i) =>
+      i === index ? { ...e, hmac_secret: newSecret } : e
+    )
+    setEsmList(updatedList)
+    const esmId = esm.id ?? `temp-${index}`
+    setRegeneratingEsmId(esmId)
+    try {
+      const client = createAgentAPIProxyClientFromStorage()
+      const preparedSettings = prepareSettingsForSave({
+        ...settings,
+        external_session_managers: updatedList,
+      })
+      const savedSettings = await client.saveSettings(userName, preparedSettings)
+      setSettings(prev => ({ ...prev, external_session_managers: updatedList }))
+      setOriginalSettings(prev => ({ ...prev, external_session_managers: updatedList }))
+      if (savedSettings?.external_session_managers) {
+        const secrets: Record<string, string> = {}
+        for (const m of savedSettings.external_session_managers) {
+          if (m.id && m.hmac_secret) {
+            secrets[m.id] = m.hmac_secret
+          }
+        }
+        if (Object.keys(secrets).length > 0) {
+          setRevealedSecrets(prev => ({ ...prev, ...secrets }))
+        }
+      }
+      showToast('シークレットを再生成しました', 'success')
+    } catch (err) {
+      console.error('Failed to regenerate secret:', err)
+      showToast('再生成に失敗しました', 'error')
+      setEsmList(esmList)
+    } finally {
+      setRegeneratingEsmId(null)
+    }
+  }
+
   const handleLogout = async () => {
     if (loggingOut) return
     setLoggingOut(true)
@@ -223,9 +334,21 @@ export default function PersonalSettingsPage() {
       const client = createAgentAPIProxyClientFromStorage()
       // 空の値を除外して保存
       const preparedSettings = prepareSettingsForSave(settings)
-      await client.saveSettings(userName, preparedSettings)
+      const savedSettings = await client.saveSettings(userName, preparedSettings)
       // 保存成功後、元の設定を更新
       setOriginalSettings(settings)
+      // PUT レスポンスに含まれるフルの HMAC シークレットをキャプチャ
+      if (savedSettings?.external_session_managers) {
+        const secrets: Record<string, string> = {}
+        for (const m of savedSettings.external_session_managers) {
+          if (m.id && m.hmac_secret) {
+            secrets[m.id] = m.hmac_secret
+          }
+        }
+        if (Object.keys(secrets).length > 0) {
+          setRevealedSecrets(prev => ({ ...prev, ...secrets }))
+        }
+      }
       showToast('Settings saved successfully!', 'success')
     } catch (err) {
       console.error('Failed to save personal settings:', err)
@@ -423,6 +546,220 @@ export default function PersonalSettingsPage() {
               onMemoryEnabledChange={handleMemoryEnabledChange}
               onMemorySummarizeDraftsChange={handleMemorySummarizeDraftsChange}
             />
+          </SettingsAccordion>
+
+          <SettingsAccordion
+            title="セッションマネージャー"
+            description="外部セッションマネージャーの設定"
+            defaultOpen={false}
+          >
+            <div className="space-y-4">
+              {esmList.length === 0 && !showAddEsm && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  外部セッションマネージャーが登録されていません
+                </p>
+              )}
+              {esmList.map((esm, index) => (
+                <div key={esm.id || index} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  {editingEsmIndex === index ? (
+                    /* 編集フォーム */
+                    <div className="p-3 space-y-3 bg-blue-50 dark:bg-blue-900/10">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">名前</label>
+                        <input
+                          type="text"
+                          value={editEsm.name}
+                          onChange={(e) => setEditEsm(prev => ({ ...prev, name: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">URL</label>
+                        <input
+                          type="url"
+                          value={editEsm.url}
+                          onChange={(e) => setEditEsm(prev => ({ ...prev, url: e.target.value }))}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editEsm.default}
+                          onChange={(e) => setEditEsm(prev => ({ ...prev, default: e.target.checked }))}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-xs text-gray-700 dark:text-gray-300">デフォルトに設定する</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleSaveEditEsm}
+                          disabled={!editEsm.name.trim() || !editEsm.url.trim()}
+                          className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          更新
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingEsmIndex(null)}
+                          className="px-3 py-1.5 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                        >
+                          キャンセル
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* 通常表示 */
+                    <div className="flex items-center gap-3 p-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-900 dark:text-white truncate">{esm.name}</span>
+                          {esm.default && (
+                            <span className="px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded">デフォルト</span>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 truncate block">{esm.url}</span>
+                        {/* HMAC シークレット表示 */}
+                        {esm.id && revealedSecrets[esm.id] ? (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <code className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate max-w-[180px]">
+                              {revealedSecrets[esm.id]}
+                            </code>
+                            <button
+                              type="button"
+                              onClick={() => handleCopySecret(esm.id!)}
+                              className="flex-shrink-0 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                              title="シークレットをコピー"
+                            >
+                              {copiedSecretId === esm.id ? (
+                                <svg className="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : (
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        ) : esm.hmac_secret ? (
+                          <span className="text-xs text-gray-400 dark:text-gray-500 font-mono mt-1 block">
+                            {esm.hmac_secret /* hint like ****xxxx */}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditEsm(index)}
+                          className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-blue-300 dark:hover:border-blue-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                        >
+                          編集
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRegenerateSecret(index)}
+                          disabled={regeneratingEsmId === (esm.id ?? `temp-${index}`)}
+                          className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-yellow-300 dark:hover:border-yellow-700 hover:text-yellow-600 dark:hover:text-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="HMACシークレットを再生成して保存"
+                        >
+                          {regeneratingEsmId === (esm.id ?? `temp-${index}`) ? (
+                            <span className="inline-flex items-center gap-1">
+                              <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                              </svg>
+                              再生成中
+                            </span>
+                          ) : '再生成'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleEsmDefault(index)}
+                          className={`text-xs px-2 py-1 rounded border transition-colors ${
+                            esm.default
+                              ? 'border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                              : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-blue-300 dark:hover:border-blue-700'
+                          }`}
+                          title={esm.default ? 'デフォルトを解除' : 'デフォルトに設定'}
+                        >
+                          {esm.default ? '★' : '☆'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteEsm(index)}
+                          className="text-xs px-2 py-1 rounded border border-red-200 dark:border-red-700 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        >
+                          削除
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {showAddEsm ? (
+                <div className="p-3 border border-blue-200 dark:border-blue-800 rounded-lg space-y-3 bg-blue-50 dark:bg-blue-900/10">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">名前</label>
+                    <input
+                      type="text"
+                      value={newEsm.name}
+                      onChange={(e) => setNewEsm(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="例: 開発環境"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">URL</label>
+                    <input
+                      type="url"
+                      value={newEsm.url}
+                      onChange={(e) => setNewEsm(prev => ({ ...prev, url: e.target.value }))}
+                      placeholder="https://agentapi.example.com"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newEsm.default}
+                      onChange={(e) => setNewEsm(prev => ({ ...prev, default: e.target.checked }))}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-xs text-gray-700 dark:text-gray-300">デフォルトマネージャーに設定する（manager_id 未指定時に自動使用）</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAddEsm}
+                      disabled={!newEsm.name.trim() || !newEsm.url.trim()}
+                      className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      追加
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowAddEsm(false); setNewEsm({ name: '', url: '', default: false }) }}
+                      className="px-3 py-1.5 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowAddEsm(true)}
+                  className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  マネージャーを追加
+                </button>
+              )}
+            </div>
           </SettingsAccordion>
 
           <SettingsAccordion
