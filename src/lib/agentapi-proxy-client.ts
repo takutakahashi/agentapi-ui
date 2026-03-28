@@ -60,7 +60,7 @@ import {
   TaskListResponse,
   TaskListParams
 } from '../types/task';
-import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, getSendGithubTokenOnSessionStart, getMemoryEnabled, getMemorySummarizeDrafts } from '../types/settings';
+import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, getSendGithubTokenOnSessionStart, getMemoryEnabled, getMemorySummarizeDrafts, AvailableManager } from '../types/settings';
 import { ProxyUserInfo } from '../types/user';
 
 // GitHubUser type (moved from profile.ts)
@@ -918,6 +918,26 @@ export class AgentAPIProxyClient {
     });
     if (this.debug) {
       console.log(`[AgentAPIProxy] Successfully saved settings for: ${name}`);
+    }
+  }
+
+  /**
+   * Get all external session managers available to the authenticated user
+   * (from user's own settings + all team settings they belong to)
+   * GET /settings/managers
+   */
+  async getAvailableManagers(): Promise<AvailableManager[]> {
+    try {
+      const result = await this.makeRequest<{ managers: AvailableManager[] }>('/settings/managers');
+      return result.managers || [];
+    } catch (error) {
+      if (error instanceof AgentAPIProxyError && error.status === 404) {
+        if (this.debug) {
+          console.log('[AgentAPIProxy] /settings/managers not available, returning empty list');
+        }
+        return [];
+      }
+      throw error;
     }
   }
 
