@@ -907,18 +907,19 @@ export class AgentAPIProxyClient {
    * @param name - User name or team name
    * @param data - Settings data to save
    */
-  async saveSettings(name: string, data: SettingsData): Promise<void> {
+  async saveSettings(name: string, data: SettingsData): Promise<SettingsData> {
     const normalizedName = this.normalizeSettingsName(name);
     if (this.debug) {
       console.log(`[AgentAPIProxy] Saving settings for: ${name} (normalized: ${normalizedName})`, data);
     }
-    await this.makeRequest<void>(`/settings/${encodeURIComponent(normalizedName)}`, {
+    const result = await this.makeRequest<SettingsData>(`/settings/${encodeURIComponent(normalizedName)}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
     if (this.debug) {
-      console.log(`[AgentAPIProxy] Successfully saved settings for: ${name}`);
+      console.log(`[AgentAPIProxy] Successfully saved settings for: ${name}`, result);
     }
+    return result;
   }
 
   /**
