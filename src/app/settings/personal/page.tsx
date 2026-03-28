@@ -457,7 +457,7 @@ export default function PersonalSettingsPage() {
 
           <SettingsAccordion
             title="セッションマネージャー"
-            description="外部セッションマネージャー（Proxy B）の設定"
+            description="外部セッションマネージャーの設定"
             defaultOpen={false}
           >
             <div className="space-y-4">
@@ -508,7 +508,7 @@ export default function PersonalSettingsPage() {
                       type="text"
                       value={newEsm.name}
                       onChange={(e) => setNewEsm(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="例: 開発環境Proxy B"
+                      placeholder="例: 開発環境"
                       className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -518,7 +518,7 @@ export default function PersonalSettingsPage() {
                       type="url"
                       value={newEsm.url}
                       onChange={(e) => setNewEsm(prev => ({ ...prev, url: e.target.value }))}
-                      placeholder="https://proxy-b.example.com"
+                      placeholder="https://agentapi.example.com"
                       className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>

@@ -417,82 +417,6 @@ export default function NewSessionPage() {
               </p>
             </div>
 
-            {/* セッションマネージャー選択 */}
-            {availableManagers.length > 0 && (
-              <div>
-                <p className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  セッションマネージャー
-                </p>
-                <div className="space-y-2">
-                  {/* ローカル（マネージャーなし）オプション */}
-                  <label
-                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selectedManagerId === ''
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                        : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                    } ${isCreating ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    <input
-                      type="radio"
-                      name="session-manager"
-                      value=""
-                      checked={selectedManagerId === ''}
-                      onChange={() => setSelectedManagerId('')}
-                      disabled={isCreating}
-                      className="mt-0.5 w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 flex-shrink-0"
-                    />
-                    <span className="flex-1 min-w-0">
-                      <span className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-                        ローカル
-                      </span>
-                      <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        このサーバー上でセッションを作成します
-                      </span>
-                    </span>
-                  </label>
-                  {/* 各マネージャーオプション */}
-                  {availableManagers.map((m) => (
-                    <label
-                      key={m.id}
-                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                        selectedManagerId === m.id
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                      } ${isCreating ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      <input
-                        type="radio"
-                        name="session-manager"
-                        value={m.id}
-                        checked={selectedManagerId === m.id}
-                        onChange={() => setSelectedManagerId(m.id)}
-                        disabled={isCreating}
-                        className="mt-0.5 w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 flex-shrink-0"
-                      />
-                      <span className="flex-1 min-w-0">
-                        <span className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
-                            {m.name}
-                          </span>
-                          {m.default && (
-                            <span className="px-1.5 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full flex-shrink-0">
-                              デフォルト
-                            </span>
-                          )}
-                          <span className="px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full flex-shrink-0">
-                            {m.source === 'team' ? `チーム: ${m.source_name}` : '個人'}
-                          </span>
-                        </span>
-                        <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate" title={m.url}>
-                          {m.url}
-                        </span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* その他の設定 */}
             <div>
               <button
@@ -515,35 +439,109 @@ export default function NewSessionPage() {
                     {selectedAgentType === 'claude-agentapi' ? 'Claude AgentAPI' : 'Codex AgentAPI'}
                   </span>
                 )}
+                {selectedManagerId !== '' && (
+                  <span className="px-1.5 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 text-xs rounded-full">
+                    {availableManagers.find(m => m.id === selectedManagerId)?.name ?? 'カスタム'}
+                  </span>
+                )}
               </button>
 
               {showAdvancedSettings && (
-                <div className="mt-3 pl-1 space-y-2">
-                  {([
-                    { value: 'default', label: 'デフォルト', description: 'agent_type を送信しない' },
-                    { value: 'claude-agentapi', label: 'Claude AgentAPI', description: 'agent_type=claude-agentapi を送信' },
-                    { value: 'codex-agentapi', label: 'Codex AgentAPI', description: 'agent_type=codex-agentapi を送信' },
-                  ] as { value: AgentApiType; label: string; description: string }[]).map(({ value, label, description }) => (
-                    <label key={value} className="flex items-start cursor-pointer group">
-                      <input
-                        type="radio"
-                        name="session-agent-type"
-                        value={value}
-                        checked={selectedAgentType === value}
-                        onChange={() => setSelectedAgentType(value)}
-                        className="mt-0.5 w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                        disabled={isCreating}
-                      />
-                      <span className="ml-2">
-                        <span className="block text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-gray-800 dark:group-hover:text-gray-200">
-                          {label}
+                <div className="mt-3 pl-1 space-y-4">
+                  {/* セッションマネージャー選択 */}
+                  {availableManagers.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">セッションマネージャー</p>
+                      <div className="space-y-1.5">
+                        {/* ローカル（マネージャーなし）オプション */}
+                        <label
+                          className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                            selectedManagerId === ''
+                              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                              : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                          } ${isCreating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          <input
+                            type="radio"
+                            name="session-manager"
+                            value=""
+                            checked={selectedManagerId === ''}
+                            onChange={() => setSelectedManagerId('')}
+                            disabled={isCreating}
+                            className="mt-0.5 w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 flex-shrink-0"
+                          />
+                          <span className="flex-1 min-w-0">
+                            <span className="block text-xs font-medium text-gray-800 dark:text-gray-200">ローカル</span>
+                            <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">このサーバー上で作成</span>
+                          </span>
+                        </label>
+                        {/* 各マネージャーオプション */}
+                        {availableManagers.map((m) => (
+                          <label
+                            key={m.id}
+                            className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                              selectedManagerId === m.id
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                            } ${isCreating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            <input
+                              type="radio"
+                              name="session-manager"
+                              value={m.id}
+                              checked={selectedManagerId === m.id}
+                              onChange={() => setSelectedManagerId(m.id)}
+                              disabled={isCreating}
+                              className="mt-0.5 w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 flex-shrink-0"
+                            />
+                            <span className="flex-1 min-w-0">
+                              <span className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{m.name}</span>
+                                {m.default && (
+                                  <span className="px-1 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded flex-shrink-0">デフォルト</span>
+                                )}
+                                <span className="px-1 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded flex-shrink-0">
+                                  {m.source === 'team' ? `チーム: ${m.source_name}` : '個人'}
+                                </span>
+                              </span>
+                              <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate" title={m.url}>{m.url}</span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* エージェントタイプ */}
+                  <div>
+                    <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">エージェントタイプ</p>
+                    <div className="space-y-2">
+                    {([
+                      { value: 'default', label: 'デフォルト', description: 'agent_type を送信しない' },
+                      { value: 'claude-agentapi', label: 'Claude AgentAPI', description: 'agent_type=claude-agentapi を送信' },
+                      { value: 'codex-agentapi', label: 'Codex AgentAPI', description: 'agent_type=codex-agentapi を送信' },
+                    ] as { value: AgentApiType; label: string; description: string }[]).map(({ value, label, description }) => (
+                      <label key={value} className="flex items-start cursor-pointer group">
+                        <input
+                          type="radio"
+                          name="session-agent-type"
+                          value={value}
+                          checked={selectedAgentType === value}
+                          onChange={() => setSelectedAgentType(value)}
+                          className="mt-0.5 w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+                          disabled={isCreating}
+                        />
+                        <span className="ml-2">
+                          <span className="block text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-gray-800 dark:group-hover:text-gray-200">
+                            {label}
+                          </span>
+                          <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                            {description}
+                          </span>
                         </span>
-                        <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                          {description}
-                        </span>
-                      </span>
-                    </label>
-                  ))}
+                      </label>
+                    ))}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
