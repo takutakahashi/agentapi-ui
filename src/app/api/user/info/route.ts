@@ -27,6 +27,23 @@ export async function GET(request: NextRequest) {
           debug: true,
         })
         proxyUserInfo = await client.getUserInfo()
+      } else {
+        // GitHub OAuth ユーザーの場合、セッション cookie から GitHub アクセストークンを取り出して
+        // プロキシの認証に使用する
+        try {
+          const decryptedData = decryptCookie(authToken)
+          const sessionData = JSON.parse(decryptedData)
+          if (sessionData.accessToken) {
+            const client = new AgentAPIProxyClient({
+              baseURL: process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080',
+              apiKey: sessionData.accessToken,
+              debug: true,
+            })
+            proxyUserInfo = await client.getUserInfo()
+          }
+        } catch {
+          // GitHub OAuth セッションデータのデコードに失敗した場合は無視
+        }
       }
     } catch (err) {
       console.error('Failed to get user info from agentapi-proxy:', err)
