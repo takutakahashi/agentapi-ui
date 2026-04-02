@@ -845,13 +845,13 @@ export default function PersonalSettingsPage() {
 
           <SettingsAccordion
             title="認証ファイル (auth.json)"
-            description="Claude Code (codex) の auth.json をアップロードします。セッション開始時に自動で適用されます。"
+            description="Codex の auth.json をアップロードします。セッション開始時に自動で適用されます。"
           >
             <div className="space-y-4">
               {/* codex auth.json の説明 */}
               <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <p className="text-xs text-blue-700 dark:text-blue-300">
-                  <strong>codex の認証ファイル</strong>について: <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">~/.codex/auth.json</code> は Claude Code が使用する認証情報ファイルです。ここにアップロードすると、エージェントセッション開始時に自動で適用されます。
+                  <strong>codex の認証ファイル</strong>について: <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">~/.codex/auth.json</code> は Codex が使用する認証情報ファイルです。ここにアップロードすると、エージェントセッション開始時に自動で適用されます。
                 </p>
               </div>
               {/* 現在のステータス */}
