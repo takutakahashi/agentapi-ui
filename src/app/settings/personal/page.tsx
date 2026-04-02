@@ -366,7 +366,7 @@ export default function PersonalSettingsPage() {
       const meta = await client.uploadCredentials(userName, parsed)
       setCredentialsMetadata(meta)
       setCredentialsJson('')
-      showToast('認証ファイルをアップロードしました', 'success')
+      showToast('auth.json をアップロードしました', 'success')
     } catch (err) {
       console.error('Failed to upload credentials:', err)
       showToast('アップロードに失敗しました', 'error')
@@ -376,14 +376,14 @@ export default function PersonalSettingsPage() {
   }
 
   const handleDeleteCredentials = async () => {
-    if (!confirm('認証ファイルを削除しますか？')) return
+    if (!confirm('auth.json を削除しますか？')) return
     setDeletingCredentials(true)
     try {
       const client = createAgentAPIProxyClientFromStorage()
       await client.deleteCredentials(userName)
       setCredentialsMetadata(null)
       setCredentialsJson('')
-      showToast('認証ファイルを削除しました', 'success')
+      showToast('auth.json を削除しました', 'success')
     } catch (err) {
       console.error('Failed to delete credentials:', err)
       showToast('削除に失敗しました', 'error')
@@ -844,10 +844,16 @@ export default function PersonalSettingsPage() {
           </SettingsAccordion>
 
           <SettingsAccordion
-            title="認証ファイル (Credentials)"
-            description="auth.json などの認証情報を安全にアップロード・管理します"
+            title="認証ファイル (auth.json)"
+            description="Claude Code (codex) の auth.json をアップロードします。セッション開始時に自動で適用されます。"
           >
             <div className="space-y-4">
+              {/* codex auth.json の説明 */}
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  <strong>codex の認証ファイル</strong>について: <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">~/.codex/auth.json</code> は Claude Code が使用する認証情報ファイルです。ここにアップロードすると、エージェントセッション開始時に自動で適用されます。
+                </p>
+              </div>
               {/* 現在のステータス */}
               <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <div className="flex items-center gap-2">
@@ -857,7 +863,7 @@ export default function PersonalSettingsPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <span className="text-sm text-gray-700 dark:text-gray-300">
-                        認証ファイルがアップロード済みです
+                        auth.json がアップロード済みです
                         {credentialsMetadata.updated_at && (
                           <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
                             (更新: {new Date(credentialsMetadata.updated_at).toLocaleString()})
@@ -870,7 +876,7 @@ export default function PersonalSettingsPage() {
                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">認証ファイルが未設定です</span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400">auth.json が未設定です</span>
                     </>
                   )}
                 </div>
@@ -889,7 +895,7 @@ export default function PersonalSettingsPage() {
               {/* ファイルアップロード */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  ファイルを選択 (auth.json)
+                  ファイルを選択 (~/.codex/auth.json)
                 </label>
                 <input
                   type="file"
@@ -914,7 +920,7 @@ export default function PersonalSettingsPage() {
                 <textarea
                   value={credentialsJson}
                   onChange={(e) => handleCredentialsJsonChange(e.target.value)}
-                  placeholder={'{\n  "claudeAiOauth": {\n    "accessToken": "...",\n    "refreshToken": "..."\n  }\n}'}
+                  placeholder={'{\n  "claudeAiOauth": {\n    "accessToken": "sk-ant-...",\n    "refreshToken": "sk-ant-...",\n    "expiresAt": 1234567890\n  }\n}'}
                   rows={6}
                   className="w-full px-3 py-2 text-xs font-mono border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
                 />
