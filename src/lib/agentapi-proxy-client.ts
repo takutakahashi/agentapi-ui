@@ -63,6 +63,14 @@ import {
 import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, getSendGithubTokenOnSessionStart, getMemoryEnabled, getMemorySummarizeDrafts, AvailableManager } from '../types/settings';
 import { ProxyUserInfo } from '../types/user';
 
+// CredentialsMetadata represents the metadata returned by the credentials API
+export interface CredentialsMetadata {
+  name: string;
+  has_data: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // GitHubUser type (moved from profile.ts)
 export interface GitHubUser {
   id: number;
@@ -964,6 +972,50 @@ export class AgentAPIProxyClient {
    */
   setDebug(debug: boolean): void {
     this.debug = debug;
+  }
+
+  // Credentials operations
+
+  /**
+   * Get credential metadata (does not return raw data)
+   * GET /credentials/{name}
+   */
+  async getCredentials(name: string): Promise<CredentialsMetadata | null> {
+    try {
+      return await this.makeRequest<CredentialsMetadata>(`/credentials/${encodeURIComponent(name)}`);
+    } catch (error) {
+      if (error instanceof AgentAPIProxyError && error.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Upload or replace credential JSON data
+   * PUT /credentials/{name}
+   */
+  async uploadCredentials(name: string, data: Record<string, unknown>): Promise<CredentialsMetadata> {
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Uploading credentials: ${name}`);
+    }
+    return await this.makeRequest<CredentialsMetadata>(`/credentials/${encodeURIComponent(name)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Delete credentials
+   * DELETE /credentials/{name}
+   */
+  async deleteCredentials(name: string): Promise<void> {
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Deleting credentials: ${name}`);
+    }
+    await this.makeRequest<void>(`/credentials/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    });
   }
 
   // Session sharing operations
