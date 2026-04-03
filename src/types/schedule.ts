@@ -14,6 +14,10 @@ export interface ScheduleSessionConfig {
     [key: string]: unknown;
   };
   memory_key?: Record<string, string>;
+  /** When true, reuse an existing active session matching schedule_id instead of creating a new one */
+  reuse_session?: boolean;
+  /** Message sent to the reused session. Falls back to params.message when empty. */
+  reuse_message?: string;
 }
 
 // Schedule entity
@@ -27,6 +31,7 @@ export interface Schedule {
   session_config?: ScheduleSessionConfig;
   next_execution_at?: string;
   last_execution_at?: string;
+  last_execution?: ExecutionRecord;
   execution_count?: number;
   created_at: string;
   updated_at: string;
@@ -73,9 +78,20 @@ export interface ScheduleListResponse {
   limit?: number;
 }
 
+// Execution record for a single schedule execution attempt
+export interface ExecutionRecord {
+  executed_at: string;
+  session_id?: string;
+  status: 'success' | 'failed' | 'skipped';
+  error?: string;
+  session_reused?: boolean;
+}
+
 // Trigger schedule response
 export interface TriggerScheduleResponse {
   session_id: string;
+  triggered_at?: string;
+  session_reused?: boolean;
 }
 
 // Cron preset for UI
