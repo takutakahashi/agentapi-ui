@@ -131,6 +131,19 @@ export default function ScheduleCard({
           </div>
         )}
 
+        {/* Session Reuse Indicator */}
+        {schedule.session_config?.reuse_session && (
+          <div className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400">
+            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>セッション再利用</span>
+            {schedule.last_execution?.session_reused && (
+              <span className="px-1 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 rounded text-indigo-700 dark:text-indigo-300">前回: 再利用</span>
+            )}
+          </div>
+        )}
+
         {/* Session Config - Message */}
         {schedule.session_config?.params?.message && (
           <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded text-xs text-gray-600 dark:text-gray-400 line-clamp-2">

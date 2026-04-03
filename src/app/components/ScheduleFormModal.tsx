@@ -35,6 +35,8 @@ export default function ScheduleFormModal({
   const [showRepositorySuggestions, setShowRepositorySuggestions] = useState(false)
 
   const [oneshot, setOneshot] = useState(false)
+  const [reuseSession, setReuseSession] = useState(false)
+  const [reuseMessage, setReuseMessage] = useState('')
   const [memoryKeyPairs, setMemoryKeyPairs] = useState<MemoryKeyPair[]>([{ key: '', value: '' }])
   const [showCustomMemory, setShowCustomMemory] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -50,6 +52,8 @@ export default function ScheduleFormModal({
       setMessage(editingSchedule.session_config?.params?.message || '')
       setRepository(editingSchedule.session_config?.tags?.repository || '')
       setOneshot(editingSchedule.session_config?.params?.oneshot === true)
+      setReuseSession(editingSchedule.session_config?.reuse_session === true)
+      setReuseMessage(editingSchedule.session_config?.reuse_message || '')
       const loadedPairs = recordToMemoryKeyPairs(editingSchedule.session_config?.memory_key as Record<string, string> | undefined)
       setMemoryKeyPairs(loadedPairs)
       // カスタム判定: presetに合致しないがキーがある場合はカスタム表示
@@ -98,6 +102,8 @@ export default function ScheduleFormModal({
     setMessage('')
     setRepository('')
     setOneshot(false)
+    setReuseSession(false)
+    setReuseMessage('')
     setMemoryKeyPairs([{ key: '', value: '' }])
     setShowCustomMemory(false)
     setError(null)
@@ -188,6 +194,8 @@ export default function ScheduleFormModal({
         session_config: {
           params: hasParams ? sessionParams : undefined,
           tags: repository.trim() ? { repository: repository.trim() } : undefined,
+          reuse_session: reuseSession || undefined,
+          reuse_message: (reuseSession && reuseMessage.trim()) ? reuseMessage.trim() : undefined,
         },
         ...scopeParams,
       }
@@ -444,6 +452,45 @@ export default function ScheduleFormModal({
                 セッションが停止した後、自動的にセッションを削除します。
               </p>
             </div>
+          </div>
+
+          {/* Session Reuse Option */}
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                id="reuseSession"
+                checked={reuseSession}
+                onChange={(e) => setReuseSession(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                disabled={isSubmitting}
+              />
+              <div>
+                <label htmlFor="reuseSession" className="block text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                  実行中のセッションを再利用する
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  スケジュール実行時に既存のアクティブなセッションが見つかった場合、新しいセッションを作成する代わりにそのセッションにメッセージを送信します。
+                </p>
+              </div>
+            </div>
+            {reuseSession && (
+              <div className="ml-7">
+                <label htmlFor="reuseMessage" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  再利用時のメッセージ
+                  <span className="ml-1 text-xs text-gray-400 dark:text-gray-500 font-normal">（省略時は初期メッセージを使用）</span>
+                </label>
+                <textarea
+                  id="reuseMessage"
+                  value={reuseMessage}
+                  onChange={(e) => setReuseMessage(e.target.value)}
+                  placeholder="既存セッションに送信するメッセージ（省略可）..."
+                  disabled={isSubmitting}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white resize-y text-sm"
+                />
+              </div>
+            )}
           </div>
 
           {/* Memory Key */}
