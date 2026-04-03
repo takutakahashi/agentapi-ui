@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, ExternalSessionManagerConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, AgentApiType, getAgentApiType, setAgentApiType, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings, getMemoryEnabled, setMemoryEnabled, getMemorySummarizeDrafts, setMemorySummarizeDrafts } from '@/types/settings'
 import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings, MemorySettings, SlackSettings } from '@/components/settings'
-import { createAgentAPIProxyClientFromStorage, CredentialsMetadata } from '@/lib/agentapi-proxy-client'
+import { createAgentAPIProxyClientFromStorage, CredentialsMetadata, CredentialsFileType } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
 export default function PersonalSettingsPage() {
@@ -33,11 +33,16 @@ export default function PersonalSettingsPage() {
   const [revealedSecrets, setRevealedSecrets] = useState<Record<string, string>>({})
   const [copiedSecretId, setCopiedSecretId] = useState<string | null>(null)
   const [regeneratingEsmId, setRegeneratingEsmId] = useState<string | null>(null)
-  // Credentials state
+  // Credentials state (per-file-type)
   const [credentialsMetadata, setCredentialsMetadata] = useState<CredentialsMetadata | null>(null)
-  const [credentialsJson, setCredentialsJson] = useState<string>('')
-  const [credentialsJsonError, setCredentialsJsonError] = useState<string | null>(null)
-  const [uploadingCredentials, setUploadingCredentials] = useState(false)
+  // codex_auth (~/.codex/auth.json)
+  const [codexAuthJson, setCodexAuthJson] = useState<string>('')
+  const [codexAuthError, setCodexAuthError] = useState<string | null>(null)
+  const [uploadingCodexAuth, setUploadingCodexAuth] = useState(false)
+  // claude_credentials (~/.claude/.credentials.json)
+  const [claudeCredsJson, setClaudeCredsJson] = useState<string>('')
+  const [claudeCredsError, setClaudeCredsError] = useState<string | null>(null)
+  const [uploadingClaudeCreds, setUploadingClaudeCreds] = useState(false)
   const [deletingCredentials, setDeletingCredentials] = useState(false)
   const { showToast } = useToast()
   const hasUnsavedChangesRef = useRef(false)
@@ -325,65 +330,77 @@ export default function PersonalSettingsPage() {
     }
   }
 
-  // Credentials handlers
-  const handleCredentialsJsonChange = (value: string) => {
-    setCredentialsJson(value)
-    setCredentialsJsonError(null)
+  // Credentials handlers (shared helpers)
+  const makeJsonChangeHandler = (
+    setter: (v: string) => void,
+    errSetter: (e: string | null) => void,
+  ) => (value: string) => {
+    setter(value)
+    errSetter(null)
     if (value.trim()) {
       try {
         JSON.parse(value)
       } catch {
-        setCredentialsJsonError('有効な JSON を入力してください')
+        errSetter('有効な JSON を入力してください')
       }
     }
   }
 
-  const handleCredentialsFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const makeFileChangeHandler = (
+    setter: (v: string) => void,
+    errSetter: (e: string | null) => void,
+  ) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
     reader.onload = (ev) => {
       const text = ev.target?.result as string
-      setCredentialsJson(text)
-      setCredentialsJsonError(null)
+      setter(text)
+      errSetter(null)
       try {
         JSON.parse(text)
       } catch {
-        setCredentialsJsonError('有効な JSON ファイルを選択してください')
+        errSetter('有効な JSON ファイルを選択してください')
       }
     }
     reader.readAsText(file)
-    // reset input so same file can be re-selected
     e.target.value = ''
   }
 
-  const handleUploadCredentials = async () => {
-    if (!credentialsJson.trim() || credentialsJsonError) return
-    setUploadingCredentials(true)
+  const handleUploadCredentialsForType = async (
+    json: string,
+    fileType: CredentialsFileType,
+    setUploading: (v: boolean) => void,
+    clearJson: () => void,
+    label: string,
+  ) => {
+    if (!json.trim()) return
+    setUploading(true)
     try {
-      const parsed = JSON.parse(credentialsJson)
+      const parsed = JSON.parse(json)
       const client = createAgentAPIProxyClientFromStorage()
-      const meta = await client.uploadCredentials(userName, parsed)
+      const meta = await client.uploadCredentials(userName, parsed, fileType)
       setCredentialsMetadata(meta)
-      setCredentialsJson('')
-      showToast('auth.json をアップロードしました', 'success')
+      clearJson()
+      showToast(`${label} をアップロードしました`, 'success')
     } catch (err) {
-      console.error('Failed to upload credentials:', err)
+      console.error(`Failed to upload ${label}:`, err)
       showToast('アップロードに失敗しました', 'error')
     } finally {
-      setUploadingCredentials(false)
+      setUploading(false)
     }
   }
 
   const handleDeleteCredentials = async () => {
-    if (!confirm('auth.json を削除しますか？')) return
+    if (!confirm('認証ファイルをすべて削除しますか？')) return
     setDeletingCredentials(true)
     try {
       const client = createAgentAPIProxyClientFromStorage()
       await client.deleteCredentials(userName)
       setCredentialsMetadata(null)
-      setCredentialsJson('')
-      showToast('auth.json を削除しました', 'success')
+      setCodexAuthJson('')
+      setClaudeCredsJson('')
+      showToast('認証ファイルを削除しました', 'success')
     } catch (err) {
       console.error('Failed to delete credentials:', err)
       showToast('削除に失敗しました', 'error')
@@ -844,17 +861,11 @@ export default function PersonalSettingsPage() {
           </SettingsAccordion>
 
           <SettingsAccordion
-            title="認証ファイル (auth.json)"
-            description="Codex の auth.json をアップロードします。セッション開始時に自動で適用されます。"
+            title="認証ファイル"
+            description="セッション開始時に自動で適用される認証ファイルをアップロードします。"
           >
-            <div className="space-y-4">
-              {/* codex auth.json の説明 */}
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <p className="text-xs text-blue-700 dark:text-blue-300">
-                  <strong>codex の認証ファイル</strong>について: <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">~/.codex/auth.json</code> は Codex が使用する認証情報ファイルです。ここにアップロードすると、エージェントセッション開始時に自動で適用されます。
-                </p>
-              </div>
-              {/* 現在のステータス */}
+            <div className="space-y-6">
+              {/* 全体ステータス & 削除 */}
               <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <div className="flex items-center gap-2">
                   {credentialsMetadata?.has_data ? (
@@ -863,7 +874,7 @@ export default function PersonalSettingsPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <span className="text-sm text-gray-700 dark:text-gray-300">
-                        auth.json がアップロード済みです
+                        認証ファイルが保存されています
                         {credentialsMetadata.updated_at && (
                           <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
                             (更新: {new Date(credentialsMetadata.updated_at).toLocaleString()})
@@ -876,7 +887,7 @@ export default function PersonalSettingsPage() {
                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">auth.json が未設定です</span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400">認証ファイルが未設定です</span>
                     </>
                   )}
                 </div>
@@ -887,59 +898,94 @@ export default function PersonalSettingsPage() {
                     disabled={deletingCredentials}
                     className="text-xs px-2 py-1 rounded border border-red-200 dark:border-red-700 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    {deletingCredentials ? '削除中...' : '削除'}
+                    {deletingCredentials ? '削除中...' : 'すべて削除'}
                   </button>
                 )}
               </div>
 
-              {/* ファイルアップロード */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  ファイルを選択 (~/.codex/auth.json)
-                </label>
-                <input
-                  type="file"
-                  accept=".json,application/json"
-                  onChange={handleCredentialsFileChange}
-                  className="block w-full text-sm text-gray-500 dark:text-gray-400
-                    file:mr-3 file:py-1.5 file:px-3
-                    file:rounded file:border file:border-gray-300 dark:file:border-gray-600
-                    file:text-xs file:font-medium
-                    file:bg-white dark:file:bg-gray-700
-                    file:text-gray-700 dark:file:text-gray-300
-                    file:cursor-pointer
-                    hover:file:bg-gray-50 dark:hover:file:bg-gray-600"
-                />
+              {/* ── codex_auth: ~/.codex/auth.json ── */}
+              <div className="space-y-3">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-800 dark:text-gray-200">Codex 認証ファイル</h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">~/.codex/auth.json</code> — Codex CLI が使用する認証情報
+                  </p>
+                  {credentialsMetadata?.files?.find(f => f.type === 'codex_auth')?.has_data && (
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">✓ アップロード済み</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">ファイルを選択</label>
+                  <input
+                    type="file"
+                    accept=".json,application/json"
+                    onChange={makeFileChangeHandler(setCodexAuthJson, setCodexAuthError)}
+                    className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border file:border-gray-300 dark:file:border-gray-600 file:text-xs file:font-medium file:bg-white dark:file:bg-gray-700 file:text-gray-700 dark:file:text-gray-300 file:cursor-pointer hover:file:bg-gray-50 dark:hover:file:bg-gray-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">または JSON を直接貼り付け</label>
+                  <textarea
+                    value={codexAuthJson}
+                    onChange={(e) => makeJsonChangeHandler(setCodexAuthJson, setCodexAuthError)(e.target.value)}
+                    rows={4}
+                    className="w-full px-3 py-2 text-xs font-mono border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  />
+                  {codexAuthError && <p className="mt-1 text-xs text-red-500">{codexAuthError}</p>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleUploadCredentialsForType(codexAuthJson, 'codex_auth', setUploadingCodexAuth, () => setCodexAuthJson(''), 'auth.json')}
+                  disabled={!codexAuthJson.trim() || !!codexAuthError || uploadingCodexAuth}
+                  className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                >
+                  {uploadingCodexAuth && <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white"></div>}
+                  {uploadingCodexAuth ? 'アップロード中...' : 'アップロード'}
+                </button>
               </div>
 
-              {/* テキスト入力 */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  または JSON を直接貼り付け
-                </label>
-                <textarea
-                  value={credentialsJson}
-                  onChange={(e) => handleCredentialsJsonChange(e.target.value)}
-                  placeholder=""
-                  rows={6}
-                  className="w-full px-3 py-2 text-xs font-mono border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
-                />
-                {credentialsJsonError && (
-                  <p className="mt-1 text-xs text-red-500">{credentialsJsonError}</p>
-                )}
-              </div>
+              <hr className="border-gray-200 dark:border-gray-700" />
 
-              <button
-                type="button"
-                onClick={handleUploadCredentials}
-                disabled={!credentialsJson.trim() || !!credentialsJsonError || uploadingCredentials}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-              >
-                {uploadingCredentials && (
-                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white"></div>
-                )}
-                {uploadingCredentials ? 'アップロード中...' : 'アップロード'}
-              </button>
+              {/* ── claude_credentials: ~/.claude/.credentials.json ── */}
+              <div className="space-y-3">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-800 dark:text-gray-200">Claude Code 認証ファイル</h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">~/.claude/.credentials.json</code> — Claude Code CLI が使用する認証情報
+                  </p>
+                  {credentialsMetadata?.files?.find(f => f.type === 'claude_credentials')?.has_data && (
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">✓ アップロード済み</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">ファイルを選択</label>
+                  <input
+                    type="file"
+                    accept=".json,application/json"
+                    onChange={makeFileChangeHandler(setClaudeCredsJson, setClaudeCredsError)}
+                    className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border file:border-gray-300 dark:file:border-gray-600 file:text-xs file:font-medium file:bg-white dark:file:bg-gray-700 file:text-gray-700 dark:file:text-gray-300 file:cursor-pointer hover:file:bg-gray-50 dark:hover:file:bg-gray-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">または JSON を直接貼り付け</label>
+                  <textarea
+                    value={claudeCredsJson}
+                    onChange={(e) => makeJsonChangeHandler(setClaudeCredsJson, setClaudeCredsError)(e.target.value)}
+                    rows={4}
+                    className="w-full px-3 py-2 text-xs font-mono border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  />
+                  {claudeCredsError && <p className="mt-1 text-xs text-red-500">{claudeCredsError}</p>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleUploadCredentialsForType(claudeCredsJson, 'claude_credentials', setUploadingClaudeCreds, () => setClaudeCredsJson(''), '.credentials.json')}
+                  disabled={!claudeCredsJson.trim() || !!claudeCredsError || uploadingClaudeCreds}
+                  className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                >
+                  {uploadingClaudeCreds && <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white"></div>}
+                  {uploadingClaudeCreds ? 'アップロード中...' : 'アップロード'}
+                </button>
+              </div>
             </div>
           </SettingsAccordion>
 
