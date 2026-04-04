@@ -39,7 +39,7 @@ export default function NewSessionPage() {
   const [selectedManagerId, setSelectedManagerId] = useState<string>('')
   const [cycleEnabled, setCycleEnabled] = useState(false)
   const [cycleMessage, setCycleMessage] = useState('')
-  const [cycleMaxCount, setCycleMaxCount] = useState(0)
+  const [cycleMaxCount, setCycleMaxCount] = useState(10)
 
   useEffect(() => {
     loadTemplates()
@@ -554,9 +554,7 @@ export default function NewSessionPage() {
                       </label>
                     </div>
                     <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
-                      Claudeが停止するたびに指定したメッセージを自動送信し、タスクを繰り返します。
-                      <code className="mx-1 px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">/tmp/check/CYCLE_OK</code>
-                      ファイルが作成されると停止します。
+                      Claudeが停止するたびに指定したメッセージを自動送信し、タスクを繰り返します。サイクルを終了する条件を満たした場合に自動的に停止します。
                     </p>
                     {cycleEnabled && (
                       <div className="space-y-3 pl-1">
@@ -567,13 +565,13 @@ export default function NewSessionPage() {
                           <textarea
                             value={cycleMessage}
                             onChange={(e) => setCycleMessage(e.target.value)}
-                            placeholder="例: タスクを続けてください。完了したら /tmp/check/CYCLE_OK を作成してください。"
+                            placeholder="例: タスクを続けてください。サイクルを終了する条件: すべてのテストが通過したとき。"
                             rows={3}
                             disabled={isCreating}
                             className="w-full px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white resize-y"
                           />
                           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                            Claudeが停止するたびに送信されるメッセージです。
+                            Claudeが停止するたびに送信されるメッセージです。サイクルを終了する条件を記載してください。
                           </p>
                         </div>
                         <div>
