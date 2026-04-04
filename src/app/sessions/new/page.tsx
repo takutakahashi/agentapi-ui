@@ -554,10 +554,7 @@ export default function NewSessionPage() {
                       </label>
                     </div>
                     <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
-                      Claudeが停止するたびに指定したメッセージを自動送信し、タスクを繰り返します。
-                      サイクルを終了する条件を満たした場合、
-                      <code className="mx-1 px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">/tmp/check/CYCLE_OK</code>
-                      ファイルが自動的に作成され停止します。
+                      Claudeが停止するたびに指定したメッセージを自動送信し、タスクを繰り返します。サイクルを終了する条件を満たした場合に自動的に停止します。
                     </p>
                     {cycleEnabled && (
                       <div className="space-y-3 pl-1">
@@ -574,7 +571,7 @@ export default function NewSessionPage() {
                             className="w-full px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white resize-y"
                           />
                           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                            Claudeが停止するたびに送信されるメッセージです。サイクルを終了する条件を記載してください。条件を満たした場合、CYCLE_OK ファイルは自動で作成されるため明示的に書く必要はありません。
+                            Claudeが停止するたびに送信されるメッセージです。サイクルを終了する条件を記載してください。
                           </p>
                         </div>
                         <div>
