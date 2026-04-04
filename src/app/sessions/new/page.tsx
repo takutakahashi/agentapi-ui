@@ -39,7 +39,7 @@ export default function NewSessionPage() {
   const [selectedManagerId, setSelectedManagerId] = useState<string>('')
   const [cycleEnabled, setCycleEnabled] = useState(false)
   const [cycleMessage, setCycleMessage] = useState('')
-  const [cycleMaxCount, setCycleMaxCount] = useState(0)
+  const [cycleMaxCount, setCycleMaxCount] = useState(10)
 
   useEffect(() => {
     loadTemplates()
