@@ -63,13 +63,23 @@ import {
 import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, getSendGithubTokenOnSessionStart, getMemoryEnabled, getMemorySummarizeDrafts, AvailableManager } from '../types/settings';
 import { ProxyUserInfo } from '../types/user';
 
+// CredentialsFileInfo holds per-file-type status in a CredentialsMetadata response.
+export interface CredentialsFileInfo {
+  type: string;     // e.g. "codex_auth" or "claude_credentials"
+  path: string;     // absolute path inside the agent container
+  has_data: boolean;
+}
+
 // CredentialsMetadata represents the metadata returned by the credentials API
 export interface CredentialsMetadata {
   name: string;
   has_data: boolean;
+  files: CredentialsFileInfo[];
   created_at: string;
   updated_at: string;
 }
+
+export type CredentialsFileType = 'codex_auth' | 'claude_credentials';
 
 // GitHubUser type (moved from profile.ts)
 export interface GitHubUser {
@@ -992,21 +1002,29 @@ export class AgentAPIProxyClient {
   }
 
   /**
-   * Upload or replace credential JSON data
-   * PUT /credentials/{name}
+   * Upload or replace credential JSON data for a specific file type.
+   * PUT /credentials/{name}?type=<fileType>
+   * fileType defaults to "codex_auth" (~/.codex/auth.json).
    */
-  async uploadCredentials(name: string, data: Record<string, unknown>): Promise<CredentialsMetadata> {
+  async uploadCredentials(
+    name: string,
+    data: Record<string, unknown>,
+    fileType: CredentialsFileType = 'codex_auth',
+  ): Promise<CredentialsMetadata> {
     if (this.debug) {
-      console.log(`[AgentAPIProxy] Uploading credentials: ${name}`);
+      console.log(`[AgentAPIProxy] Uploading credentials: ${name} (type=${fileType})`);
     }
-    return await this.makeRequest<CredentialsMetadata>(`/credentials/${encodeURIComponent(name)}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
+    return await this.makeRequest<CredentialsMetadata>(
+      `/credentials/${encodeURIComponent(name)}?type=${encodeURIComponent(fileType)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      },
+    );
   }
 
   /**
-   * Delete credentials
+   * Delete all credentials for the given name.
    * DELETE /credentials/{name}
    */
   async deleteCredentials(name: string): Promise<void> {
