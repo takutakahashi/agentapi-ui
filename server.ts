@@ -228,7 +228,7 @@ if (dev) {
 
   // Start the standalone Next.js server
   const nextProc = spawn(process.execPath, ['server.js'], {
-    cwd: import.meta.dir,
+    cwd: process.cwd(),
     env: {
       ...process.env,
       PORT: String(nextInternalPort),
