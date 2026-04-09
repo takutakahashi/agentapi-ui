@@ -54,12 +54,13 @@ interface ACPContentBlock {
 
 interface ACPSessionUpdateParams {
   sessionId?: string;
-  sessionStatus?: string;
   update?: {
-    content?: ACPContentBlock[];
+    /** Discriminant: "agent_message_chunk" | "tool_call" | ... */
+    sessionUpdate?: string;
+    /** Single ContentBlock (not an array) for *_message_chunk updates */
+    content?: ACPContentBlock;
     [key: string]: unknown;
   };
-  content?: ACPContentBlock[];
   [key: string]: unknown;
 }
 
@@ -110,9 +111,9 @@ export function useACPWebSocket(
         });
         if (cancelled) return;
 
-        // 3. ACP newSession
+        // 3. ACP session/new (method name per @agentclientprotocol/sdk AGENT_METHODS)
         const { sessionId: acpSid } =
-          await client.call<ACPNewSessionResult>('newSession', {
+          await client.call<ACPNewSessionResult>('session/new', {
             cwd: '/',
             mcpServers: [],
           });
@@ -120,40 +121,32 @@ export function useACPWebSocket(
 
         acpSessionIdRef.current = acpSid;
 
-        // 4. Subscribe to sessionUpdate notifications
+        // 4. Subscribe to session/update notifications
         client.onNotification((method, rawParams) => {
-          if (
-            method !== 'notifications/sessionUpdate' &&
-            method !== 'sessionUpdate'
-          )
-            return;
+          if (method !== 'session/update') return;
 
           const params = rawParams as ACPSessionUpdateParams | undefined;
+          const updateType = params?.update?.sessionUpdate;
 
-          // Extract text content from the update
-          const blocks: ACPContentBlock[] =
-            params?.update?.content ?? params?.content ?? [];
-          const text = blocks
-            .filter((b) => b.type === 'text' && b.text)
-            .map((b) => b.text as string)
-            .join('');
-
-          if (text) {
-            setAcpMessages((prev) => [
-              ...prev,
-              {
-                id: ++msgIdRef.current,
-                role: 'assistant',
-                content: text,
-                time: new Date().toISOString(),
-              } satisfies SessionMessage,
-            ]);
-          }
-
-          // Track agent running state
-          const status = params?.sessionStatus;
-          if (status !== undefined) {
-            setAgentRunning(status === 'running');
+          // Only process agent message chunks (not tool_call, available_commands, etc.)
+          if (
+            updateType === 'agent_message_chunk' ||
+            updateType === 'agent_thought_chunk'
+          ) {
+            const block = params?.update?.content;
+            const text =
+              block?.type === 'text' && block.text ? block.text : '';
+            if (text) {
+              setAcpMessages((prev) => [
+                ...prev,
+                {
+                  id: ++msgIdRef.current,
+                  role: 'assistant',
+                  content: text,
+                  time: new Date().toISOString(),
+                } satisfies SessionMessage,
+              ]);
+            }
           }
         });
 
@@ -199,7 +192,7 @@ export function useACPWebSocket(
     setAgentRunning(true);
 
     try {
-      await client.call('prompt', {
+      await client.call('session/prompt', {
         sessionId: acpSid,
         prompt: [{ type: 'text', text }],
       });
