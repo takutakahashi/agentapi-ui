@@ -1,25 +1,37 @@
 /**
- * Next.js custom server with WebSocket proxy support.
+ * Production entry point with WebSocket proxy support.
  *
- * Handles WebSocket upgrade requests for /:sessionId/* paths and proxies them
- * to the agentapi-proxy backend, injecting the Bearer token from the
- * encrypted agentapi_token cookie.
+ * In production (NODE_ENV=production):
+ *   - Starts the Next.js standalone server.js on an internal port (3001)
+ *   - Creates our own HTTP server on PORT (3000) that:
+ *       • Handles WebSocket upgrades for /:sessionId/* paths, proxying them
+ *         to agentapi-proxy with the Bearer token from the encrypted cookie
+ *       • Proxies all other HTTP requests to the internal Next.js server
  *
- * All regular HTTP requests are forwarded to the standard Next.js handler.
+ * In development (NODE_ENV=development):
+ *   - Uses next() factory directly (full Next.js with hot reload, webpack, etc.)
+ *   - WebSocket handling is the same
+ *
+ * This split avoids the "Cannot find module next/dist/compiled/webpack/webpack"
+ * error that occurs when next() is called inside a Next.js standalone output,
+ * where webpack is stripped from node_modules.
  */
 
-import { createServer } from 'http';
+import { createServer, request as httpRequest } from 'http';
 import { parse } from 'url';
 import { createDecipheriv } from 'crypto';
-import next from 'next';
 import { WebSocketServer, WebSocket } from 'ws';
-import type { IncomingMessage } from 'http';
+import { spawn } from 'child_process';
+import type { IncomingMessage, ServerResponse } from 'http';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME ?? 'localhost';
 const port = parseInt(process.env.PORT ?? '3000', 10);
+
+// Internal port for Next.js standalone server (production only)
+const nextInternalPort = parseInt(process.env.NEXT_INTERNAL_PORT ?? '3001', 10);
 
 const PROXY_URL = process.env.AGENTAPI_PROXY_URL ?? 'http://localhost:8080';
 // Convert http(s) → ws(s) for WebSocket connections to agentapi-proxy
@@ -75,17 +87,11 @@ function getApiKeyFromRequest(req: IncomingMessage): string | null {
   }
 }
 
-// ─── Next.js app ──────────────────────────────────────────────────────────────
+// ─── WebSocket upgrade handler (shared between dev and prod) ─────────────────
 
-const app = next({ dev, hostname, port });
-const handle = app.getRequestHandler();
-
-app.prepare().then(() => {
-  const server = createServer((req, res) => {
-    const parsedUrl = parse(req.url!, true);
-    handle(req, res, parsedUrl);
-  });
-
+function setupWebSocketProxy(
+  server: ReturnType<typeof createServer>,
+): void {
   const wss = new WebSocketServer({ noServer: true });
 
   server.on('upgrade', (req, socket, head) => {
@@ -160,8 +166,108 @@ app.prepare().then(() => {
       });
     });
   });
+}
 
-  server.listen(port, () => {
+// ─── HTTP reverse proxy to Next.js standalone server (production) ─────────────
+
+function proxyToNext(
+  req: IncomingMessage,
+  res: ServerResponse,
+  targetPort: number,
+): void {
+  const options = {
+    hostname: '127.0.0.1',
+    port: targetPort,
+    path: req.url,
+    method: req.method,
+    headers: { ...req.headers, host: `127.0.0.1:${targetPort}` },
+  };
+
+  const proxyReq = httpRequest(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode!, proxyRes.headers);
+    proxyRes.pipe(res, { end: true });
+  });
+
+  proxyReq.on('error', (err) => {
+    console.error('[PROXY] Error forwarding to Next.js:', err.message);
+    if (!res.headersSent) {
+      res.writeHead(502);
+    }
+    res.end('Bad Gateway');
+  });
+
+  req.pipe(proxyReq, { end: true });
+}
+
+// ─── Start ────────────────────────────────────────────────────────────────────
+
+if (dev) {
+  // ── Development: use next() factory (full Next.js with webpack, hot reload) ──
+  const { default: next } = await import('next');
+  const app = next({ dev: true, hostname, port });
+  const handle = app.getRequestHandler();
+
+  await app.prepare();
+
+  const server = createServer((req, res) => {
+    const parsedUrl = parse(req.url!, true);
+    handle(req, res, parsedUrl);
+  });
+
+  setupWebSocketProxy(server);
+
+  server.listen(port, hostname, () => {
     console.log(`> Ready on http://${hostname}:${port}`);
   });
-});
+} else {
+  // ── Production: spawn standalone server.js on internal port, proxy HTTP ──────
+  //
+  // The standalone output strips webpack from node_modules/next, so we cannot
+  // call next() here.  Instead we start server.js (the standalone entry point)
+  // on an internal port and proxy HTTP to it, while handling WS upgrades ourselves.
+
+  // Start the standalone Next.js server
+  const nextProc = spawn(process.execPath, ['server.js'], {
+    cwd: import.meta.dir,
+    env: {
+      ...process.env,
+      PORT: String(nextInternalPort),
+      HOSTNAME: '127.0.0.1',
+    },
+    stdio: 'inherit',
+  });
+
+  nextProc.on('error', (err) => {
+    console.error('[NEXT] Failed to start standalone server:', err);
+    process.exit(1);
+  });
+
+  nextProc.on('exit', (code) => {
+    console.error(`[NEXT] Standalone server exited with code ${code}`);
+    process.exit(code ?? 1);
+  });
+
+  // Wait for Next.js to be ready (max 30s)
+  console.log(`[BOOT] Waiting for Next.js on port ${nextInternalPort}…`);
+  for (let i = 0; i < 60; i++) {
+    try {
+      const res = await fetch(`http://127.0.0.1:${nextInternalPort}/`);
+      await res.body?.cancel();
+      break;
+    } catch {
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+  console.log(`[BOOT] Next.js is ready`);
+
+  // Create our HTTP server that proxies to Next.js
+  const server = createServer((req, res) => {
+    proxyToNext(req, res, nextInternalPort);
+  });
+
+  setupWebSocketProxy(server);
+
+  server.listen(port, hostname, () => {
+    console.log(`> Ready on http://${hostname}:${port}`);
+  });
+}

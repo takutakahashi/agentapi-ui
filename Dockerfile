@@ -30,12 +30,12 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy custom WebSocket server (replaces the standalone server.js entrypoint)
+# Copy custom WebSocket server (starts standalone server.js internally on port 3001,
+# handles WS upgrades itself, and proxies HTTP to the internal Next.js server)
 COPY --from=builder --chown=nextjs:nodejs /app/server.ts ./server.ts
 
-# Copy ws package from builder (required by server.ts for WebSocket proxying)
+# Copy ws package from builder (required by server.ts for WebSocket client/server)
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/ws ./node_modules/ws
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@types/ws ./node_modules/@types/ws
 
 USER nextjs
 
