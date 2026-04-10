@@ -770,7 +770,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       setIsLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inputValue, isLoading, isConnected, sessionId, agentStatus, agentType, loadRecentMessages, acpWS.isConnected, acpWS.isConnecting, acpWS.sendPrompt]);
+  }, [inputValue, isLoading, isConnected, sessionId, agentStatus, effectiveAgentStatus, agentType, loadRecentMessages, acpWS.isConnected, acpWS.isConnecting, acpWS.sendPrompt, acpWS.promptQueueing]);
 
   const handleShowPlanModal = useCallback((content: string) => {
     setPlanContent(content);
