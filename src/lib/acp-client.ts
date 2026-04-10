@@ -186,6 +186,19 @@ export class ACPWebSocketClient {
     };
   }
 
+  /**
+   * Send a JSON-RPC notification (fire-and-forget; no id, no response expected).
+   * Used for `session/cancel` and other one-way messages.
+   */
+  notify(method: string, params?: unknown): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.warn('[ACP] Cannot send notification: WebSocket not open');
+      return;
+    }
+    const notification: JsonRpcNotification = { jsonrpc: '2.0', method, params };
+    this.ws.send(JSON.stringify(notification));
+  }
+
   /** Close the underlying WebSocket. */
   close() {
     this.ws?.close();

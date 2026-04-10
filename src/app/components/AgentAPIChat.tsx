@@ -692,9 +692,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     if (!messageContent && messageType === 'user') return;
     if (isLoading || !isConnected) return;
     
+    // For claude-acp sessions with promptQueueing support, allow sending while running.
+    // For other agent types, block sending while running.
     if (effectiveAgentStatus?.status === 'running' && messageType === 'user') {
-      setError('Agent is currently running. Please wait for it to become stable.');
-      return;
+      if (!(agentType === 'claude-acp' && acpWS.promptQueueing)) {
+        setError('Agent is currently running. Please wait for it to become stable.');
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -818,18 +822,25 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   }, [sessionId]);
 
   const sendStopSignal = async () => {
-    if (!sessionId || !agentAPIRef.current) {
-      setError('セッションが利用できません');
-      return;
-    }
-
     try {
-      if (agentType === 'claude' || agentType === 'codex') {
+      if (agentType === 'claude-acp') {
+        // ACP セッション: session/cancel notification を使用
+        acpWS.cancelSession();
+        console.log('Stop signal sent via session/cancel (ACP)');
+      } else if (agentType === 'claude' || agentType === 'codex') {
         // agentapi ベースのエージェント（claude, codex）: /action エンドポイントを使用
+        if (!sessionId || !agentAPIRef.current) {
+          setError('セッションが利用できません');
+          return;
+        }
         await agentAPIRef.current.sendAction(sessionId, { type: 'stop_agent' });
         console.log('Stop signal sent via /action endpoint (agent type:', agentType, ')');
       } else {
         // デフォルト・素のシェルセッション: Ctrl+C を送信
+        if (!sessionId || !agentAPIRef.current) {
+          setError('セッションが利用できません');
+          return;
+        }
         await agentAPIRef.current.sendSessionMessage(sessionId, {
           content: '\x03', // Ctrl+C
           type: 'raw'
@@ -1315,13 +1326,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
               placeholder={
                 !isConnected
                   ? "Connecting..."
-                  : effectiveAgentStatus?.status === 'running'
+                  : effectiveAgentStatus?.status === 'running' && !(agentType === 'claude-acp' && acpWS.promptQueueing)
                     ? "Agent is running, please wait..."
                     : "Write a comment..."
               }
               className="w-full resize-none border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px]"
               rows={3}
-              disabled={!isConnected || isLoading || effectiveAgentStatus?.status === 'running'}
+              disabled={!isConnected || isLoading || (effectiveAgentStatus?.status === 'running' && !(agentType === 'claude-acp' && acpWS.promptQueueing))}
             />
             {showTemplates && templates.length > 0 && (
               <div className="absolute z-50 w-full bottom-full mb-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
@@ -1411,7 +1422,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 
                 <button
                   onClick={() => sendMessage()}
-                  disabled={!isConnected || isLoading || !inputValue.trim() || effectiveAgentStatus?.status === 'running' || (agentType === 'claude-acp' && !acpWS.isConnected)}
+                  disabled={!isConnected || isLoading || !inputValue.trim() || (effectiveAgentStatus?.status === 'running' && !(agentType === 'claude-acp' && acpWS.promptQueueing)) || (agentType === 'claude-acp' && !acpWS.isConnected)}
                   aria-label="Send"
                   className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-sm font-medium"
                   title={agentType === 'claude-acp' && !acpWS.isConnected ? (acpWS.isConnecting ? 'ACP接続中...' : 'ACP接続失敗 - 再接続中') : undefined}

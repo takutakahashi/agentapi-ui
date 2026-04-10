@@ -47,7 +47,11 @@ export interface UseACPWebSocketResult {
   connectionFailed: boolean;
   acpMessages: SessionMessage[];
   agentRunning: boolean;
+  /** True if the agent supports queuing prompts while running (promptQueueing capability). */
+  promptQueueing: boolean;
   sendPrompt: (text: string) => Promise<boolean>;
+  /** Send session/cancel notification to interrupt the running agent. */
+  cancelSession: () => void;
 }
 
 // ─── Internal ACP shapes ──────────────────────────────────────────────────────
@@ -107,6 +111,7 @@ export function useACPWebSocket(
     sessionId ? loadMessages(sessionId) : [],
   );
   const [agentRunning, setAgentRunning] = useState(false);
+  const [promptQueueing, setPromptQueueing] = useState(false);
 
   const clientRef = useRef<ACPWebSocketClient | null>(null);
   const acpSessionIdRef = useRef<string | null>(null);
@@ -151,13 +156,21 @@ export function useACPWebSocket(
       await client.connect();
       if (cancelledRef.current) { client.close(); return; }
 
-      // ACP handshake
-      await client.call('initialize', {
+      // ACP handshake — capture agentCapabilities from the response
+      const initResult = await client.call<{
+        agentCapabilities?: {
+          _meta?: { claudeCode?: { promptQueueing?: boolean } };
+        };
+      }>('initialize', {
         protocolVersion: 0,
         clientInfo: { name: 'agentapi-ui', version: '1.0.0' },
         clientCapabilities: {},
       }, ACP_CALL_TIMEOUT_MS);
       if (cancelledRef.current) { client.close(); return; }
+
+      const supportsQueueing =
+        initResult?.agentCapabilities?._meta?.claudeCode?.promptQueueing === true;
+      setPromptQueueing(supportsQueueing);
 
       // Always send session/new — the proxy will transparently replace it
       // with session/resume if a previous ACP session ID is stored server-side.
@@ -260,6 +273,15 @@ export function useACPWebSocket(
     };
   }, [sessionId, attemptConnect]);
 
+  // ── cancel session (session/cancel notification) ──────────────────────────
+  const cancelSession = useCallback(() => {
+    const client = clientRef.current;
+    const acpSid = acpSessionIdRef.current;
+    if (!client?.isOpen || !acpSid) return;
+    client.notify('session/cancel', { sessionId: acpSid });
+    console.info('[ACP] Sent session/cancel for', acpSid);
+  }, []);
+
   // ── send prompt ───────────────────────────────────────────────────────────
   const sendPrompt = useCallback(async (text: string): Promise<boolean> => {
     const client = clientRef.current;
@@ -297,6 +319,8 @@ export function useACPWebSocket(
     connectionFailed: connectionState === 'failed',
     acpMessages,
     agentRunning,
+    promptQueueing,
     sendPrompt,
+    cancelSession,
   };
 }
