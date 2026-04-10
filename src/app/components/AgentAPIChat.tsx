@@ -1249,7 +1249,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       </div>
 
       {/* ツール実行確認ペーン */}
-      {sessionId && <ToolExecutionPane sessionId={sessionId} agentStatus={effectiveAgentStatus?.status} />}
+      {/* Only rendered when the ACP WebSocket has definitively failed (non-ACP session).
+          While ACP is connecting or connected, we don't need REST-based tool status. */}
+      {sessionId && acpWS.connectionFailed && <ToolExecutionPane sessionId={sessionId} agentStatus={effectiveAgentStatus?.status} />}
 
       {/* Input */}
       <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 flex-shrink-0">
