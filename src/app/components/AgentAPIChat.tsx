@@ -708,6 +708,14 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             setError('メッセージ送信に失敗しました (ACP)');
             return;
           }
+        } else if (agentType === 'claude-acp' && messageType === 'user') {
+          // ── claude-acp sessions require ACP WebSocket — never use HTTP ──
+          if (acpWS.isConnecting) {
+            setError('ACP WebSocket接続中です。しばらくお待ちください。');
+          } else {
+            setError('ACP WebSocket接続に失敗しました。再接続を試みています...');
+          }
+          return;
         } else {
           // ── REST / polling mode (fallback) ──────────────────────────────
           if (!agentAPIRef.current) {
@@ -755,7 +763,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       setIsLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inputValue, isLoading, isConnected, sessionId, agentStatus, loadRecentMessages, acpWS.isConnected, acpWS.sendPrompt]);
+  }, [inputValue, isLoading, isConnected, sessionId, agentStatus, agentType, loadRecentMessages, acpWS.isConnected, acpWS.isConnecting, acpWS.sendPrompt]);
 
   const handleShowPlanModal = useCallback((content: string) => {
     setPlanContent(content);
@@ -948,8 +956,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 <span className={`text-xs ${getStatusColor(effectiveAgentStatus.status)} hidden sm:inline`}>
                   {effectiveAgentStatus.status === 'stable' ? 'Agent Available' : effectiveAgentStatus.status === 'running' ? 'Agent Running' : effectiveAgentStatus.status}
                 </span>
-                {acpWS.isConnected && (
-                  <span className="text-xs text-blue-500 hidden sm:inline" title="ACP WebSocket connected">⚡</span>
+                {agentType === 'claude-acp' && (
+                  <span
+                    className={`text-xs hidden sm:inline ${acpWS.isConnected ? 'text-blue-500' : acpWS.isConnecting ? 'text-yellow-500' : 'text-red-500'}`}
+                    title={acpWS.isConnected ? 'ACP WebSocket connected' : acpWS.isConnecting ? 'ACP connecting...' : 'ACP disconnected - retrying'}
+                  >
+                    {acpWS.isConnected ? '⚡ACP' : acpWS.isConnecting ? '⏳ACP' : '⚠ACP'}
+                  </span>
                 )}
               </div>
             )}
@@ -1395,9 +1408,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 
                 <button
                   onClick={() => sendMessage()}
-                  disabled={!isConnected || isLoading || !inputValue.trim() || effectiveAgentStatus?.status === 'running'}
+                  disabled={!isConnected || isLoading || !inputValue.trim() || effectiveAgentStatus?.status === 'running' || (agentType === 'claude-acp' && !acpWS.isConnected)}
                   aria-label="Send"
                   className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-sm font-medium"
+                  title={agentType === 'claude-acp' && !acpWS.isConnected ? (acpWS.isConnecting ? 'ACP接続中...' : 'ACP接続失敗 - 再接続中') : undefined}
                 >
                   {isLoading ? 'Sending...' : 'Comment'}
                 </button>

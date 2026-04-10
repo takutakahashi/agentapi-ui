@@ -3,8 +3,8 @@
  *
  * Tries to connect to the session's ACP WebSocket endpoint (via the Next.js
  * custom server proxy).  On success it performs the ACP handshake and starts
- * streaming messages.  On failure it sets `connectionFailed = true` so the
- * caller can transparently fall back to HTTP polling.
+ * streaming messages.  On failure it falls back and retries with exponential
+ * backoff.
  *
  * Connection path:
  *   Browser
@@ -21,7 +21,7 @@ import type { SessionMessage } from '../../types/agentapi';
 export type ACPConnectionState =
   | 'connecting'  // initial — waiting for verdict
   | 'connected'   // WS + ACP handshake succeeded
-  | 'failed'      // WS or handshake failed → caller should fall back
+  | 'failed'      // WS or handshake failed → retrying
   | 'closed';     // component unmounted / session changed
 
 export interface UseACPWebSocketResult {
@@ -31,7 +31,7 @@ export interface UseACPWebSocketResult {
   isConnecting: boolean;
   /** True once WS + ACP handshake succeeded */
   isConnected: boolean;
-  /** True when WS failed → caller should fall back to HTTP polling */
+  /** True when WS failed → caller may show error, but hook will retry */
   connectionFailed: boolean;
   /** Messages received via ACP sessionUpdate notifications */
   acpMessages: SessionMessage[];
@@ -64,10 +64,19 @@ interface ACPSessionUpdateParams {
   [key: string]: unknown;
 }
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+/** Timeout for each individual ACP RPC call (initialize / session/new). */
+const ACP_CALL_TIMEOUT_MS = 15_000;
+
+/** Initial reconnect delay; doubles on each failure, capped at MAX_RECONNECT_DELAY_MS. */
+const INITIAL_RECONNECT_DELAY_MS = 2_000;
+const MAX_RECONNECT_DELAY_MS = 30_000;
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 /**
- * ACP WebSocket connection hook.
+ * ACP WebSocket connection hook with automatic reconnection.
  *
  * @param sessionId  agentapi session ID (UUID string), or null when unknown.
  * @param connectTimeout  ms to wait for the WebSocket 'open' event (default 5 s).
@@ -84,10 +93,16 @@ export function useACPWebSocket(
   const clientRef = useRef<ACPWebSocketClient | null>(null);
   const acpSessionIdRef = useRef<string | null>(null);
   const msgIdRef = useRef(0);
+  const reconnectDelayRef = useRef(INITIAL_RECONNECT_DELAY_MS);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
 
-  // ── Connect & handshake ───────────────────────────────────────────────────
-  useEffect(() => {
-    if (!sessionId) return;
+  // ── Connect & handshake (single attempt) ─────────────────────────────────
+  const attemptConnect = useCallback(async (
+    sessionId: string,
+    cancelledRef: { current: boolean },
+  ) => {
+    if (cancelledRef.current) return;
 
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const wsUrl = `${proto}://${window.location.host}/${sessionId}/ws`;
@@ -95,83 +110,125 @@ export function useACPWebSocket(
     const client = new ACPWebSocketClient(wsUrl, connectTimeout);
     clientRef.current = client;
 
-    let cancelled = false;
+    // When the server closes the WS after a successful handshake, reconnect
+    client.onDisconnect = () => {
+      if (cancelledRef.current) return;
+      console.info('[ACP] WebSocket disconnected — reconnecting…');
+      setConnectionState('connecting');
+      acpSessionIdRef.current = null;
+      scheduleReconnect(sessionId, cancelledRef);
+    };
 
-    (async () => {
-      try {
-        // 1. TCP + WebSocket handshake
-        await client.connect();
-        if (cancelled) return;
+    try {
+      // 1. TCP + WebSocket handshake
+      await client.connect();
+      if (cancelledRef.current) { client.close(); return; }
 
-        // 2. ACP initialize
-        await client.call('initialize', {
-          protocolVersion: 0,
-          clientInfo: { name: 'agentapi-ui', version: '1.0.0' },
-          clientCapabilities: {},
-        });
-        if (cancelled) return;
+      // 2. ACP initialize
+      await client.call('initialize', {
+        protocolVersion: 0,
+        clientInfo: { name: 'agentapi-ui', version: '1.0.0' },
+        clientCapabilities: {},
+      }, ACP_CALL_TIMEOUT_MS);
+      if (cancelledRef.current) { client.close(); return; }
 
-        // 3. ACP session/new (method name per @agentclientprotocol/sdk AGENT_METHODS)
-        const { sessionId: acpSid } =
-          await client.call<ACPNewSessionResult>('session/new', {
-            cwd: '/',
-            mcpServers: [],
-          });
-        if (cancelled) return;
+      // 3. ACP session/new
+      const { sessionId: acpSid } =
+        await client.call<ACPNewSessionResult>('session/new', {
+          cwd: '/',
+          mcpServers: [],
+        }, ACP_CALL_TIMEOUT_MS);
+      if (cancelledRef.current) { client.close(); return; }
 
-        acpSessionIdRef.current = acpSid;
+      acpSessionIdRef.current = acpSid;
 
-        // 4. Subscribe to session/update notifications
-        client.onNotification((method, rawParams) => {
-          if (method !== 'session/update') return;
+      // 4. Subscribe to session/update notifications
+      client.onNotification((method, rawParams) => {
+        if (method !== 'session/update') return;
 
-          const params = rawParams as ACPSessionUpdateParams | undefined;
-          const updateType = params?.update?.sessionUpdate;
+        const params = rawParams as ACPSessionUpdateParams | undefined;
+        const updateType = params?.update?.sessionUpdate;
 
-          // Only process agent message chunks (not tool_call, available_commands, etc.)
-          if (
-            updateType === 'agent_message_chunk' ||
-            updateType === 'agent_thought_chunk'
-          ) {
-            const block = params?.update?.content;
-            const text =
-              block?.type === 'text' && block.text ? block.text : '';
-            if (text) {
-              setAcpMessages((prev) => [
-                ...prev,
-                {
-                  id: ++msgIdRef.current,
-                  role: 'assistant',
-                  content: text,
-                  time: new Date().toISOString(),
-                } satisfies SessionMessage,
-              ]);
-            }
+        if (
+          updateType === 'agent_message_chunk' ||
+          updateType === 'agent_thought_chunk'
+        ) {
+          const block = params?.update?.content;
+          const text =
+            block?.type === 'text' && block.text ? block.text : '';
+          if (text) {
+            setAcpMessages((prev) => [
+              ...prev,
+              {
+                id: ++msgIdRef.current,
+                role: 'assistant',
+                content: text,
+                time: new Date().toISOString(),
+              } satisfies SessionMessage,
+            ]);
           }
-        });
-
-        setConnectionState('connected');
-      } catch (err) {
-        if (!cancelled) {
-          console.info(
-            '[ACP] WebSocket/handshake failed — falling back to polling:',
-            err,
-          );
-          setConnectionState('failed');
         }
+      });
+
+      // Reset backoff on successful connect
+      reconnectDelayRef.current = INITIAL_RECONNECT_DELAY_MS;
+      setConnectionState('connected');
+    } catch (err) {
+      if (cancelledRef.current) return;
+      console.info('[ACP] WebSocket/handshake failed — retrying:', err);
+      setConnectionState('failed');
+      scheduleReconnect(sessionId, cancelledRef);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectTimeout]);
+
+  // ── Reconnect with backoff ────────────────────────────────────────────────
+  const scheduleReconnect = useCallback((
+    sessionId: string,
+    cancelledRef: { current: boolean },
+  ) => {
+    if (cancelledRef.current) return;
+    const delay = reconnectDelayRef.current;
+    // Exponential backoff
+    reconnectDelayRef.current = Math.min(delay * 2, MAX_RECONNECT_DELAY_MS);
+    console.info(`[ACP] Reconnecting in ${delay}ms…`);
+    reconnectTimerRef.current = setTimeout(() => {
+      if (!cancelledRef.current) {
+        attemptConnect(sessionId, cancelledRef);
       }
-    })();
+    }, delay);
+  }, [attemptConnect]);
+
+  // ── Effect: mount/unmount or sessionId change ─────────────────────────────
+  useEffect(() => {
+    if (!sessionId) return;
+
+    mountedRef.current = true;
+    const cancelledRef = { current: false };
+
+    // Reset state for the new session
+    setConnectionState('connecting');
+    setAcpMessages([]);
+    setAgentRunning(false);
+    reconnectDelayRef.current = INITIAL_RECONNECT_DELAY_MS;
+
+    attemptConnect(sessionId, cancelledRef);
 
     return () => {
-      cancelled = true;
-      client.close();
+      cancelledRef.current = true;
+      mountedRef.current = false;
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      clientRef.current?.close();
       clientRef.current = null;
       acpSessionIdRef.current = null;
       setAcpMessages([]);
       setAgentRunning(false);
       setConnectionState('closed');
     };
-  }, [sessionId, connectTimeout]);
+  }, [sessionId, attemptConnect]);
 
   // ── Send prompt ───────────────────────────────────────────────────────────
   const sendPrompt = useCallback(async (text: string): Promise<boolean> => {
@@ -210,7 +267,7 @@ export function useACPWebSocket(
     connectionState,
     isConnecting: connectionState === 'connecting',
     isConnected: connectionState === 'connected',
-    connectionFailed: connectionState === 'failed' || connectionState === 'closed',
+    connectionFailed: connectionState === 'failed',
     acpMessages,
     agentRunning,
     sendPrompt,

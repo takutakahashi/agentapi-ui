@@ -46,6 +46,12 @@ export class ACPWebSocketClient {
   private notificationHandlers: NotificationHandler[] = [];
   private idCounter = 0;
 
+  /**
+   * Called when the WebSocket closes after it was successfully opened.
+   * Not called when the initial connect fails.
+   */
+  onDisconnect: (() => void) | null = null;
+
   constructor(
     private readonly url: string,
     /** Maximum milliseconds to wait for the 'open' event. */
@@ -58,8 +64,18 @@ export class ACPWebSocketClient {
    */
   connect(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
+      // Ensure the promise settles only once
+      let settled = false;
+      const settle = (fn: () => void) => {
+        if (!settled) { settled = true; fn(); }
+      };
+
+      // Track whether the socket actually opened (used to distinguish
+      // "closed before open" from "closed after open")
+      let wasOpen = false;
+
       const timer = setTimeout(() => {
-        reject(new Error(`WS connect timeout (${this.connectTimeout}ms) to ${this.url}`));
+        settle(() => reject(new Error(`WS connect timeout (${this.connectTimeout}ms) to ${this.url}`)));
         this.ws?.close();
       }, this.connectTimeout);
 
@@ -67,18 +83,19 @@ export class ACPWebSocketClient {
         this.ws = new WebSocket(this.url);
       } catch (err) {
         clearTimeout(timer);
-        reject(err instanceof Error ? err : new Error(String(err)));
+        settle(() => reject(err instanceof Error ? err : new Error(String(err))));
         return;
       }
 
       this.ws.onopen = () => {
+        wasOpen = true;
         clearTimeout(timer);
-        resolve();
+        settle(() => resolve());
       };
 
       this.ws.onerror = () => {
         clearTimeout(timer);
-        reject(new Error(`WS connection failed: ${this.url}`));
+        settle(() => reject(new Error(`WS connection failed: ${this.url}`)));
       };
 
       this.ws.onmessage = (event: MessageEvent<string>) => {
@@ -91,11 +108,15 @@ export class ACPWebSocketClient {
 
       this.ws.onclose = () => {
         clearTimeout(timer);
-        // Reject all pending calls
-        this.pending.forEach(({ reject }) =>
-          reject(new Error('WebSocket closed')),
-        );
+        // If WS closed before onopen: reject the connect() promise
+        settle(() => reject(new Error('WebSocket closed before open')));
+        // Reject all in-flight calls
+        this.pending.forEach(({ reject: r }) => r(new Error('WebSocket closed')));
         this.pending.clear();
+        // Notify hook of unexpected disconnect after successful connect
+        if (wasOpen) {
+          this.onDisconnect?.();
+        }
       };
     });
   }
@@ -122,17 +143,31 @@ export class ACPWebSocketClient {
 
   /**
    * Send a JSON-RPC request and await the response.
+   * @param timeoutMs  Optional per-call timeout (ms). Defaults to no timeout.
    */
-  call<T = unknown>(method: string, params: unknown): Promise<T> {
+  call<T = unknown>(method: string, params: unknown, timeoutMs?: number): Promise<T> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       return Promise.reject(new Error('WebSocket is not open'));
     }
     const id = ++this.idCounter;
     const request: JsonRpcRequest = { jsonrpc: '2.0', id, method, params };
     return new Promise<T>((resolve, reject) => {
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      if (timeoutMs) {
+        timer = setTimeout(() => {
+          this.pending.delete(id);
+          reject(new Error(`ACP call '${method}' timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+      }
       this.pending.set(id, {
-        resolve: (v) => resolve(v as T),
-        reject,
+        resolve: (v) => {
+          if (timer) clearTimeout(timer);
+          resolve(v as T);
+        },
+        reject: (e) => {
+          if (timer) clearTimeout(timer);
+          reject(e);
+        },
       });
       this.ws!.send(JSON.stringify(request));
     });
