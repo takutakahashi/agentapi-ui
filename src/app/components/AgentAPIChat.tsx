@@ -18,6 +18,7 @@ import ToolExecutionPane from './ToolExecutionPane';
 import PlanApprovalModal from './PlanApprovalModal';
 import AskUserQuestionModal from './AskUserQuestionModal';
 import { useACPWebSocket } from '../hooks/useACPWebSocket';
+import ACPChat from './ACPChat';
 
 // Define local types for agent status
 interface AgentStatus {
@@ -934,6 +935,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       default: return 'text-gray-600 dark:text-gray-400';
     }
   };
+
+  // ── ACP sessions: use dedicated ACP chat component ──────────────────────
+  // agentType is fetched asynchronously; wait until it resolves before
+  // deciding which UI to render so we don't flash the wrong component.
+  if (agentType === 'claude-acp' && sessionId) {
+    return <ACPChat sessionId={sessionId} acpWS={acpWS} />;
+  }
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900" style={{ position: 'relative', minHeight: 0 }}>
