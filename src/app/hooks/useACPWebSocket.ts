@@ -213,7 +213,9 @@ export function useACPWebSocket(
         // Internal thinking — do NOT show to user
         if (updateType === 'agent_thought_chunk') return;
 
-        if (updateType === 'agent_message_end') {
+        // agent_message_end: standard ACP end signal (may not be sent by all agents)
+        // usage_update: sent by claude-agent-acp at the end of each turn
+        if (updateType === 'agent_message_end' || updateType === 'usage_update') {
           setAgentRunning(false);
         }
       });
@@ -304,6 +306,10 @@ export function useACPWebSocket(
         sessionId: acpSid,
         prompt: [{ type: 'text', text }],
       });
+      // session/prompt resolves when the agent finishes processing the prompt.
+      // claude-agent-acp does not emit agent_message_end, so we rely on the
+      // RPC response to mark the end of the agent turn.
+      setAgentRunning(false);
       return true;
     } catch (err) {
       console.error('[ACP] prompt failed:', err);
