@@ -937,9 +937,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   };
 
   // ── ACP sessions: use dedicated ACP chat component ──────────────────────
-  // agentType is fetched asynchronously; wait until it resolves before
-  // deciding which UI to render so we don't flash the wrong component.
-  if (agentType === 'claude-acp' && sessionId) {
+  // Switch to ACPChat as soon as the ACP WebSocket is connected.
+  // We don't rely on agentType because the /status endpoint proxies to the
+  // underlying agentapi process and does not include agent_type in its response.
+  // A successful ACP WS connection is the definitive signal that this is a
+  // claude-acp session.
+  if (acpWS.isConnected && sessionId) {
     return <ACPChat sessionId={sessionId} acpWS={acpWS} />;
   }
 
