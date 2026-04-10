@@ -6,18 +6,21 @@
  * streaming messages.  On failure it falls back and retries with exponential
  * backoff.
  *
- * Session persistence:
- *  - The ACP session ID (from session/new) is stored in sessionStorage keyed
- *    by the agentapi session ID.  On reconnect, session/resume is called instead
- *    of session/new, so the agent keeps its conversation context.
- *  - Messages are also persisted to sessionStorage so the UI shows history
- *    even while reconnecting.
+ * Session persistence is handled server-side (agentapi-proxy):
+ *  - The proxy stores the ACP session ID in the Kubernetes Service annotation
+ *    `agentapi.proxy/acp-session-id`.
+ *  - On reconnect, the proxy transparently rewrites `session/new` to
+ *    `session/resume` using the stored ID, so the agent retains its context.
+ *  - The UI always sends `session/new` — no client-side session ID management.
  *
  * Message handling:
  *  - agent_message_chunk: chunks are accumulated into the current assistant
  *    message rather than added as new ones.
  *  - agent_thought_chunk: ignored (internal Claude thinking, not shown to user).
  *  - agent_message_end: marks the end of an assistant turn.
+ *
+ * Message display history is kept in sessionStorage (keyed by agentapi session ID)
+ * so the UI shows previous messages while reconnecting.
  *
  * Connection path:
  *   Browser
@@ -32,10 +35,10 @@ import type { SessionMessage } from '../../types/agentapi';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ACPConnectionState =
-  | 'connecting'  // initial — waiting for verdict
-  | 'connected'   // WS + ACP handshake succeeded
-  | 'failed'      // WS or handshake failed → retrying
-  | 'closed';     // component unmounted / session changed
+  | 'connecting'
+  | 'connected'
+  | 'failed'
+  | 'closed';
 
 export interface UseACPWebSocketResult {
   connectionState: ACPConnectionState;
@@ -47,7 +50,7 @@ export interface UseACPWebSocketResult {
   sendPrompt: (text: string) => Promise<boolean>;
 }
 
-// ─── Internal ACP result shapes ───────────────────────────────────────────────
+// ─── Internal ACP shapes ──────────────────────────────────────────────────────
 
 interface ACPSessionResult {
   sessionId: string;
@@ -74,10 +77,10 @@ const ACP_CALL_TIMEOUT_MS = 15_000;
 const INITIAL_RECONNECT_DELAY_MS = 2_000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
 
+/** sessionStorage key for display history (NOT for ACP session ID). */
 const MESSAGES_KEY_PREFIX = 'acp_messages_';
-const ACP_SESSION_KEY_PREFIX = 'acp_sid_';
 
-// ─── Storage helpers ──────────────────────────────────────────────────────────
+// ─── Storage helpers (display history only) ───────────────────────────────────
 
 function loadMessages(sessionId: string): SessionMessage[] {
   try {
@@ -89,19 +92,7 @@ function loadMessages(sessionId: string): SessionMessage[] {
 function saveMessages(sessionId: string, messages: SessionMessage[]): void {
   try {
     sessionStorage.setItem(MESSAGES_KEY_PREFIX + sessionId, JSON.stringify(messages));
-  } catch { /* quota / private browsing — ignore */ }
-}
-
-function loadAcpSid(sessionId: string): string | null {
-  try {
-    return sessionStorage.getItem(ACP_SESSION_KEY_PREFIX + sessionId);
-  } catch { return null; }
-}
-
-function saveAcpSid(sessionId: string, acpSid: string): void {
-  try {
-    sessionStorage.setItem(ACP_SESSION_KEY_PREFIX + sessionId, acpSid);
-  } catch { /* ignore */ }
+  } catch { /* quota / private browsing */ }
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -123,7 +114,7 @@ export function useACPWebSocket(
   const reconnectDelayRef = useRef(INITIAL_RECONNECT_DELAY_MS);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── persist messages on every change ─────────────────────────────────────
+  // ── persist messages with every update ───────────────────────────────────
   const setAndPersistMessages = useCallback(
     (updater: (prev: SessionMessage[]) => SessionMessage[]) => {
       if (!sessionId) return;
@@ -136,7 +127,7 @@ export function useACPWebSocket(
     [sessionId],
   );
 
-  // ── connect & handshake ───────────────────────────────────────────────────
+  // ── single connection attempt ─────────────────────────────────────────────
   const attemptConnect = useCallback(async (
     sid: string,
     cancelledRef: { current: boolean },
@@ -160,6 +151,7 @@ export function useACPWebSocket(
       await client.connect();
       if (cancelledRef.current) { client.close(); return; }
 
+      // ACP handshake
       await client.call('initialize', {
         protocolVersion: 0,
         clientInfo: { name: 'agentapi-ui', version: '1.0.0' },
@@ -167,54 +159,24 @@ export function useACPWebSocket(
       }, ACP_CALL_TIMEOUT_MS);
       if (cancelledRef.current) { client.close(); return; }
 
-      // ── Resume or create session ─────────────────────────────────────────
-      const savedAcpSid = loadAcpSid(sid);
-      let acpSid: string;
-
-      if (savedAcpSid) {
-        try {
-          // Try to resume the existing ACP session (keeps agent context / history)
-          const result = await client.call<ACPSessionResult>('session/resume', {
-            sessionId: savedAcpSid,
-            cwd: '/',
-          }, ACP_CALL_TIMEOUT_MS);
-          acpSid = result.sessionId;
-          console.info(`[ACP] Resumed session ${acpSid}`);
-        } catch (err) {
-          // Session may have been GC'd — fall back to new session
-          console.warn('[ACP] session/resume failed, creating new session:', err);
-          const result = await client.call<ACPSessionResult>('session/new', {
-            cwd: '/',
-            mcpServers: [],
-          }, ACP_CALL_TIMEOUT_MS);
-          acpSid = result.sessionId;
-          console.info(`[ACP] New session ${acpSid} (resume failed)`);
-          // Clear stale message history since we lost the ACP session
-          saveAcpSid(sid, acpSid);
-          saveMessages(sid, []);
-          setAcpMessages([]);
-          msgIdRef.current = 0;
-        }
-      } else {
-        // First connect — create a brand new ACP session
-        const result = await client.call<ACPSessionResult>('session/new', {
-          cwd: '/',
-          mcpServers: [],
-        }, ACP_CALL_TIMEOUT_MS);
-        acpSid = result.sessionId;
-        console.info(`[ACP] New session ${acpSid}`);
-      }
-
+      // Always send session/new — the proxy will transparently replace it
+      // with session/resume if a previous ACP session ID is stored server-side.
+      const { sessionId: acpSid } = await client.call<ACPSessionResult>('session/new', {
+        cwd: '/',
+        mcpServers: [],
+      }, ACP_CALL_TIMEOUT_MS);
       if (cancelledRef.current) { client.close(); return; }
-      acpSessionIdRef.current = acpSid;
-      saveAcpSid(sid, acpSid);
 
-      // ── Subscribe to session/update notifications ────────────────────────
+      acpSessionIdRef.current = acpSid;
+      console.info(`[ACP] Session ready: ${acpSid}`);
+
+      // Subscribe to session/update notifications
       client.onNotification((method, rawParams) => {
         if (method !== 'session/update') return;
         const params = rawParams as ACPSessionUpdateParams | undefined;
         const updateType = params?.update?.sessionUpdate;
 
+        // Accumulate text chunks into the current assistant message
         if (updateType === 'agent_message_chunk') {
           const block = params?.update?.content;
           const text = block?.type === 'text' && block.text ? block.text : '';
@@ -235,7 +197,7 @@ export function useACPWebSocket(
           return;
         }
 
-        // agent_thought_chunk → internal thinking, do NOT show
+        // Internal thinking — do NOT show to user
         if (updateType === 'agent_thought_chunk') return;
 
         if (updateType === 'agent_message_end') {
@@ -254,7 +216,7 @@ export function useACPWebSocket(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectTimeout, setAndPersistMessages]);
 
-  // ── reconnect with backoff ────────────────────────────────────────────────
+  // ── exponential backoff reconnect ─────────────────────────────────────────
   const scheduleReconnect = useCallback((
     sid: string,
     cancelledRef: { current: boolean },
@@ -268,11 +230,12 @@ export function useACPWebSocket(
     }, delay);
   }, [attemptConnect]);
 
-  // ── effect: mount / sessionId change ─────────────────────────────────────
+  // ── mount / sessionId change ──────────────────────────────────────────────
   useEffect(() => {
     if (!sessionId) return;
     const cancelledRef = { current: false };
 
+    // Restore display history from sessionStorage
     const saved = loadMessages(sessionId);
     setAcpMessages(saved);
     msgIdRef.current = saved.length;
