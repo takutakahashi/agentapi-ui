@@ -20,6 +20,7 @@ import Link from 'next/link';
 import type { UseACPWebSocketResult } from '../hooks/useACPWebSocket';
 import MessageItem from './MessageItem';
 import { getEnterKeyBehavior, getFontSettings, FontSettings } from '../../types/settings';
+import { InitialMessageCache } from '../../utils/initialMessageCache';
 
 interface ACPChatProps {
   sessionId: string;
@@ -29,6 +30,8 @@ interface ACPChatProps {
 export default function ACPChat({ sessionId, acpWS }: ACPChatProps) {
   const [inputValue, setInputValue] = useState('');
   const [fontSettings, setFontSettings] = useState<FontSettings>(() => getFontSettings());
+  /** Prevents the initial message from being sent more than once. */
+  const initialMessageSentRef = useRef(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -42,6 +45,25 @@ export default function ACPChat({ sessionId, acpWS }: ACPChatProps) {
     };
     window.addEventListener('fontSettingsChanged', handler);
     return () => window.removeEventListener('fontSettingsChanged', handler);
+  }, []);
+
+  // ── Auto-send initial message ────────────────────────────────────────────
+  // For claude-acp sessions the provisioner cannot send the initial message via
+  // REST (acp-ws-server has no /message endpoint).  We send it here once the
+  // ACP WebSocket is established and there are no existing messages yet.
+  useEffect(() => {
+    if (initialMessageSentRef.current) return;
+    if (acpWS.acpMessages.length > 0) return; // existing conversation — don't re-send
+
+    const cached = InitialMessageCache.getCachedMessages();
+    if (cached.length === 0) return;
+
+    initialMessageSentRef.current = true;
+    const initialMsg = cached[0];
+    InitialMessageCache.clearCache();
+    acpWS.sendPrompt(initialMsg);
+  // Run once on mount (ACPChat is only mounted when acpWS.isConnected is true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Auto-scroll ──────────────────────────────────────────────────────────
