@@ -257,16 +257,19 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const lastLoadTimeRef = useRef<number>(0);
 
   // ── ACP + polling message merge ─────────────────────────────────────────────
-  // When ACP WebSocket is connected, new messages arrive through it.
-  // We still keep REST-loaded history (messages) and append ACP updates.
-  // When in polling mode, displayMessages === messages (unchanged behaviour).
+  // When ACP WebSocket is connected (or connecting with restored history),
+  // new messages arrive through it and are persisted to sessionStorage.
+  // For claude-acp sessions: ACP messages are the source of truth for history.
+  // For other sessions: REST polling is used (unchanged behaviour).
   const displayMessages = useMemo(() => {
-    if (!acpWS.isConnected || acpWS.acpMessages.length === 0) return messages;
+    if (acpWS.acpMessages.length === 0) return messages;
     // Merge: REST history first, then any ACP messages not already in REST list
+    // (REST history is always empty for claude-acp sessions, so this is effectively
+    // just the ACP messages with deduplication for safety)
     const existingIds = new Set(messages.map((m) => m.id));
     const newACP = acpWS.acpMessages.filter((m) => !existingIds.has(m.id));
     return newACP.length > 0 ? [...messages, ...newACP] : messages;
-  }, [messages, acpWS.isConnected, acpWS.acpMessages]);
+  }, [messages, acpWS.acpMessages]);
 
   // Effective agent status: use ACP running state when WS is connected
   const effectiveAgentStatus = useMemo<AgentStatus | null>(() => {
