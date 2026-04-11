@@ -74,14 +74,18 @@ async function handleProxyRequest(
       apiKey = await getApiKeyFromCookie();
       if (!apiKey) {
         console.error('API proxy request failed: No API key found in cookie. Make sure you are logged in and COOKIE_ENCRYPTION_SECRET is properly configured.');
-        return NextResponse.json(
-          { 
-            error: 'Authentication required', 
+        // Clear the (possibly corrupted/undecryptable) cookie so the middleware
+        // will redirect to /login on the next page navigation.
+        const res = NextResponse.json(
+          {
+            error: 'Authentication required',
             message: 'No API key found in cookie. Please log in again.',
             code: 'NO_API_KEY'
           },
           { status: 401 }
         );
+        res.cookies.set('agentapi_token', '', { maxAge: 0, path: '/' });
+        return res;
       }
       
       // Renew cookie expiration only on session creation

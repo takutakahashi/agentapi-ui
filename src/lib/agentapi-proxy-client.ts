@@ -229,9 +229,14 @@ export class AgentAPIProxyClient {
             message: `HTTP ${response.status}: ${response.statusText}`,
           }));
 
+          // If the server cleared the cookie (decryption failed), redirect to login.
+          if (response.status === 401 && errorData.code === 'NO_API_KEY' && typeof window !== 'undefined') {
+            window.location.href = '/login';
+          }
+
           // Support both Echo's simple format and structured error format
           const errorMessage = errorData.message || errorData.error?.message || `HTTP ${response.status}`;
-          const errorCode = errorData.error?.code || 'HTTP_ERROR';
+          const errorCode = errorData.code || errorData.error?.code || 'HTTP_ERROR';
           const errorDetails = errorData.error?.details;
 
           throw new AgentAPIProxyError(
