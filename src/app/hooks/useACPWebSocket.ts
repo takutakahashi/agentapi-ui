@@ -70,6 +70,17 @@ interface ACPSessionUpdateParams {
   update?: {
     sessionUpdate?: string;
     content?: ACPContentBlock;
+    /** tool_call / tool_call_update fields */
+    toolCallId?: string;
+    status?: string;
+    rawInput?: unknown;
+    rawOutput?: unknown;
+    _meta?: {
+      claudeCode?: {
+        toolName?: string;
+      };
+      [key: string]: unknown;
+    };
     [key: string]: unknown;
   };
   [key: string]: unknown;
@@ -212,6 +223,76 @@ export function useACPWebSocket(
 
         // Internal thinking — do NOT show to user
         if (updateType === 'agent_thought_chunk') return;
+
+        // tool_call: a new tool use has started
+        if (updateType === 'tool_call') {
+          const toolCallId = params?.update?.toolCallId;
+          const toolName = params?.update?._meta?.claudeCode?.toolName ?? 'unknown';
+          const rawInput = params?.update?.rawInput;
+          if (!toolCallId) return;
+
+          setAndPersistMessages((prev) => {
+            // Avoid duplicates (second-encounter deduplication)
+            if (prev.some((m) => m.role === 'agent' && m.toolUseId === toolCallId)) {
+              return prev;
+            }
+            return [
+              ...prev,
+              {
+                id: ++msgIdRef.current,
+                role: 'agent',
+                content: JSON.stringify({
+                  type: 'tool_use',
+                  name: toolName,
+                  id: toolCallId,
+                  input: rawInput ?? {},
+                }),
+                toolUseId: toolCallId,
+                time: new Date().toISOString(),
+              } satisfies SessionMessage,
+            ];
+          });
+          return;
+        }
+
+        // tool_call_update: tool execution completed or failed
+        if (updateType === 'tool_call_update') {
+          const toolCallId = params?.update?.toolCallId;
+          const status = params?.update?.status;
+          const rawOutput = params?.update?.rawOutput;
+
+          // Only process terminal status updates (ignore intermediate terminal_output etc.)
+          if (!toolCallId || (status !== 'completed' && status !== 'failed')) return;
+
+          setAndPersistMessages((prev) => {
+            // Avoid duplicates
+            if (prev.some((m) => m.role === 'tool_result' && m.parentToolUseId === toolCallId)) {
+              return prev;
+            }
+            const resultContent =
+              status === 'failed'
+                ? JSON.stringify({
+                    error:
+                      typeof rawOutput === 'string' ? rawOutput : JSON.stringify(rawOutput),
+                  })
+                : JSON.stringify({
+                    result:
+                      typeof rawOutput === 'string' ? rawOutput : JSON.stringify(rawOutput),
+                  });
+            return [
+              ...prev,
+              {
+                id: ++msgIdRef.current,
+                role: 'tool_result',
+                content: resultContent,
+                parentToolUseId: toolCallId,
+                status: status === 'completed' ? 'success' : 'error',
+                time: new Date().toISOString(),
+              } satisfies SessionMessage,
+            ];
+          });
+          return;
+        }
 
         // agent_message_end: standard ACP end signal (may not be sent by all agents)
         // usage_update: sent by claude-agent-acp at the end of each turn

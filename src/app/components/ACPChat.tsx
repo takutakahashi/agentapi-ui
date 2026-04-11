@@ -15,7 +15,7 @@
  *  - Connection state is shown clearly in the header.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import type { UseACPWebSocketResult } from '../hooks/useACPWebSocket';
 import MessageItem from './MessageItem';
@@ -221,15 +221,55 @@ export default function ACPChat({ sessionId, acpWS }: ACPChatProps) {
         )}
 
         <div className="space-y-1">
-          {acpWS.acpMessages.map((message) => (
-            <MessageItem
-              key={message.id}
-              message={message}
-              formatTimestamp={(ts) => new Date(ts).toLocaleTimeString()}
-              fontSettings={fontSettings}
-              isClaudeAgent={false}
-            />
-          ))}
+          {(() => {
+            const rendered: React.ReactElement[] = [];
+            const processedIds = new Set<number>();
+
+            acpWS.acpMessages.forEach((message) => {
+              if (processedIds.has(message.id)) return;
+
+              // tool_result with a parent is rendered alongside the tool_use — skip standalone
+              if (message.role === 'tool_result' && message.parentToolUseId) {
+                processedIds.add(message.id);
+                return;
+              }
+
+              // tool_use: pair with its matching tool_result
+              if (message.role === 'agent' && message.toolUseId) {
+                const toolResult = acpWS.acpMessages.find(
+                  (m) => m.role === 'tool_result' && m.parentToolUseId === message.toolUseId,
+                );
+                if (toolResult) processedIds.add(toolResult.id);
+
+                rendered.push(
+                  <MessageItem
+                    key={message.id}
+                    message={message}
+                    toolResult={toolResult}
+                    formatTimestamp={(ts) => new Date(ts).toLocaleTimeString()}
+                    fontSettings={fontSettings}
+                    isClaudeAgent={false}
+                  />,
+                );
+                processedIds.add(message.id);
+                return;
+              }
+
+              // Normal messages (user, assistant, standalone agent, standalone tool_result)
+              rendered.push(
+                <MessageItem
+                  key={message.id}
+                  message={message}
+                  formatTimestamp={(ts) => new Date(ts).toLocaleTimeString()}
+                  fontSettings={fontSettings}
+                  isClaudeAgent={false}
+                />,
+              );
+              processedIds.add(message.id);
+            });
+
+            return rendered;
+          })()}
         </div>
 
         {/* Streaming / thinking indicator */}
