@@ -336,19 +336,34 @@ async function handleProxyRequest(
 
     // Return response with appropriate status
     if (!response.ok) {
+      // When agentapi-proxy returns 401, the user's token is invalid.
+      // Clear the cookie so the client can redirect to login.
+      if (response.status === 401 && !isOAuthEndpoint) {
+        const res = NextResponse.json(
+          {
+            error: 'Authentication required',
+            message: 'Your session has expired or the token is invalid. Please log in again.',
+            code: 'NO_API_KEY'
+          },
+          { status: 401 }
+        );
+        res.cookies.set('agentapi_token', '', { maxAge: 0, path: '/' });
+        return res;
+      }
+
       // Ensure error response is properly structured
       let errorResponse: Record<string, unknown>;
-      
+
       if (typeof responseData === 'object' && responseData !== null) {
         errorResponse = responseData as Record<string, unknown>;
       } else {
-        errorResponse = { 
-          error: responseData || 'Proxy request failed', 
+        errorResponse = {
+          error: responseData || 'Proxy request failed',
           status: response.status,
           code: 'PROXY_REQUEST_FAILED'
         };
       }
-      
+
       return NextResponse.json(errorResponse, { status: response.status });
     }
 
