@@ -194,6 +194,31 @@ export function useACPWebSocket(
       acpSessionIdRef.current = acpSid;
       console.info(`[ACP] Session ready: ${acpSid}`);
 
+      // Load message history from the provisioner intercept server.
+      // The intercept server accumulates messages server-side so history is
+      // available across browsers/tabs/reconnects.
+      try {
+        const historyRes = await fetch(`/${sid}/messages`);
+        if (historyRes.ok && !cancelledRef.current) {
+          const historyData = await historyRes.json() as { messages?: SessionMessage[] };
+          const serverMessages = historyData.messages ?? [];
+          if (serverMessages.length > 0) {
+            // Prefer server history over sessionStorage (it's authoritative).
+            setAndPersistMessages(() => {
+              msgIdRef.current = serverMessages.length > 0
+                ? Math.max(...serverMessages.map((m) => m.id))
+                : msgIdRef.current;
+              return serverMessages;
+            });
+            console.info(`[ACP] Loaded ${serverMessages.length} messages from server`);
+          }
+        }
+      } catch (err) {
+        // Non-fatal: history endpoint not available (non-claude-acp sessions, etc.)
+        console.debug('[ACP] History fetch skipped:', err);
+      }
+      if (cancelledRef.current) { client.close(); return; }
+
       // Subscribe to session/update notifications
       client.onNotification((method, rawParams) => {
         if (method !== 'session/update') return;
