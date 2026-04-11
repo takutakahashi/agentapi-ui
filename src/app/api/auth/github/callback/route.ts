@@ -24,11 +24,9 @@ export async function GET(request: NextRequest) {
     }
 
     // agentapi-proxyのOAuthコールバックエンドポイントを使用
-    // デフォルトでローカルの /api/proxy を使用（サーバーサイドでは絶対URLが必要）
-    const baseUrl = process.env.AGENTAPI_PROXY_ENDPOINT || 
-      (process.env.NODE_ENV === 'production' 
-        ? `https://${request.headers.get('host')}` 
-        : 'http://localhost:3000')
+    // デフォルトでリクエストと同じホストの /api/proxy を使用（サーバーサイドでは絶対URLが必要）
+    const baseUrl = process.env.AGENTAPI_PROXY_ENDPOINT ||
+      `${request.nextUrl.protocol}//${request.headers.get('host') ?? request.nextUrl.host}`
     const proxyEndpoint = baseUrl.endsWith('/api/proxy') ? baseUrl : `${baseUrl}/api/proxy`
     const response = await fetch(`${proxyEndpoint}/oauth/callback?code=${code}&state=${state}`, {
       method: 'GET',
@@ -55,12 +53,8 @@ export async function GET(request: NextRequest) {
     // oauth_state Cookieを削除
     headers.append('Set-Cookie', 'oauth_state=; Path=/; Max-Age=0')
 
-    // ホームページにリダイレクト - 適切なホスト名を使用
-    const redirectUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-      (process.env.NODE_ENV === 'production' 
-        ? `https://${request.headers.get('host')}` 
-        : 'http://localhost:3000')
-    const redirectResponse = NextResponse.redirect(new URL('/chats', redirectUrl))
+    // ホームページにリダイレクト - リクエストと同じホストを使用
+    const redirectResponse = NextResponse.redirect(new URL('/chats', request.url))
     headers.forEach((value, key) => {
       redirectResponse.headers.append(key, value)
     })

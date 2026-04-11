@@ -13,11 +13,9 @@ export async function POST(request: NextRequest) {
     }
 
     // agentapi-proxyのOAuth認証エンドポイントを使用
-    // デフォルトでローカルの /api/proxy を使用（サーバーサイドでは絶対URLが必要）
-    const baseUrl = process.env.AGENTAPI_PROXY_ENDPOINT || 
-      (process.env.NODE_ENV === 'production' 
-        ? `https://${request.headers.get('host')}` 
-        : 'http://localhost:3000')
+    // デフォルトでリクエストと同じホストの /api/proxy を使用（サーバーサイドでは絶対URLが必要）
+    const baseUrl = process.env.AGENTAPI_PROXY_ENDPOINT ||
+      `${request.nextUrl.protocol}//${request.headers.get('host') ?? request.nextUrl.host}`
     const proxyEndpoint = baseUrl.endsWith('/api/proxy') ? baseUrl : `${baseUrl}/api/proxy`
     const response = await fetch(`${proxyEndpoint}/oauth/authorize`, {
       method: 'POST',
