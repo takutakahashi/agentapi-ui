@@ -199,6 +199,48 @@ function proxyToNext(
   req.pipe(proxyReq, { end: true });
 }
 
+// ─── HTTP proxy for session-scoped paths (/{sessionId}/messages, /reset, …) ───
+//
+// These paths are handled by the agentapi-proxy / session pod intercept server,
+// not by Next.js.  We forward them to PROXY_URL with Bearer auth from the cookie.
+
+const SESSION_HTTP_RE = /^\/([a-zA-Z0-9_-]{8,})\/([a-zA-Z0-9_/-]+)$/;
+
+function proxySessionHttpRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  apiKey: string,
+): void {
+  const targetUrl = new URL(req.url!, PROXY_URL);
+  const targetHost = targetUrl.hostname;
+  const targetPort = parseInt(targetUrl.port || (targetUrl.protocol === 'https:' ? '443' : '80'), 10);
+
+  const options = {
+    hostname: targetHost,
+    port: targetPort,
+    path: targetUrl.pathname + targetUrl.search,
+    method: req.method,
+    headers: {
+      ...req.headers,
+      host: targetUrl.host,
+      Authorization: `Bearer ${apiKey}`,
+    },
+  };
+
+  const proxyReq = httpRequest(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode!, proxyRes.headers);
+    proxyRes.pipe(res, { end: true });
+  });
+
+  proxyReq.on('error', (err) => {
+    console.error('[PROXY] Error forwarding session HTTP request:', err.message);
+    if (!res.headersSent) res.writeHead(502);
+    res.end('Bad Gateway');
+  });
+
+  req.pipe(proxyReq, { end: true });
+}
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 if (dev) {
@@ -210,6 +252,18 @@ if (dev) {
   await app.prepare();
 
   const server = createServer((req, res) => {
+    const pathname = parse(req.url!, true).pathname ?? '';
+    // Session-scoped paths (/{sessionId}/messages, /reset, etc.) go to agentapi-proxy.
+    if (SESSION_HTTP_RE.test(pathname)) {
+      const apiKey = getApiKeyFromRequest(req);
+      if (!apiKey) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+      proxySessionHttpRequest(req, res, apiKey);
+      return;
+    }
     const parsedUrl = parse(req.url!, true);
     handle(req, res, parsedUrl);
   });
@@ -260,8 +314,20 @@ if (dev) {
   }
   console.log(`[BOOT] Next.js is ready`);
 
-  // Create our HTTP server that proxies to Next.js
+  // Create our HTTP server that proxies to Next.js (or agentapi-proxy for session paths)
   const server = createServer((req, res) => {
+    const pathname = parse(req.url!, true).pathname ?? '';
+    // Session-scoped paths (/{sessionId}/messages, /reset, etc.) go to agentapi-proxy.
+    if (SESSION_HTTP_RE.test(pathname)) {
+      const apiKey = getApiKeyFromRequest(req);
+      if (!apiKey) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+      proxySessionHttpRequest(req, res, apiKey);
+      return;
+    }
     proxyToNext(req, res, nextInternalPort);
   });
 
