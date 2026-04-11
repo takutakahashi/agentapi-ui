@@ -53,8 +53,13 @@ export async function GET(request: NextRequest) {
     // oauth_state Cookieを削除
     headers.append('Set-Cookie', 'oauth_state=; Path=/; Max-Age=0')
 
-    // ホームページにリダイレクト - リクエストと同じホストを使用
-    const redirectResponse = NextResponse.redirect(new URL('/chats', request.url))
+    // ホームページにリダイレクト - X-Forwarded-* を優先して外部公開URLを使用
+    const forwardedProto = request.headers.get('x-forwarded-proto')
+    const forwardedHost = request.headers.get('x-forwarded-host')
+    const publicOrigin = (forwardedProto && forwardedHost)
+      ? `${forwardedProto.split(',')[0].trim()}://${forwardedHost}`
+      : request.nextUrl.origin
+    const redirectResponse = NextResponse.redirect(new URL('/chats', publicOrigin))
     headers.forEach((value, key) => {
       redirectResponse.headers.append(key, value)
     })
