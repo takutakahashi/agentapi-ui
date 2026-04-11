@@ -97,9 +97,9 @@ function setupWebSocketProxy(
   server.on('upgrade', (req, socket, head) => {
     const pathname = parse(req.url!, true).pathname ?? '';
 
-    // Match /:sessionId/<subpath> where sessionId looks like a UUID/identifier.
-    // Excludes short/well-known paths like /_next, /api, /public, etc.
-    const match = pathname.match(/^\/([a-zA-Z0-9_-]{8,})\/(.+)$/);
+    // Match /:sessionId/<subpath> where sessionId is a UUID.
+    // Using strict UUID format to avoid capturing Next.js routes.
+    const match = pathname.match(/^\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/(.+)$/);
     if (!match) {
       socket.destroy();
       return;
@@ -204,7 +204,9 @@ function proxyToNext(
 // These paths are handled by the agentapi-proxy / session pod intercept server,
 // not by Next.js.  We forward them to PROXY_URL with Bearer auth from the cookie.
 
-const SESSION_HTTP_RE = /^\/([a-zA-Z0-9_-]{8,})\/([a-zA-Z0-9_/-]+)$/;
+// Only match UUID-format session IDs (e.g. 1cf95d33-6b6d-4c09-a8bf-fc9d8a18a6e6)
+// to avoid accidentally capturing Next.js routes like /settings/personal, /webhooks/...
+const SESSION_HTTP_RE = /^\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/(.+)$/;
 
 function proxySessionHttpRequest(
   req: IncomingMessage,
