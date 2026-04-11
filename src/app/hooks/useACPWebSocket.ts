@@ -6,12 +6,13 @@
  * streaming messages.  On failure it falls back and retries with exponential
  * backoff.
  *
- * Session persistence is handled server-side (agentapi-proxy):
- *  - The proxy stores the ACP session ID in the Kubernetes Service annotation
- *    `agentapi.proxy/acp-session-id`.
- *  - On reconnect, the proxy transparently rewrites `session/new` to
- *    `session/resume` using the stored ID, so the agent retains its context.
- *  - The UI always sends `session/new` — no client-side session ID management.
+ * Session persistence is handled server-side (provisioner intercept server):
+ *  - Before connecting, the client calls GET /{sid}/messages which returns
+ *    `{ messages, acpSessionId }`.
+ *  - If acpSessionId is present the client sends `session/resume`; otherwise
+ *    it sends `session/new`.
+ *  - If session/resume fails (-32002 Resource not found) the client calls
+ *    POST /{sid}/reset to clear the server state then retries with session/new.
  *
  * Message handling:
  *  - agent_message_chunk: chunks are accumulated into the current assistant
@@ -183,41 +184,74 @@ export function useACPWebSocket(
         initResult?.agentCapabilities?._meta?.claudeCode?.promptQueueing === true;
       setPromptQueueing(supportsQueueing);
 
-      // Always send session/new — the proxy will transparently replace it
-      // with session/resume if a previous ACP session ID is stored server-side.
-      const { sessionId: acpSid } = await client.call<ACPSessionResult>('session/new', {
-        cwd: '/',
-        mcpServers: [],
-      }, ACP_CALL_TIMEOUT_MS);
+      // Fetch state from the provisioner intercept server before deciding
+      // whether to send session/new or session/resume.
+      let serverAcpSessionId: string | null = null;
+      let serverMessages: SessionMessage[] = [];
+      try {
+        const stateRes = await fetch(`/${sid}/messages`);
+        if (stateRes.ok && !cancelledRef.current) {
+          const stateData = await stateRes.json() as {
+            messages?: SessionMessage[];
+            acpSessionId?: string | null;
+          };
+          serverMessages = stateData.messages ?? [];
+          serverAcpSessionId = stateData.acpSessionId ?? null;
+          console.info(
+            `[ACP] Server state: acpSessionId=${serverAcpSessionId ?? 'none'}, messages=${serverMessages.length}`,
+          );
+        }
+      } catch (err) {
+        // Non-fatal: provisioner state endpoint not available (non-claude-acp sessions, etc.)
+        console.debug('[ACP] State fetch skipped:', err);
+      }
+      if (cancelledRef.current) { client.close(); return; }
+
+      // Establish ACP session: resume if we have a stored session ID, otherwise new.
+      let acpSid: string;
+      if (serverAcpSessionId) {
+        try {
+          const result = await client.call<ACPSessionResult>('session/resume', {
+            sessionId: serverAcpSessionId,
+            cwd: '/',
+            mcpServers: [],
+          }, ACP_CALL_TIMEOUT_MS);
+          acpSid = result.sessionId;
+          console.info(`[ACP] Resumed session: ${acpSid}`);
+        } catch (resumeErr) {
+          // session/resume failed (e.g. acp-ws-server restarted).
+          // Reset server state and fall back to a fresh session.
+          console.warn('[ACP] session/resume failed, resetting and falling back to session/new:', resumeErr);
+          try { await fetch(`/${sid}/reset`, { method: 'POST' }); } catch { /* best-effort */ }
+          if (cancelledRef.current) { client.close(); return; }
+          serverMessages = []; // history is no longer valid
+          const result = await client.call<ACPSessionResult>('session/new', {
+            cwd: '/',
+            mcpServers: [],
+          }, ACP_CALL_TIMEOUT_MS);
+          acpSid = result.sessionId;
+          console.info(`[ACP] New session (after resume failure): ${acpSid}`);
+        }
+      } else {
+        const result = await client.call<ACPSessionResult>('session/new', {
+          cwd: '/',
+          mcpServers: [],
+        }, ACP_CALL_TIMEOUT_MS);
+        acpSid = result.sessionId;
+        console.info(`[ACP] New session: ${acpSid}`);
+      }
       if (cancelledRef.current) { client.close(); return; }
 
       acpSessionIdRef.current = acpSid;
-      console.info(`[ACP] Session ready: ${acpSid}`);
 
-      // Load message history from the provisioner intercept server.
-      // The intercept server accumulates messages server-side so history is
-      // available across browsers/tabs/reconnects.
-      try {
-        const historyRes = await fetch(`/${sid}/messages`);
-        if (historyRes.ok && !cancelledRef.current) {
-          const historyData = await historyRes.json() as { messages?: SessionMessage[] };
-          const serverMessages = historyData.messages ?? [];
-          if (serverMessages.length > 0) {
-            // Prefer server history over sessionStorage (it's authoritative).
-            setAndPersistMessages(() => {
-              msgIdRef.current = serverMessages.length > 0
-                ? Math.max(...serverMessages.map((m) => m.id))
-                : msgIdRef.current;
-              return serverMessages;
-            });
-            console.info(`[ACP] Loaded ${serverMessages.length} messages from server`);
-          }
-        }
-      } catch (err) {
-        // Non-fatal: history endpoint not available (non-claude-acp sessions, etc.)
-        console.debug('[ACP] History fetch skipped:', err);
+      // Apply server message history (authoritative over sessionStorage).
+      if (serverMessages.length > 0) {
+        setAndPersistMessages(() => {
+          msgIdRef.current = Math.max(...serverMessages.map((m) => m.id));
+          return serverMessages;
+        });
+        console.info(`[ACP] Loaded ${serverMessages.length} messages from server`);
       }
-      if (cancelledRef.current) { client.close(); return; }
 
       // Subscribe to session/update notifications
       client.onNotification((method, rawParams) => {
