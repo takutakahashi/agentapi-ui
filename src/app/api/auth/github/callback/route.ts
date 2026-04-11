@@ -38,9 +38,35 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json()
-    
+
+    // Fetch the stable personal API key using the OAuth access token.
+    // This is a "get or create" operation — the key never changes between logins,
+    // so all browsers for the same user will share the same key.
+    // Storing the personal API key (instead of the ephemeral OAuth token) prevents
+    // other browsers from being logged out when the OAuth token rotates on re-login.
+    let tokenToStore = data.access_token
+    try {
+      const apiKeyResponse = await fetch(`${proxyUrl}/users/me/api-key`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${data.access_token}`,
+          Accept: 'application/json',
+        },
+      })
+      if (apiKeyResponse.ok) {
+        const apiKeyData = await apiKeyResponse.json() as { api_key?: string }
+        if (apiKeyData.api_key) {
+          tokenToStore = apiKeyData.api_key
+        }
+      } else {
+        console.warn('Failed to fetch personal API key (status', apiKeyResponse.status, '), falling back to OAuth token')
+      }
+    } catch (err) {
+      console.warn('Failed to fetch personal API key, falling back to OAuth token:', err)
+    }
+
     // APIキーを暗号化してCookieに保存
-    const encryptedApiKey = encryptApiKey(data.access_token)
+    const encryptedApiKey = encryptApiKey(tokenToStore)
     
     const headers = new Headers()
     headers.append(
