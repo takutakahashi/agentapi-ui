@@ -24,13 +24,9 @@ export async function GET(request: NextRequest) {
     }
 
     // agentapi-proxyのOAuthコールバックエンドポイントを使用
-    // デフォルトでローカルの /api/proxy を使用（サーバーサイドでは絶対URLが必要）
-    const baseUrl = process.env.AGENTAPI_PROXY_ENDPOINT || 
-      (process.env.NODE_ENV === 'production' 
-        ? `https://${request.headers.get('host')}` 
-        : 'http://localhost:3000')
-    const proxyEndpoint = baseUrl.endsWith('/api/proxy') ? baseUrl : `${baseUrl}/api/proxy`
-    const response = await fetch(`${proxyEndpoint}/oauth/callback?code=${code}&state=${state}`, {
+    // サーバーサイドからは AGENTAPI_PROXY_URL (in-cluster URL) で直接呼ぶ
+    const proxyUrl = process.env.AGENTAPI_PROXY_URL || 'http://localhost:8080'
+    const response = await fetch(`${proxyUrl}/oauth/callback?code=${code}&state=${state}`, {
       method: 'GET',
     })
 
@@ -42,9 +38,35 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json()
-    
+
+    // Fetch the stable personal API key using the OAuth access token.
+    // This is a "get or create" operation — the key never changes between logins,
+    // so all browsers for the same user will share the same key.
+    // Storing the personal API key (instead of the ephemeral OAuth token) prevents
+    // other browsers from being logged out when the OAuth token rotates on re-login.
+    let tokenToStore = data.access_token
+    try {
+      const apiKeyResponse = await fetch(`${proxyUrl}/users/me/api-key`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${data.access_token}`,
+          Accept: 'application/json',
+        },
+      })
+      if (apiKeyResponse.ok) {
+        const apiKeyData = await apiKeyResponse.json() as { api_key?: string }
+        if (apiKeyData.api_key) {
+          tokenToStore = apiKeyData.api_key
+        }
+      } else {
+        console.warn('Failed to fetch personal API key (status', apiKeyResponse.status, '), falling back to OAuth token')
+      }
+    } catch (err) {
+      console.warn('Failed to fetch personal API key, falling back to OAuth token:', err)
+    }
+
     // APIキーを暗号化してCookieに保存
-    const encryptedApiKey = encryptApiKey(data.access_token)
+    const encryptedApiKey = encryptApiKey(tokenToStore)
     
     const headers = new Headers()
     headers.append(
@@ -55,12 +77,13 @@ export async function GET(request: NextRequest) {
     // oauth_state Cookieを削除
     headers.append('Set-Cookie', 'oauth_state=; Path=/; Max-Age=0')
 
-    // ホームページにリダイレクト - 適切なホスト名を使用
-    const redirectUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-      (process.env.NODE_ENV === 'production' 
-        ? `https://${request.headers.get('host')}` 
-        : 'http://localhost:3000')
-    const redirectResponse = NextResponse.redirect(new URL('/chats', redirectUrl))
+    // ホームページにリダイレクト - X-Forwarded-* を優先して外部公開URLを使用
+    const forwardedProto = request.headers.get('x-forwarded-proto')
+    const forwardedHost = request.headers.get('x-forwarded-host')
+    const publicOrigin = (forwardedProto && forwardedHost)
+      ? `${forwardedProto.split(',')[0].trim()}://${forwardedHost}`
+      : request.nextUrl.origin
+    const redirectResponse = NextResponse.redirect(new URL('/chats', publicOrigin))
     headers.forEach((value, key) => {
       redirectResponse.headers.append(key, value)
     })

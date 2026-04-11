@@ -17,6 +17,8 @@ import MessageItem from './MessageItem';
 import ToolExecutionPane from './ToolExecutionPane';
 import PlanApprovalModal from './PlanApprovalModal';
 import AskUserQuestionModal from './AskUserQuestionModal';
+import { useACPWebSocket } from '../hooks/useACPWebSocket';
+import ACPChat from './ACPChat';
 
 // Define local types for agent status
 interface AgentStatus {
@@ -88,6 +90,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     return createAgentAPIProxyClientFromStorage();
   });
   const agentAPIRef = useRef<ReturnType<typeof createAgentAPIProxyClientFromStorage>>(agentAPI);
+
+  // ACP WebSocket connection — tries WS first, falls back to polling on failure.
+  // connectionFailed=true means polling mode should be used.
+  const acpWS = useACPWebSocket(sessionId);
 
   // Keep ref in sync
   useEffect(() => {
@@ -250,6 +256,29 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const prevMessagesLengthRef = useRef(0);
   const prevAgentStatusRef = useRef<AgentStatus | null>(null);
   const lastLoadTimeRef = useRef<number>(0);
+
+  // ── ACP + polling message merge ─────────────────────────────────────────────
+  // When ACP WebSocket is connected (or connecting with restored history),
+  // new messages arrive through it and are persisted to sessionStorage.
+  // For claude-acp sessions: ACP messages are the source of truth for history.
+  // For other sessions: REST polling is used (unchanged behaviour).
+  const displayMessages = useMemo(() => {
+    if (acpWS.acpMessages.length === 0) return messages;
+    // Merge: REST history first, then any ACP messages not already in REST list
+    // (REST history is always empty for claude-acp sessions, so this is effectively
+    // just the ACP messages with deduplication for safety)
+    const existingIds = new Set(messages.map((m) => m.id));
+    const newACP = acpWS.acpMessages.filter((m) => !existingIds.has(m.id));
+    return newACP.length > 0 ? [...messages, ...newACP] : messages;
+  }, [messages, acpWS.acpMessages]);
+
+  // Effective agent status: use ACP running state when WS is connected
+  const effectiveAgentStatus = useMemo<AgentStatus | null>(() => {
+    if (acpWS.isConnected) {
+      return { status: acpWS.agentRunning ? 'running' : 'stable' };
+    }
+    return agentStatus;
+  }, [acpWS.isConnected, acpWS.agentRunning, agentStatus]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -585,11 +614,19 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const pollingControlRef = useRef(pollingControl);
   pollingControlRef.current = pollingControl;
 
-  // Setup real-time event listening
+  // Setup real-time event listening.
+  // When the ACP WebSocket is connected we get live updates through it, so
+  // there is no need to poll.  We only start polling when:
+  //  - The HTTP connection is established (isConnected)
+  //  - AND the ACP WebSocket has either failed or is still connecting
+  //    (acpWS.isConnecting means we haven't yet decided — keep polling stopped
+  //     until the verdict is in to avoid double-fetching).
   useEffect(() => {
     const control = pollingControlRef.current;
-    
-    if (isConnected && sessionId) {
+
+    const shouldPoll = isConnected && sessionId && !acpWS.isConnected && !acpWS.isConnecting;
+
+    if (shouldPoll) {
       control.start();
     } else {
       control.stop();
@@ -598,7 +635,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     return () => {
       control.stop();
     };
-  }, [isConnected, sessionId]); // pollingControlを依存配列から除去
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, sessionId, acpWS.isConnected, acpWS.isConnecting]);
 
   // Get agent type from /status endpoint
   useEffect(() => {
@@ -655,9 +693,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     if (!messageContent && messageType === 'user') return;
     if (isLoading || !isConnected) return;
     
-    if (agentStatus?.status === 'running' && messageType === 'user') {
-      setError('Agent is currently running. Please wait for it to become stable.');
-      return;
+    // For claude-acp sessions with promptQueueing support, allow sending while running.
+    // For other agent types, block sending while running.
+    if (effectiveAgentStatus?.status === 'running' && messageType === 'user') {
+      if (!(agentType === 'claude-acp' && acpWS.promptQueueing)) {
+        setError('Agent is currently running. Please wait for it to become stable.');
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -665,19 +707,38 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
     try {
       if (sessionId) {
-        // Send message via session
-        if (!agentAPIRef.current) {
-          setError('AgentAPI client not available');
+        if (acpWS.isConnected && messageType === 'user') {
+          // ── ACP WebSocket mode ──────────────────────────────────────────
+          // sendPrompt adds the user message optimistically and streams the
+          // assistant reply via sessionUpdate notifications.
+          const ok = await acpWS.sendPrompt(messageContent);
+          if (!ok) {
+            setError('メッセージ送信に失敗しました (ACP)');
+            return;
+          }
+        } else if (agentType === 'claude-acp' && messageType === 'user') {
+          // ── claude-acp sessions require ACP WebSocket — never use HTTP ──
+          if (acpWS.isConnecting) {
+            setError('ACP WebSocket接続中です。しばらくお待ちください。');
+          } else {
+            setError('ACP WebSocket接続に失敗しました。再接続を試みています...');
+          }
           return;
-        }
-        const sessionMessage = await agentAPIRef.current.sendSessionMessage(sessionId, {
-          content: messageContent,
-          type: messageType
-        });
+        } else {
+          // ── REST / polling mode (fallback) ──────────────────────────────
+          if (!agentAPIRef.current) {
+            setError('AgentAPI client not available');
+            return;
+          }
+          const sessionMessage = await agentAPIRef.current.sendSessionMessage(sessionId, {
+            content: messageContent,
+            type: messageType
+          });
 
-        // For user messages, add to messages
-        if (messageType === 'user') {
-          setMessages(prev => [...prev, sessionMessage]);
+          // For user messages, add to messages
+          if (messageType === 'user') {
+            setMessages(prev => [...prev, sessionMessage]);
+          }
         }
       } else {
         setError('No session ID available. Cannot send message.');
@@ -709,7 +770,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, isLoading, isConnected, sessionId, agentStatus, loadRecentMessages]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputValue, isLoading, isConnected, sessionId, agentStatus, effectiveAgentStatus, agentType, loadRecentMessages, acpWS.isConnected, acpWS.isConnecting, acpWS.sendPrompt, acpWS.promptQueueing]);
 
   const handleShowPlanModal = useCallback((content: string) => {
     setPlanContent(content);
@@ -761,18 +823,25 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   }, [sessionId]);
 
   const sendStopSignal = async () => {
-    if (!sessionId || !agentAPIRef.current) {
-      setError('セッションが利用できません');
-      return;
-    }
-
     try {
-      if (agentType === 'claude' || agentType === 'codex') {
+      if (agentType === 'claude-acp') {
+        // ACP セッション: session/cancel notification を使用
+        acpWS.cancelSession();
+        console.log('Stop signal sent via session/cancel (ACP)');
+      } else if (agentType === 'claude' || agentType === 'codex') {
         // agentapi ベースのエージェント（claude, codex）: /action エンドポイントを使用
+        if (!sessionId || !agentAPIRef.current) {
+          setError('セッションが利用できません');
+          return;
+        }
         await agentAPIRef.current.sendAction(sessionId, { type: 'stop_agent' });
         console.log('Stop signal sent via /action endpoint (agent type:', agentType, ')');
       } else {
         // デフォルト・素のシェルセッション: Ctrl+C を送信
+        if (!sessionId || !agentAPIRef.current) {
+          setError('セッションが利用できません');
+          return;
+        }
         await agentAPIRef.current.sendSessionMessage(sessionId, {
           content: '\x03', // Ctrl+C
           type: 'raw'
@@ -867,6 +936,16 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
   };
 
+  // ── ACP sessions: use dedicated ACP chat component ──────────────────────
+  // Switch to ACPChat as soon as the ACP WebSocket is connected.
+  // We don't rely on agentType because the /status endpoint proxies to the
+  // underlying agentapi process and does not include agent_type in its response.
+  // A successful ACP WS connection is the definitive signal that this is a
+  // claude-acp session.
+  if (acpWS.isConnected && sessionId) {
+    return <ACPChat sessionId={sessionId} acpWS={acpWS} />;
+  }
+
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900" style={{ position: 'relative', minHeight: 0 }}>
       {/* Header */}
@@ -896,18 +975,26 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           </div>
           <div className="flex items-center space-x-2 sm:space-x-4">
             {/* Agent Status */}
-            {agentStatus && (
+            {effectiveAgentStatus && (
               <div className="flex items-center space-x-1 sm:space-x-2">
-                <div className={`w-2 h-2 rounded-full ${agentStatus.status === 'stable' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
-                <span className={`text-xs ${getStatusColor(agentStatus.status)} hidden sm:inline`}>
-                  {agentStatus.status === 'stable' ? 'Agent Available' : agentStatus.status === 'running' ? 'Agent Running' : agentStatus.status}
+                <div className={`w-2 h-2 rounded-full ${effectiveAgentStatus.status === 'stable' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                <span className={`text-xs ${getStatusColor(effectiveAgentStatus.status)} hidden sm:inline`}>
+                  {effectiveAgentStatus.status === 'stable' ? 'Agent Available' : effectiveAgentStatus.status === 'running' ? 'Agent Running' : effectiveAgentStatus.status}
                 </span>
+                {agentType === 'claude-acp' && (
+                  <span
+                    className={`text-xs hidden sm:inline ${acpWS.isConnected ? 'text-blue-500' : acpWS.isConnecting ? 'text-yellow-500' : 'text-red-500'}`}
+                    title={acpWS.isConnected ? 'ACP WebSocket connected' : acpWS.isConnecting ? 'ACP connecting...' : 'ACP disconnected - retrying'}
+                  >
+                    {acpWS.isConnected ? '⚡ACP' : acpWS.isConnecting ? '⏳ACP' : '⚠ACP'}
+                  </span>
+                )}
               </div>
             )}
 
 
             {/* Stop Button */}
-            {agentStatus?.status === 'running' && (
+            {effectiveAgentStatus?.status === 'running' && (
               <button
                 onClick={sendStopSignal}
                 disabled={!isConnected || isLoading}
@@ -1033,7 +1120,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           </div>
         )}
 
-        {messages.length === 0 && isConnected && (
+        {displayMessages.length === 0 && isConnected && (
           <div className="text-center text-gray-500 dark:text-gray-400 py-12">
             <div className="mb-3">
               <svg className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1061,7 +1148,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             const renderedMessages: JSX.Element[] = [];
             const processedIds = new Set<number>();
 
-            messages.forEach((message) => {
+            displayMessages.forEach((message) => {
               // すでに処理済みのメッセージはスキップ
               if (processedIds.has(message.id)) return;
 
@@ -1073,7 +1160,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
               // tool_use の場合、対応する tool_result を探す
               if (message.role === 'agent' && message.toolUseId) {
-                const toolResult = messages.find(m =>
+                const toolResult = displayMessages.find(m =>
                   m.role === 'tool_result' &&
                   m.parentToolUseId === message.toolUseId
                 );
@@ -1162,7 +1249,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       </div>
 
       {/* ツール実行確認ペーン */}
-      {sessionId && <ToolExecutionPane sessionId={sessionId} agentStatus={agentStatus?.status} />}
+      {/* Only rendered when the ACP WebSocket has definitively failed (non-ACP session).
+          While ACP is connecting or connected, we don't need REST-based tool status. */}
+      {sessionId && acpWS.connectionFailed && <ToolExecutionPane sessionId={sessionId} agentStatus={effectiveAgentStatus?.status} />}
 
       {/* Input */}
       <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 flex-shrink-0">
@@ -1248,15 +1337,15 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 setTimeout(() => setShowTemplates(false), 150);
               }}
               placeholder={
-                !isConnected 
-                  ? "Connecting..." 
-                  : agentStatus?.status === 'running'
+                !isConnected
+                  ? "Connecting..."
+                  : effectiveAgentStatus?.status === 'running' && !(agentType === 'claude-acp' && acpWS.promptQueueing)
                     ? "Agent is running, please wait..."
                     : "Write a comment..."
               }
               className="w-full resize-none border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px]"
               rows={3}
-              disabled={!isConnected || isLoading || agentStatus?.status === 'running'}
+              disabled={!isConnected || isLoading || (effectiveAgentStatus?.status === 'running' && !(agentType === 'claude-acp' && acpWS.promptQueueing))}
             />
             {showTemplates && templates.length > 0 && (
               <div className="absolute z-50 w-full bottom-full mb-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
@@ -1346,9 +1435,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 
                 <button
                   onClick={() => sendMessage()}
-                  disabled={!isConnected || isLoading || !inputValue.trim() || agentStatus?.status === 'running'}
+                  disabled={!isConnected || isLoading || !inputValue.trim() || (effectiveAgentStatus?.status === 'running' && !(agentType === 'claude-acp' && acpWS.promptQueueing)) || (agentType === 'claude-acp' && !acpWS.isConnected)}
                   aria-label="Send"
                   className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-sm font-medium"
+                  title={agentType === 'claude-acp' && !acpWS.isConnected ? (acpWS.isConnecting ? 'ACP接続中...' : 'ACP接続失敗 - 再接続中') : undefined}
                 >
                   {isLoading ? 'Sending...' : 'Comment'}
                 </button>

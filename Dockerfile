@@ -30,15 +30,22 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# No need for runtime config generation - using API Routes instead
+# Copy custom WebSocket server (starts standalone server.js internally on port 3001,
+# handles WS upgrades itself, and proxies HTTP to the internal Next.js server)
+COPY --from=builder --chown=nextjs:nodejs /app/server.ts ./server.ts
+
+# Copy ws package from builder (required by server.ts for WebSocket client/server)
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/ws ./node_modules/ws
 
 USER nextjs
 
 EXPOSE 3000
 
+ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ARG VALIDATE_API_KEY_WITH_PROXY=true
 ENV VALIDATE_API_KEY_WITH_PROXY=${VALIDATE_API_KEY_WITH_PROXY}
 
-CMD ["bun", "server.js"]
+# Use custom server.ts instead of standalone server.js to enable WebSocket proxy
+CMD ["bun", "server.ts"]

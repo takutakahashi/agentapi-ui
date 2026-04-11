@@ -128,7 +128,8 @@ export interface FontSettings {
 // 'default': agent_type を送信しない（バックエンドのデフォルト動作）
 // 'claude-agentapi': claude-agentapi を使用
 // 'codex-agentapi': codex-agentapi を使用
-export type AgentApiType = 'default' | 'claude-agentapi' | 'codex-agentapi'
+// 'claude-acp': acp-ws-server + @agentclientprotocol/claude-agent-acp を使用 (ACP WebSocket)
+export type AgentApiType = 'default' | 'claude-agentapi' | 'codex-agentapi' | 'claude-acp'
 
 export interface GlobalSettings {
   agentApiProxy: AgentApiProxySettings

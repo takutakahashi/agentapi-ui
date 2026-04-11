@@ -1,6 +1,23 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+/**
+ * Construct the public-facing base URL from the request.
+ * Prefers X-Forwarded-* headers set by the ingress/proxy over the raw
+ * request URL, which may contain an internal port (e.g. 3001).
+ */
+function getPublicOrigin(request: NextRequest): string {
+  const forwardedProto = request.headers.get('x-forwarded-proto')
+  const forwardedHost = request.headers.get('x-forwarded-host')
+  if (forwardedProto && forwardedHost) {
+    // x-forwarded-proto can be a comma-separated list; take the first value
+    const proto = forwardedProto.split(',')[0].trim()
+    return `${proto}://${forwardedHost}`
+  }
+  // Fall back to the request's own origin (works in local dev)
+  return request.nextUrl.origin
+}
+
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
@@ -27,8 +44,8 @@ export async function middleware(request: NextRequest) {
   const authToken = request.cookies.get('agentapi_token')
 
   if (!authToken) {
-    // If no auth token, redirect to login page
-    const loginUrl = new URL('/login', request.url)
+    // Redirect to login using the public-facing origin (not the internal port)
+    const loginUrl = new URL('/login', getPublicOrigin(request))
     return NextResponse.redirect(loginUrl)
   }
 

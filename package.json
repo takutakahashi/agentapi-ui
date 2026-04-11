@@ -4,9 +4,9 @@
   "private": true,
   "packageManager": "bun@1.2.16",
   "scripts": {
-    "dev": "next dev",
+    "dev": "bun run server.ts",
     "build": "next build",
-    "start": "next start",
+    "start": "NODE_ENV=production bun run server.ts",
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest --watch",
@@ -32,7 +32,8 @@
     "recharts": "^3.0.0",
     "remark-gfm": "^4.0.1",
     "uuid": "^11.1.0",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@playwright/experimental-ct-react": "^1.53.2",
@@ -44,6 +45,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/web-push": "^3.6.4",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.21",
     "eslint": "^8",
