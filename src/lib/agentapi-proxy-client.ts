@@ -62,6 +62,7 @@ import {
 } from '../types/task';
 import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, getSendGithubTokenOnSessionStart, getMemoryEnabled, getMemorySummarizeDrafts, AvailableManager } from '../types/settings';
 import { ProxyUserInfo } from '../types/user';
+import { handleAuthenticationRequired, isAuthenticationRequiredError } from './auth-error-handler';
 
 // CredentialsMetadata represents the metadata returned by the credentials API
 export interface CredentialsMetadata {
@@ -199,6 +200,11 @@ export class AgentAPIProxyClient {
                 message: `HTTP ${fallbackResponse.status}: ${fallbackResponse.statusText}`,
               }));
 
+              // Auto-logout when the proxy rejects the request due to missing/expired session cookie
+              if (isAuthenticationRequiredError(fallbackResponse.status, errorData)) {
+                handleAuthenticationRequired();
+              }
+
               // Support both Echo's simple format and structured error format
               const errorMessage = errorData.message || errorData.error?.message || `HTTP ${fallbackResponse.status}`;
               const errorCode = errorData.error?.code || 'HTTP_ERROR';
@@ -289,6 +295,11 @@ export class AgentAPIProxyClient {
         const errorData = await response.json().catch(() => ({
           message: `HTTP ${response.status}: ${response.statusText}`,
         }));
+
+        // Auto-logout when the proxy rejects the request due to missing/expired session cookie
+        if (isAuthenticationRequiredError(response.status, errorData)) {
+          handleAuthenticationRequired();
+        }
 
         // Support both Echo's simple format and structured error format
         const errorMessage = errorData.message || errorData.error?.message || `HTTP ${response.status}`;
