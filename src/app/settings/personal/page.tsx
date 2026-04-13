@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, ExternalSessionManagerConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, AgentApiType, getAgentApiType, setAgentApiType, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings, getMemoryEnabled, setMemoryEnabled, getMemorySummarizeDrafts, setMemorySummarizeDrafts } from '@/types/settings'
 import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings, MemorySettings, SlackSettings } from '@/components/settings'
-import { createAgentAPIProxyClientFromStorage, CredentialsMetadata } from '@/lib/agentapi-proxy-client'
+import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, CredentialsMetadata } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
 export default function PersonalSettingsPage() {
@@ -17,6 +17,7 @@ export default function PersonalSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isAuthError, setIsAuthError] = useState(false)
   const [sendGithubToken, setSendGithubToken] = useState(false)
   const [agentApiType, setAgentApiTypeState] = useState<AgentApiType>('default')
   const [enterKeyBehavior, setEnterKeyBehaviorState] = useState<EnterKeyBehavior>('send')
@@ -93,7 +94,12 @@ export default function PersonalSettingsPage() {
         }
       } catch (err) {
         console.error('Failed to get user info:', err)
-        setError('ユーザー情報の取得に失敗しました')
+        if (err instanceof AgentAPIProxyError && err.status === 401) {
+          setIsAuthError(true)
+          setError('認証が必要です。ログアウトして再度ログインしてください。')
+        } else {
+          setError('ユーザー情報の取得に失敗しました')
+        }
         setLoading(false)
       }
     }
@@ -137,7 +143,12 @@ export default function PersonalSettingsPage() {
         }
       } catch (err) {
         console.error('Failed to load personal settings:', err)
-        setError('Failed to load settings')
+        if (err instanceof AgentAPIProxyError && err.status === 401) {
+          setIsAuthError(true)
+          setError('認証が必要です。ログアウトして再度ログインしてください。')
+        } else {
+          setError('Failed to load settings')
+        }
       } finally {
         setLoading(false)
       }
@@ -477,6 +488,15 @@ export default function PersonalSettingsPage() {
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-red-600 dark:text-red-400">{error}</p>
+          {isAuthError && (
+            <button
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="mt-3 inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-medium rounded-md transition-colors"
+            >
+              {loggingOut ? 'ログアウト中...' : 'ログアウト'}
+            </button>
+          )}
         </div>
       )}
 
@@ -590,6 +610,7 @@ export default function PersonalSettingsPage() {
                       { value: 'default', label: 'デフォルト', description: 'agent_type を送信しない（バックエンドのデフォルト動作）' },
                       { value: 'claude-agentapi', label: 'Claude AgentAPI', description: 'agent_type=claude-agentapi を送信' },
                       { value: 'codex-agentapi', label: 'Codex AgentAPI', description: 'agent_type=codex-agentapi を送信' },
+                      { value: 'claude-acp', label: 'Claude ACP', description: 'agent_type=claude-acp を送信' },
                     ] as { value: AgentApiType; label: string; description: string }[]).map(({ value, label, description }) => (
                       <label key={value} className="flex items-start cursor-pointer group">
                         <input

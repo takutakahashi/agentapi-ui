@@ -1,6 +1,7 @@
 import { Chat, ChatListResponse } from '../types/chat'
 import { loadFullGlobalSettings, getDefaultProxySettings } from '../types/settings'
 import { createAgentAPIProxyClientFromStorage } from './agentapi-proxy-client'
+import { handleAuthenticationRequired, isAuthenticationRequiredError } from './auth-error-handler'
 
 // Get API configuration from browser storage
 function getAPIConfig(): { baseURL: string; apiKey?: string } {
@@ -77,6 +78,10 @@ async function apiRequest<T>(
           })
 
           if (!fallbackResponse.ok) {
+            const fallbackErrorData = await fallbackResponse.json().catch(() => ({}))
+            if (isAuthenticationRequiredError(fallbackResponse.status, fallbackErrorData)) {
+              handleAuthenticationRequired()
+            }
             throw new ApiError(
               fallbackResponse.status,
               `API request failed: ${fallbackResponse.status} ${fallbackResponse.statusText}`
@@ -114,6 +119,10 @@ async function apiRequest<T>(
     })
 
     if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      if (isAuthenticationRequiredError(response.status, errorData)) {
+        handleAuthenticationRequired()
+      }
       throw new ApiError(
         response.status,
         `API request failed: ${response.status} ${response.statusText}`
