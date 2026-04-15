@@ -16,6 +16,15 @@ export interface BedrockConfig {
   secret_access_key?: string; // AWS シークレットアクセスキー（チーム設定のみ）
 }
 
+// MCP OAuth config (for http/sse servers that require OAuth)
+export interface APIMCPServerOAuthConfig {
+  client_id?: string;      // OAuth client ID (leave empty for DCR-capable servers)
+  client_secret?: string;  // OAuth client secret (leave empty for DCR-capable servers)
+  scopes?: string[];       // Requested OAuth scopes
+  auth_url?: string;       // Override authorization endpoint URL
+  token_url?: string;      // Override token endpoint URL
+}
+
 // API用のMCPサーバー設定（OpenAPI仕様準拠）
 export interface APIMCPServerConfig {
   type: 'stdio' | 'http' | 'sse';
@@ -26,6 +35,9 @@ export interface APIMCPServerConfig {
   env_keys?: string[];                // 環境変数キーのみ（API読み取り時）
   headers?: Record<string, string>;   // http/sse用ヘッダー（書き込み時）
   header_keys?: string[];             // ヘッダーキーのみ（API読み取り時）
+  oauth_config?: APIMCPServerOAuthConfig;  // OAuth config for remote MCP servers
+  has_oauth_config?: boolean;         // Whether OAuth config is set (read-only from API)
+  oauth_scopes?: string[];            // Configured OAuth scopes (read-only from API)
 }
 
 // APIレスポンス用（セキュリティ対策：env/headersは値を含まない）
