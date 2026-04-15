@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { APIMCPServerConfig } from '@/types/settings'
+import { APIMCPServerConfig, APIMCPServerOAuthConfig } from '@/types/settings'
+import { MCPOAuthButton } from './MCPOAuthButton'
 
 interface MCPServerSettingsProps {
   servers: Record<string, APIMCPServerConfig> | undefined
@@ -151,6 +152,19 @@ export function MCPServerSettings({ servers, onChange }: MCPServerSettingsProps)
                       </p>
                     ) : null
                   })()}
+                  {config.has_oauth_config && (
+                    <p className="mt-1 text-xs text-blue-500 dark:text-blue-400">
+                      OAuth config: {config.oauth_scopes?.join(', ') || 'configured'}
+                    </p>
+                  )}
+                  {config.type !== 'stdio' && config.url && (
+                    <div className="mt-2">
+                      <MCPOAuthButton
+                        serverName={name}
+                        serverUrl={config.url}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2 ml-4">
                   <button
@@ -225,6 +239,12 @@ function MCPServerModal({ server, existingNames, onSave, onClose }: MCPServerMod
     }
     return []
   })
+  const [oauthConfig, setOauthConfig] = useState<APIMCPServerOAuthConfig>(
+    server.config.oauth_config || {}
+  )
+  const [showOAuthSection, setShowOAuthSection] = useState(
+    !!(server.config.has_oauth_config || server.config.oauth_config)
+  )
   const [error, setError] = useState<string | null>(null)
 
   const handleTypeChange = (type: APIMCPServerConfig['type']) => {
@@ -316,6 +336,18 @@ function MCPServerModal({ server, existingNames, onSave, onClose }: MCPServerMod
       })
       if (Object.keys(headers).length > 0) {
         finalConfig.headers = headers
+      }
+      // OAuth config (optional, for pre-configured OAuth clients)
+      if (showOAuthSection) {
+        const oauth: APIMCPServerOAuthConfig = {}
+        if (oauthConfig.client_id?.trim()) oauth.client_id = oauthConfig.client_id.trim()
+        if (oauthConfig.client_secret?.trim()) oauth.client_secret = oauthConfig.client_secret.trim()
+        if (oauthConfig.scopes?.length) oauth.scopes = oauthConfig.scopes
+        if (oauthConfig.auth_url?.trim()) oauth.auth_url = oauthConfig.auth_url.trim()
+        if (oauthConfig.token_url?.trim()) oauth.token_url = oauthConfig.token_url.trim()
+        if (Object.keys(oauth).length > 0) {
+          finalConfig.oauth_config = oauth
+        }
       }
     }
 
@@ -482,6 +514,81 @@ function MCPServerModal({ server, existingNames, onSave, onClose }: MCPServerMod
                     + Add Header
                   </button>
                 </div>
+              </div>
+
+              {/* OAuth Config (optional, for pre-registered OAuth clients) */}
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setShowOAuthSection(!showOAuthSection)}
+                  className="w-full flex items-center justify-between p-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-750 rounded-lg transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
+                    OAuth Config
+                    <span className="text-xs text-gray-400 dark:text-gray-500 font-normal">
+                      (optional — leave empty for DCR-capable servers)
+                    </span>
+                  </span>
+                  <svg
+                    className={`w-4 h-4 transition-transform ${showOAuthSection ? 'rotate-180' : ''}`}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showOAuthSection && (
+                  <div className="px-3 pb-3 space-y-3 border-t border-gray-200 dark:border-gray-700 pt-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      For servers that support Dynamic Client Registration (DCR), you can leave these fields empty.
+                      agentapi-proxy will auto-register a client. For servers requiring a pre-registered client (e.g. Auth0, Azure AD),
+                      enter the client ID and secret here.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                          Client ID
+                        </label>
+                        <input
+                          type="text"
+                          value={oauthConfig.client_id || ''}
+                          onChange={(e) => setOauthConfig(prev => ({ ...prev, client_id: e.target.value }))}
+                          placeholder="Auto (DCR)"
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                          Client Secret
+                        </label>
+                        <input
+                          type="password"
+                          value={oauthConfig.client_secret || ''}
+                          onChange={(e) => setOauthConfig(prev => ({ ...prev, client_secret: e.target.value }))}
+                          placeholder="Auto (DCR)"
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                        Scopes (space-separated)
+                      </label>
+                      <input
+                        type="text"
+                        value={oauthConfig.scopes?.join(' ') || ''}
+                        onChange={(e) => setOauthConfig(prev => ({
+                          ...prev,
+                          scopes: e.target.value ? e.target.value.split(/\s+/).filter(Boolean) : undefined
+                        }))}
+                        placeholder="e.g. read:files write:files"
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}

@@ -66,7 +66,8 @@ async function handleProxyRequest(
 
     // Check if this is an OAuth endpoint that doesn't require API key
     const path = pathParts.join('/');
-    const isOAuthEndpoint = path.startsWith('oauth/') || path.includes('auth/');
+    // mcp-oauth/* endpoints DO require auth (only the callback redirect is server-side)
+    const isOAuthEndpoint = !path.startsWith('mcp-oauth/') && (path.startsWith('oauth/') || path.includes('auth/'));
     
     // Get API key from cookie (skip for OAuth endpoints)
     let apiKey: string | null = null;

@@ -1,4 +1,5 @@
 export { BedrockSettings } from './BedrockSettings'
+export { MCPOAuthButton } from './MCPOAuthButton'
 export { SettingsAccordion } from './SettingsAccordion'
 export { GithubTokenSettings } from './GithubTokenSettings'
 export { LogoutButton } from './LogoutButton'
