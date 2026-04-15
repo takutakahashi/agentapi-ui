@@ -22,6 +22,18 @@ interface MCPOAuthButtonProps {
   }
 }
 
+/** Extract a human-readable error message from any API error response shape. */
+function extractErrorMessage(data: unknown, statusCode: number): string {
+  if (data && typeof data === 'object') {
+    const d = data as Record<string, unknown>
+    // Try common error field names in order
+    const msg = d.message ?? d.error ?? d.detail ?? d.details
+    if (typeof msg === 'string' && msg) return msg
+  }
+  if (typeof data === 'string' && data) return data
+  return `リクエストに失敗しました (HTTP ${statusCode})`
+}
+
 export function MCPOAuthButton({ serverName, serverUrl, initialStatus }: MCPOAuthButtonProps) {
   const [status, setStatus] = useState<MCPOAuthStatus>({
     connected: initialStatus?.connected ?? false,
@@ -61,8 +73,9 @@ export function MCPOAuthButton({ serverName, serverUrl, initialStatus }: MCPOAut
       })
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({ message: 'Unknown error' }))
-        setError(errData.message || `HTTP ${res.status}`)
+        // Parse JSON but fall back to null if the body is not JSON (e.g. HTML error page)
+        const errData = await res.json().catch(() => null)
+        setError(extractErrorMessage(errData, res.status))
         return
       }
 
@@ -78,7 +91,7 @@ export function MCPOAuthButton({ serverName, serverUrl, initialStatus }: MCPOAut
       if (!popup) {
         // Fallback: open in new tab if popup was blocked
         window.open(data.authorization_url, '_blank')
-        setError('Popup was blocked. Please allow popups and try again, or complete the auth in the new tab.')
+        setError('ポップアップがブロックされました。ポップアップを許可して再試行するか、新しいタブで認証を完了してください。')
         setLoading(false)
         return
       }
@@ -92,7 +105,7 @@ export function MCPOAuthButton({ serverName, serverUrl, initialStatus }: MCPOAut
           if (event.data.success) {
             fetchStatus()
           } else {
-            setError(event.data.error || 'OAuth authentication failed')
+            setError(event.data.error || 'OAuth 認証に失敗しました')
           }
           setLoading(false)
         }
@@ -118,13 +131,13 @@ export function MCPOAuthButton({ serverName, serverUrl, initialStatus }: MCPOAut
         fetchStatus()
       }, 5 * 60 * 1000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start OAuth flow')
+      setError(err instanceof Error ? err.message : 'OAuth フローの開始に失敗しました')
       setLoading(false)
     }
   }
 
   const handleDisconnect = async () => {
-    if (!confirm(`Disconnect OAuth for "${serverName}"?`)) return
+    if (!confirm(`"${serverName}" の OAuth 接続を解除しますか？`)) return
     setLoading(true)
     setError(null)
     try {
@@ -134,11 +147,11 @@ export function MCPOAuthButton({ serverName, serverUrl, initialStatus }: MCPOAut
       if (res.ok) {
         setStatus({ connected: false })
       } else {
-        const errData = await res.json().catch(() => ({ message: 'Unknown error' }))
-        setError(errData.message || `HTTP ${res.status}`)
+        const errData = await res.json().catch(() => null)
+        setError(extractErrorMessage(errData, res.status))
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to disconnect')
+      setError(err instanceof Error ? err.message : '切断に失敗しました')
     } finally {
       setLoading(false)
     }
