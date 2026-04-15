@@ -542,9 +542,10 @@ function MCPServerModal({ server, existingNames, onSave, onClose }: MCPServerMod
                 {showOAuthSection && (
                   <div className="px-3 pb-3 space-y-3 border-t border-gray-200 dark:border-gray-700 pt-3">
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      For servers that support Dynamic Client Registration (DCR), you can leave these fields empty.
-                      agentapi-proxy will auto-register a client. For servers requiring a pre-registered client (e.g. Auth0, Azure AD),
-                      enter the client ID and secret here.
+                      For servers that support Dynamic Client Registration (DCR), you can leave these fields empty and agentapi-proxy will auto-register a client.
+                      <br />
+                      <strong className="text-gray-700 dark:text-gray-300">Figma・Linear・Notion などは DCR 非対応のため、Client ID と Client Secret の入力が必要です。</strong>
+                      {' '}各サービスのデベロッパーポータルで OAuth アプリを登録し、Redirect URI に <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">…/mcp-oauth/callback</code> を設定してください。
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
