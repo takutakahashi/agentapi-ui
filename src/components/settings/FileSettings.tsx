@@ -139,7 +139,7 @@ export function FileSettings({ userName }: FileSettingsProps) {
       {/* Description */}
       <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
         <p className="text-xs text-blue-700 dark:text-blue-300">
-          SSH 鍵や設定ファイルなど任意のファイルを登録すると、セッション起動時に指定したパスへ自動配置されます（パーミッション <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">0600</code>）。
+          SSH 鍵や設定ファイルなど任意のファイルを登録すると、セッション起動時に指定したパスへ自動配置されます。パーミッションは octal 形式（例: <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">0600</code>）で指定でき、未指定の場合は <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">0600</code> が使われます。
         </p>
       </div>
 
@@ -363,17 +363,35 @@ function FileForm({ form, onChange, onSubmit, onCancel, submitting, error, isEdi
       {/* Permissions */}
       <div>
         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-          パーミッション <span className="text-gray-400 font-normal">(参考情報)</span>
+          パーミッション
         </label>
-        <input
-          type="text"
-          value={form.permissions ?? ''}
-          onChange={(e) => onChange({ ...form, permissions: e.target.value })}
-          placeholder="0600"
-          className={`${inputClass} w-32`}
-        />
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={form.permissions ?? ''}
+            onChange={(e) => onChange({ ...form, permissions: e.target.value })}
+            placeholder="0600"
+            className={`${inputClass} w-28 font-mono`}
+          />
+          <div className="flex gap-1">
+            {(['0600', '0644', '0700', '0755'] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => onChange({ ...form, permissions: p })}
+                className={`px-2 py-1.5 text-xs rounded border font-mono transition-colors ${
+                  form.permissions === p
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-blue-400 dark:hover:border-blue-600'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
         <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-          provisioner は常に 0600 でファイルを配置します
+          octal 形式で指定します。未指定の場合は 0600 が使われます。
         </p>
       </div>
 
