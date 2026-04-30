@@ -39,6 +39,10 @@ export default function SlackbotFormModal({
   const [allowedChannelNames, setAllowedChannelNames] = useState<string[]>([])
   const [channelNameInput, setChannelNameInput] = useState('')
 
+  // Allowed user IDs (chip/tag input, exact match)
+  const [allowedUserIDs, setAllowedUserIDs] = useState<string[]>([])
+  const [userIDInput, setUserIDInput] = useState('')
+
   // Message templates
   const [initialMessageTemplate, setInitialMessageTemplate] = useState('{{ .event.text }}')
   const [reuseMessageTemplate, setReuseMessageTemplate] = useState('{{ .event.text }}')
@@ -68,6 +72,7 @@ export default function SlackbotFormModal({
       setNotifyOnSessionCreated(editingSlackbot.notify_on_session_created ?? true)
       setAllowBotMessages(editingSlackbot.allow_bot_messages ?? false)
       setAllowedChannelNames(editingSlackbot.allowed_channel_names || [])
+      setAllowedUserIDs(editingSlackbot.allowed_user_ids || [])
 
       const sc = editingSlackbot.session_config
       setInitialMessageTemplate(sc?.initial_message_template ?? '{{ .event.text }}')
@@ -132,6 +137,8 @@ export default function SlackbotFormModal({
       setAllowBotMessages(false)
       setAllowedChannelNames([])
       setChannelNameInput('')
+      setAllowedUserIDs([])
+      setUserIDInput('')
       setInitialMessageTemplate('{{ .event.text }}')
       setReuseMessageTemplate('{{ .event.text }}')
       setEnvPairs([{ key: '', value: '' }])
@@ -178,6 +185,26 @@ export default function SlackbotFormModal({
 
   const removeChannelName = (name: string) => {
     setAllowedChannelNames((prev) => prev.filter((c) => c !== name))
+  }
+
+  // User ID chip input (exact match)
+  const addUserID = () => {
+    const trimmed = userIDInput.trim()
+    if (trimmed && !allowedUserIDs.includes(trimmed)) {
+      setAllowedUserIDs((prev) => [...prev, trimmed])
+    }
+    setUserIDInput('')
+  }
+
+  const handleUserIDKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      addUserID()
+    }
+  }
+
+  const removeUserID = (id: string) => {
+    setAllowedUserIDs((prev) => prev.filter((u) => u !== id))
   }
 
   // Key-value pair helpers
@@ -263,6 +290,7 @@ export default function SlackbotFormModal({
           ...(appToken.trim() ? { app_token: appToken.trim() } : {}),
           ...(!showBotTokenSection ? { bot_token_secret_name: '', bot_token_secret_key: '' } : {}),
           allowed_channel_names: allowedChannelNames,
+          allowed_user_ids: allowedUserIDs,
           max_sessions: maxSessions,
           notify_on_session_created: notifyOnSessionCreated,
           allow_bot_messages: allowBotMessages,
@@ -279,6 +307,7 @@ export default function SlackbotFormModal({
           ...(botToken.trim() ? { bot_token: botToken.trim() } : {}),
           ...(appToken.trim() ? { app_token: appToken.trim() } : {}),
           allowed_channel_names: allowedChannelNames,
+          ...(allowedUserIDs.length > 0 ? { allowed_user_ids: allowedUserIDs } : {}),
           max_sessions: maxSessions,
           notify_on_session_created: notifyOnSessionCreated,
           allow_bot_messages: allowBotMessages,
@@ -401,6 +430,51 @@ export default function SlackbotFormModal({
                 <button
                   type="button"
                   onClick={addChannelName}
+                  className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                >
+                  追加
+                </button>
+              </div>
+            </div>
+
+            {/* Allowed User IDs */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                発話ユーザー制限
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                発話を許可する Slack ユーザー ID を指定します（例: U012AB3CD）。空の場合は全ユーザーを許可します。Enter またはカンマで追加
+              </p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {allowedUserIDs.map((id) => (
+                  <span
+                    key={id}
+                    className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-mono"
+                  >
+                    {id}
+                    <button
+                      type="button"
+                      onClick={() => removeUserID(id)}
+                      className="ml-1 text-green-500 hover:text-green-700 dark:hover:text-green-200"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={userIDInput}
+                  onChange={(e) => setUserIDInput(e.target.value)}
+                  onKeyDown={handleUserIDKeyDown}
+                  onBlur={addUserID}
+                  placeholder="例: U012AB3CD"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={addUserID}
                   className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
                 >
                   追加

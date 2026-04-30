@@ -33,6 +33,8 @@ export interface SlackBot {
   bot_token_secret_key?: string;
   allowed_event_types?: string[];
   allowed_channel_names?: string[];
+  /** 発話を許可する Slack ユーザー ID のリスト（例: "U012AB3CD"）。空の場合は全ユーザーを許可 */
+  allowed_user_ids?: string[];
   session_config?: SlackBotSessionConfig;
   max_sessions?: number;
   /** セッション作成時に Slack へ通知メッセージを投稿するかどうか。デフォルト true */
@@ -56,6 +58,8 @@ export interface CreateSlackBotRequest {
   bot_token_secret_key?: string;
   allowed_event_types?: string[];
   allowed_channel_names?: string[];
+  /** 発話を許可する Slack ユーザー ID のリスト（例: "U012AB3CD"）。空の場合は全ユーザーを許可 */
+  allowed_user_ids?: string[];
   session_config?: SlackBotSessionConfig;
   max_sessions?: number;
   /** セッション作成時に Slack へ通知メッセージを投稿するかどうか。デフォルト true */
@@ -76,6 +80,8 @@ export interface UpdateSlackBotRequest {
   bot_token_secret_key?: string;
   allowed_event_types?: string[];
   allowed_channel_names?: string[];
+  /** 発話を許可する Slack ユーザー ID のリスト（例: "U012AB3CD"）。空の場合は全ユーザーを許可 */
+  allowed_user_ids?: string[];
   session_config?: SlackBotSessionConfig;
   max_sessions?: number;
   /** セッション作成時に Slack へ通知メッセージを投稿するかどうか。デフォルト true */
