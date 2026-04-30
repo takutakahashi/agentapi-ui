@@ -46,6 +46,7 @@ export default function SlackbotFormModal({
   // Session config
   const [envPairs, setEnvPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
   const [tagPairs, setTagPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
+  const [repoFullName, setRepoFullName] = useState('')
 
   // Memory key
   const [memoryKeyPairs, setMemoryKeyPairs] = useState<MemoryKeyPair[]>([{ key: '', value: '' }])
@@ -84,6 +85,14 @@ export default function SlackbotFormModal({
         setShowAdvanced(true)
       } else {
         setTagPairs([{ key: '', value: '' }])
+      }
+
+      // Restore repo_full_name from session params
+      if (sc?.params?.repo_full_name) {
+        setRepoFullName(sc.params.repo_full_name)
+        setShowAdvanced(true)
+      } else {
+        setRepoFullName('')
       }
 
       // Restore memory key pairs from existing memory_key
@@ -131,6 +140,7 @@ export default function SlackbotFormModal({
       setShowCustomMemory(false)
       setShowBotTokenSection(false)
       setShowAdvanced(false)
+      setRepoFullName('')
     }
     setError(null)
   }, [editingSlackbot, isOpen])
@@ -230,11 +240,17 @@ export default function SlackbotFormModal({
       // Build memory_key from pairs (Go template values like {{ .bot_id }} are resolved server-side at runtime)
       const memoryKey = memoryKeyPairsToRecord(memoryKeyPairs)
 
+      // Build session params (only include non-empty values)
+      const sessionParams = {
+        ...(repoFullName.trim() ? { repo_full_name: repoFullName.trim() } : {}),
+      }
+
       const sessionConfig = {
         ...(initialMessageTemplate.trim() ? { initial_message_template: initialMessageTemplate.trim() } : {}),
         ...(reuseMessageTemplate.trim() ? { reuse_message_template: reuseMessageTemplate.trim() } : {}),
         ...(Object.keys(environment).length > 0 ? { environment } : {}),
         ...(Object.keys(tags).length > 0 ? { tags } : {}),
+        ...(Object.keys(sessionParams).length > 0 ? { params: sessionParams } : {}),
       }
 
       if (isEditing && editingSlackbot) {
@@ -513,6 +529,23 @@ export default function SlackbotFormModal({
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       既存セッションを再利用する際に送信されるメッセージ。Goテンプレート形式。例: <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">{'{{ .event.text }}'}</code>
+                    </p>
+                  </div>
+
+                  {/* Repository */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      初期リポジトリ
+                    </label>
+                    <input
+                      type="text"
+                      value={repoFullName}
+                      onChange={(e) => setRepoFullName(e.target.value)}
+                      placeholder="例: myorg/myrepo"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      セッション起動時に自動でクローンする GitHub リポジトリ（<code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">org/repo</code> 形式）。設定するとメッセージ内のリポジトリ自動検出より優先されます。
                     </p>
                   </div>
 
