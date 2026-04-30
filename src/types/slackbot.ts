@@ -7,6 +7,8 @@ export type SlackBotStatus = 'active' | 'paused';
 export interface SlackBotSessionParams {
   agent_type?: string;
   oneshot?: boolean;
+  /** クローンする GitHub リポジトリ（例: "org/repo"）。設定するとセッション起動時に自動クローンされる。メッセージ内の自動検出より優先される */
+  repo_full_name?: string;
 }
 
 // Session configuration for SlackBot
