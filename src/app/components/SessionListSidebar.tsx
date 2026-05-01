@@ -200,25 +200,16 @@ export default function SessionListSidebar({
             })}
           </ul>
         )}
+
       </div>
 
-      {/* Footer */}
-      <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-800">
-        {!loading && sessions.length > 0 && (
-          <p className="text-[10px] text-gray-400 dark:text-gray-600 text-center px-3 pt-1.5">
-            {runningCount > 0 ? (
-              <><span className="text-green-500">{runningCount}</span> 件稼働中 / {sessions.length} 件</>
-            ) : (
-              `${sessions.length} 件`
-            )}
-          </p>
-        )}
-        {/* New session button */}
-        <div className="px-2 py-2">
+      {/* New session button — just above footer */}
+      {!loading && (
+        <div className="flex-shrink-0 px-2 py-1.5 border-t border-gray-200 dark:border-gray-800">
           <button
             onClick={() => router.push('/sessions/new')}
             className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md
-                       text-xs text-gray-500 dark:text-gray-400
+                       text-xs text-gray-400 dark:text-gray-600
                        border border-dashed border-gray-300 dark:border-gray-700
                        hover:text-blue-600 dark:hover:text-blue-400
                        hover:border-blue-400 dark:hover:border-blue-600
@@ -231,7 +222,20 @@ export default function SessionListSidebar({
             新規セッション
           </button>
         </div>
-      </div>
+      )}
+
+      {/* Footer */}
+      {!loading && sessions.length > 0 && (
+        <div className="flex-shrink-0 px-3 py-1.5 border-t border-gray-200 dark:border-gray-800">
+          <p className="text-[10px] text-gray-400 dark:text-gray-600 text-center">
+            {runningCount > 0 ? (
+              <><span className="text-green-500">{runningCount}</span> 件稼働中 / {sessions.length} 件</>
+            ) : (
+              `${sessions.length} 件`
+            )}
+          </p>
+        </div>
+      )}
     </div>
   )
 }
