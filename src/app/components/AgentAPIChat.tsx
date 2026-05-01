@@ -75,9 +75,11 @@ function extractPRUrls(text: string): string[] {
 
 interface AgentAPIChatProps {
   sessionId?: string;
+  onToggleSidebar?: () => void;
+  sidebarVisible?: boolean;
 }
 
-export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatProps = {}) {
+export default function AgentAPIChat({ sessionId: propSessionId, onToggleSidebar, sidebarVisible }: AgentAPIChatProps = {}) {
   const searchParams = useSearchParams();
   const router = useRouter();
   // Use sessionId from props if provided, otherwise fall back to query param
@@ -873,6 +875,22 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-3 sm:px-6 py-1.5 sm:py-2 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2 sm:space-x-4">
+            {/* Sidebar toggle button (desktop only) */}
+            {onToggleSidebar && (
+              <button
+                onClick={onToggleSidebar}
+                className="hidden md:flex items-center justify-center p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+                title={sidebarVisible ? 'サイドバーを隠す' : 'セッション一覧を表示'}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {sidebarVisible ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  )}
+                </svg>
+              </button>
+            )}
             <Link
               href="/chats"
               className="flex items-center space-x-1 sm:space-x-2 px-2 py-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
