@@ -13,18 +13,11 @@ interface SessionListSidebarProps {
 
 function getStatusDotClass(status: SessionStatus): string {
   switch (status) {
-    case 'active':
-      return 'bg-green-500'
-    case 'starting':
-      return 'bg-yellow-400 animate-pulse'
-    case 'creating':
-      return 'bg-blue-400 animate-pulse'
-    case 'unhealthy':
-      return 'bg-red-500'
-    case 'stopped':
-      return 'bg-gray-300 dark:bg-gray-600'
-    default:
-      return 'bg-gray-300 dark:bg-gray-600'
+    case 'active':   return 'bg-green-500'
+    case 'starting': return 'bg-yellow-400 animate-pulse'
+    case 'creating': return 'bg-blue-400 animate-pulse'
+    case 'unhealthy':return 'bg-red-500'
+    default:         return 'bg-gray-300 dark:bg-gray-600'
   }
 }
 
@@ -33,16 +26,10 @@ function isRunningStatus(status: SessionStatus): boolean {
 }
 
 function getSessionTitle(session: Session): string {
-  if (session.tags?.description && session.tags.description.trim()) {
-    return session.tags.description.trim()
-  }
+  if (session.tags?.description?.trim()) return session.tags.description.trim()
   const metaDesc = session.metadata?.description
-  if (metaDesc && typeof metaDesc === 'string' && metaDesc.trim()) {
-    return metaDesc.trim()
-  }
-  if (session.description && session.description.trim()) {
-    return session.description.trim()
-  }
+  if (typeof metaDesc === 'string' && metaDesc.trim()) return metaDesc.trim()
+  if (session.description?.trim()) return session.description.trim()
   return `#${session.session_id.substring(0, 8)}`
 }
 
@@ -64,6 +51,7 @@ export default function SessionListSidebar({
   const { selectedTeam } = useTeamScope()
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -91,6 +79,29 @@ export default function SessionListSidebar({
     return () => clearInterval(interval)
   }, [fetchSessions, isVisible])
 
+  const handleDelete = useCallback(async (e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation()
+    if (!window.confirm('このセッションを削除しますか？')) return
+
+    setDeletingIds(prev => new Set(prev).add(sessionId))
+    try {
+      const client = createAgentAPIProxyClientFromStorage()
+      await client.delete(sessionId)
+      setSessions(prev => prev.filter(s => s.session_id !== sessionId))
+      if (sessionId === currentSessionId) {
+        router.push('/chats')
+      }
+    } catch (err) {
+      console.error('[SessionListSidebar] Failed to delete session:', err)
+    } finally {
+      setDeletingIds(prev => {
+        const next = new Set(prev)
+        next.delete(sessionId)
+        return next
+      })
+    }
+  }, [currentSessionId, router])
+
   if (!isVisible) return null
 
   const runningCount = sessions.filter(s => isRunningStatus(s.status)).length
@@ -114,22 +125,23 @@ export default function SessionListSidebar({
               const running = isRunningStatus(session.status)
               const title = getSessionTitle(session)
               const timeStr = formatRelativeTime(session.updated_at || session.started_at)
+              const isDeleting = deletingIds.has(session.session_id)
 
               return (
-                <li key={session.session_id}>
+                <li key={session.session_id} className="group/item relative">
+                  {/* Navigate button (whole row) */}
                   <button
                     onClick={() => router.push(`/sessions/${session.session_id}`)}
-                    className={`w-full text-left px-3 py-2 flex items-start gap-2 transition-colors group ${
+                    disabled={isDeleting}
+                    className={`w-full text-left px-3 py-2 pr-8 flex items-start gap-2 transition-colors ${
                       isActive
                         ? 'bg-white dark:bg-gray-900 border-r-2 border-blue-500'
                         : 'hover:bg-white/60 dark:hover:bg-gray-900/60'
-                    }`}
+                    } ${isDeleting ? 'opacity-40 pointer-events-none' : ''}`}
                   >
                     {/* Status dot */}
                     <div className="mt-[5px] flex-shrink-0 relative">
-                      <div
-                        className={`w-1.5 h-1.5 rounded-full ${getStatusDotClass(session.status)}`}
-                      />
+                      <div className={`w-1.5 h-1.5 rounded-full ${getStatusDotClass(session.status)}`} />
                       {session.status === 'active' && (
                         <div className="absolute inset-0 rounded-full bg-green-400 opacity-50 animate-ping" />
                       )}
@@ -157,6 +169,31 @@ export default function SessionListSidebar({
                         )}
                       </p>
                     </div>
+                  </button>
+
+                  {/* Delete button — visible on row hover */}
+                  <button
+                    onClick={(e) => handleDelete(e, session.session_id)}
+                    disabled={isDeleting}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded
+                               text-gray-300 dark:text-gray-700
+                               opacity-0 group-hover/item:opacity-100
+                               hover:text-red-500 dark:hover:text-red-400
+                               hover:bg-red-50 dark:hover:bg-red-900/20
+                               transition-all duration-100
+                               disabled:pointer-events-none"
+                    title="セッションを削除"
+                  >
+                    {isDeleting ? (
+                      <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    )}
                   </button>
                 </li>
               )

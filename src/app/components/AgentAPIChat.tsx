@@ -1025,12 +1025,14 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       {/* ── Body: sidebar + chat content ── */}
       <div className="flex-1 flex overflow-hidden min-h-0">
 
-        {/* Session list sidebar (desktop only) */}
+        {/* Session list sidebar (desktop only — hidden on mobile) */}
         {sessionId && (
-          <SessionListSidebar
-            currentSessionId={sessionId}
-            isVisible={sidebarVisible}
-          />
+          <div className="hidden md:flex">
+            <SessionListSidebar
+              currentSessionId={sessionId}
+              isVisible={sidebarVisible}
+            />
+          </div>
         )}
 
         {/* Chat content column */}
