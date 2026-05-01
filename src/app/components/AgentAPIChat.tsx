@@ -17,6 +17,9 @@ import MessageItem from './MessageItem';
 import ToolExecutionPane from './ToolExecutionPane';
 import PlanApprovalModal from './PlanApprovalModal';
 import AskUserQuestionModal from './AskUserQuestionModal';
+import SessionListSidebar from './SessionListSidebar';
+
+const SIDEBAR_VISIBLE_KEY = 'session_list_sidebar_visible';
 
 // Define local types for agent status
 interface AgentStatus {
@@ -232,6 +235,21 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const [showControlPanel, setShowControlPanel] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(false); // initialized via effect
+
+  // Restore sidebar visibility from localStorage after mount
+  useEffect(() => {
+    const saved = localStorage.getItem(SIDEBAR_VISIBLE_KEY);
+    setSidebarVisible(saved !== 'false');
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarVisible(prev => {
+      const next = !prev;
+      localStorage.setItem(SIDEBAR_VISIBLE_KEY, String(next));
+      return next;
+    });
+  }, []);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
   const [recentMessages, setRecentMessages] = useState<string[]>([]);
@@ -869,10 +887,20 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900" style={{ position: 'relative', minHeight: 0 }}>
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-3 sm:px-6 py-1.5 sm:py-2 flex-shrink-0">
+      {/* ── Unified full-width header ── */}
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-3 sm:px-4 py-1.5 sm:py-2 flex-shrink-0">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2 sm:space-x-4">
+          <div className="flex items-center space-x-1 sm:space-x-2">
+            {/* Sidebar toggle */}
+            <button
+              onClick={toggleSidebar}
+              className="hidden md:flex items-center justify-center p-1.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+              title={sidebarVisible ? 'セッション一覧を隠す' : 'セッション一覧を表示'}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
             <Link
               href="/chats"
               className="flex items-center space-x-1 sm:space-x-2 px-2 py-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
@@ -994,8 +1022,24 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         
       </div>
 
+      {/* ── Body: sidebar + chat content ── */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
+
+        {/* Session list sidebar (desktop only — hidden on mobile) */}
+        {sessionId && (
+          <div className="hidden md:flex">
+            <SessionListSidebar
+              currentSessionId={sessionId}
+              isVisible={sidebarVisible}
+            />
+          </div>
+        )}
+
+        {/* Chat content column */}
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+
       {/* Messages */}
-      <div 
+      <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto bg-white dark:bg-gray-900 mobile-scroll min-h-0 relative"
@@ -1357,6 +1401,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           </div>
         </div>
       </div>
+
+        </div> {/* end: Chat content column */}
+      </div> {/* end: Body (sidebar + chat) */}
 
       {/* Template Selection Modal */}
       {showTemplateModal && (
