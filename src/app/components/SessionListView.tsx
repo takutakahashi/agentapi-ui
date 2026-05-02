@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Session, AgentStatus, SessionListParams } from '../../types/agentapi'
-import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
+import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, ProxySessionStatusEvent } from '../../lib/agentapi-proxy-client'
 import { useBackgroundAwareInterval } from '../hooks/usePageVisibility'
+import { useSessionsStatusStream } from '../hooks/useSessionsStatusStream'
 import { formatDate, formatRelativeTime } from '../../utils/timeUtils'
 import { truncateText } from '../../utils/textUtils'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
@@ -203,50 +204,47 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     }
   }, [sessions, agentAPIProxy])
 
-  // 作成中のセッション（propsから渡されたもの）があるかどうかを判定
+  // 作成中のセッションがある場合（propsから渡されたもの）があるかどうかを判定
   const hasCreatingSessions = useMemo(() => {
     return creatingSessions.some(s => s.status !== 'completed' && s.status !== 'failed')
   }, [creatingSessions])
 
-  // 起動中のセッションがあるかどうかを判定
+  // 起動中のセッションがあるかどうかを判定（エージェントステータスポーリング間隔の決定に使用）
   const hasActiveSession = useMemo(() => {
-    // 作成中のセッションがある場合
-    if (hasCreatingSessions) {
-      return true
-    }
-
-    // セッションが作成中または起動中の場合
-    if (sessions.some(s => s.status === 'creating' || s.status === 'starting')) {
-      return true
-    }
-
-    // エージェントが実行中のセッションがある場合
-    if (Object.values(sessionAgentStatus).some(status => status.status === 'running')) {
-      return true
-    }
-
+    if (hasCreatingSessions) return true
+    if (sessions.some(s => s.status === 'creating' || s.status === 'starting')) return true
+    if (Object.values(sessionAgentStatus).some(status => status.status === 'running')) return true
     return false
   }, [hasCreatingSessions, sessions, sessionAgentStatus])
 
-  // 作成中・起動中のセッションがある場合（エージェント running は除く）
-  const needsSessionRefresh = useMemo(() => {
-    if (hasCreatingSessions) {
-      return true
-    }
-    if (sessions.some(s => s.status === 'creating' || s.status === 'starting')) {
-      return true
-    }
-    return false
-  }, [hasCreatingSessions, sessions])
+  // SSE でセッションステータス変化を受信したときの処理
+  const handleProxyStatusEvent = useCallback((event: ProxySessionStatusEvent) => {
+    setSessions(prev => {
+      const idx = prev.findIndex(s => s.session_id === event.session_id)
+      if (idx === -1) return prev
+      const updated = [...prev]
+      updated[idx] = { ...updated[idx], status: event.status as Session['status'] }
+      return updated
+    })
 
-  // 起動中のセッションがある場合は7秒、ない場合は10秒
-  const pollingInterval = hasActiveSession ? 7000 : 10000
+    // セッションが active になったタイミングでフルリフレッシュ（メタデータ取得のため）
+    if (event.status === 'active') {
+      fetchSessions()
+    }
+  }, [fetchSessions])
 
-  // バックグラウンド対応の定期更新フック
+  // プロキシ全体のセッションステータス SSE ストリーム
+  useSessionsStatusStream({
+    client: agentAPIProxy,
+    onStatusChange: handleProxyStatusEvent,
+  })
+
+  // エージェントステータスポーリング間隔: 実行中セッションがある場合は7秒、ない場合は30秒
+  // （SSE がセッション作成ライフサイクルをカバーするため、ポーリング頻度を下げる）
+  const pollingInterval = hasActiveSession ? 7000 : 30000
+
+  // エージェントレベルのステータス（running / stable / error）は引き続きポーリングで取得
   const statusPollingControl = useBackgroundAwareInterval(fetchSessionStatuses, pollingInterval, false)
-
-  // 作成中のセッションがある場合はセッション一覧も定期的に更新
-  const sessionPollingControl = useBackgroundAwareInterval(fetchSessions, pollingInterval, false)
 
   useEffect(() => {
     fetchSessions()
@@ -264,19 +262,6 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       statusPollingControl.stop()
     }
   }, [sessions.length, statusPollingControl])
-
-  // 作成中・起動中のセッションがある場合はセッション一覧を定期的に更新（エージェント running 時は除く）
-  useEffect(() => {
-    if (needsSessionRefresh) {
-      sessionPollingControl.start()
-    } else {
-      sessionPollingControl.stop()
-    }
-
-    return () => {
-      sessionPollingControl.stop()
-    }
-  }, [needsSessionRefresh, sessionPollingControl])
 
 
   useEffect(() => {
