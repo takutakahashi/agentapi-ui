@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
+import { createAgentAPIProxyClientFromStorage, ProxySessionStatusEvent } from '../../lib/agentapi-proxy-client'
 import { Session, SessionStatus } from '../../types/agentapi'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
+import { useSessionsStatusStream } from '../hooks/useSessionsStatusStream'
 
 interface SessionListSidebarProps {
   currentSessionId: string
@@ -14,6 +15,7 @@ interface SessionListSidebarProps {
 function getStatusDotClass(status: SessionStatus): string {
   switch (status) {
     case 'active':   return 'bg-green-500'
+    case 'running':  return 'bg-yellow-400 animate-pulse'
     case 'starting': return 'bg-yellow-400 animate-pulse'
     case 'creating': return 'bg-blue-400 animate-pulse'
     case 'unhealthy':return 'bg-red-500'
@@ -22,7 +24,7 @@ function getStatusDotClass(status: SessionStatus): string {
 }
 
 function isRunningStatus(status: SessionStatus): boolean {
-  return status === 'active' || status === 'starting' || status === 'creating'
+  return status === 'active' || status === 'running' || status === 'starting' || status === 'creating'
 }
 
 function getSessionTitle(session: Session): string {
@@ -49,13 +51,13 @@ export default function SessionListSidebar({
 }: SessionListSidebarProps) {
   const router = useRouter()
   const { selectedTeam } = useTeamScope()
+  const [client] = useState(() => createAgentAPIProxyClientFromStorage())
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
 
   const fetchSessions = useCallback(async () => {
     try {
-      const client = createAgentAPIProxyClientFromStorage()
       const scopeParams: { scope: 'user' | 'team'; team_id?: string } = selectedTeam
         ? { scope: 'team', team_id: selectedTeam }
         : { scope: 'user' }
@@ -70,12 +72,33 @@ export default function SessionListSidebar({
     } finally {
       setLoading(false)
     }
-  }, [selectedTeam])
+  }, [client, selectedTeam])
+
+  // SSE でリアルタイム更新: ステータス変化をインプレース反映し、active になったらフルリフレッシュ
+  const handleProxyStatusEvent = useCallback((event: ProxySessionStatusEvent) => {
+    setSessions(prev => {
+      const idx = prev.findIndex(s => s.session_id === event.session_id)
+      if (idx === -1) return prev
+      const updated = [...prev]
+      updated[idx] = { ...updated[idx], status: event.status as SessionStatus }
+      return updated
+    })
+    if (event.status === 'active' || event.status === 'stopped') {
+      fetchSessions()
+    }
+  }, [fetchSessions])
+
+  useSessionsStatusStream({
+    client,
+    onStatusChange: handleProxyStatusEvent,
+    enabled: isVisible,
+  })
 
   useEffect(() => {
     if (!isVisible) return
     fetchSessions()
-    const interval = setInterval(fetchSessions, 5000)
+    // SSE がリアルタイム更新を担うため、ポーリングは 30 秒に延長
+    const interval = setInterval(fetchSessions, 30000)
     return () => clearInterval(interval)
   }, [fetchSessions, isVisible])
 
@@ -160,7 +183,9 @@ export default function SessionListSidebar({
                         {title}
                       </p>
                       <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-0.5 leading-none">
-                        {running && session.status !== 'active' ? (
+                        {session.status === 'running' ? (
+                          <span className="text-yellow-500 dark:text-yellow-400">実行中</span>
+                        ) : running && session.status !== 'active' ? (
                           <span className="text-yellow-500 dark:text-yellow-400">
                             {session.status === 'starting' ? '起動中' : '作成中'}
                           </span>
