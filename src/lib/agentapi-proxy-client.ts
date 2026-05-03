@@ -91,6 +91,15 @@ interface AgentStatus {
   message?: string;
 }
 
+/**
+ * Proxy-wide session status change event emitted by GET /sessions/status/stream
+ */
+export interface ProxySessionStatusEvent {
+  session_id: string;
+  status: string;
+  timestamp: string;
+}
+
 export interface AgentAPIProxyClientConfig {
   baseURL: string;
   apiKey?: string;
@@ -636,6 +645,53 @@ export class AgentAPIProxyClient {
         if (this.debug) {
           console.log(`[AgentAPIProxy] Session EventSource will attempt to reconnect in ${reconnectInterval}ms`);
         }
+      }
+    };
+
+    return eventSource;
+  }
+
+  /**
+   * Subscribe to proxy-wide session status changes via SSE (GET /sessions/status/stream).
+   * Each event carries the session_id, new status, and timestamp for any session
+   * accessible by the current user.
+   *
+   * @returns The EventSource — call `.close()` to unsubscribe.
+   */
+  subscribeToSessionsStatusEvents(
+    onEvent: (event: ProxySessionStatusEvent) => void,
+    onError?: (error: Error) => void
+  ): EventSource {
+    const isUsingProxy = this.baseURL.includes('/api/proxy');
+    const eventSourceUrl = isUsingProxy
+      ? `/api/proxy/sessions/status/stream`
+      : `${this.baseURL}/sessions/status/stream`;
+
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Creating EventSource for proxy-wide session status:`, eventSourceUrl);
+    }
+
+    const eventSource = new EventSource(eventSourceUrl);
+
+    eventSource.onmessage = (event) => {
+      // Skip heartbeat comments (EventSource ignores comment lines automatically,
+      // but guard against empty data just in case)
+      if (!event.data) return;
+      try {
+        const data: ProxySessionStatusEvent = JSON.parse(event.data);
+        if (this.debug) {
+          console.log(`[AgentAPIProxy] Proxy session status event:`, data);
+        }
+        onEvent(data);
+      } catch (err) {
+        console.error('[AgentAPIProxy] Failed to parse proxy session status event:', err);
+      }
+    };
+
+    eventSource.onerror = () => {
+      console.error('[AgentAPIProxy] Proxy status EventSource error');
+      if (onError) {
+        onError(new Error('Proxy session status EventSource connection error'));
       }
     };
 
