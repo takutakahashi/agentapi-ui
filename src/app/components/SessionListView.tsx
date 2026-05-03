@@ -474,6 +474,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     if (session.status === 'starting') {
       return { status: 'starting' as const, colorClass: 'bg-indigo-500 animate-pulse', text: '起動中' }
     }
+    if (session.status === 'running') {
+      return { status: 'running' as const, colorClass: 'bg-yellow-500 animate-pulse', text: 'Running' }
+    }
 
     // ステータスが取得できていない場合
     if (!agentStatus) {
