@@ -1,6 +1,7 @@
 'use client';
 
 import { SessionMessage } from '../../types/agentapi';
+import { getToolDisplayName } from '../../utils/toolUtils';
 
 interface ToolUseContent {
   type: 'tool_use';
@@ -74,7 +75,7 @@ export default function RunningTools({ messages }: RunningToolsProps) {
                     <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
                   </div>
                   <div className="text-xs font-medium text-gray-900 dark:text-white">
-                    {toolUse.name}
+                    {getToolDisplayName(toolUse.name, toolUse.input)}
                   </div>
                 </div>
               </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { SessionMessage } from '../../types/agentapi';
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client';
+import { getToolDescription } from '../../utils/toolUtils';
 
 interface ToolUseContent {
   type: 'tool_use';
@@ -21,44 +22,6 @@ function parseToolUseContent(content: string): ToolUseContent | null {
     // Not a valid tool_use JSON
   }
   return null;
-}
-
-// ツール名から概要を生成
-function getToolDescription(toolName: string, input: Record<string, unknown>): string {
-  // descriptionがあれば優先的に使用
-  const description = input.description as string | undefined;
-
-  switch (toolName) {
-    case 'Task':
-      // サブエージェント名を取得
-      const subagentType = input.subagent_type as string | undefined;
-      if (subagentType && description) {
-        return `${subagentType}: ${description}`;
-      } else if (subagentType) {
-        return `${subagentType}を実行中`;
-      } else if (description) {
-        return description;
-      }
-      return 'サブエージェントを実行中';
-    case 'Read':
-      return description || `ファイル "${input.file_path}" を読み込み中`;
-    case 'Write':
-      return description || `ファイル "${input.file_path}" を作成中`;
-    case 'Edit':
-      return description || `ファイル "${input.file_path}" を編集中`;
-    case 'Bash':
-      return description || 'コマンドを実行中';
-    case 'Glob':
-      return description || `パターン "${input.pattern}" でファイルを検索中`;
-    case 'Grep':
-      return description || `"${input.pattern}" を検索中`;
-    case 'WebFetch':
-      return description || 'Webページを取得中';
-    case 'WebSearch':
-      return description || `"${input.query}" を検索中`;
-    default:
-      return description || `${toolName}を実行中`;
-  }
 }
 
 interface ToolExecutionPaneProps {

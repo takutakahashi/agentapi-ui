@@ -4,6 +4,7 @@ import { SessionMessage } from '../../types/agentapi';
 import React, { useState, memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { getToolDisplayName, getToolBriefInfo } from '../../utils/toolUtils';
 
 interface ToolUseContent {
   type: 'tool_use';
@@ -276,44 +277,7 @@ function MessageItem({
     const hasResult = !!toolResult;
 
     if (toolUse) {
-      // ツールの簡易情報を抽出（description, file_path, pattern など）
-      const getBriefInfo = (): string | null => {
-        const input = toolUse.input;
-        const maxLength = 40;
-
-        // description があれば優先
-        if (input.description && typeof input.description === 'string') {
-          return input.description.length > maxLength
-            ? input.description.substring(0, maxLength) + '...'
-            : input.description;
-        }
-
-        // ファイル系のツール
-        if (input.file_path && typeof input.file_path === 'string') {
-          const path = input.file_path;
-          return path.length > maxLength
-            ? '...' + path.substring(path.length - maxLength)
-            : path;
-        }
-
-        // パターン検索系
-        if (input.pattern && typeof input.pattern === 'string') {
-          return input.pattern.length > maxLength
-            ? input.pattern.substring(0, maxLength) + '...'
-            : input.pattern;
-        }
-
-        // コマンド系
-        if (input.command && typeof input.command === 'string') {
-          return input.command.length > maxLength
-            ? input.command.substring(0, maxLength) + '...'
-            : input.command;
-        }
-
-        return null;
-      };
-
-      const briefInfo = getBriefInfo();
+      const briefInfo = getToolBriefInfo(toolUse.name, toolUse.input);
 
       return (
         <div className="px-4 sm:px-6 py-0.5">
@@ -338,7 +302,7 @@ function MessageItem({
                   : 'text-red-600 dark:text-red-400'
                 : 'text-gray-500 dark:text-gray-400'
             }`}>
-              {toolUse.name}
+              {getToolDisplayName(toolUse.name, toolUse.input)}
             </span>
 
             {/* 結果インジケーター */}
