@@ -598,25 +598,107 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     setShowQuestionModal(false);
   }, []);
 
-  // バックグラウンド対応の定期更新フック
-  const pollingControl = useBackgroundAwareInterval(pollMessages, 1000, true);
-  const pollingControlRef = useRef(pollingControl);
-  pollingControlRef.current = pollingControl;
+  // Ref to always call the latest version of pollMessages (avoids stale closure in long-poll loop)
+  const pollMessagesRef = useRef(pollMessages);
+  pollMessagesRef.current = pollMessages;
 
-  // Setup real-time event listening
+  // Fallback interval polling — used only when the server returns 501 (long-polling not supported).
+  const fallbackPollingControl = useBackgroundAwareInterval(pollMessages, 5000, true);
+  const fallbackPollingControlRef = useRef(fallbackPollingControl);
+  fallbackPollingControlRef.current = fallbackPollingControl;
+
+  // Long-poll refs
+  const longPollActiveRef = useRef(false);
+  const longPollAbortRef = useRef<AbortController | null>(null);
+
+  // Long-polling loop — replaces 1-second interval polling.
+  // Waits for message_update events from the server via GET /sessions/:sessionId/messages/wait,
+  // then calls pollMessages() to fetch the latest data.
+  // Falls back to 5-second interval polling when the server returns 501 (e.g. local mode).
   useEffect(() => {
-    const control = pollingControlRef.current;
-    
-    if (isConnected && sessionId) {
-      control.start();
-    } else {
-      control.stop();
+    if (!isConnected || !sessionId) {
+      fallbackPollingControlRef.current.stop();
+      return;
     }
 
-    return () => {
-      control.stop();
+    // Ensure fallback polling is stopped while long-polling is active
+    fallbackPollingControlRef.current.stop();
+
+    longPollActiveRef.current = true;
+    let backoffMs = 1000;
+    const MAX_BACKOFF = 30_000;
+
+    const runLongPoll = async () => {
+      // Fetch initial state immediately
+      await pollMessagesRef.current();
+
+      while (longPollActiveRef.current) {
+        // Pause when page is hidden; resume and re-fetch when visible again
+        if (document.visibilityState === 'hidden') {
+          await new Promise<void>((resolve) => {
+            const handler = () => {
+              if (document.visibilityState === 'visible') {
+                document.removeEventListener('visibilitychange', handler);
+                resolve();
+              }
+            };
+            document.addEventListener('visibilitychange', handler);
+          });
+          if (!longPollActiveRef.current) break;
+          await pollMessagesRef.current();
+        }
+
+        if (!agentAPIRef.current) break;
+
+        const controller = new AbortController();
+        longPollAbortRef.current = controller;
+
+        try {
+          const result = await agentAPIRef.current.waitSessionMessages(sessionId, {
+            timeout: 30,
+            signal: controller.signal,
+          });
+
+          if (!longPollActiveRef.current) break;
+
+          if (result.updated) {
+            await pollMessagesRef.current();
+            backoffMs = 1000; // reset backoff on success
+          }
+          // result.updated === false means server-side timeout → immediately retry
+
+        } catch (err) {
+          if (!longPollActiveRef.current) break;
+          // AbortError means the request was intentionally cancelled
+          if (err instanceof Error && err.name === 'AbortError') break;
+
+          // 501: server does not support long-polling → fall back to interval
+          if (err instanceof AgentAPIProxyError && err.status === 501) {
+            console.info('[LongPoll] Server does not support long-polling, falling back to interval polling');
+            longPollActiveRef.current = false;
+            fallbackPollingControlRef.current.start();
+            return;
+          }
+
+          // 502/503: transient service issues — retry silently
+          if (!(err instanceof AgentAPIProxyError && (err.status === 502 || err.status === 503))) {
+            console.warn('[LongPoll] Error, retrying in', backoffMs, 'ms:', err);
+          }
+          await new Promise(r => setTimeout(r, backoffMs));
+          if (!longPollActiveRef.current) break;
+          backoffMs = Math.min(backoffMs * 2, MAX_BACKOFF);
+        }
+      }
     };
-  }, [isConnected, sessionId]); // pollingControlを依存配列から除去
+
+    runLongPoll();
+
+    return () => {
+      longPollActiveRef.current = false;
+      longPollAbortRef.current?.abort();
+      fallbackPollingControlRef.current.stop();
+    };
+  }, [isConnected, sessionId]); // pollMessages はref経由で参照するため依存配列に不要
 
   // Get agent type from /status endpoint
   useEffect(() => {
