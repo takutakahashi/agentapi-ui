@@ -100,6 +100,15 @@ export interface ProxySessionStatusEvent {
   timestamp: string;
 }
 
+/**
+ * Response from GET /sessions/:sessionId/messages/wait (long-poll).
+ * Returns updated: true with session_id and timestamp when a message_update event occurred,
+ * or updated: false when the timeout elapsed with no update.
+ */
+export type WaitSessionMessagesResponse =
+  | { updated: true; session_id: string; timestamp: string }
+  | { updated: false };
+
 export interface AgentAPIProxyClientConfig {
   baseURL: string;
   apiKey?: string;
@@ -649,6 +658,33 @@ export class AgentAPIProxyClient {
     };
 
     return eventSource;
+  }
+
+  /**
+   * Long-poll for message updates in a specific session (GET /sessions/:sessionId/messages/wait).
+   *
+   * Blocks on the server until a message_update event is received from the agentapi backend
+   * for the given session, or until the timeout expires.
+   *
+   * Returns { updated: true, session_id, timestamp } on update, or { updated: false } on timeout.
+   * Callers should immediately re-issue the request to maintain continuous notification.
+   *
+   * @param sessionId - The session to watch for message updates.
+   * @param options.timeout - Max wait seconds (default: 30, max: 60).
+   * @param options.signal - AbortSignal to cancel the request (e.g. on component unmount).
+   */
+  async waitSessionMessages(
+    sessionId: string,
+    options: { timeout?: number; signal?: AbortSignal } = {}
+  ): Promise<WaitSessionMessagesResponse> {
+    const { timeout = 30, signal } = options;
+    const endpoint = `/sessions/${sessionId}/messages/wait?timeout=${timeout}`;
+
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Long-polling for message updates in session ${sessionId} (timeout=${timeout}s)`);
+    }
+
+    return this.makeRequest<WaitSessionMessagesResponse>(endpoint, { signal });
   }
 
   /**
