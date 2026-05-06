@@ -268,6 +268,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const prevMessagesLengthRef = useRef(0);
   const prevAgentStatusRef = useRef<AgentStatus | null>(null);
   const lastLoadTimeRef = useRef<number>(0);
+  // Throttle refs for rendering when agentType is not set (null) — limit to 1-second intervals
+  const nullAgentRenderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingNullAgentMessagesRef = useRef<SessionMessage[] | null>(null);
+  const lastNullAgentRenderRef = useRef<number>(0);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -534,8 +538,24 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
             return [...prevMessages, ...trulyNewMessages];
           });
+        } else if (agentType === null) {
+          // For unknown agent type: throttle re-renders to at most once per second
+          // to prevent the display from updating too rapidly via SSE.
+          pendingNullAgentMessagesRef.current = newMessages;
+          if (!nullAgentRenderTimerRef.current) {
+            const elapsed = Date.now() - lastNullAgentRenderRef.current;
+            const delay = Math.max(0, 1000 - elapsed);
+            nullAgentRenderTimerRef.current = setTimeout(() => {
+              if (pendingNullAgentMessagesRef.current) {
+                setMessages(pendingNullAgentMessagesRef.current);
+                lastNullAgentRenderRef.current = Date.now();
+                pendingNullAgentMessagesRef.current = null;
+              }
+              nullAgentRenderTimerRef.current = null;
+            }, delay);
+          }
         } else {
-          // For other agents: always update with all messages to reflect timeline changes
+          // For other known agents: always update with all messages to reflect timeline changes
           setMessages(newMessages);
         }
       }
@@ -707,6 +727,11 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       longPollActiveRef.current = false;
       longPollAbortRef.current?.abort();
       fallbackPollingControlRef.current.stop();
+      // Clear any pending throttle timer for null-agent-type rendering
+      if (nullAgentRenderTimerRef.current) {
+        clearTimeout(nullAgentRenderTimerRef.current);
+        nullAgentRenderTimerRef.current = null;
+      }
     };
   }, [isConnected, sessionId]); // pollMessages はref経由で参照するため依存配列に不要
 
