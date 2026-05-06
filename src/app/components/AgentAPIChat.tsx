@@ -610,6 +610,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   // Long-poll refs
   const longPollActiveRef = useRef(false);
   const longPollAbortRef = useRef<AbortController | null>(null);
+  // Tracks the Unix-ms timestamp of the last known message_update.
+  // Passed as `since` to waitSessionMessages so the server can immediately
+  // return updated=true if messages arrived while the client was inactive.
+  const lastMessageTimestampRef = useRef<number | undefined>(undefined);
 
   // Long-polling loop — replaces 1-second interval polling.
   // Waits for message_update events from the server via GET /sessions/:sessionId/messages/wait,
@@ -625,6 +629,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     fallbackPollingControlRef.current.stop();
 
     longPollActiveRef.current = true;
+    // Record the start time so the first waitSessionMessages call can detect
+    // any update that arrived after we began but before we subscribed.
+    lastMessageTimestampRef.current = Date.now();
     let backoffMs = 1000;
     const MAX_BACKOFF = 30_000;
 
@@ -657,11 +664,14 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           const result = await agentAPIRef.current.waitSessionMessages(sessionId, {
             timeout: 30,
             signal: controller.signal,
+            since: lastMessageTimestampRef.current,
           });
 
           if (!longPollActiveRef.current) break;
 
           if (result.updated) {
+            // Update the cursor before fetching so the next call catches only newer events.
+            lastMessageTimestampRef.current = Date.parse(result.timestamp);
             await pollMessagesRef.current();
             backoffMs = 1000; // reset backoff on success
           }
