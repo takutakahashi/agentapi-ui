@@ -672,16 +672,22 @@ export class AgentAPIProxyClient {
    * @param sessionId - The session to watch for message updates.
    * @param options.timeout - Max wait seconds (default: 30, max: 60).
    * @param options.signal - AbortSignal to cancel the request (e.g. on component unmount).
+   * @param options.since - Unix timestamp in milliseconds of the last known message update.
+   *   If the session received a message_update after this time the server returns immediately
+   *   with updated=true, allowing the client to catch up after a period of inactivity.
    */
   async waitSessionMessages(
     sessionId: string,
-    options: { timeout?: number; signal?: AbortSignal } = {}
+    options: { timeout?: number; signal?: AbortSignal; since?: number } = {}
   ): Promise<WaitSessionMessagesResponse> {
-    const { timeout = 30, signal } = options;
-    const endpoint = `/sessions/${sessionId}/messages/wait?timeout=${timeout}`;
+    const { timeout = 30, signal, since } = options;
+    let endpoint = `/sessions/${sessionId}/messages/wait?timeout=${timeout}`;
+    if (since !== undefined) {
+      endpoint += `&since=${since}`;
+    }
 
     if (this.debug) {
-      console.log(`[AgentAPIProxy] Long-polling for message updates in session ${sessionId} (timeout=${timeout}s)`);
+      console.log(`[AgentAPIProxy] Long-polling for message updates in session ${sessionId} (timeout=${timeout}s, since=${since})`);
     }
 
     return this.makeRequest<WaitSessionMessagesResponse>(endpoint, { signal });
