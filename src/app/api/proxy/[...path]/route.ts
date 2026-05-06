@@ -268,9 +268,10 @@ async function handleProxyRequest(
     }
 
     // Make the request to the proxy
-    // Set timeout based on the endpoint - longer for message sending
-    const isMessageEndpoint = pathParts.includes('message');
-    const timeoutMs = isMessageEndpoint ? 120000 : 30000; // 2 minutes for messages, 30s for others
+    // Set timeout based on the endpoint - longer for message sending and long-polling
+    const isMessageEndpoint = pathParts.includes('message') ||
+      (pathParts.includes('messages') && pathParts.includes('wait'));
+    const timeoutMs = isMessageEndpoint ? 120000 : 35000; // 2 minutes for messages/long-poll, 35s for others
 
     debugLog(`[API Proxy] Making ${method} request to backend:`, {
       url: targetUrl,
