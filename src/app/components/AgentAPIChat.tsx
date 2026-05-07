@@ -769,15 +769,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         if (acpInfo) {
           // ── ACP session: send via JSON-RPC POST /rpc ──────────────────
           const promptId = acpNextPromptId.current++;
-          // Add user message locally (ACP echo may arrive via SSE too).
-          const now = new Date().toISOString();
-          setMessages(prev => [...prev, {
-            id: Date.now(),
-            role: 'user',
-            content: messageContent,
-            time: now,
-            type: 'normal',
-          }]);
+          // Do NOT add the user message locally here.
+          // The bridge broadcasts a synthetic user_message_chunk via SSE,
+          // which will arrive via onMessage and be added to the message list.
           setAgentStatus({ status: 'running' });
           await agentAPIRef.current.sendACPPrompt(sessionId, acpInfo.sessionId, messageContent, promptId);
         } else {
