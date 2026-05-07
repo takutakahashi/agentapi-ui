@@ -331,13 +331,16 @@ function MessageItem({
             }`}></div>
 
             {/* ツール名 */}
-            <span className={`text-xs flex-shrink-0 ${
-              hasResult
-                ? isSuccess
-                  ? 'text-green-600 dark:text-green-400'
-                  : 'text-red-600 dark:text-red-400'
-                : 'text-gray-500 dark:text-gray-400'
-            }`}>
+            <span
+              className={`text-xs flex-shrink-0 max-w-[160px] truncate ${
+                hasResult
+                  ? isSuccess
+                    ? 'text-green-600 dark:text-green-400'
+                    : 'text-red-600 dark:text-red-400'
+                  : 'text-gray-500 dark:text-gray-400'
+              }`}
+              title={toolUse.name}
+            >
               {toolUse.name}
             </span>
 
