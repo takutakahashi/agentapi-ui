@@ -1239,7 +1239,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     formatTimestamp={formatTimestamp}
                     fontSettings={fontSettings}
                     onShowPlanModal={planModalCallbacks.get(message.id.toString())}
-                    isClaudeAgent={agentType === 'claude' || agentType === 'codex'}
+                    isClaudeAgent={agentType === 'claude' || agentType === 'codex' || agentType === 'claude-acp'}
                   />
                 );
                 processedIds.add(message.id);
@@ -1260,7 +1260,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     formatTimestamp={formatTimestamp}
                     fontSettings={fontSettings}
                     onShowPlanModal={planModalCallbacks.get(message.id.toString())}
-                    isClaudeAgent={agentType === 'claude' || agentType === 'codex'}
+                    isClaudeAgent={agentType === 'claude' || agentType === 'codex' || agentType === 'claude-acp'}
                   />
                 );
                 processedIds.add(message.id);
