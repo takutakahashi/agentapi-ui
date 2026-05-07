@@ -115,6 +115,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       }
 
       const initializeChat = async () => {
+        console.log(`[ACP] initializeChat called (sessionId=${sessionId}, existingACPInfo=${JSON.stringify(acpInfo)}, existingEventSource=${acpEventSourceRef.current?.readyState ?? 'none'})`);
         try {
           setError(null);
           setIsConnected(true); // Set connected immediately for better UX
@@ -126,6 +127,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             if (agentAPIRef.current) {
               const info = await agentAPIRef.current.getACPSessionInfo(sessionId);
               if (info) {
+                console.log(`[ACP] initializeChat: ACP session detected (acpSessionId=${info.sessionId}), previous acpInfo=${JSON.stringify(acpInfo)}`);
                 setACPInfo(info);
                 setAgentType('acp');
                 setMessages([]);
@@ -135,8 +137,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
                 // Subscribe to ACP SSE stream.
                 if (acpEventSourceRef.current) {
+                  console.log(`[ACP] initializeChat: closing existing EventSource (readyState=${acpEventSourceRef.current.readyState})`);
                   acpEventSourceRef.current.close();
                 }
+                console.log(`[ACP] initializeChat: creating new EventSource for acpSessionId=${info.sessionId}`);
                 acpEventSourceRef.current = agentAPIRef.current.subscribeToACPSessionEvents(
                   sessionId,
                   info.sessionId,
@@ -158,7 +162,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                       setShowQuestionModal(true);
                     },
                     onError: (err) => {
-                      console.error('[ACP] SSE error:', err);
+                      console.error('[ACP] SSE error callback (from AgentAPIChat):', err);
                     },
                   }
                 );

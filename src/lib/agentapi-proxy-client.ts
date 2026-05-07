@@ -1707,10 +1707,13 @@ export class AgentAPIProxyClient {
    */
   async getACPSessionInfo(sessionId: string): Promise<ACPSessionInfo | null> {
     try {
+      console.log(`[ACP] getACPSessionInfo called (proxySessionId=${sessionId})`);
       const info = await this.makeRequest<ACPSessionInfo>(`/${sessionId}/session`);
+      console.log(`[ACP] getACPSessionInfo result:`, info);
       if (info?.sessionId) return info;
       return null;
-    } catch {
+    } catch (err) {
+      console.warn(`[ACP] getACPSessionInfo failed (proxySessionId=${sessionId}):`, err);
       return null;
     }
   }
@@ -1743,6 +1746,12 @@ export class AgentAPIProxyClient {
     let nextLocalId = 1;
     // Track the current streaming agent message id (for chunk accumulation).
     let streamingMsgId: number | null = null;
+
+    console.log(`[ACP] EventSource created (url=${sseUrl}, acpSessionId=${acpSessionId})`);
+
+    eventSource.addEventListener('open', () => {
+      console.log(`[ACP] SSE connection opened (url=${sseUrl}, acpSessionId=${acpSessionId})`);
+    });
 
     eventSource.addEventListener('message', (event: MessageEvent) => {
       try {
@@ -1898,11 +1907,17 @@ export class AgentAPIProxyClient {
       }
     });
 
-    eventSource.onerror = () => {
-      if (this.debug) {
-        console.error('[AgentAPIProxy] ACP SSE connection error');
+    eventSource.onerror = (event) => {
+      // EventSource.readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
+      const state = eventSource.readyState;
+      console.error(`[ACP] SSE onerror (url=${sseUrl}, acpSessionId=${acpSessionId}, readyState=${state})`, event);
+      if (state === EventSource.CLOSED) {
+        console.error(`[ACP] SSE connection permanently closed`);
+      } else {
+        // readyState=CONNECTING means the browser is auto-reconnecting.
+        console.warn(`[ACP] SSE error – browser will auto-reconnect (readyState=${state})`);
       }
-      callbacks.onError(new Error('ACP SSE connection error'));
+      callbacks.onError(new Error(`ACP SSE connection error (readyState=${state})`));
     };
 
     return eventSource;
