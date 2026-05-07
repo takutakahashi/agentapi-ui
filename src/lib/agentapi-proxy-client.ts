@@ -1719,6 +1719,86 @@ export class AgentAPIProxyClient {
   }
 
   /**
+   * Fetch the full message history from the ACP bridge's in-memory store.
+   * Returns parsed SessionMessage array reconstructed from the stored JSON-RPC messages.
+   * Used on reconnect to replay events that arrived before the SSE connection was established.
+   */
+  async getACPMessageHistory(
+    sessionId: string,
+    acpSessionId: string
+  ): Promise<SessionMessage[]> {
+    try {
+      const resp = await this.makeRequest<{ messages: ACPJSONRPCMessage[] }>(`/${sessionId}/messages`);
+      const rawMsgs = resp?.messages ?? [];
+      const result: SessionMessage[] = [];
+      let nextLocalId = Date.now(); // use timestamp-based IDs to avoid collision with SSE ids
+      let streamingMsgId: number | null = null;
+
+      for (const msg of rawMsgs) {
+        const now = new Date().toISOString();
+
+        if (msg.method === 'session/update') {
+          const update = (msg.params as { sessionId: string; update: ACPSessionUpdate })?.update;
+          if (!update) continue;
+
+          switch (update.sessionUpdate) {
+            case 'agent_message_chunk': {
+              const text = acpExtractText(update.content);
+              if (!text) continue;
+              if (streamingMsgId !== null) {
+                // Append to existing streaming message.
+                const idx = result.findIndex(m => m.id === streamingMsgId);
+                if (idx >= 0) result[idx] = { ...result[idx], content: result[idx].content + text };
+              } else {
+                const id = nextLocalId++;
+                streamingMsgId = id;
+                result.push({ id, role: 'agent', content: text, time: now, type: 'normal' });
+              }
+              break;
+            }
+            case 'tool_call': {
+              streamingMsgId = null;
+              const toolObj = { type: 'tool_use', name: update.kind || 'tool', id: update.toolCallId, input: update.rawInput ?? {} };
+              result.push({ id: nextLocalId++, role: 'agent', content: JSON.stringify(toolObj), time: now, type: 'normal', toolUseId: update.toolCallId });
+              break;
+            }
+            case 'tool_call_update': {
+              const isSuccess = update.status === 'completed' || update.status === 'success';
+              const isError = update.status === 'failed' || update.status === 'error';
+              if (!isSuccess && !isError) continue;
+              const content = update.rawOutput != null ? (typeof update.rawOutput === 'string' ? update.rawOutput : JSON.stringify(update.rawOutput)) : '';
+              result.push({ id: nextLocalId++, role: 'tool_result', content, time: now, type: 'normal', parentToolUseId: update.toolCallId, status: isSuccess ? 'success' : 'error' });
+              break;
+            }
+            case 'plan': {
+              streamingMsgId = null;
+              if (!update.entries || update.entries.length === 0) continue;
+              result.push({ id: nextLocalId++, role: 'agent', content: acpPlanToMarkdown(update.entries), time: now, type: 'plan' });
+              break;
+            }
+            case 'user_message_chunk': {
+              const text = acpExtractText(update.content);
+              if (!text) continue;
+              result.push({ id: nextLocalId++, role: 'user', content: text, time: now, type: 'normal' });
+              break;
+            }
+            default:
+              streamingMsgId = null;
+          }
+        } else if (msg.result != null || msg.error) {
+          // prompt result/error: reset streaming state
+          streamingMsgId = null;
+        }
+      }
+      console.log(`[ACP] getACPMessageHistory: ${result.length} messages restored`);
+      return result;
+    } catch (err) {
+      console.warn(`[ACP] getACPMessageHistory failed:`, err);
+      return [];
+    }
+  }
+
+  /**
    * Subscribe to ACP session events via SSE at /{sessionId}/sse.
    *
    * The SSE stream emits raw JSON-RPC 2.0 messages from the ACP agent:

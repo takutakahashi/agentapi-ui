@@ -130,7 +130,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 console.log(`[ACP] initializeChat: ACP session detected (acpSessionId=${info.sessionId}), previous acpInfo=${JSON.stringify(acpInfo)}`);
                 setACPInfo(info);
                 setAgentType('acp');
-                setMessages([]);
+
+                // Restore message history from bridge's in-memory store.
+                const history = await agentAPIRef.current!.getACPMessageHistory(sessionId, info.sessionId);
+                setMessages(history);
+                console.log(`[ACP] initializeChat: restored ${history.length} messages from bridge history`);
+
                 setHasMoreMessages(false);
                 setIsInitialLoadComplete(true);
                 setIsStarting(false);
