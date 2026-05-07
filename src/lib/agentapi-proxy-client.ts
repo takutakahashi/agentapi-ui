@@ -130,6 +130,95 @@ export class AgentAPIProxyError extends Error {
   }
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// ACP (Agent Client Protocol) types
+// ──────────────────────────────────────────────────────────────────────────────
+
+/** Response from GET /{sessionId}/session for ACP sessions. */
+export interface ACPSessionInfo {
+  sessionId: string;
+  status: string;
+}
+
+/** Discriminated union for ACP session/update payloads. */
+export interface ACPSessionUpdate {
+  sessionUpdate: string;
+  // agent_message_chunk / user_message_chunk
+  content?: { type: string; text?: string } | null;
+  messageId?: string;
+  // tool_call / tool_call_update
+  toolCallId?: string;
+  kind?: string;
+  status?: string;
+  rawInput?: unknown;
+  rawOutput?: unknown;
+  // plan
+  entries?: Array<{ content: string; status: string; priority: string }>;
+}
+
+/** A permission option offered by the ACP agent. */
+export interface ACPPermissionOption {
+  optionId: string;
+  name: string;
+  kind?: string;
+}
+
+/** Params for session/request_permission (agent → client). */
+export interface ACPPermissionParams {
+  sessionId: string;
+  toolCall: { toolCallId: string; kind?: string };
+  options: ACPPermissionOption[];
+}
+
+/** Raw JSON-RPC 2.0 message envelope received from the SSE stream. */
+export interface ACPJSONRPCMessage {
+  jsonrpc: '2.0';
+  id?: number | string | null;
+  method?: string;
+  params?: unknown;
+  result?: unknown;
+  error?: { code: number; message: string };
+}
+
+/** Callbacks for subscribeToACPSessionEvents. */
+export interface ACPSessionCallbacks {
+  /** Called for each complete or streaming agent message. */
+  onMessage: (message: SessionMessage) => void;
+  /** Called with additional text to append to an existing streaming message. */
+  onChunk: (messageId: number, text: string) => void;
+  /** Called when agent status changes (e.g. prompt turn finished). */
+  onStatus: (status: AgentStatus) => void;
+  /** Called when a permission request arrives from the agent. */
+  onPermission: (action: PendingAction, rpcId: number) => void;
+  /** Called on transport errors. */
+  onError: (error: Error) => void;
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Extract text from an ACP ContentBlock. */
+function acpExtractText(content: ACPSessionUpdate['content']): string {
+  if (!content) return '';
+  if (content.type === 'text' && typeof content.text === 'string') return content.text;
+  return '';
+}
+
+/** Convert ACP plan entries to a Markdown task list. */
+function acpPlanToMarkdown(entries: NonNullable<ACPSessionUpdate['entries']>): string {
+  let md = '## Plan\n\n';
+  for (const e of entries) {
+    const marker =
+      e.status === 'completed' ? '- [x]' :
+      e.status === 'in_progress' ? '- [~]' :
+      e.status === 'cancelled' ? '- [!]' : '- [ ]';
+    const priority =
+      e.priority === 'high' ? ' 🔴' :
+      e.priority === 'low' ? ' 🔵' : '';
+    md += `${marker} ${e.content}${priority}\n`;
+  }
+  return md;
+}
+
 /**
  * AgentAPIProxyClient handles session management and communicates directly with agentapi-proxy.
  */
@@ -1598,6 +1687,285 @@ export class AgentAPIProxyClient {
     }
     return this.makeRequest<{ success: boolean }>(`/files/${encodeURIComponent(fileId)}`, {
       method: 'DELETE',
+    });
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // ACP (Agent Client Protocol) HTTP transport
+  //
+  // ACP sessions expose a minimal 2-endpoint HTTP transport instead of the
+  // agentapi-compatible REST API:
+  //
+  //   GET  /{sessionId}/session  – session info (acpSessionId, status)
+  //   POST /{sessionId}/rpc      – JSON-RPC 2.0 messages (client → agent)
+  //   GET  /{sessionId}/sse      – SSE stream of JSON-RPC 2.0 messages (agent → client)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Returns ACP session info if the session uses ACP transport, null otherwise.
+   * Use this to detect whether a session is ACP-based.
+   */
+  async getACPSessionInfo(sessionId: string): Promise<ACPSessionInfo | null> {
+    try {
+      const info = await this.makeRequest<ACPSessionInfo>(`/${sessionId}/session`);
+      if (info?.sessionId) return info;
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Subscribe to ACP session events via SSE at /{sessionId}/sse.
+   *
+   * The SSE stream emits raw JSON-RPC 2.0 messages from the ACP agent:
+   *   - session/update notifications  → converted to SessionMessage via callbacks.onMessage
+   *   - session/request_permission    → converted to PendingAction via callbacks.onPermission
+   *   - session/prompt result         → signals turn end via callbacks.onStatus({status:'stable'})
+   *
+   * Returns the EventSource; call .close() to unsubscribe.
+   */
+  subscribeToACPSessionEvents(
+    sessionId: string,
+    acpSessionId: string,
+    callbacks: ACPSessionCallbacks
+  ): EventSource {
+    const isUsingProxy = this.baseURL.includes('/api/proxy');
+    const sseUrl = isUsingProxy
+      ? `/api/proxy/${sessionId}/sse`
+      : `${this.baseURL}/${sessionId}/sse`;
+
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] ACP SSE subscribe: ${sseUrl}`);
+    }
+
+    const eventSource = new EventSource(sseUrl);
+    let nextLocalId = 1;
+    // Track the current streaming agent message id (for chunk accumulation).
+    let streamingMsgId: number | null = null;
+
+    eventSource.addEventListener('message', (event: MessageEvent) => {
+      try {
+        const msg: ACPJSONRPCMessage = JSON.parse(event.data);
+
+        if (this.debug) {
+          console.log('[AgentAPIProxy] ACP SSE message:', msg);
+        }
+
+        // ── session/update notification ──────────────────────────────────
+        if (msg.method === 'session/update') {
+          const update = (msg.params as { sessionId: string; update: ACPSessionUpdate })?.update;
+          if (!update) return;
+
+          const now = new Date().toISOString();
+
+          switch (update.sessionUpdate) {
+            case 'agent_message_chunk': {
+              const text = acpExtractText(update.content);
+              if (!text) return;
+
+              if (streamingMsgId !== null) {
+                // Append to existing streaming message.
+                callbacks.onChunk(streamingMsgId, text);
+              } else {
+                // Start a new streaming message.
+                const id = nextLocalId++;
+                streamingMsgId = id;
+                callbacks.onMessage({
+                  id,
+                  role: 'agent',
+                  content: text,
+                  time: now,
+                  type: 'normal',
+                });
+              }
+              break;
+            }
+
+            case 'tool_call': {
+              // Finalize any streaming text before the tool call.
+              streamingMsgId = null;
+              const toolObj = {
+                type: 'tool_use',
+                name: update.kind || 'tool',
+                id: update.toolCallId,
+                input: update.rawInput ?? {},
+              };
+              callbacks.onMessage({
+                id: nextLocalId++,
+                role: 'agent',
+                content: JSON.stringify(toolObj),
+                time: now,
+                type: 'normal',
+                toolUseId: update.toolCallId,
+              });
+              break;
+            }
+
+            case 'tool_call_update': {
+              const isSuccess = update.status === 'completed' || update.status === 'success';
+              const isError = update.status === 'failed' || update.status === 'error';
+              if (!isSuccess && !isError) return;
+
+              const content = update.rawOutput != null
+                ? (typeof update.rawOutput === 'string' ? update.rawOutput : JSON.stringify(update.rawOutput))
+                : '';
+              callbacks.onMessage({
+                id: nextLocalId++,
+                role: 'tool_result',
+                content,
+                time: now,
+                type: 'normal',
+                parentToolUseId: update.toolCallId,
+                status: isSuccess ? 'success' : 'error',
+              });
+              break;
+            }
+
+            case 'plan': {
+              streamingMsgId = null;
+              if (!update.entries || update.entries.length === 0) return;
+              const planMD = acpPlanToMarkdown(update.entries);
+              callbacks.onMessage({
+                id: nextLocalId++,
+                role: 'agent',
+                content: planMD,
+                time: now,
+                type: 'plan',
+              });
+              break;
+            }
+
+            case 'user_message_chunk': {
+              const text = acpExtractText(update.content);
+              if (!text) return;
+              callbacks.onMessage({
+                id: nextLocalId++,
+                role: 'user',
+                content: text,
+                time: now,
+                type: 'normal',
+              });
+              break;
+            }
+          }
+          return;
+        }
+
+        // ── session/request_permission (agent → client RPC) ──────────────
+        if (msg.method === 'session/request_permission' && msg.id != null) {
+          streamingMsgId = null;
+          const params = msg.params as ACPPermissionParams;
+          const action: PendingAction = {
+            type: 'answer_question',
+            tool_use_id: params.toolCall?.toolCallId ?? '',
+            content: {
+              questions: [{
+                question: 'Permission required',
+                header: 'Permission Required',
+                options: (params.options ?? []).map(o => ({
+                  label: o.name || o.optionId,
+                  description: o.kind ?? '',
+                })),
+                multiSelect: false,
+              }],
+            },
+          };
+          callbacks.onPermission(action, msg.id as number);
+          return;
+        }
+
+        // ── Result of session/prompt (turn finished) ──────────────────────
+        if (msg.result != null && msg.id != null) {
+          streamingMsgId = null;
+          callbacks.onStatus({ status: 'stable' });
+          return;
+        }
+
+        // ── Error on session/prompt ───────────────────────────────────────
+        if (msg.error && msg.id != null) {
+          streamingMsgId = null;
+          callbacks.onStatus({ status: 'stable' });
+          callbacks.onError(new Error(msg.error.message));
+          return;
+        }
+
+      } catch (err) {
+        if (this.debug) {
+          console.error('[AgentAPIProxy] ACP SSE parse error:', err);
+        }
+        callbacks.onError(err instanceof Error ? err : new Error('Failed to parse ACP SSE message'));
+      }
+    });
+
+    eventSource.onerror = () => {
+      if (this.debug) {
+        console.error('[AgentAPIProxy] ACP SSE connection error');
+      }
+      callbacks.onError(new Error('ACP SSE connection error'));
+    };
+
+    return eventSource;
+  }
+
+  /**
+   * Send a session/prompt request to the ACP agent.
+   * The result (stopReason) arrives asynchronously via the SSE stream.
+   * @param promptId - JSON-RPC id; correlates the SSE result message.
+   */
+  async sendACPPrompt(
+    sessionId: string,
+    acpSessionId: string,
+    text: string,
+    promptId: number
+  ): Promise<void> {
+    await this.makeRequest<unknown>(`/${sessionId}/rpc`, {
+      method: 'POST',
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: promptId,
+        method: 'session/prompt',
+        params: {
+          sessionId: acpSessionId,
+          prompt: [{ type: 'text', text }],
+        },
+      }),
+    });
+  }
+
+  /**
+   * Reply to a session/request_permission RPC that arrived via SSE.
+   * @param rpcId  - The JSON-RPC id from the SSE message.
+   * @param optionId - The selected option id to send back.
+   */
+  async replyToACPPermission(
+    sessionId: string,
+    rpcId: number,
+    optionId: string
+  ): Promise<void> {
+    await this.makeRequest<unknown>(`/${sessionId}/rpc`, {
+      method: 'POST',
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: rpcId,
+        result: {
+          outcome: { outcome: 'selected', optionId },
+        },
+      }),
+    });
+  }
+
+  /**
+   * Cancel the current ACP session turn.
+   */
+  async cancelACPSession(sessionId: string, acpSessionId: string): Promise<void> {
+    await this.makeRequest<unknown>(`/${sessionId}/rpc`, {
+      method: 'POST',
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'session/cancel',
+        params: { sessionId: acpSessionId },
+      }),
     });
   }
 }
