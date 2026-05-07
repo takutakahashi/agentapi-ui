@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Session, AgentStatus, SessionListParams } from '../../types/agentapi'
-import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
+import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, ProxySessionStatusEvent } from '../../lib/agentapi-proxy-client'
 import { useBackgroundAwareInterval } from '../hooks/usePageVisibility'
+import { useSessionsStatusStream } from '../hooks/useSessionsStatusStream'
 import { formatDate, formatRelativeTime } from '../../utils/timeUtils'
 import { truncateText } from '../../utils/textUtils'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
@@ -216,34 +217,51 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     return false
   }, [hasCreatingSessions, sessions, sessionAgentStatus])
 
-  // ポーリング間隔: 実行中セッションがある場合は5秒、ない場合は15秒
-  const pollingInterval = hasActiveSession ? 5000 : 15000
+  // SSE でセッションステータス変化を受信したときの処理
+  const handleProxyStatusEvent = useCallback((event: ProxySessionStatusEvent) => {
+    setSessions(prev => {
+      const idx = prev.findIndex(s => s.session_id === event.session_id)
+      if (idx === -1) return prev
+      const updated = [...prev]
+      updated[idx] = { ...updated[idx], status: event.status as Session['status'] }
+      return updated
+    })
 
-  // セッション一覧のサイレントポーリング（セッションの追加・削除・ライフサイクル変化を反映）
-  const sessionsPollingControl = useBackgroundAwareInterval(() => fetchSessions(true), pollingInterval, false)
+    // セッションが active になったタイミングでフルリフレッシュ（メタデータ取得のため）
+    if (event.status === 'active') {
+      fetchSessions()
+    }
+  }, [fetchSessions])
 
-  // エージェントレベルのステータス（running / stable / error）のポーリング
+  // プロキシ全体のセッションステータス SSE ストリーム
+  useSessionsStatusStream({
+    client: agentAPIProxy,
+    onStatusChange: handleProxyStatusEvent,
+  })
+
+  // エージェントステータスポーリング間隔: 実行中セッションがある場合は7秒、ない場合は30秒
+  // （SSE がセッション作成ライフサイクルをカバーするため、ポーリング頻度を下げる）
+  const pollingInterval = hasActiveSession ? 7000 : 30000
+
+  // エージェントレベルのステータス（running / stable / error）は引き続きポーリングで取得
   const statusPollingControl = useBackgroundAwareInterval(fetchSessionStatuses, pollingInterval, false)
 
   useEffect(() => {
     fetchSessions()
   }, [fetchSessions])
 
-  // セッション一覧・エージェントステータスを定期的に更新
+  // エージェントステータスを定期的に更新
   useEffect(() => {
     if (sessions.length > 0) {
-      sessionsPollingControl.start()
       statusPollingControl.start()
     } else {
-      sessionsPollingControl.stop()
       statusPollingControl.stop()
     }
 
     return () => {
-      sessionsPollingControl.stop()
       statusPollingControl.stop()
     }
-  }, [sessions.length, sessionsPollingControl, statusPollingControl])
+  }, [sessions.length, statusPollingControl])
 
 
   useEffect(() => {

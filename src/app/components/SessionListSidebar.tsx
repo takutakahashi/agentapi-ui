@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
+import { createAgentAPIProxyClientFromStorage, ProxySessionStatusEvent } from '../../lib/agentapi-proxy-client'
 import { Session, SessionStatus } from '../../types/agentapi'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
+import { useSessionsStatusStream } from '../hooks/useSessionsStatusStream'
 
 interface SessionListSidebarProps {
   currentSessionId: string
@@ -73,10 +74,31 @@ export default function SessionListSidebar({
     }
   }, [client, selectedTeam])
 
+  // SSE でリアルタイム更新: ステータス変化をインプレース反映し、active になったらフルリフレッシュ
+  const handleProxyStatusEvent = useCallback((event: ProxySessionStatusEvent) => {
+    setSessions(prev => {
+      const idx = prev.findIndex(s => s.session_id === event.session_id)
+      if (idx === -1) return prev
+      const updated = [...prev]
+      updated[idx] = { ...updated[idx], status: event.status as SessionStatus }
+      return updated
+    })
+    if (event.status === 'active' || event.status === 'stopped') {
+      fetchSessions()
+    }
+  }, [fetchSessions])
+
+  useSessionsStatusStream({
+    client,
+    onStatusChange: handleProxyStatusEvent,
+    enabled: isVisible,
+  })
+
   useEffect(() => {
     if (!isVisible) return
     fetchSessions()
-    const interval = setInterval(fetchSessions, 5000)
+    // SSE がリアルタイム更新を担うため、ポーリングは 30 秒に延長
+    const interval = setInterval(fetchSessions, 30000)
     return () => clearInterval(interval)
   }, [fetchSessions, isVisible])
 
