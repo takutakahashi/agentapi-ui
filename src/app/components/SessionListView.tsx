@@ -110,9 +110,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     }
   }, [agentAPIProxy])
 
-  const fetchSessions = useCallback(async () => {
+  const fetchSessions = useCallback(async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       setError(null)
 
       // Compute scope parameters directly from selectedTeam
@@ -647,7 +647,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
           </button>
           <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
           <button
-            onClick={fetchSessions}
+            onClick={() => fetchSessions()}
             disabled={loading}
             className="inline-flex items-center px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 disabled:opacity-50 font-medium"
           >

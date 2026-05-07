@@ -598,117 +598,17 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     setShowQuestionModal(false);
   }, []);
 
-  // Ref to always call the latest version of pollMessages (avoids stale closure in long-poll loop)
-  const pollMessagesRef = useRef(pollMessages);
-  pollMessagesRef.current = pollMessages;
+  // 1秒インターバルポーリング（接続中のみ動作）
+  const pollingControl = useBackgroundAwareInterval(pollMessages, 1000, false);
 
-  // Fallback interval polling — used only when the server returns 501 (long-polling not supported).
-  const fallbackPollingControl = useBackgroundAwareInterval(pollMessages, 5000, true);
-  const fallbackPollingControlRef = useRef(fallbackPollingControl);
-  fallbackPollingControlRef.current = fallbackPollingControl;
-
-  // Long-poll refs
-  const longPollActiveRef = useRef(false);
-  const longPollAbortRef = useRef<AbortController | null>(null);
-  // Tracks the Unix-ms timestamp of the last known message_update.
-  // Passed as `since` to waitSessionMessages so the server can immediately
-  // return updated=true if messages arrived while the client was inactive.
-  const lastMessageTimestampRef = useRef<number | undefined>(undefined);
-
-  // Long-polling loop — replaces 1-second interval polling.
-  // Waits for message_update events from the server via GET /sessions/:sessionId/messages/wait,
-  // then calls pollMessages() to fetch the latest data.
-  // Falls back to 5-second interval polling when the server returns 501 (e.g. local mode).
   useEffect(() => {
-    if (!isConnected || !sessionId) {
-      fallbackPollingControlRef.current.stop();
-      return;
+    if (isConnected && sessionId) {
+      pollingControl.start();
+    } else {
+      pollingControl.stop();
     }
-
-    // Ensure fallback polling is stopped while long-polling is active
-    fallbackPollingControlRef.current.stop();
-
-    longPollActiveRef.current = true;
-    // Record the start time so the first waitSessionMessages call can detect
-    // any update that arrived after we began but before we subscribed.
-    lastMessageTimestampRef.current = Date.now();
-    let backoffMs = 1000;
-    const MAX_BACKOFF = 30_000;
-
-    const runLongPoll = async () => {
-      // Fetch initial state immediately
-      await pollMessagesRef.current();
-
-      while (longPollActiveRef.current) {
-        // Pause when page is hidden; resume and re-fetch when visible again
-        if (document.visibilityState === 'hidden') {
-          await new Promise<void>((resolve) => {
-            const handler = () => {
-              if (document.visibilityState === 'visible') {
-                document.removeEventListener('visibilitychange', handler);
-                resolve();
-              }
-            };
-            document.addEventListener('visibilitychange', handler);
-          });
-          if (!longPollActiveRef.current) break;
-          await pollMessagesRef.current();
-        }
-
-        if (!agentAPIRef.current) break;
-
-        const controller = new AbortController();
-        longPollAbortRef.current = controller;
-
-        try {
-          const result = await agentAPIRef.current.waitSessionMessages(sessionId, {
-            timeout: 30,
-            signal: controller.signal,
-            since: lastMessageTimestampRef.current,
-          });
-
-          if (!longPollActiveRef.current) break;
-
-          if (result.updated) {
-            // Update the cursor before fetching so the next call catches only newer events.
-            lastMessageTimestampRef.current = Date.parse(result.timestamp);
-            await pollMessagesRef.current();
-            backoffMs = 1000; // reset backoff on success
-          }
-          // result.updated === false means server-side timeout → immediately retry
-
-        } catch (err) {
-          if (!longPollActiveRef.current) break;
-          // AbortError means the request was intentionally cancelled
-          if (err instanceof Error && err.name === 'AbortError') break;
-
-          // 501: server does not support long-polling → fall back to interval
-          if (err instanceof AgentAPIProxyError && err.status === 501) {
-            console.info('[LongPoll] Server does not support long-polling, falling back to interval polling');
-            longPollActiveRef.current = false;
-            fallbackPollingControlRef.current.start();
-            return;
-          }
-
-          // 502/503: transient service issues — retry silently
-          if (!(err instanceof AgentAPIProxyError && (err.status === 502 || err.status === 503))) {
-            console.warn('[LongPoll] Error, retrying in', backoffMs, 'ms:', err);
-          }
-          await new Promise(r => setTimeout(r, backoffMs));
-          if (!longPollActiveRef.current) break;
-          backoffMs = Math.min(backoffMs * 2, MAX_BACKOFF);
-        }
-      }
-    };
-
-    runLongPoll();
-
-    return () => {
-      longPollActiveRef.current = false;
-      longPollAbortRef.current?.abort();
-      fallbackPollingControlRef.current.stop();
-    };
-  }, [isConnected, sessionId]); // pollMessages はref経由で参照するため依存配列に不要
+    return () => pollingControl.stop();
+  }, [isConnected, sessionId, pollingControl]);
 
   // Get agent type from /status endpoint
   useEffect(() => {
