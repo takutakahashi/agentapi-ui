@@ -149,6 +149,8 @@ export interface ACPSessionUpdate {
   // tool_call / tool_call_update
   toolCallId?: string;
   kind?: string;
+  /** Human-readable tool title (e.g. "Terminal", "Task", "Find …"). Takes precedence over kind. */
+  title?: string;
   status?: string;
   rawInput?: unknown;
   rawOutput?: unknown;
@@ -1758,7 +1760,7 @@ export class AgentAPIProxyClient {
             }
             case 'tool_call': {
               streamingMsgId = null;
-              const toolObj = { type: 'tool_use', name: update.kind || 'tool', id: update.toolCallId, input: update.rawInput ?? {} };
+              const toolObj = { type: 'tool_use', name: update.title || update.kind || 'tool', id: update.toolCallId, input: update.rawInput ?? {} };
               result.push({ id: nextLocalId++, role: 'agent', content: JSON.stringify(toolObj), time: now, type: 'normal', toolUseId: update.toolCallId });
               break;
             }
@@ -1876,7 +1878,9 @@ export class AgentAPIProxyClient {
               streamingMsgId = null;
               const toolObj = {
                 type: 'tool_use',
-                name: update.kind || 'tool',
+                // Use title (human-readable, e.g. "Terminal", "Task") over
+                // kind (e.g. "execute", "think") for a better display name.
+                name: update.title || update.kind || 'tool',
                 id: update.toolCallId,
                 input: update.rawInput ?? {},
               };
