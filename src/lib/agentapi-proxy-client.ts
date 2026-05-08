@@ -1784,7 +1784,7 @@ export class AgentAPIProxyClient {
             }
             case 'tool_call': {
               streamingMsgId = null;
-              const toolObj = { type: 'tool_use', name: acpToolDisplayName(update.kind, update.title), id: update.toolCallId, input: update.rawInput ?? {} };
+              const toolObj = { type: 'tool_use', name: acpToolDisplayName(update.kind, update.title), id: update.toolCallId, input: update.rawInput ?? {}, title: update.title };
               result.push({ id: nextLocalId++, role: 'agent', content: JSON.stringify(toolObj), time: now, type: 'normal', toolUseId: update.toolCallId });
               break;
             }
@@ -1907,6 +1907,7 @@ export class AgentAPIProxyClient {
                 name: acpToolDisplayName(update.kind, update.title),
                 id: update.toolCallId,
                 input: update.rawInput ?? {},
+                title: update.title,
               };
               callbacks.onMessage({
                 id: nextLocalId++,

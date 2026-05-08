@@ -10,6 +10,8 @@ interface ToolUseContent {
   name: string;
   id: string;
   input: Record<string, unknown>;
+  /** ACP tool title (e.g. full command text or file path summary). Shown in brief info area. */
+  title?: string;
 }
 
 interface ToolResultContent {
@@ -276,10 +278,17 @@ function MessageItem({
     const hasResult = !!toolResult;
 
     if (toolUse) {
-      // ツールの簡易情報を抽出（description, file_path, pattern など）
+      // ツールの簡易情報を抽出（ACP title > description, file_path, pattern など）
       const getBriefInfo = (): string | null => {
         const input = toolUse.input;
         const maxLength = 40;
+
+        // ACP title (コマンド全文やファイルパスのサマリーなど) を最優先で表示
+        if (toolUse.title && typeof toolUse.title === 'string') {
+          return toolUse.title.length > maxLength
+            ? toolUse.title.substring(0, maxLength) + '...'
+            : toolUse.title;
+        }
 
         // description があれば優先
         if (input.description && typeof input.description === 'string') {
