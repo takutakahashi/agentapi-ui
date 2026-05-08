@@ -1879,6 +1879,11 @@ export class AgentAPIProxyClient {
               const text = acpExtractText(update.content);
               if (!text) return;
 
+              // Agent is actively streaming — mark as running so the UI
+              // suppresses input and shows the stop button even when the
+              // prompt was sent by the provisioner (stock session pickup).
+              callbacks.onStatus({ status: 'running' });
+
               if (streamingMsgId !== null) {
                 // Append to existing streaming message.
                 callbacks.onChunk(streamingMsgId, text);
@@ -1900,6 +1905,8 @@ export class AgentAPIProxyClient {
             case 'tool_call': {
               // Finalize any streaming text before the tool call.
               streamingMsgId = null;
+              // Tool is executing — keep the running state.
+              callbacks.onStatus({ status: 'running' });
               const toolObj = {
                 type: 'tool_use',
                 // Use kind→name mapping for a proper tool name (e.g. "Bash" for "execute").
