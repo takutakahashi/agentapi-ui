@@ -39,6 +39,7 @@ export default function ScheduleFormModal({
   const [reuseMessage, setReuseMessage] = useState('')
   const [memoryKeyPairs, setMemoryKeyPairs] = useState<MemoryKeyPair[]>([{ key: '', value: '' }])
   const [showCustomMemory, setShowCustomMemory] = useState(false)
+  const [envVarPairs, setEnvVarPairs] = useState<MemoryKeyPair[]>([{ key: '', value: '' }])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -61,6 +62,7 @@ export default function ScheduleFormModal({
       const isKnownPreset = !mk || Object.keys(mk).length === 0
         || (Object.keys(mk).length === 1 && mk['schedule_id'] === '{{ .schedule_id }}')
       setShowCustomMemory(!isKnownPreset)
+      setEnvVarPairs(recordToMemoryKeyPairs(editingSchedule.session_config?.environment))
 
       if (editingSchedule.cron_expr) {
         setExecutionType('recurring')
@@ -106,6 +108,7 @@ export default function ScheduleFormModal({
     setReuseMessage('')
     setMemoryKeyPairs([{ key: '', value: '' }])
     setShowCustomMemory(false)
+    setEnvVarPairs([{ key: '', value: '' }])
     setError(null)
   }
 
@@ -188,6 +191,8 @@ export default function ScheduleFormModal({
       if (oneshot) sessionParams.oneshot = true
       const hasParams = Object.keys(sessionParams).length > 0
 
+      const environment = memoryKeyPairsToRecord(envVarPairs)
+
       const scheduleData: CreateScheduleRequest = {
         name: name.trim(),
         timezone,
@@ -196,6 +201,7 @@ export default function ScheduleFormModal({
           tags: repository.trim() ? { repository: repository.trim() } : undefined,
           reuse_session: reuseSession || undefined,
           reuse_message: (reuseSession && reuseMessage.trim()) ? reuseMessage.trim() : undefined,
+          environment: environment || undefined,
         },
         ...scopeParams,
       }
@@ -555,6 +561,22 @@ export default function ScheduleFormModal({
                 />
               </div>
             )}
+          </div>
+
+          {/* Environment Variables */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              環境変数
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+              セッション実行時に渡す環境変数を設定します。
+            </p>
+            <MemoryKeyInput
+              pairs={envVarPairs}
+              onChange={setEnvVarPairs}
+              disabled={isSubmitting}
+              helpText="KEY=VALUE 形式で環境変数を入力してください"
+            />
           </div>
 
           {/* Error */}
