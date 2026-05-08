@@ -140,6 +140,16 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 setIsInitialLoadComplete(true);
                 setIsStarting(false);
 
+                // Fetch current status immediately so the UI reflects running/stable
+                // on reconnect (e.g. user navigated away then came back while the
+                // agent was still processing the provisioner's initial prompt).
+                try {
+                  const currentStatus = await agentAPIRef.current!.getSessionStatus(sessionId);
+                  setAgentStatus(currentStatus);
+                } catch {
+                  // Non-fatal — status will be updated via SSE events.
+                }
+
                 // Subscribe to ACP SSE stream.
                 if (acpEventSourceRef.current) {
                   console.log(`[ACP] initializeChat: closing existing EventSource (readyState=${acpEventSourceRef.current.readyState})`);
