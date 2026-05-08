@@ -158,6 +158,30 @@ export interface ACPSessionUpdate {
   entries?: Array<{ content: string; status: string; priority: string }>;
 }
 
+/**
+ * Maps ACP tool `kind` values to human-readable tool names shown in the UI.
+ * `kind` carries the semantic tool type (e.g. "execute", "read"), while
+ * `title` often contains the full command/path text which is not suitable
+ * as a short display name.
+ */
+const ACP_KIND_TO_NAME: Record<string, string> = {
+  execute: 'Bash',
+  read: 'Read',
+  write: 'Write',
+  search: 'Search',
+  think: 'Think',
+  browse: 'Browser',
+};
+
+/**
+ * Returns a short human-readable tool name for display.
+ * Prefers the kind→name mapping; falls back to title, then kind, then 'tool'.
+ */
+function acpToolDisplayName(kind: string | undefined, title: string | undefined): string {
+  if (kind && ACP_KIND_TO_NAME[kind]) return ACP_KIND_TO_NAME[kind];
+  return title || kind || 'tool';
+}
+
 /** A permission option offered by the ACP agent. */
 export interface ACPPermissionOption {
   optionId: string;
@@ -1760,7 +1784,7 @@ export class AgentAPIProxyClient {
             }
             case 'tool_call': {
               streamingMsgId = null;
-              const toolObj = { type: 'tool_use', name: update.title || update.kind || 'tool', id: update.toolCallId, input: update.rawInput ?? {} };
+              const toolObj = { type: 'tool_use', name: acpToolDisplayName(update.kind, update.title), id: update.toolCallId, input: update.rawInput ?? {} };
               result.push({ id: nextLocalId++, role: 'agent', content: JSON.stringify(toolObj), time: now, type: 'normal', toolUseId: update.toolCallId });
               break;
             }
@@ -1878,9 +1902,9 @@ export class AgentAPIProxyClient {
               streamingMsgId = null;
               const toolObj = {
                 type: 'tool_use',
-                // Use title (human-readable, e.g. "Terminal", "Task") over
-                // kind (e.g. "execute", "think") for a better display name.
-                name: update.title || update.kind || 'tool',
+                // Use kind→name mapping for a proper tool name (e.g. "Bash" for "execute").
+                // title often contains the full command/path text, not a short name.
+                name: acpToolDisplayName(update.kind, update.title),
                 id: update.toolCallId,
                 input: update.rawInput ?? {},
               };
