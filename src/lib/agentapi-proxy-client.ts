@@ -253,6 +253,26 @@ function acpExtractText(content: ACPSessionUpdate['content']): string {
   return '';
 }
 
+/**
+ * Extract human-readable text from rawOutput.
+ * rawOutput can be a string, an array of {text} objects (ACP think/explore tools),
+ * or an arbitrary object. Falls back to JSON.stringify for unknown shapes.
+ */
+function extractRawOutputText(rawOutput: unknown): string {
+  if (rawOutput == null) return '';
+  if (typeof rawOutput === 'string') return rawOutput;
+  if (Array.isArray(rawOutput)) {
+    return rawOutput
+      .map(item => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item.text === 'string') return item.text;
+        return JSON.stringify(item);
+      })
+      .join('\n');
+  }
+  return JSON.stringify(rawOutput);
+}
+
 /** Convert ACP plan entries to a Markdown task list. */
 function acpPlanToMarkdown(entries: NonNullable<ACPSessionUpdate['entries']>): string {
   let md = '## Plan\n\n';
@@ -1840,7 +1860,7 @@ export class AgentAPIProxyClient {
               // in_progress: update the existing tool call message in-place (no new message needed for history replay)
               if (update.status === 'in_progress') continue;
               if (!isSuccess && !isError) continue;
-              const content = update.rawOutput != null ? (typeof update.rawOutput === 'string' ? update.rawOutput : JSON.stringify(update.rawOutput)) : '';
+              const content = extractRawOutputText(update.rawOutput);
               result.push({ id: nextLocalId++, role: 'tool_result', content, time: now, type: 'normal', parentToolUseId: update.toolCallId, status: isSuccess ? 'success' : 'error' });
               break;
             }
@@ -2013,9 +2033,7 @@ export class AgentAPIProxyClient {
 
               if (!isSuccess && !isError) return;
 
-              const content = update.rawOutput != null
-                ? (typeof update.rawOutput === 'string' ? update.rawOutput : JSON.stringify(update.rawOutput))
-                : '';
+              const content = extractRawOutputText(update.rawOutput);
               callbacks.onMessage({
                 id: nextLocalId++,
                 role: 'tool_result',
