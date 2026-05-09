@@ -168,6 +168,24 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                         m.id === msgId ? { ...m, content: m.content + text } : m
                       ));
                     },
+                    onThoughtChunk: (msgId, thought) => {
+                      setMessages(prev => prev.map(m =>
+                        m.id === msgId ? { ...m, thought: (m.thought ?? '') + thought } : m
+                      ));
+                    },
+                    onToolUpdate: (toolCallId, status) => {
+                      setMessages(prev => prev.map(m =>
+                        m.toolUseId === toolCallId
+                          ? { ...m, content: JSON.stringify({ ...JSON.parse(m.content || '{}'), _status: status }) }
+                          : m
+                      ));
+                    },
+                    onModeUpdate: (modeId) => {
+                      console.log('[ACP] current_mode_update:', modeId);
+                    },
+                    onCommandsUpdate: (commands) => {
+                      console.log('[ACP] available_commands_update:', commands);
+                    },
                     onStatus: (status) => {
                       setAgentStatus(status);
                     },
@@ -757,6 +775,24 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
               setMessages(prev => prev.map(m =>
                 m.id === msgId ? { ...m, content: m.content + text } : m
               ));
+            },
+            onThoughtChunk: (msgId, thought) => {
+              setMessages(prev => prev.map(m =>
+                m.id === msgId ? { ...m, thought: (m.thought ?? '') + thought } : m
+              ));
+            },
+            onToolUpdate: (toolCallId, status) => {
+              setMessages(prev => prev.map(m =>
+                m.toolUseId === toolCallId
+                  ? { ...m, content: JSON.stringify({ ...JSON.parse(m.content || '{}'), _status: status }) }
+                  : m
+              ));
+            },
+            onModeUpdate: (modeId) => {
+              console.log('[ACP] current_mode_update:', modeId);
+            },
+            onCommandsUpdate: (commands) => {
+              console.log('[ACP] available_commands_update:', commands);
             },
             onStatus: (status) => {
               setAgentStatus(status);

@@ -269,6 +269,7 @@ function MessageItem({
   isClaudeAgent,
 }: MessageItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isThoughtExpanded, setIsThoughtExpanded] = useState(false);
 
   // ツール実行の場合（ツール結果も含めて表示）
   if (message.role === 'agent' && message.toolUseId) {
@@ -575,6 +576,24 @@ function MessageItem({
               {formatTimestamp(message.timestamp || message.time || '')}
             </span>
           </div>
+
+          {/* ACP agent thought — subtle collapsible link before the main content */}
+          {message.thought && role !== 'user' && (
+            <div className="mb-1">
+              <button
+                onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
+                className="text-[11px] text-gray-400 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-500 transition-colors"
+              >
+                💭 {isThoughtExpanded ? '思考を隠す' : '思考を表示'}
+              </button>
+              {isThoughtExpanded && (
+                <div className="mt-1 pl-2 border-l border-gray-200 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500 italic leading-relaxed">
+                  <div className="whitespace-pre-wrap break-words">{message.thought}</div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div
             className={`text-gray-700 dark:text-gray-300 ${
               fontSettings.fontFamily === 'monospace' ? 'font-mono' : ''
@@ -596,6 +615,7 @@ function areEqual(prevProps: MessageItemProps, nextProps: MessageItemProps): boo
     prevProps.message.id === nextProps.message.id &&
     prevProps.message.role === nextProps.message.role &&
     prevProps.message.content === nextProps.message.content &&
+    prevProps.message.thought === nextProps.message.thought &&
     prevProps.message.type === nextProps.message.type &&
     prevProps.message.toolUseId === nextProps.message.toolUseId &&
     prevProps.message.parentToolUseId === nextProps.message.parentToolUseId &&
