@@ -255,8 +255,11 @@ function acpExtractText(content: ACPSessionUpdate['content']): string {
 
 /**
  * Extract human-readable text from rawOutput.
- * rawOutput can be a string, an array of {text} objects (ACP think/explore tools),
- * or an arbitrary object. Falls back to JSON.stringify for unknown shapes.
+ * rawOutput can be:
+ *   - string: returned as-is
+ *   - Array of {text} or {type, text} ContentBlock objects (ACP think/explore tools)
+ *   - Single {text} or {type, text} ContentBlock object
+ *   - Arbitrary object: falls back to JSON.stringify
  */
 function extractRawOutputText(rawOutput: unknown): string {
   if (rawOutput == null) return '';
@@ -265,10 +268,17 @@ function extractRawOutputText(rawOutput: unknown): string {
     return rawOutput
       .map(item => {
         if (typeof item === 'string') return item;
-        if (item && typeof item.text === 'string') return item.text;
+        if (item && typeof (item as Record<string, unknown>).text === 'string') {
+          return (item as Record<string, unknown>).text as string;
+        }
         return JSON.stringify(item);
       })
       .join('\n');
+  }
+  // Handle single ContentBlock object {type: "text", text: "..."} or {text: "..."}
+  const obj = rawOutput as Record<string, unknown>;
+  if (typeof obj.text === 'string') {
+    return obj.text;
   }
   return JSON.stringify(rawOutput);
 }
@@ -1857,11 +1867,15 @@ export class AgentAPIProxyClient {
             case 'tool_call_update': {
               const isSuccess = update.status === 'completed' || update.status === 'success';
               const isError = update.status === 'failed' || update.status === 'error';
-              // in_progress: update the existing tool call message in-place (no new message needed for history replay)
-              if (update.status === 'in_progress') continue;
-              if (!isSuccess && !isError) continue;
+              // Proxy sends "running"; ACP spec also defines "in_progress"
+              const isRunning = update.status === 'running' || update.status === 'in_progress';
+              if (isRunning) continue;
+              if (!isSuccess && !isError) {
+                // Unknown status: if rawOutput is present, treat as success so the result is shown.
+                if (update.rawOutput == null) continue;
+              }
               const content = extractRawOutputText(update.rawOutput);
-              result.push({ id: nextLocalId++, role: 'tool_result', content, time: now, type: 'normal', parentToolUseId: update.toolCallId, status: isSuccess ? 'success' : 'error' });
+              result.push({ id: nextLocalId++, role: 'tool_result', content, time: now, type: 'normal', parentToolUseId: update.toolCallId, status: isError ? 'error' : 'success' });
               break;
             }
             case 'plan': {
@@ -2023,15 +2037,19 @@ export class AgentAPIProxyClient {
             case 'tool_call_update': {
               const isSuccess = update.status === 'completed' || update.status === 'success';
               const isError = update.status === 'failed' || update.status === 'error';
-              const isInProgress = update.status === 'in_progress';
+              // Proxy sends "running"; ACP spec also defines "in_progress"
+              const isRunning = update.status === 'running' || update.status === 'in_progress';
 
-              if (isInProgress) {
+              if (isRunning) {
                 // Notify the UI so it can update the tool card's visual state.
                 callbacks.onToolUpdate?.(update.toolCallId ?? '', 'in_progress');
                 return;
               }
 
-              if (!isSuccess && !isError) return;
+              if (!isSuccess && !isError) {
+                // Unknown status: if rawOutput is present, treat as success so the result is shown.
+                if (update.rawOutput == null) return;
+              }
 
               const content = extractRawOutputText(update.rawOutput);
               callbacks.onMessage({
