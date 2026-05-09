@@ -146,11 +146,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 try {
                   const currentStatus = await agentAPIRef.current!.getSessionStatus(sessionId);
                   setAgentStatus(currentStatus);
-                  // Update agentType so markdown renders for Claude-based ACP sessions.
+                  // Update agentType so markdown renders for ACP sessions.
                   // getACPSessionInfo hardcodes 'acp', but agent_type from status is authoritative.
-                  if (currentStatus.agent_type === 'claude' || currentStatus.agent_type === 'claude-acp') {
-                    setAgentType('claude-acp');
-                  } else if (currentStatus.agent_type) {
+                  if (currentStatus.agent_type) {
                     setAgentType(currentStatus.agent_type);
                   }
                 } catch {
@@ -1367,7 +1365,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     formatTimestamp={formatTimestamp}
                     fontSettings={fontSettings}
                     onShowPlanModal={planModalCallbacks.get(message.id.toString())}
-                    isClaudeAgent={agentType === 'claude' || agentType === 'codex' || agentType === 'claude-acp'}
+                    isClaudeAgent={agentType === 'claude' || agentType === 'codex' || (!!agentType && agentType.includes('acp'))}
                   />
                 );
                 processedIds.add(message.id);
@@ -1388,7 +1386,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     formatTimestamp={formatTimestamp}
                     fontSettings={fontSettings}
                     onShowPlanModal={planModalCallbacks.get(message.id.toString())}
-                    isClaudeAgent={agentType === 'claude' || agentType === 'codex' || agentType === 'claude-acp'}
+                    isClaudeAgent={agentType === 'claude' || agentType === 'codex' || (!!agentType && agentType.includes('acp'))}
                   />
                 );
                 processedIds.add(message.id);
