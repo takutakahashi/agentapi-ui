@@ -577,23 +577,17 @@ function MessageItem({
             </span>
           </div>
 
-          {/* ACP agent thought — collapsible section shown before the main content */}
+          {/* ACP agent thought — subtle collapsible link before the main content */}
           {message.thought && role !== 'user' && (
-            <div className="mb-2 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <div className="mb-1">
               <button
                 onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
-                className="w-full flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors text-left"
+                className="text-[11px] text-gray-400 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-500 transition-colors"
               >
-                <span className="text-sm">💭</span>
-                <span className="flex-1 text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {isThoughtExpanded ? '思考を隠す' : '思考を表示'}
-                </span>
-                <span className="text-xs text-gray-400 dark:text-gray-600">
-                  {isThoughtExpanded ? '▲' : '▼'}
-                </span>
+                💭 {isThoughtExpanded ? '思考を隠す' : '思考を表示'}
               </button>
               {isThoughtExpanded && (
-                <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 italic leading-relaxed border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/50">
+                <div className="mt-1 pl-2 border-l border-gray-200 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500 italic leading-relaxed">
                   <div className="whitespace-pre-wrap break-words">{message.thought}</div>
                 </div>
               )}
