@@ -1761,11 +1761,11 @@ export class AgentAPIProxyClient {
       let streamingMsgId: number | null = null;
 
       for (const msg of rawMsgs) {
-        const now = new Date().toISOString();
-
         if (msg.method === 'session/update') {
-          const update = (msg.params as { sessionId: string; update: ACPSessionUpdate })?.update;
+          const acpParams = msg.params as { sessionId: string; update: ACPSessionUpdate; time?: string };
+          const update = acpParams?.update;
           if (!update) continue;
+          const now = acpParams?.time || new Date().toISOString();
 
           switch (update.sessionUpdate) {
             case 'agent_message_chunk': {
@@ -1869,10 +1869,11 @@ export class AgentAPIProxyClient {
 
         // ── session/update notification ──────────────────────────────────
         if (msg.method === 'session/update') {
-          const update = (msg.params as { sessionId: string; update: ACPSessionUpdate })?.update;
+          const acpParams = msg.params as { sessionId: string; update: ACPSessionUpdate; time?: string };
+          const update = acpParams?.update;
           if (!update) return;
 
-          const now = new Date().toISOString();
+          const now = acpParams?.time || new Date().toISOString();
 
           switch (update.sessionUpdate) {
             case 'agent_message_chunk': {
