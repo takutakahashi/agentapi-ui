@@ -185,6 +185,20 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                           : m
                       ));
                     },
+                    onToolInputUpdate: (toolCallId, input, title, locations) => {
+                      setMessages(prev => prev.map(m => {
+                        if (m.toolUseId !== toolCallId) return m;
+                        try {
+                          const toolObj = JSON.parse(m.content || '{}');
+                          return { ...m, content: JSON.stringify({
+                            ...toolObj,
+                            input,
+                            ...(title != null ? { title } : {}),
+                            ...(locations != null ? { locations } : {}),
+                          })};
+                        } catch { return m; }
+                      }));
+                    },
                     onModeUpdate: (modeId) => {
                       console.log('[ACP] current_mode_update:', modeId);
                     },
@@ -792,6 +806,20 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                   ? { ...m, content: JSON.stringify({ ...JSON.parse(m.content || '{}'), _status: status }) }
                   : m
               ));
+            },
+            onToolInputUpdate: (toolCallId, input, title, locations) => {
+              setMessages(prev => prev.map(m => {
+                if (m.toolUseId !== toolCallId) return m;
+                try {
+                  const toolObj = JSON.parse(m.content || '{}');
+                  return { ...m, content: JSON.stringify({
+                    ...toolObj,
+                    input,
+                    ...(title != null ? { title } : {}),
+                    ...(locations != null ? { locations } : {}),
+                  })};
+                } catch { return m; }
+              }));
             },
             onModeUpdate: (modeId) => {
               console.log('[ACP] current_mode_update:', modeId);
