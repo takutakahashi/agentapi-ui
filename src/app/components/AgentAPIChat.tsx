@@ -146,6 +146,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 try {
                   const currentStatus = await agentAPIRef.current!.getSessionStatus(sessionId);
                   setAgentStatus(currentStatus);
+                  // Update agentType so markdown renders for Claude-based ACP sessions.
+                  // getACPSessionInfo hardcodes 'acp', but agent_type from status is authoritative.
+                  if (currentStatus.agent_type === 'claude' || currentStatus.agent_type === 'claude-acp') {
+                    setAgentType('claude-acp');
+                  } else if (currentStatus.agent_type) {
+                    setAgentType(currentStatus.agent_type);
+                  }
                 } catch {
                   // Non-fatal — status will be updated via SSE events.
                 }
