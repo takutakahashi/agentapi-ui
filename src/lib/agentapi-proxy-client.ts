@@ -143,8 +143,12 @@ export interface ACPSessionInfo {
 /** Discriminated union for ACP session/update payloads. */
 export interface ACPSessionUpdate {
   sessionUpdate: string;
-  // agent_message_chunk / user_message_chunk / agent_thought_chunk
-  content?: { type: string; text?: string } | null;
+  // agent_message_chunk / user_message_chunk / agent_thought_chunk:
+  //   content = { type: "text", text: "..." }
+  // tool_call / tool_call_update:
+  //   content = [{ type: "content"|"diff"|"terminal", content?: {type,text}, ... }]
+  //   (ACP ToolCallContent[] — use extractACPToolContent() to get text)
+  content?: unknown;
   messageId?: string;
   // tool_call / tool_call_update
   toolCallId?: string;
@@ -153,8 +157,10 @@ export interface ACPSessionUpdate {
   title?: string;
   status?: string;
   /** File/location hints emitted with tool_call (matches ACP ToolCallInfo.locations). */
-  locations?: Array<{ path: string }>;
+  locations?: Array<{ path: string; line?: number }>;
+  /** Raw tool input (Anthropic SDK format). May be empty {} on streaming start; full input arrives in subsequent tool_call_update. */
   rawInput?: unknown;
+  /** Raw tool output (Anthropic SDK format). Prefer content[] for display; rawOutput may contain non-text blocks. */
   rawOutput?: unknown;
   // plan
   entries?: Array<{ content: string; status: string; priority: string }>;
@@ -229,6 +235,16 @@ export interface ACPSessionCallbacks {
    */
   onToolUpdate?: (toolCallId: string, status: string) => void;
   /**
+   * Called when a tool call's input is updated (step 2 of the 3-step ACP sequence).
+   * The message with matching toolUseId should patch its input/title/locations.
+   */
+  onToolInputUpdate?: (
+    toolCallId: string,
+    input: unknown,
+    title?: string,
+    locations?: Array<{ path: string; line?: number }>
+  ) => void;
+  /**
    * Called when the agent switches to a different mode (current_mode_update).
    */
   onModeUpdate?: (modeId: string) => void;
@@ -246,11 +262,66 @@ export interface ACPSessionCallbacks {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Extract text from an ACP ContentBlock. */
-function acpExtractText(content: ACPSessionUpdate['content']): string {
-  if (!content) return '';
-  if (content.type === 'text' && typeof content.text === 'string') return content.text;
+/** Extract text from an ACP ContentBlock (used for agent/user message chunks). */
+function acpExtractText(content: unknown): string {
+  if (!content || typeof content !== 'object' || Array.isArray(content)) return '';
+  const obj = content as Record<string, unknown>;
+  if (obj.type === 'text' && typeof obj.text === 'string') return obj.text;
   return '';
+}
+
+/**
+ * Extract human-readable text from an ACP ToolCallContent array.
+ * claude-agent-acp sends tool results via this content array (not rawOutput)
+ * with each item having type "content" | "diff" | "terminal".
+ */
+function extractACPToolContent(content: unknown): string {
+  if (!content || !Array.isArray(content)) return '';
+  const texts: string[] = [];
+  for (const item of content) {
+    if (!item || typeof item !== 'object') continue;
+    const obj = item as Record<string, unknown>;
+    if (obj.type === 'content') {
+      // { type: "content", content: { type: "text", text: "..." } }
+      const inner = obj.content as Record<string, unknown> | undefined;
+      if (inner && typeof inner.text === 'string') texts.push(inner.text);
+    } else if (obj.type === 'diff') {
+      // { type: "diff", path: "...", newText: "..." }
+      if (typeof obj.newText === 'string') texts.push(obj.newText);
+    }
+    // "terminal" type: skip (has no text)
+  }
+  return texts.join('\n');
+}
+
+/**
+ * Extract human-readable text from rawOutput.
+ * rawOutput can be:
+ *   - string: returned as-is
+ *   - Array of {text} or {type, text} ContentBlock objects (ACP think/explore tools)
+ *   - Single {text} or {type, text} ContentBlock object
+ *   - Arbitrary object: falls back to JSON.stringify
+ */
+function extractRawOutputText(rawOutput: unknown): string {
+  if (rawOutput == null) return '';
+  if (typeof rawOutput === 'string') return rawOutput;
+  if (Array.isArray(rawOutput)) {
+    return rawOutput
+      .map(item => {
+        if (typeof item === 'string') return item;
+        if (item && typeof (item as Record<string, unknown>).text === 'string') {
+          return (item as Record<string, unknown>).text as string;
+        }
+        return JSON.stringify(item);
+      })
+      .join('\n');
+  }
+  // Handle single ContentBlock object {type: "text", text: "..."} or {text: "..."}
+  const obj = rawOutput as Record<string, unknown>;
+  if (typeof obj.text === 'string') {
+    return obj.text;
+  }
+  return JSON.stringify(rawOutput);
 }
 
 /** Convert ACP plan entries to a Markdown task list. */
@@ -1837,11 +1908,40 @@ export class AgentAPIProxyClient {
             case 'tool_call_update': {
               const isSuccess = update.status === 'completed' || update.status === 'success';
               const isError = update.status === 'failed' || update.status === 'error';
-              // in_progress: update the existing tool call message in-place (no new message needed for history replay)
-              if (update.status === 'in_progress') continue;
-              if (!isSuccess && !isError) continue;
-              const content = update.rawOutput != null ? (typeof update.rawOutput === 'string' ? update.rawOutput : JSON.stringify(update.rawOutput)) : '';
-              result.push({ id: nextLocalId++, role: 'tool_result', content, time: now, type: 'normal', parentToolUseId: update.toolCallId, status: isSuccess ? 'success' : 'error' });
+              // Proxy sends "running"; ACP spec also defines "in_progress"
+              const isRunning = update.status === 'running' || update.status === 'in_progress';
+              if (isRunning) continue;
+
+              // Step 2: rawInput refinement update (no status, no output).
+              // claude-agent-acp sends this after streaming to patch the initial empty rawInput.
+              if (!isSuccess && !isError) {
+                const hasOutput = update.rawOutput != null || extractACPToolContent(update.content) !== '';
+                if (!hasOutput) {
+                  // Patch the most recent tool_call message for this toolCallId.
+                  if (update.rawInput != null && update.toolCallId) {
+                    let idx = -1;
+                    for (let i = result.length - 1; i >= 0; i--) {
+                      if (result[i].toolUseId === update.toolCallId) { idx = i; break; }
+                    }
+                    if (idx >= 0) {
+                      try {
+                        const toolObj = JSON.parse(result[idx].content);
+                        toolObj.input = update.rawInput;
+                        if (update.title) toolObj.title = update.title;
+                        if (update.locations) toolObj.locations = update.locations;
+                        result[idx] = { ...result[idx], content: JSON.stringify(toolObj) };
+                      } catch { /* ignore parse errors */ }
+                    }
+                  }
+                  continue;
+                }
+              }
+
+              // Step 3: result update (status = completed/failed, or content/rawOutput present).
+              // Prefer ACP content[] over rawOutput (rawOutput may contain non-text Anthropic blocks).
+              const acpText = extractACPToolContent(update.content);
+              const resultContent = acpText || extractRawOutputText(update.rawOutput);
+              result.push({ id: nextLocalId++, role: 'tool_result', content: resultContent, time: now, type: 'normal', parentToolUseId: update.toolCallId, status: isError ? 'error' : 'success' });
               break;
             }
             case 'plan': {
@@ -2003,23 +2103,38 @@ export class AgentAPIProxyClient {
             case 'tool_call_update': {
               const isSuccess = update.status === 'completed' || update.status === 'success';
               const isError = update.status === 'failed' || update.status === 'error';
-              const isInProgress = update.status === 'in_progress';
+              // Proxy sends "running"; ACP spec also defines "in_progress"
+              const isRunning = update.status === 'running' || update.status === 'in_progress';
 
-              if (isInProgress) {
+              if (isRunning) {
                 // Notify the UI so it can update the tool card's visual state.
                 callbacks.onToolUpdate?.(update.toolCallId ?? '', 'in_progress');
                 return;
               }
 
-              if (!isSuccess && !isError) return;
+              // Step 2: rawInput patch (no status, no output yet)
+              if (!isSuccess && !isError) {
+                const hasOutput = update.rawOutput != null || extractACPToolContent(update.content) !== '';
+                if (!hasOutput) {
+                  if (update.rawInput != null && update.toolCallId) {
+                    callbacks.onToolInputUpdate?.(
+                      update.toolCallId,
+                      update.rawInput,
+                      update.title,
+                      update.locations,
+                    );
+                  }
+                  return;
+                }
+              }
 
-              const content = update.rawOutput != null
-                ? (typeof update.rawOutput === 'string' ? update.rawOutput : JSON.stringify(update.rawOutput))
-                : '';
+              // Step 3: result — prefer ACP content[] over rawOutput
+              const acpText = extractACPToolContent(update.content);
+              const resultContent = acpText || extractRawOutputText(update.rawOutput);
               callbacks.onMessage({
                 id: nextLocalId++,
                 role: 'tool_result',
-                content,
+                content: resultContent,
                 time: now,
                 type: 'normal',
                 parentToolUseId: update.toolCallId,
