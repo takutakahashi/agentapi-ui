@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { createAgentAPIProxyClientFromStorage, ACPSessionInfo } from '../../lib/agentapi-proxy-client';
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client';
 import { SessionMessage, SessionMessageListResponse, PendingAction } from '../../types/agentapi';
-import { useBackgroundAwareInterval } from '../hooks/usePageVisibility';
+import { useBackgroundAwareInterval, usePageVisibility } from '../hooks/usePageVisibility';
 import { messageTemplateManager } from '../../utils/messageTemplateManager';
 import { MessageTemplate } from '../../types/messageTemplate';
 import { recentMessagesManager } from '../../utils/recentMessagesManager';
@@ -704,6 +704,81 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       }
     };
   }, [sessionId]);
+
+  // Page visibility tracking for ACP reconnection.
+  const isPageVisible = usePageVisibility();
+  const prevIsPageVisibleRef = useRef<boolean>(true);
+
+  // When the page transitions from hidden → visible with an active ACP session,
+  // refresh the message history and reconnect the SSE stream if needed.
+  useEffect(() => {
+    const wasHidden = !prevIsPageVisibleRef.current;
+    prevIsPageVisibleRef.current = isPageVisible;
+
+    // Only act on hidden → visible transitions
+    if (!isPageVisible || !wasHidden) return;
+    if (!acpInfo || !sessionId || !agentAPIRef.current) return;
+
+    const reconnectACP = async () => {
+      console.log('[ACP] Page became visible, refreshing messages and checking SSE connection...');
+
+      // 1. Fetch fresh message history from the bridge
+      try {
+        const history = await agentAPIRef.current!.getACPMessageHistory(sessionId, acpInfo.sessionId);
+        setMessages(history);
+        console.log(`[ACP] Refreshed ${history.length} messages after visibility change`);
+      } catch (err) {
+        console.warn('[ACP] Failed to refresh message history on visibility change:', err);
+      }
+
+      // 2. Fetch current agent status
+      try {
+        const currentStatus = await agentAPIRef.current!.getSessionStatus(sessionId);
+        setAgentStatus(currentStatus);
+      } catch {
+        // Non-fatal — status will be updated via SSE events
+      }
+
+      // 3. Reconnect SSE if the EventSource has been closed
+      const currentEventSource = acpEventSourceRef.current;
+      if (!currentEventSource || currentEventSource.readyState === EventSource.CLOSED) {
+        console.log('[ACP] EventSource is closed, reconnecting...');
+        if (currentEventSource) {
+          currentEventSource.close();
+        }
+        acpEventSourceRef.current = agentAPIRef.current!.subscribeToACPSessionEvents(
+          sessionId,
+          acpInfo.sessionId,
+          {
+            onMessage: (msg) => {
+              setMessages(prev => [...prev, msg]);
+            },
+            onChunk: (msgId, text) => {
+              setMessages(prev => prev.map(m =>
+                m.id === msgId ? { ...m, content: m.content + text } : m
+              ));
+            },
+            onStatus: (status) => {
+              setAgentStatus(status);
+            },
+            onPermission: (action, rpcId) => {
+              setACPPendingPermission({ action, rpcId });
+              setPendingAction(action);
+              setShowQuestionModal(true);
+            },
+            onError: (err) => {
+              console.error('[ACP] SSE error callback (from visibility reconnect):', err);
+            },
+          }
+        );
+        console.log('[ACP] SSE reconnected after visibility change');
+      } else {
+        console.log(`[ACP] EventSource still alive (readyState=${currentEventSource.readyState}), skipping reconnect`);
+      }
+    };
+
+    reconnectACP();
+  }, [isPageVisible, acpInfo, sessionId]);
 
   // Get agent type from /status endpoint
   useEffect(() => {
