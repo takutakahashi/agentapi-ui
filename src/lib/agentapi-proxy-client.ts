@@ -143,7 +143,7 @@ export interface ACPSessionInfo {
 /** Discriminated union for ACP session/update payloads. */
 export interface ACPSessionUpdate {
   sessionUpdate: string;
-  // agent_message_chunk / user_message_chunk
+  // agent_message_chunk / user_message_chunk / agent_thought_chunk
   content?: { type: string; text?: string } | null;
   messageId?: string;
   // tool_call / tool_call_update
@@ -152,10 +152,16 @@ export interface ACPSessionUpdate {
   /** Human-readable tool title (e.g. "Terminal", "Task", "Find …"). Takes precedence over kind. */
   title?: string;
   status?: string;
+  /** File/location hints emitted with tool_call (matches ACP ToolCallInfo.locations). */
+  locations?: Array<{ path: string }>;
   rawInput?: unknown;
   rawOutput?: unknown;
   // plan
   entries?: Array<{ content: string; status: string; priority: string }>;
+  // current_mode_update
+  modeId?: string;
+  // available_commands_update
+  availableCommands?: Array<{ name: string; description: string; input?: { hint?: string } }>;
 }
 
 /**
@@ -212,6 +218,24 @@ export interface ACPSessionCallbacks {
   onMessage: (message: SessionMessage) => void;
   /** Called with additional text to append to an existing streaming message. */
   onChunk: (messageId: number, text: string) => void;
+  /**
+   * Called with additional thought text to append to an existing streaming message.
+   * The thought is displayed in a collapsible "Thinking…" section.
+   */
+  onThoughtChunk: (messageId: number, thought: string) => void;
+  /**
+   * Called when a tool call's status changes to in_progress.
+   * The message with matching toolUseId should update its visual state.
+   */
+  onToolUpdate?: (toolCallId: string, status: string) => void;
+  /**
+   * Called when the agent switches to a different mode (current_mode_update).
+   */
+  onModeUpdate?: (modeId: string) => void;
+  /**
+   * Called when the agent advertises its slash-command list (available_commands_update).
+   */
+  onCommandsUpdate?: (commands: Array<{ name: string; description: string; hint?: string }>) => void;
   /** Called when agent status changes (e.g. prompt turn finished). */
   onStatus: (status: AgentStatus) => void;
   /** Called when a permission request arrives from the agent. */
@@ -1782,15 +1806,39 @@ export class AgentAPIProxyClient {
               }
               break;
             }
+            case 'agent_thought_chunk': {
+              const thought = acpExtractText(update.content);
+              if (!thought) continue;
+              if (streamingMsgId !== null) {
+                // Append thought to existing streaming message.
+                const idx = result.findIndex(m => m.id === streamingMsgId);
+                if (idx >= 0) result[idx] = { ...result[idx], thought: (result[idx].thought ?? '') + thought };
+              } else {
+                // Start a new message that begins with thought (content filled later).
+                const id = nextLocalId++;
+                streamingMsgId = id;
+                result.push({ id, role: 'agent', content: '', thought, time: now, type: 'normal' });
+              }
+              break;
+            }
             case 'tool_call': {
               streamingMsgId = null;
-              const toolObj = { type: 'tool_use', name: acpToolDisplayName(update.kind, update.title), id: update.toolCallId, input: update.rawInput ?? {}, title: update.title };
+              const toolObj = {
+                type: 'tool_use',
+                name: acpToolDisplayName(update.kind, update.title),
+                id: update.toolCallId,
+                input: update.rawInput ?? {},
+                title: update.title,
+                locations: update.locations,
+              };
               result.push({ id: nextLocalId++, role: 'agent', content: JSON.stringify(toolObj), time: now, type: 'normal', toolUseId: update.toolCallId });
               break;
             }
             case 'tool_call_update': {
               const isSuccess = update.status === 'completed' || update.status === 'success';
               const isError = update.status === 'failed' || update.status === 'error';
+              // in_progress: update the existing tool call message in-place (no new message needed for history replay)
+              if (update.status === 'in_progress') continue;
               if (!isSuccess && !isError) continue;
               const content = update.rawOutput != null ? (typeof update.rawOutput === 'string' ? update.rawOutput : JSON.stringify(update.rawOutput)) : '';
               result.push({ id: nextLocalId++, role: 'tool_result', content, time: now, type: 'normal', parentToolUseId: update.toolCallId, status: isSuccess ? 'success' : 'error' });
@@ -1903,6 +1951,29 @@ export class AgentAPIProxyClient {
               break;
             }
 
+            case 'agent_thought_chunk': {
+              const thought = acpExtractText(update.content);
+              if (!thought) return;
+
+              // Thought chunks always belong to the current streaming message.
+              // If there is none yet, start one (content can be filled later).
+              if (streamingMsgId === null) {
+                const id = nextLocalId++;
+                streamingMsgId = id;
+                callbacks.onMessage({
+                  id,
+                  role: 'agent',
+                  content: '',
+                  thought,
+                  time: now,
+                  type: 'normal',
+                });
+              } else {
+                callbacks.onThoughtChunk(streamingMsgId, thought);
+              }
+              break;
+            }
+
             case 'tool_call': {
               // Finalize any streaming text before the tool call.
               streamingMsgId = null;
@@ -1916,6 +1987,7 @@ export class AgentAPIProxyClient {
                 id: update.toolCallId,
                 input: update.rawInput ?? {},
                 title: update.title,
+                locations: update.locations,
               };
               callbacks.onMessage({
                 id: nextLocalId++,
@@ -1931,6 +2003,14 @@ export class AgentAPIProxyClient {
             case 'tool_call_update': {
               const isSuccess = update.status === 'completed' || update.status === 'success';
               const isError = update.status === 'failed' || update.status === 'error';
+              const isInProgress = update.status === 'in_progress';
+
+              if (isInProgress) {
+                // Notify the UI so it can update the tool card's visual state.
+                callbacks.onToolUpdate?.(update.toolCallId ?? '', 'in_progress');
+                return;
+              }
+
               if (!isSuccess && !isError) return;
 
               const content = update.rawOutput != null
@@ -1972,6 +2052,25 @@ export class AgentAPIProxyClient {
                 time: now,
                 type: 'normal',
               });
+              break;
+            }
+
+            case 'current_mode_update': {
+              if (update.modeId) {
+                callbacks.onModeUpdate?.(update.modeId);
+              }
+              break;
+            }
+
+            case 'available_commands_update': {
+              if (update.availableCommands && Array.isArray(update.availableCommands)) {
+                const commands = update.availableCommands.map(cmd => ({
+                  name: cmd.name,
+                  description: cmd.description,
+                  hint: cmd.input?.hint,
+                }));
+                callbacks.onCommandsUpdate?.(commands);
+              }
               break;
             }
           }

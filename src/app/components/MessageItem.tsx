@@ -269,6 +269,7 @@ function MessageItem({
   isClaudeAgent,
 }: MessageItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isThoughtExpanded, setIsThoughtExpanded] = useState(false);
 
   // ツール実行の場合（ツール結果も含めて表示）
   if (message.role === 'agent' && message.toolUseId) {
@@ -575,6 +576,30 @@ function MessageItem({
               {formatTimestamp(message.timestamp || message.time || '')}
             </span>
           </div>
+
+          {/* ACP agent thought — collapsible section shown before the main content */}
+          {message.thought && role !== 'user' && (
+            <div className="mb-2 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
+                className="w-full flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors text-left"
+              >
+                <span className="text-sm">💭</span>
+                <span className="flex-1 text-xs font-medium text-gray-500 dark:text-gray-400">
+                  {isThoughtExpanded ? '思考を隠す' : '思考を表示'}
+                </span>
+                <span className="text-xs text-gray-400 dark:text-gray-600">
+                  {isThoughtExpanded ? '▲' : '▼'}
+                </span>
+              </button>
+              {isThoughtExpanded && (
+                <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 italic leading-relaxed border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/50">
+                  <div className="whitespace-pre-wrap break-words">{message.thought}</div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div
             className={`text-gray-700 dark:text-gray-300 ${
               fontSettings.fontFamily === 'monospace' ? 'font-mono' : ''
@@ -596,6 +621,7 @@ function areEqual(prevProps: MessageItemProps, nextProps: MessageItemProps): boo
     prevProps.message.id === nextProps.message.id &&
     prevProps.message.role === nextProps.message.role &&
     prevProps.message.content === nextProps.message.content &&
+    prevProps.message.thought === nextProps.message.thought &&
     prevProps.message.type === nextProps.message.type &&
     prevProps.message.toolUseId === nextProps.message.toolUseId &&
     prevProps.message.parentToolUseId === nextProps.message.parentToolUseId &&

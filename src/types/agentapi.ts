@@ -216,6 +216,8 @@ export interface SessionMessage {
   id: number; // Changed from string to number (matches API spec)
   role: 'user' | 'assistant' | 'system' | 'tool_result' | 'agent';
   content: string;
+  /** Agent thinking / reasoning text (ACP agent_thought_chunk). Shown in a collapsible section. */
+  thought?: string;
   timestamp?: string; // Made optional (for backwards compatibility)
   time: string; // ISO 8601 timestamp from API
   session_id?: string; // Made optional (not in API spec)
