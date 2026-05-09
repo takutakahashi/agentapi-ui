@@ -1912,29 +1912,26 @@ export class AgentAPIProxyClient {
               const isRunning = update.status === 'running' || update.status === 'in_progress';
               if (isRunning) continue;
 
-              // Step 2: rawInput refinement update (no status, no output).
-              // claude-agent-acp sends this after streaming to patch the initial empty rawInput.
+              // Step 2: rawInput/title/description patch (no completion status).
+              // Note: content[] may be present here (contains description, not the result).
+              // Use status as the sole discriminator — do NOT check for output.
               if (!isSuccess && !isError) {
-                const hasOutput = update.rawOutput != null || extractACPToolContent(update.content) !== '';
-                if (!hasOutput) {
-                  // Patch the most recent tool_call message for this toolCallId.
-                  if (update.rawInput != null && update.toolCallId) {
-                    let idx = -1;
-                    for (let i = result.length - 1; i >= 0; i--) {
-                      if (result[i].toolUseId === update.toolCallId) { idx = i; break; }
-                    }
-                    if (idx >= 0) {
-                      try {
-                        const toolObj = JSON.parse(result[idx].content);
-                        toolObj.input = update.rawInput;
-                        if (update.title) toolObj.title = update.title;
-                        if (update.locations) toolObj.locations = update.locations;
-                        result[idx] = { ...result[idx], content: JSON.stringify(toolObj) };
-                      } catch { /* ignore parse errors */ }
-                    }
+                if (update.rawInput != null && update.toolCallId) {
+                  let idx = -1;
+                  for (let i = result.length - 1; i >= 0; i--) {
+                    if (result[i].toolUseId === update.toolCallId) { idx = i; break; }
                   }
-                  continue;
+                  if (idx >= 0) {
+                    try {
+                      const toolObj = JSON.parse(result[idx].content);
+                      toolObj.input = update.rawInput;
+                      if (update.title) toolObj.title = update.title;
+                      if (update.locations) toolObj.locations = update.locations;
+                      result[idx] = { ...result[idx], content: JSON.stringify(toolObj) };
+                    } catch { /* ignore parse errors */ }
+                  }
                 }
+                continue;
               }
 
               // Step 3: result update (status = completed/failed, or content/rawOutput present).
@@ -2112,23 +2109,22 @@ export class AgentAPIProxyClient {
                 return;
               }
 
-              // Step 2: rawInput patch (no status, no output yet)
+              // Step 2: rawInput/title/description patch (no completion status).
+              // Note: content[] may be present here (contains description, not the result).
+              // Use status as the sole discriminator — do NOT check for output.
               if (!isSuccess && !isError) {
-                const hasOutput = update.rawOutput != null || extractACPToolContent(update.content) !== '';
-                if (!hasOutput) {
-                  if (update.rawInput != null && update.toolCallId) {
-                    callbacks.onToolInputUpdate?.(
-                      update.toolCallId,
-                      update.rawInput,
-                      update.title,
-                      update.locations,
-                    );
-                  }
-                  return;
+                if (update.rawInput != null && update.toolCallId) {
+                  callbacks.onToolInputUpdate?.(
+                    update.toolCallId,
+                    update.rawInput,
+                    update.title,
+                    update.locations,
+                  );
                 }
+                return;
               }
 
-              // Step 3: result — prefer ACP content[] over rawOutput
+              // Step 3: result (status = completed/failed) — prefer ACP content[] over rawOutput
               const acpText = extractACPToolContent(update.content);
               const resultContent = acpText || extractRawOutputText(update.rawOutput);
               callbacks.onMessage({
