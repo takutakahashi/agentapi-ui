@@ -484,7 +484,10 @@ export default function NewSessionPage() {
                 その他の設定
                 {selectedAgentType !== 'default' && (
                   <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-xs rounded-full">
-                    {selectedAgentType === 'claude-agentapi' ? 'Claude AgentAPI' : 'Codex AgentAPI'}
+                    {selectedAgentType === 'claude-agentapi' ? 'Claude AgentAPI'
+                      : selectedAgentType === 'codex-agentapi' ? 'Codex AgentAPI'
+                      : selectedAgentType === 'claude-acp' ? 'Claude ACP'
+                      : selectedAgentType}
                   </span>
                 )}
                 {selectedManagerId !== '' && (
