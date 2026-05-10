@@ -144,6 +144,7 @@ export interface GlobalSettings {
   fontSettings?: FontSettings  // デフォルト { fontSize: 14, fontFamily: 'sans-serif' }
   memoryEnabled?: boolean  // デフォルト true（メモリ機能の有効/無効）
   memorySummarizeDrafts?: boolean  // デフォルト undefined（プロキシのグローバル設定に従う）
+  acpServerEnabled?: boolean  // デフォルト false（グローバル ACP サーバーモードの有効/無効）
   created_at: string
   updated_at: string
 }
@@ -770,5 +771,17 @@ export const getMemorySummarizeDrafts = (): boolean | undefined => {
 export const setMemorySummarizeDrafts = (enabled: boolean | undefined): void => {
   const settings = loadFullGlobalSettings()
   settings.memorySummarizeDrafts = enabled
+  saveFullGlobalSettings(settings)
+}
+
+// ACP Server Mode utilities
+export const getACPServerEnabled = (): boolean => {
+  const settings = loadFullGlobalSettings()
+  return settings.acpServerEnabled ?? false
+}
+
+export const setACPServerEnabled = (enabled: boolean): void => {
+  const settings = loadFullGlobalSettings()
+  settings.acpServerEnabled = enabled
   saveFullGlobalSettings(settings)
 }
