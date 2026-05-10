@@ -32,6 +32,14 @@ interface AgentStatus {
   message?: string;
 }
 
+// Normalize raw proxy statuses to the three values the UI knows.
+// The proxy can return 'cancel', 'stopped', etc. after a cancel — treat them as stable.
+function normalizeAgentStatus(raw: string): 'stable' | 'running' | 'error' {
+  if (raw === 'running') return 'running';
+  if (raw === 'error') return 'error';
+  return 'stable';
+}
+
 // Type guard function to validate session message response
 function isValidSessionMessageResponse(response: unknown): response is SessionMessageListResponse {
   return (
@@ -119,6 +127,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       // Reset initial load flag when session changes
       setIsInitialLoadComplete(false);
       setIsStarting(false);
+      usingGlobalACPDirectRef.current = false;
       // Clear any pending retry timer
       if (retryTimerRef.current) {
         clearTimeout(retryTimerRef.current);
@@ -142,10 +151,15 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 setACPInfo(info);
                 setAgentType('acp');
 
-                // Restore message history from bridge's in-memory store.
-                const history = await agentAPIRef.current!.getACPMessageHistory(sessionId, info.sessionId);
-                setMessages(history);
-                console.log(`[ACP] initializeChat: restored ${history.length} messages from bridge history`);
+                // When using global ACP SSE, skip per-session history to avoid duplicates
+                // (the SSE stream replays history on connect). For per-session bridge, fetch history.
+                if (!acpServerEnabled || !acpServerClientRef.current) {
+                  const history = await agentAPIRef.current!.getACPMessageHistory(sessionId, info.sessionId);
+                  setMessages(history);
+                  console.log(`[ACP] initializeChat: restored ${history.length} messages from bridge history`);
+                } else {
+                  console.log(`[ACP] initializeChat: global ACP SSE mode — skipping per-session history to avoid duplicates`);
+                }
 
                 setHasMoreMessages(false);
                 setIsInitialLoadComplete(true);
@@ -156,7 +170,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 // agent was still processing the provisioner's initial prompt).
                 try {
                   const currentStatus = await agentAPIRef.current!.getSessionStatus(sessionId);
-                  setAgentStatus(currentStatus);
+                  setAgentStatus({ ...currentStatus, status: normalizeAgentStatus(currentStatus.status) });
                   // Update agentType so markdown renders for ACP sessions.
                   // getACPSessionInfo hardcodes 'acp', but agent_type from status is authoritative.
                   if (currentStatus.agent_type) {
@@ -242,6 +256,82 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     }
                   );
                 }
+                return;
+              }
+
+              // ── Global ACP server mode with no per-session bridge ──────────
+              // When acpServerEnabled is true but /{sessionId}/session returned null,
+              // the session was created via the global ACP endpoint. Subscribe to the
+              // global ACP SSE directly so status/messages arrive in real time.
+              if (acpServerEnabled && acpServerClientRef.current) {
+                console.log(`[ACP] initializeChat: no per-session bridge, subscribing to global ACP SSE directly`);
+                usingGlobalACPDirectRef.current = true;
+
+                setHasMoreMessages(false);
+                setIsInitialLoadComplete(true);
+                setIsStarting(false);
+
+                try {
+                  const currentStatus = await agentAPIRef.current.getSessionStatus(sessionId);
+                  setAgentStatus({ ...currentStatus, status: normalizeAgentStatus(currentStatus.status) });
+                  if (currentStatus.agent_type) setAgentType(currentStatus.agent_type);
+                } catch { /* Non-fatal */ }
+
+                if (acpEventSourceRef.current) {
+                  acpEventSourceRef.current.close();
+                }
+
+                acpEventSourceRef.current = acpServerClientRef.current.subscribeToEvents(sessionId, {
+                  onMessage: (msg: SessionMessage) => {
+                    setMessages(prev => [...prev, msg]);
+                  },
+                  onChunk: (msgId: number, text: string) => {
+                    setMessages(prev => prev.map(m =>
+                      m.id === msgId ? { ...m, content: m.content + text } : m
+                    ));
+                  },
+                  onThoughtChunk: (msgId: number, thought: string) => {
+                    setMessages(prev => prev.map(m =>
+                      m.id === msgId ? { ...m, thought: (m.thought ?? '') + thought } : m
+                    ));
+                  },
+                  onToolUpdate: (toolCallId: string, status: string) => {
+                    setMessages(prev => prev.map(m =>
+                      m.toolUseId === toolCallId
+                        ? { ...m, content: JSON.stringify({ ...JSON.parse(m.content || '{}'), _status: status }) }
+                        : m
+                    ));
+                  },
+                  onToolInputUpdate: (toolCallId: string, input: unknown, title?: string, locations?: Array<{ path: string; line?: number }>) => {
+                    setMessages(prev => prev.map(m => {
+                      if (m.toolUseId !== toolCallId) return m;
+                      try {
+                        const toolObj = JSON.parse(m.content || '{}');
+                        return { ...m, content: JSON.stringify({
+                          ...toolObj,
+                          input,
+                          ...(title != null ? { title } : {}),
+                          ...(locations != null ? { locations } : {}),
+                        })};
+                      } catch { return m; }
+                    }));
+                  },
+                  onModeUpdate: (modeId: string) => {
+                    console.log('[ACP] current_mode_update:', modeId);
+                  },
+                  onStatus: (status: { status: 'stable' | 'running' | 'error'; agent_type?: string }) => {
+                    setAgentStatus(status);
+                  },
+                  onPermission: (action: PendingAction, rpcId: number) => {
+                    setACPPendingPermission({ action, rpcId });
+                    setPendingAction(action);
+                    setShowQuestionModal(true);
+                  },
+                  onError: (err: Event | Error) => {
+                    console.error('[ACP] SSE error (global ACP, no bridge):', err);
+                  },
+                });
+
                 return;
               }
             }
@@ -395,6 +485,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [acpPendingPermission, setACPPendingPermission] = useState<{ action: PendingAction; rpcId: number } | null>(null);
   const acpNextPromptId = useRef(1);
   const acpEventSourceRef = useRef<EventSource | null>(null);
+  // True when connected to global ACP SSE without a per-session bridge (no acpInfo)
+  const usingGlobalACPDirectRef = useRef(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -685,7 +777,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         setShowQuestionModal(false);
       }
 
-      setAgentStatus(sessionStatus);
+      const normalizedSessionStatus = { ...sessionStatus, status: normalizeAgentStatus(sessionStatus.status) };
+      setAgentStatus(normalizedSessionStatus);
       // When the provisioner has permanently failed, surface the error once.
       if (
         sessionStatus.status === 'error' &&
@@ -694,7 +787,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         const detail = sessionStatus.message || '不明なエラー';
         setError(`セッションの起動に失敗しました: ${detail}`);
       }
-      prevAgentStatusRef.current = sessionStatus;
+      prevAgentStatusRef.current = normalizedSessionStatus;
     } catch (err) {
       console.error('Failed to poll session data:', err);
       if (err instanceof AgentAPIProxyError) {
@@ -755,7 +848,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const pollingControl = useBackgroundAwareInterval(pollMessages, 1000, false);
 
   useEffect(() => {
-    if (isConnected && sessionId && !acpInfo) {
+    // Don't poll for ACP sessions (either per-session bridge or global ACP server direct)
+    if (isConnected && sessionId && !acpInfo && !usingGlobalACPDirectRef.current) {
       pollingControl.start();
     } else {
       pollingControl.stop();
@@ -1091,13 +1185,19 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
     try {
       if (acpInfo) {
-        // ACP セッション: session/cancel を JSON-RPC で送信
+        // ACP セッション (per-session bridge): session/cancel を JSON-RPC で送信
         if (acpServerEnabled && acpServerClientRef.current) {
           await acpServerClientRef.current.cancelSession(sessionId);
         } else {
           await agentAPIRef.current.cancelACPSession(sessionId, acpInfo.sessionId);
         }
-        console.log('Stop signal sent via ACP session/cancel');
+        setAgentStatus({ status: 'stable' });
+        console.log('Stop signal sent via ACP session/cancel (per-session bridge)');
+      } else if (acpServerEnabled && acpServerClientRef.current) {
+        // グローバル ACP サーバーモード (per-session bridge なし): ACP cancel を使用
+        await acpServerClientRef.current.cancelSession(sessionId);
+        setAgentStatus({ status: 'stable' });
+        console.log('Stop signal sent via ACP session/cancel (global ACP server)');
       } else if (agentType === 'claude' || agentType === 'codex') {
         // agentapi ベースのエージェント（claude, codex）: /action エンドポイントを使用
         await agentAPIRef.current.sendAction(sessionId, { type: 'stop_agent' });
