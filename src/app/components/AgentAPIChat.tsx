@@ -151,15 +151,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 setACPInfo(info);
                 setAgentType('acp');
 
-                // When using global ACP SSE, skip per-session history to avoid duplicates
-                // (the SSE stream replays history on connect). For per-session bridge, fetch history.
-                if (!acpServerEnabled || !acpServerClientRef.current) {
-                  const history = await agentAPIRef.current!.getACPMessageHistory(sessionId, info.sessionId);
-                  setMessages(history);
-                  console.log(`[ACP] initializeChat: restored ${history.length} messages from bridge history`);
-                } else {
-                  console.log(`[ACP] initializeChat: global ACP SSE mode — skipping per-session history to avoid duplicates`);
-                }
+                // Always fetch history from the per-session bridge.
+                // We always use the per-session SSE (which does NOT replay history),
+                // so there is no risk of duplicates from SSE replay.
+                const history = await agentAPIRef.current!.getACPMessageHistory(sessionId, info.sessionId);
+                setMessages(history);
+                console.log(`[ACP] initializeChat: restored ${history.length} messages from bridge history`);
 
                 setHasMoreMessages(false);
                 setIsInitialLoadComplete(true);
@@ -238,24 +235,22 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     },
                 };
 
-                if (acpServerEnabled && acpServerClientRef.current) {
-                  // Global ACP server mode: use POST /acp + GET /acp/sse
-                  console.log(`[ACP] initializeChat: using global ACP server SSE (sessionId=${sessionId})`);
-                  acpEventSourceRef.current = acpServerClientRef.current.subscribeToEvents(sessionId, acpCallbacks);
-                } else {
-                  // Per-session ACP bridge SSE
-                  console.log(`[ACP] initializeChat: creating new EventSource for acpSessionId=${info.sessionId}`);
-                  acpEventSourceRef.current = agentAPIRef.current.subscribeToACPSessionEvents(
-                    sessionId,
-                    info.sessionId,
-                    {
-                      ...acpCallbacks,
-                      onCommandsUpdate: (commands) => {
-                        console.log('[ACP] available_commands_update:', commands);
-                      },
-                    }
-                  );
-                }
+                // Always use per-session SSE when acpInfo is set.
+                // Per-session SSE does NOT replay history on connect, so there is
+                // no risk of message duplication from the history fetch above.
+                // (Global ACP SSE replays history and causes duplicates, so we
+                // never use it when a per-session bridge is available.)
+                console.log(`[ACP] initializeChat: creating new EventSource for acpSessionId=${info.sessionId}`);
+                acpEventSourceRef.current = agentAPIRef.current.subscribeToACPSessionEvents(
+                  sessionId,
+                  info.sessionId,
+                  {
+                    ...acpCallbacks,
+                    onCommandsUpdate: (commands) => {
+                      console.log('[ACP] available_commands_update:', commands);
+                    },
+                  }
+                );
                 return;
               }
 
@@ -806,20 +801,14 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
     try {
       if (acpInfo && acpPendingPermission) {
-        // ── ACP: reply to session/request_permission ──────────────────────
+        // ── ACP: reply to session/request_permission (always via per-session bridge) ──
         // answers format: { "0": "selectedOptionLabel" }
         const selectedLabel = Object.values(answers)[0] as string | undefined;
         // Find optionId from the pending permission's options.
         const options = acpPendingPermission.action.content?.questions?.[0]?.options ?? [];
         const matched = options.find(o => o.label === selectedLabel);
         const optionId = matched ? matched.label : (selectedLabel ?? '');
-        if (acpServerEnabled && acpServerClientRef.current) {
-          // Global ACP server: POST /acp with permission response
-          await acpServerClientRef.current.sendPermissionResponse(acpPendingPermission.rpcId, optionId);
-        } else {
-          // Per-session ACP bridge: POST /{sessionId}/rpc
-          await agentAPIRef.current.replyToACPPermission(sessionId, acpPendingPermission.rpcId, optionId);
-        }
+        await agentAPIRef.current.replyToACPPermission(sessionId, acpPendingPermission.rpcId, optionId);
         setACPPendingPermission(null);
       } else {
         // ── Regular session ───────────────────────────────────────────────
@@ -960,20 +949,17 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             },
         };
 
-        if (acpServerEnabled && acpServerClientRef.current) {
-          acpEventSourceRef.current = acpServerClientRef.current.subscribeToEvents(sessionId, reconnectCallbacks);
-        } else {
-          acpEventSourceRef.current = agentAPIRef.current!.subscribeToACPSessionEvents(
-            sessionId,
-            acpInfo.sessionId,
-            {
-              ...reconnectCallbacks,
-              onCommandsUpdate: (commands) => {
-                console.log('[ACP] available_commands_update:', commands);
-              },
-            }
-          );
-        }
+        // Always reconnect via per-session SSE (not global ACP SSE) to get reliable events.
+        acpEventSourceRef.current = agentAPIRef.current!.subscribeToACPSessionEvents(
+          sessionId,
+          acpInfo.sessionId,
+          {
+            ...reconnectCallbacks,
+            onCommandsUpdate: (commands) => {
+              console.log('[ACP] available_commands_update:', commands);
+            },
+          }
+        );
         console.log('[ACP] SSE reconnected after visibility change');
       } else {
         console.log(`[ACP] EventSource still alive (readyState=${currentEventSource.readyState}), skipping reconnect`);
@@ -981,7 +967,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     };
 
     reconnectACP();
-  }, [isPageVisible, acpInfo, sessionId, acpServerEnabled]);
+  }, [isPageVisible, acpInfo, sessionId]);
 
   // Get agent type from /status endpoint
   useEffect(() => {
@@ -1055,19 +1041,21 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         }
 
         if (acpInfo) {
-          // ── ACP session: send via JSON-RPC ────────────────────────────
+          // ── ACP session (per-session bridge): send via per-session RPC ──
+          // Always use the per-session bridge when acpInfo is set.
+          // The global ACP server uses a different protocol format, and mixing
+          // them causes HTTP 400 errors from the bridge.
           const promptId = acpNextPromptId.current++;
           // Do NOT add the user message locally here.
           // The bridge broadcasts a synthetic user_message_chunk via SSE,
           // which will arrive via onMessage and be added to the message list.
           setAgentStatus({ status: 'running' });
-          if (acpServerEnabled && acpServerClientRef.current) {
-            // Global ACP server: POST /acp with session/prompt
-            await acpServerClientRef.current.sendPrompt(sessionId, messageContent, promptId);
-          } else {
-            // Per-session ACP bridge: POST /{sessionId}/rpc
-            await agentAPIRef.current.sendACPPrompt(sessionId, acpInfo.sessionId, messageContent, promptId);
-          }
+          await agentAPIRef.current.sendACPPrompt(sessionId, acpInfo.sessionId, messageContent, promptId);
+        } else if (acpServerEnabled && acpServerClientRef.current) {
+          // ── Global ACP server only (no per-session bridge) ────────────
+          const promptId = acpNextPromptId.current++;
+          setAgentStatus({ status: 'running' });
+          await acpServerClientRef.current.sendPrompt(sessionId, messageContent, promptId);
         } else {
           // ── Regular session ───────────────────────────────────────────
           const sessionMessage = await agentAPIRef.current.sendSessionMessage(sessionId, {
@@ -1097,6 +1085,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       }
     } catch (err) {
       console.error('Failed to send message:', err);
+      // Reset status to stable if the send failed so the UI doesn't get stuck at 'running'
+      setAgentStatus(prev => prev?.status === 'running' ? { status: 'stable' } : prev);
       if (err instanceof AgentAPIProxyError) {
         // Handle timeout errors specially
         if (err.code === 'TIMEOUT_ERROR') {
@@ -1139,18 +1129,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
     try {
       if (acpInfo && acpPendingPermission) {
-        // ACP: approve/reject the pending switch_mode permission request.
-        // "allow-once" (or first allow option) for approve, "plan" for reject.
+        // ACP: approve/reject via per-session bridge (always).
         const options = acpPendingPermission.action.content?.questions?.[0]?.options ?? [];
         const allowOpt = options.find(o => o.description?.includes('allow'));
         const optionId = approved
           ? (allowOpt?.label ?? options[0]?.label ?? 'allow-once')
           : 'plan';
-        if (acpServerEnabled && acpServerClientRef.current) {
-          await acpServerClientRef.current.sendPermissionResponse(acpPendingPermission.rpcId, optionId);
-        } else {
-          await agentAPIRef.current.replyToACPPermission(sessionId, acpPendingPermission.rpcId, optionId);
-        }
+        await agentAPIRef.current.replyToACPPermission(sessionId, acpPendingPermission.rpcId, optionId);
         setACPPendingPermission(null);
       } else {
         await agentAPIRef.current.sendAction(sessionId, {
@@ -1185,12 +1170,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
     try {
       if (acpInfo) {
-        // ACP セッション (per-session bridge): session/cancel を JSON-RPC で送信
-        if (acpServerEnabled && acpServerClientRef.current) {
-          await acpServerClientRef.current.cancelSession(sessionId);
-        } else {
-          await agentAPIRef.current.cancelACPSession(sessionId, acpInfo.sessionId);
-        }
+        // ACP セッション: per-session bridge で cancel (acpServerEnabled に関係なく)
+        await agentAPIRef.current.cancelACPSession(sessionId, acpInfo.sessionId);
         setAgentStatus({ status: 'stable' });
         console.log('Stop signal sent via ACP session/cancel (per-session bridge)');
       } else if (acpServerEnabled && acpServerClientRef.current) {
