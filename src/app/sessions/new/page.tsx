@@ -9,9 +9,10 @@ import { messageTemplateManager } from '../../../utils/messageTemplateManager'
 import { MessageTemplate } from '../../../types/messageTemplate'
 import { recentMessagesManager } from '../../../utils/recentMessagesManager'
 import { OrganizationHistory } from '../../../utils/organizationHistory'
-import { addRepositoryToHistory, getAgentApiType, AgentApiType } from '../../../types/settings'
+import { addRepositoryToHistory, getAgentApiType, AgentApiType, getACPServerEnabled } from '../../../types/settings'
 import { AvailableManager } from '../../../types/settings'
 import { createAgentAPIProxyClientFromStorage } from '../../../lib/agentapi-proxy-client'
+import { createACPServerClientFromStorage } from '../../../lib/acp-server-client'
 import TopBar from '../../components/TopBar'
 import SessionCreationProgressModal from '../../components/SessionCreationProgressModal'
 import { SessionCreationProgress, SessionCreationStatus } from '../../../types/sessionProgress'
@@ -200,6 +201,7 @@ export default function NewSessionPage() {
     setError(null)
     setStatusMessage('')
 
+    const acpServerEnabled = getACPServerEnabled()
     const client = createAgentAPIClient()
     const currentMessage = initialMessage.trim()
     const currentRepository = freeFormRepository.trim()
@@ -217,23 +219,50 @@ export default function NewSessionPage() {
       }
     }
 
-    // 進捗モーダルを表示
-    setCreationProgress({
-      status: 'creating',
-      message: currentMessage,
-      repository: currentRepository || undefined,
-      startTime: new Date()
-    })
-    setShowProgressModal(true)
-
-    // セッション作成を待機
-    const result = await createSession(
-      client,
-      currentMessage,
-      currentRepository,
-      selectedAgentType,
-      selectedManagerId
-    )
+    // ACP サーバーモードが有効な場合は ACP クライアントでセッションを作成
+    let result: { success: boolean; error?: string }
+    if (acpServerEnabled) {
+      try {
+        setCreationProgress({
+          status: 'creating',
+          message: currentMessage,
+          repository: currentRepository || undefined,
+          startTime: new Date()
+        })
+        setShowProgressModal(true)
+        const acpClient = createACPServerClientFromStorage()
+        const tags: Record<string, string> = {}
+        if (currentRepository) tags.repository = currentRepository
+        if (selectedTeam) tags.team = selectedTeam
+        await acpClient.createSession({
+          message: currentMessage,
+          agentType: selectedAgentType !== 'default' ? selectedAgentType : 'claude-acp',
+          tags,
+        })
+        setCreationProgress(prev => prev ? { ...prev, status: 'completed' } : null)
+        result = { success: true }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'ACP セッション作成に失敗しました'
+        setCreationProgress(prev => prev ? { ...prev, status: 'failed', errorMessage } : null)
+        result = { success: false, error: errorMessage }
+      }
+    } else {
+      // 通常の REST API でセッションを作成
+      setCreationProgress({
+        status: 'creating',
+        message: currentMessage,
+        repository: currentRepository || undefined,
+        startTime: new Date()
+      })
+      setShowProgressModal(true)
+      result = await createSession(
+        client,
+        currentMessage,
+        currentRepository,
+        selectedAgentType,
+        selectedManagerId
+      )
+    }
 
     if (result.success) {
       // 成功したら少し待ってから /chats に遷移

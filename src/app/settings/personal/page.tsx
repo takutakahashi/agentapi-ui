@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, ExternalSessionManagerConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, AgentApiType, getAgentApiType, setAgentApiType, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings, getMemoryEnabled, setMemoryEnabled, getMemorySummarizeDrafts, setMemorySummarizeDrafts } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings, MemorySettings, SlackSettings, FileSettings } from '@/components/settings'
+import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, ExternalSessionManagerConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, AgentApiType, getAgentApiType, setAgentApiType, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings, getMemoryEnabled, setMemoryEnabled, getMemorySummarizeDrafts, setMemorySummarizeDrafts, getACPServerEnabled, setACPServerEnabled } from '@/types/settings'
+import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings, MemorySettings, SlackSettings, FileSettings, ACPServerSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, CredentialsMetadata } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -24,6 +24,7 @@ export default function PersonalSettingsPage() {
   const [fontSettings, setFontSettingsState] = useState<FontSettingsType>({ fontSize: 14, fontFamily: 'sans-serif' })
   const [memoryEnabled, setMemoryEnabledState] = useState(true)
   const [memorySummarizeDrafts, setMemorySummarizeDraftsState] = useState<boolean | undefined>(undefined)
+  const [acpServerEnabled, setACPServerEnabledState] = useState(false)
   const [slackUserId, setSlackUserId] = useState<string>('')
   const [notificationChannels, setNotificationChannels] = useState<string[] | undefined>(undefined)
   const [esmList, setEsmList] = useState<ExternalSessionManagerConfig[]>([])
@@ -77,6 +78,8 @@ export default function PersonalSettingsPage() {
     // メモリ設定を localStorage から読み込み（APIロード前の初期値として使用）
     setMemoryEnabledState(getMemoryEnabled())
     setMemorySummarizeDraftsState(getMemorySummarizeDrafts())
+    // ACP サーバーモード設定を読み込み
+    setACPServerEnabledState(getACPServerEnabled())
   }, [])
 
   useEffect(() => {
@@ -223,6 +226,11 @@ export default function PersonalSettingsPage() {
     setMemorySummarizeDraftsState(enabled)
     setMemorySummarizeDrafts(enabled) // localStorage にも即時反映（他コンポーネント用）
     setSettings((prev) => ({ ...prev, memory_summarize_drafts: enabled })) // API 保存対象に追加
+  }
+
+  const handleACPServerEnabledChange = (enabled: boolean) => {
+    setACPServerEnabledState(enabled)
+    setACPServerEnabled(enabled)
   }
 
   const handleSlackUserIdChange = (value: string) => {
@@ -647,6 +655,17 @@ export default function PersonalSettingsPage() {
               memorySummarizeDrafts={memorySummarizeDrafts}
               onMemoryEnabledChange={handleMemoryEnabledChange}
               onMemorySummarizeDraftsChange={handleMemorySummarizeDraftsChange}
+            />
+          </SettingsAccordion>
+
+          <SettingsAccordion
+            title="ACP サーバー"
+            description="Agent Client Protocol サーバーモードの設定"
+            defaultOpen={false}
+          >
+            <ACPServerSettings
+              acpServerEnabled={acpServerEnabled}
+              onACPServerEnabledChange={handleACPServerEnabledChange}
             />
           </SettingsAccordion>
 
