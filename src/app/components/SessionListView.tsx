@@ -4,11 +4,30 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Session, AgentStatus, SessionListParams } from '../../types/agentapi'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, ProxySessionStatusEvent } from '../../lib/agentapi-proxy-client'
+import { createACPServerClientFromStorage, ACPServerSession } from '../../lib/acp-server-client'
+import { getACPServerEnabled } from '../../types/settings'
 import { useBackgroundAwareInterval } from '../hooks/usePageVisibility'
 import { useSessionsStatusStream } from '../hooks/useSessionsStatusStream'
 import { formatDate, formatRelativeTime } from '../../utils/timeUtils'
 import { truncateText } from '../../utils/textUtils'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
+
+function mapACPSessionToSession(acpSession: ACPServerSession): Session {
+  return {
+    session_id: acpSession.sessionId,
+    user_id: '',
+    status: (acpSession._meta?.status as Session['status']) || 'active',
+    started_at: acpSession.updatedAt || new Date().toISOString(),
+    updated_at: acpSession.updatedAt,
+    metadata: {
+      description: acpSession.title || acpSession.cwd,
+    },
+    tags: acpSession._meta?.tags || {},
+    environment: {},
+    scope: (acpSession._meta?.scope as Session['scope']) || 'user',
+    team_id: acpSession._meta?.teamId,
+  }
+}
 
 interface TagFilter {
   [key: string]: string[]
@@ -35,6 +54,8 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   // Create global API clients
   const [agentAPI] = useState(() => createAgentAPIProxyClientFromStorage())
   const [agentAPIProxy] = useState(() => createAgentAPIProxyClientFromStorage())
+  const [acpClient] = useState(() => createACPServerClientFromStorage())
+  const [acpMode] = useState(() => getACPServerEnabled())
   
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
@@ -115,23 +136,23 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       if (!silent) setLoading(true)
       setError(null)
 
-      // Compute scope parameters directly from selectedTeam
-      const scopeParams: { scope: 'user' | 'team'; team_id?: string } = selectedTeam
-        ? { scope: 'team', team_id: selectedTeam }
-        : { scope: 'user' }
+      let sessionList: Session[]
 
-      console.log('[SessionListView] Fetching sessions with scope params:', scopeParams)
+      if (acpMode) {
+        const response = await acpClient.listSessions()
+        sessionList = (response.sessions || []).map(mapACPSessionToSession)
+      } else {
+        const scopeParams: { scope: 'user' | 'team'; team_id?: string } = selectedTeam
+          ? { scope: 'team', team_id: selectedTeam }
+          : { scope: 'user' }
 
-      const params: SessionListParams = {
-        limit: 1000,
-        ...scopeParams,
+        const params: SessionListParams = { limit: 1000, ...scopeParams }
+        const response = await agentAPI.search!(params)
+        sessionList = response.sessions || []
       }
 
-      const response = await agentAPI.search!(params)
-      const sessionList = response.sessions || []
       setSessions(sessionList)
 
-      // 初期表示時にすぐにエージェントステータスを取得
       if (sessionList.length > 0) {
         await fetchSessionStatusesInitial(sessionList)
       }
@@ -142,18 +163,16 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
         setError('セッション一覧の取得中に予期せぬエラーが発生しました')
       }
 
-      // モックデータを使用
       const mockSessions = getMockSessions()
       setSessions(mockSessions)
 
-      // モックデータでもエージェントステータスを初期設定
       if (mockSessions.length > 0) {
         await fetchSessionStatusesInitial(mockSessions)
       }
     } finally {
       setLoading(false)
     }
-  }, [agentAPI, fetchSessionStatusesInitial, selectedTeam])
+  }, [acpMode, acpClient, agentAPI, fetchSessionStatusesInitial, selectedTeam])
 
   const fetchSessionStatuses = useCallback(async () => {
     if (sessions.length === 0 || !agentAPIProxy) return
@@ -352,13 +371,15 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       setError(null)
       setSuccess(null)
 
-      await agentAPI.delete!(sessionId)
+      if (acpMode) {
+        await acpClient.closeSession(sessionId)
+      } else {
+        await agentAPI.delete!(sessionId)
+      }
 
-      // セッション一覧を更新
       fetchSessions()
       onSessionsUpdate()
 
-      // 成功メッセージを表示
       setSuccess('セッションを削除しました')
       setTimeout(() => setSuccess(null), 3000)
     } catch (err) {
@@ -399,7 +420,11 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       setError(null)
       setSuccess(null)
 
-      await agentAPI.deleteBatch!(Array.from(selectedSessions))
+      if (acpMode) {
+        await Promise.all(Array.from(selectedSessions).map(id => acpClient.closeSession(id)))
+      } else {
+        await agentAPI.deleteBatch!(Array.from(selectedSessions))
+      }
 
       setSelectedSessions(new Set())
       fetchSessions()
