@@ -241,7 +241,7 @@ export class ACPServerClient {
   /** Create a new agent session. Returns the proxy session ID. */
   async createSession(params: ACPServerCreateSessionParams): Promise<{ sessionId: string }> {
     return this.rpc<{ sessionId: string }>('session/new', {
-      cwd: params.cwd,
+      cwd: params.cwd || '/home/user',
       mcpServers: params.mcpServers || [],
       _meta: {
         tags: params.tags || {},

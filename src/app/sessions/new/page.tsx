@@ -234,7 +234,11 @@ export default function NewSessionPage() {
         const tags: Record<string, string> = {}
         if (currentRepository) tags.repository = currentRepository
         if (selectedTeam) tags.team = selectedTeam
+        // cwd: リポジトリが指定されていれば /home/user/workdir/<repo名> を使用、なければデフォルト
+        const repoPart = currentRepository ? currentRepository.split('/').pop() : ''
+        const cwd = repoPart ? `/home/user/workdir/${repoPart}` : '/home/user'
         await acpClient.createSession({
+          cwd,
           message: currentMessage,
           agentType: selectedAgentType !== 'default' ? selectedAgentType : 'claude-acp',
           tags,
