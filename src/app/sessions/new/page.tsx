@@ -45,8 +45,12 @@ export default function NewSessionPage() {
   useEffect(() => {
     loadTemplates()
     loadRecentMessages()
-    // 設定からデフォルトのエージェントタイプを読み込む
-    setSelectedAgentType(getAgentApiType())
+    // ACPサーバーモードのときは claude-acp を固定で使用する
+    if (getACPServerEnabled()) {
+      setSelectedAgentType('claude-acp')
+    } else {
+      setSelectedAgentType(getAgentApiType())
+    }
     loadAvailableManagers()
   }, [])
 
@@ -630,34 +634,45 @@ export default function NewSessionPage() {
                   {/* エージェントタイプ */}
                   <div>
                     <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">エージェントタイプ</p>
-                    <div className="space-y-2">
-                    {([
-                      { value: 'default', label: 'デフォルト', description: 'agent_type を送信しない' },
-                      { value: 'claude-agentapi', label: 'Claude AgentAPI', description: 'agent_type=claude-agentapi を送信' },
-                      { value: 'codex-agentapi', label: 'Codex AgentAPI', description: 'agent_type=codex-agentapi を送信' },
-                      { value: 'claude-acp', label: 'Claude ACP', description: 'agent_type=claude-acp を送信' },
-                    ] as { value: AgentApiType; label: string; description: string }[]).map(({ value, label, description }) => (
-                      <label key={value} className="flex items-start cursor-pointer group">
-                        <input
-                          type="radio"
-                          name="session-agent-type"
-                          value={value}
-                          checked={selectedAgentType === value}
-                          onChange={() => setSelectedAgentType(value)}
-                          className="mt-0.5 w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                          disabled={isCreating}
-                        />
-                        <span className="ml-2">
-                          <span className="block text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-gray-800 dark:group-hover:text-gray-200">
-                            {label}
-                          </span>
-                          <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                            {description}
-                          </span>
+                    {getACPServerEnabled() ? (
+                      <div className="flex items-center space-x-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md">
+                        <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span className="text-xs text-blue-700 dark:text-blue-300">
+                          ACP サーバーモード: <strong>Claude</strong>（claude-acp）が使用されます
                         </span>
-                      </label>
-                    ))}
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                      {([
+                        { value: 'default', label: 'デフォルト', description: 'agent_type を送信しない' },
+                        { value: 'claude-agentapi', label: 'Claude AgentAPI', description: 'agent_type=claude-agentapi を送信' },
+                        { value: 'codex-agentapi', label: 'Codex AgentAPI', description: 'agent_type=codex-agentapi を送信' },
+                        { value: 'claude-acp', label: 'Claude ACP', description: 'agent_type=claude-acp を送信' },
+                      ] as { value: AgentApiType; label: string; description: string }[]).map(({ value, label, description }) => (
+                        <label key={value} className="flex items-start cursor-pointer group">
+                          <input
+                            type="radio"
+                            name="session-agent-type"
+                            value={value}
+                            checked={selectedAgentType === value}
+                            onChange={() => setSelectedAgentType(value)}
+                            className="mt-0.5 w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+                            disabled={isCreating}
+                          />
+                          <span className="ml-2">
+                            <span className="block text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-gray-800 dark:group-hover:text-gray-200">
+                              {label}
+                            </span>
+                            <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                              {description}
+                            </span>
+                          </span>
+                        </label>
+                      ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
