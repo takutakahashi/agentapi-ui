@@ -281,7 +281,7 @@ export class ACPServerClient {
       method: 'session/prompt',
       params: {
         sessionId,
-        content: [{ type: 'text', text: message }],
+        prompt: [{ type: 'text', text: message }],
       },
     };
     const response = await fetch(this.acpUrl, {
