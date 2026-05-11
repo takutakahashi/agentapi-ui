@@ -268,13 +268,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 setIsInitialLoadComplete(true);
                 setIsStarting(false);
 
-                if (acpEventSourceRef.current) {
-                  acpEventSourceRef.current.close();
+                if (!acpEventSourceRef.current) {
+                  acpEventSourceRef.current = acpServerClientRef.current.subscribeToEvents(sessionId, acpCallbacks);
                 }
-                acpEventSourceRef.current = acpServerClientRef.current.subscribeToEvents(sessionId, acpCallbacks);
-                // Retry initializeChat after a delay to pick up the real bridge session ID
-                // and message history once the bridge is ready.
-                retryTimerRef.current = setTimeout(initializeChat, 3000);
                 return;
               }
 
