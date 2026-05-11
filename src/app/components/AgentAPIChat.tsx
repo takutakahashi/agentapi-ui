@@ -1041,16 +1041,15 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         }
 
         if (acpInfo) {
-          // ── ACP session (per-session bridge): send via per-session RPC ──
-          // Always use the per-session bridge when acpInfo is set.
-          // The global ACP server uses a different protocol format, and mixing
-          // them causes HTTP 400 errors from the bridge.
+          // ── ACP session: send via global ACP endpoint (spec-compliant) ──
+          // POST /acp { method: "session/prompt", params: { sessionId, content } }
           const promptId = acpNextPromptId.current++;
           // Do NOT add the user message locally here.
           // The bridge broadcasts a synthetic user_message_chunk via SSE,
           // which will arrive via onMessage and be added to the message list.
           setAgentStatus({ status: 'running' });
-          await agentAPIRef.current.sendACPPrompt(sessionId, acpInfo.sessionId, messageContent, promptId);
+          const acpClient = acpServerClientRef.current ?? createACPServerClientFromStorage();
+          await acpClient.sendPrompt(acpInfo.sessionId, messageContent, promptId);
         } else if (acpServerEnabled && acpServerClientRef.current) {
           // ── Global ACP server only (no per-session bridge) ────────────
           const promptId = acpNextPromptId.current++;
@@ -1170,10 +1169,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
     try {
       if (acpInfo) {
-        // ACP セッション: per-session bridge で cancel (acpServerEnabled に関係なく)
-        await agentAPIRef.current.cancelACPSession(sessionId, acpInfo.sessionId);
+        // ACP セッション: global ACP endpoint で cancel (spec-compliant)
+        // POST /acp { method: "session/cancel", params: { sessionId } }
+        const acpClient = acpServerClientRef.current ?? createACPServerClientFromStorage();
+        await acpClient.cancelSession(acpInfo.sessionId);
         setAgentStatus({ status: 'stable' });
-        console.log('Stop signal sent via ACP session/cancel (per-session bridge)');
+        console.log('Stop signal sent via ACP session/cancel (global ACP endpoint)');
       } else if (acpServerEnabled && acpServerClientRef.current) {
         // グローバル ACP サーバーモード (per-session bridge なし): ACP cancel を使用
         await acpServerClientRef.current.cancelSession(sessionId);
