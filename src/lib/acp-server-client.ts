@@ -3,7 +3,7 @@
  *
  * Communicates with the agentapi-proxy's global ACP server endpoints:
  *   POST /acp        – JSON-RPC 2.0 request/response
- *   GET  /acp/sse    – SSE stream of session/update notifications
+ *   GET  /acp        – SSE stream with Acp-Session-Id header (Streamable HTTP draft)
  *
  * Unlike per-session ACP bridge endpoints (/{sessionId}/session, /{sessionId}/sse),
  * these are proxy-wide endpoints that handle full session lifecycle via JSON-RPC 2.0.
@@ -196,10 +196,6 @@ export class ACPServerClient {
     return `${this.baseURL}/acp`;
   }
 
-  private get acpSseBaseUrl(): string {
-    return `${this.baseURL}/acp/sse`;
-  }
-
   private getHeaders(): Record<string, string> {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (this.apiKey) {
@@ -310,9 +306,10 @@ export class ACPServerClient {
   /**
    * Send a permission response back to the agent.
    * The agent sends a session/request_permission via SSE; the client
-   * replies with the chosen optionId.
+   * replies with the chosen optionId. sessionId is the proxy session ID
+   * sent as Acp-Session-Id header so the proxy can route the result.
    */
-  async sendPermissionResponse(rpcId: number, optionId: string): Promise<void> {
+  async sendPermissionResponse(sessionId: string, rpcId: number, optionId: string): Promise<void> {
     const body = {
       jsonrpc: '2.0',
       id: rpcId,
@@ -320,35 +317,32 @@ export class ACPServerClient {
     };
     await fetch(this.acpUrl, {
       method: 'POST',
-      headers: this.getHeaders(),
+      headers: { ...this.getHeaders(), 'Acp-Session-Id': sessionId },
       body: JSON.stringify(body),
     });
   }
 
   /**
-   * Subscribe to session/update events via the global ACP SSE endpoint.
-   * History is replayed automatically on connect.
-   * Returns the EventSource; call .close() to unsubscribe.
+   * Subscribe to session/update events via GET /acp with Acp-Session-Id header.
+   * Uses fetch() + ReadableStream to allow custom headers (EventSource cannot).
+   * sessionId is the proxy session ID. Returns a handle with close() to disconnect.
    */
   subscribeToEvents(
     sessionId: string,
     callbacks: ACPServerEventCallbacks
-  ): EventSource {
-    const sseUrl = `${this.acpSseBaseUrl}?session_id=${encodeURIComponent(sessionId)}`;
-    const eventSource = new EventSource(sseUrl);
+  ): { close: () => void } {
+    const abortController = new AbortController();
 
     let localIdCounter = Date.now();
     const nextId = () => localIdCounter++;
 
-    // Per-session streaming state
     let streamingMsgId: number | null = null;
     let streamingThoughtId: number | null = null;
 
-    eventSource.addEventListener('message', (event: MessageEvent) => {
+    const dispatchEvent = (data: string) => {
       try {
-        const msg: JSONRPCResponse = JSON.parse(event.data);
+        const msg: JSONRPCResponse = JSON.parse(data);
 
-        // ── session/update notification ──────────────────────────────────
         if (msg.method === 'session/update') {
           const acpParams = msg.params as { sessionId: string; update: ACPSessionUpdate; time?: string };
           const update = acpParams?.update;
@@ -409,7 +403,6 @@ export class ACPServerClient {
               const isRunning = update.status === 'running' || update.status === 'in_progress';
 
               if (update.status && !isSuccess && !isError && !isRunning) {
-                // step 2: input update
                 callbacks.onToolInputUpdate?.(update.toolCallId!, update.rawInput, update.title, update.locations);
                 return;
               }
@@ -476,7 +469,6 @@ export class ACPServerClient {
           return;
         }
 
-        // ── session/request_permission (agent → client) ──────────────────
         if (msg.method === 'session/request_permission' && msg.id != null) {
           const permParams = msg.params as ACPPermissionParams;
           if (!permParams || !callbacks.onPermission) return;
@@ -501,16 +493,56 @@ export class ACPServerClient {
           callbacks.onPermission(pendingAction, rpcId);
         }
       } catch (err) {
-        console.error('[ACPServerClient] Failed to parse SSE event:', err, event.data);
+        console.error('[ACPServerClient] Failed to parse SSE event:', err, data);
       }
-    });
+    };
 
-    eventSource.addEventListener('error', (err: Event) => {
-      console.error('[ACPServerClient] SSE error:', err);
-      callbacks.onError?.(err);
-    });
+    const connect = async () => {
+      try {
+        const response = await fetch(this.acpUrl, {
+          method: 'GET',
+          headers: {
+            ...this.getHeaders(),
+            'Accept': 'text/event-stream',
+            'Acp-Session-Id': sessionId,
+          },
+          signal: abortController.signal,
+        });
 
-    return eventSource;
+        if (!response.ok || !response.body) {
+          callbacks.onError?.(new Error(`[ACPServerClient] SSE connection failed: ${response.status}`));
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6).trim();
+              if (data) dispatchEvent(data);
+            }
+          }
+        }
+      } catch (err) {
+        if (abortController.signal.aborted) return;
+        console.error('[ACPServerClient] SSE fetch error:', err);
+        callbacks.onError?.(err instanceof Error ? err : new Error(String(err)));
+      }
+    };
+
+    connect();
+
+    return { close: () => abortController.abort() };
   }
 }
 
