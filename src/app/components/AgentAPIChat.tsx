@@ -146,6 +146,58 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             // Try GET /{sessionId}/session first. If it succeeds, this is an
             // ACP-transport session – use SSE + JSON-RPC instead of polling.
             if (agentAPIRef.current) {
+              // Shared callback object used for both normal ACP and early-ACP-fallback paths.
+              const acpCallbacks = {
+                  onMessage: (msg: SessionMessage) => {
+                    setMessages(prev => [...prev, msg]);
+                  },
+                  onChunk: (msgId: number, text: string) => {
+                    setMessages(prev => prev.map(m =>
+                      m.id === msgId ? { ...m, content: m.content + text } : m
+                    ));
+                  },
+                  onThoughtChunk: (msgId: number, thought: string) => {
+                    setMessages(prev => prev.map(m =>
+                      m.id === msgId ? { ...m, thought: (m.thought ?? '') + thought } : m
+                    ));
+                  },
+                  onToolUpdate: (toolCallId: string, status: string) => {
+                    setMessages(prev => prev.map(m =>
+                      m.toolUseId === toolCallId
+                        ? { ...m, content: JSON.stringify({ ...JSON.parse(m.content || '{}'), _status: status }) }
+                        : m
+                    ));
+                  },
+                  onToolInputUpdate: (toolCallId: string, input: unknown, title?: string, locations?: Array<{ path: string; line?: number }>) => {
+                    setMessages(prev => prev.map(m => {
+                      if (m.toolUseId !== toolCallId) return m;
+                      try {
+                        const toolObj = JSON.parse(m.content || '{}');
+                        return { ...m, content: JSON.stringify({
+                          ...toolObj,
+                          input,
+                          ...(title != null ? { title } : {}),
+                          ...(locations != null ? { locations } : {}),
+                        })};
+                      } catch { return m; }
+                    }));
+                  },
+                  onModeUpdate: (modeId: string) => {
+                    console.log('[ACP] current_mode_update:', modeId);
+                  },
+                  onStatus: (status: { status: 'stable' | 'running' | 'error'; agent_type?: string }) => {
+                    setAgentStatus(status);
+                  },
+                  onPermission: (action: PendingAction, rpcId: number) => {
+                    setACPPendingPermission({ action, rpcId });
+                    setPendingAction(action);
+                    setShowQuestionModal(true);
+                  },
+                  onError: (err: Event | Error) => {
+                    console.error('[ACP] SSE error callback (from AgentAPIChat):', err);
+                  },
+              };
+
               const info = await agentAPIRef.current.getACPSessionInfo(sessionId);
               if (info) {
                 console.log(`[ACP] initializeChat: ACP session detected (acpSessionId=${info.sessionId}), previous acpInfo=${JSON.stringify(acpInfo)}`);
@@ -184,58 +236,6 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                   acpEventSourceRef.current.close();
                 }
 
-                // Shared callback object for both per-session and global ACP SSE.
-                const acpCallbacks = {
-                    onMessage: (msg: SessionMessage) => {
-                      setMessages(prev => [...prev, msg]);
-                    },
-                    onChunk: (msgId: number, text: string) => {
-                      setMessages(prev => prev.map(m =>
-                        m.id === msgId ? { ...m, content: m.content + text } : m
-                      ));
-                    },
-                    onThoughtChunk: (msgId: number, thought: string) => {
-                      setMessages(prev => prev.map(m =>
-                        m.id === msgId ? { ...m, thought: (m.thought ?? '') + thought } : m
-                      ));
-                    },
-                    onToolUpdate: (toolCallId: string, status: string) => {
-                      setMessages(prev => prev.map(m =>
-                        m.toolUseId === toolCallId
-                          ? { ...m, content: JSON.stringify({ ...JSON.parse(m.content || '{}'), _status: status }) }
-                          : m
-                      ));
-                    },
-                    onToolInputUpdate: (toolCallId: string, input: unknown, title?: string, locations?: Array<{ path: string; line?: number }>) => {
-                      setMessages(prev => prev.map(m => {
-                        if (m.toolUseId !== toolCallId) return m;
-                        try {
-                          const toolObj = JSON.parse(m.content || '{}');
-                          return { ...m, content: JSON.stringify({
-                            ...toolObj,
-                            input,
-                            ...(title != null ? { title } : {}),
-                            ...(locations != null ? { locations } : {}),
-                          })};
-                        } catch { return m; }
-                      }));
-                    },
-                    onModeUpdate: (modeId: string) => {
-                      console.log('[ACP] current_mode_update:', modeId);
-                    },
-                    onStatus: (status: { status: 'stable' | 'running' | 'error'; agent_type?: string }) => {
-                      setAgentStatus(status);
-                    },
-                    onPermission: (action: PendingAction, rpcId: number) => {
-                      setACPPendingPermission({ action, rpcId });
-                      setPendingAction(action);
-                      setShowQuestionModal(true);
-                    },
-                    onError: (err: Event | Error) => {
-                      console.error('[ACP] SSE error callback (from AgentAPIChat):', err);
-                    },
-                };
-
                 // Subscribe to SSE. In acpServerEnabled mode, route through the proxy's
                 // GET /acp endpoint with Acp-Session-Id header. Otherwise connect directly
                 // to the per-session bridge SSE.
@@ -257,6 +257,24 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     }
                   );
                 }
+                return;
+              } else if (acpServerEnabled && acpServerClientRef.current) {
+                // Bridge pod not ready yet, but ACP server mode is enabled.
+                // Enter ACP mode immediately to suppress polling; the SSE client
+                // will reconnect automatically once the bridge comes up.
+                console.log(`[ACP] initializeChat: bridge not ready, entering early ACP mode (sessionId=${sessionId})`);
+                setACPInfo({ sessionId: '', status: 'running' });
+                setAgentType('acp');
+                setIsInitialLoadComplete(true);
+                setIsStarting(false);
+
+                if (acpEventSourceRef.current) {
+                  acpEventSourceRef.current.close();
+                }
+                acpEventSourceRef.current = acpServerClientRef.current.subscribeToEvents(sessionId, acpCallbacks);
+                // Retry initializeChat after a delay to pick up the real bridge session ID
+                // and message history once the bridge is ready.
+                retryTimerRef.current = setTimeout(initializeChat, 3000);
                 return;
               }
 
