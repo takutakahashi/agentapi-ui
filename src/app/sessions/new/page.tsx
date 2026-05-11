@@ -235,6 +235,7 @@ export default function NewSessionPage() {
         })
         setShowProgressModal(true)
         const acpClient = createACPServerClientFromStorage()
+        await acpClient.initialize()
         const tags: Record<string, string> = {}
         if (currentRepository) tags.repository = currentRepository
         if (selectedTeam) tags.team = selectedTeam

@@ -250,6 +250,7 @@ async function handleProxyRequest(
       'sec-fetch-dest',
       'sec-fetch-mode',
       'sec-fetch-site',
+      'acp-session-id',  // ACP Streamable HTTP draft: session identifier for GET /acp SSE
     ];
 
     headersToForward.forEach(headerName => {
@@ -264,6 +265,8 @@ async function handleProxyRequest(
     const isSSE = acceptHeader?.includes('text/event-stream');
 
     if (isSSE) {
+      // Forward the Accept: text/event-stream header so the backend knows to stream SSE.
+      headers.set('Accept', 'text/event-stream');
       return handleSSERequest(targetUrl, headers);
     }
 
