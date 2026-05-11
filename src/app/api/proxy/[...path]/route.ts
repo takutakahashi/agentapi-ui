@@ -265,6 +265,8 @@ async function handleProxyRequest(
     const isSSE = acceptHeader?.includes('text/event-stream');
 
     if (isSSE) {
+      // Forward the Accept: text/event-stream header so the backend knows to stream SSE.
+      headers.set('Accept', 'text/event-stream');
       return handleSSERequest(targetUrl, headers);
     }
 
