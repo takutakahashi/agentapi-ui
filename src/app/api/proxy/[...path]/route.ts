@@ -250,6 +250,7 @@ async function handleProxyRequest(
       'sec-fetch-dest',
       'sec-fetch-mode',
       'sec-fetch-site',
+      'acp-session-id',  // ACP Streamable HTTP draft: session identifier for GET /acp SSE
     ];
 
     headersToForward.forEach(headerName => {
