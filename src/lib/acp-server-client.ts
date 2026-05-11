@@ -495,10 +495,15 @@ export class ACPServerClient {
         }
 
         // ── Result of session/prompt (turn finished) ───────────────────────
+        // Only call stable for end_turn; ignore permission ACKs and other
+        // result messages that arrive mid-turn (e.g. {"result":{}} with no stopReason).
         if (msg.result != null && msg.id != null) {
-          streamingMsgId = null;
-          streamingThoughtId = null;
-          callbacks.onStatus?.({ status: 'stable' });
+          const stopReason = (msg.result as { stopReason?: string })?.stopReason;
+          if (stopReason === 'end_turn') {
+            streamingMsgId = null;
+            streamingThoughtId = null;
+            callbacks.onStatus?.({ status: 'stable' });
+          }
           return;
         }
 
