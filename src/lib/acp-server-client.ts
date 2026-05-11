@@ -326,6 +326,13 @@ export class ACPServerClient {
    * Subscribe to session/update events via GET /acp with Acp-Session-Id header.
    * Uses fetch() + ReadableStream to allow custom headers (EventSource cannot).
    * sessionId is the proxy session ID. Returns a handle with close() to disconnect.
+   *
+   * Reconnection strategy:
+   * - Normal close (stream ended): reconnect immediately with Last-Event-ID so the
+   *   server replays only missed messages (the proxy maintains the client connection
+   *   across internal bridge drops, so normal closes are rare and warrant quick retry).
+   * - Fetch error (network failure): reconnect with exponential backoff to avoid
+   *   hammering an unavailable server.
    */
   subscribeToEvents(
     sessionId: string,
@@ -338,6 +345,10 @@ export class ACPServerClient {
 
     let streamingMsgId: number | null = null;
     let streamingThoughtId: number | null = null;
+
+    // Tracks the last SSE event id so we can send Last-Event-ID on reconnect,
+    // allowing the server to replay only messages we missed.
+    let lastEventId: string | null = null;
 
     const dispatchEvent = (data: string) => {
       try {
@@ -523,13 +534,19 @@ export class ACPServerClient {
     const connect = async (retryDelay = 1000) => {
       if (abortController.signal.aborted) return;
       try {
+        const sseHeaders: Record<string, string> = {
+          ...this.getHeaders(),
+          'Accept': 'text/event-stream',
+          'Acp-Session-Id': sessionId,
+        };
+        // Resume from where we left off so the server replays missed messages.
+        if (lastEventId !== null) {
+          sseHeaders['Last-Event-ID'] = lastEventId;
+        }
+
         const response = await fetch(this.acpUrl, {
           method: 'GET',
-          headers: {
-            ...this.getHeaders(),
-            'Accept': 'text/event-stream',
-            'Acp-Session-Id': sessionId,
-          },
+          headers: sseHeaders,
           signal: abortController.signal,
         });
 
@@ -554,20 +571,27 @@ export class ACPServerClient {
           buffer = lines.pop() ?? '';
 
           for (const line of lines) {
-            if (line.startsWith('data: ')) {
+            if (line.startsWith('id: ')) {
+              // Track the last event id for Last-Event-ID resumption on reconnect.
+              lastEventId = line.slice(4).trim();
+            } else if (line.startsWith('data: ')) {
               const data = line.slice(6).trim();
               if (data) dispatchEvent(data);
             }
           }
         }
 
-        // Stream closed normally — reconnect after a short delay
+        // Stream closed normally — reconnect immediately (no delay).
+        // The proxy keeps the client SSE alive across internal bridge reconnects;
+        // a normal close here means the session ended or a proxy restart occurred,
+        // so we should get back as fast as possible.
         if (!abortController.signal.aborted) {
-          setTimeout(() => connect(1000), 1000);
+          connect(1000);
         }
       } catch (err) {
         if (abortController.signal.aborted) return;
         console.error('[ACPServerClient] SSE fetch error:', err);
+        // Hard error (network failure) — use exponential backoff.
         setTimeout(() => connect(Math.min(retryDelay * 2, 30000)), retryDelay);
       }
     };
