@@ -491,6 +491,24 @@ export class ACPServerClient {
 
           const rpcId = typeof msg.id === 'number' ? msg.id : parseInt(String(msg.id ?? '0'), 10);
           callbacks.onPermission(pendingAction, rpcId);
+          return;
+        }
+
+        // ── Result of session/prompt (turn finished) ───────────────────────
+        if (msg.result != null && msg.id != null) {
+          streamingMsgId = null;
+          streamingThoughtId = null;
+          callbacks.onStatus?.({ status: 'stable' });
+          return;
+        }
+
+        // ── Error on session/prompt ────────────────────────────────────────
+        if (msg.error && msg.id != null) {
+          streamingMsgId = null;
+          streamingThoughtId = null;
+          callbacks.onStatus?.({ status: 'stable' });
+          callbacks.onError?.(new Error(msg.error.message));
+          return;
         }
       } catch (err) {
         console.error('[ACPServerClient] Failed to parse SSE event:', err, data);
