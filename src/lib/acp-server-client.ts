@@ -515,7 +515,8 @@ export class ACPServerClient {
       }
     };
 
-    const connect = async () => {
+    const connect = async (retryDelay = 1000) => {
+      if (abortController.signal.aborted) return;
       try {
         const response = await fetch(this.acpUrl, {
           method: 'GET',
@@ -529,6 +530,9 @@ export class ACPServerClient {
 
         if (!response.ok || !response.body) {
           callbacks.onError?.(new Error(`[ACPServerClient] SSE connection failed: ${response.status}`));
+          if (!abortController.signal.aborted) {
+            setTimeout(() => connect(Math.min(retryDelay * 2, 30000)), retryDelay);
+          }
           return;
         }
 
@@ -551,10 +555,15 @@ export class ACPServerClient {
             }
           }
         }
+
+        // Stream closed normally — reconnect after a short delay
+        if (!abortController.signal.aborted) {
+          setTimeout(() => connect(1000), 1000);
+        }
       } catch (err) {
         if (abortController.signal.aborted) return;
         console.error('[ACPServerClient] SSE fetch error:', err);
-        callbacks.onError?.(err instanceof Error ? err : new Error(String(err)));
+        setTimeout(() => connect(Math.min(retryDelay * 2, 30000)), retryDelay);
       }
     };
 

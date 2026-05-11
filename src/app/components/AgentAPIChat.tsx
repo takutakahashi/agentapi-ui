@@ -112,7 +112,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const acpServerClientRef = useRef<ACPServerClient | null>(null);
   useEffect(() => {
     if (acpServerEnabled) {
-      acpServerClientRef.current = createACPServerClientFromStorage();
+      const client = createACPServerClientFromStorage();
+      acpServerClientRef.current = client;
+      client.initialize().catch(err => console.warn('[ACP] initialize handshake failed:', err));
     }
   }, [acpServerEnabled]);
 
