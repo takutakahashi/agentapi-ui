@@ -1847,7 +1847,7 @@ export class AgentAPIProxyClient {
   async getACPMessageHistory(
     sessionId: string,
     acpSessionId: string
-  ): Promise<SessionMessage[]> {
+  ): Promise<{ messages: SessionMessage[]; rawEventCount: number }> {
     try {
       const resp = await this.makeRequest<{ messages: ACPJSONRPCMessage[] }>(`/${sessionId}/messages`);
       const rawMsgs = resp?.messages ?? [];
@@ -1961,11 +1961,11 @@ export class AgentAPIProxyClient {
           streamingMsgId = null;
         }
       }
-      console.log(`[ACP] getACPMessageHistory: ${result.length} messages restored`);
-      return result;
+      console.log(`[ACP] getACPMessageHistory: ${result.length} messages restored (rawEventCount=${rawMsgs.length})`);
+      return { messages: result, rawEventCount: rawMsgs.length };
     } catch (err) {
       console.warn(`[ACP] getACPMessageHistory failed:`, err);
-      return [];
+      return { messages: [], rawEventCount: 0 };
     }
   }
 

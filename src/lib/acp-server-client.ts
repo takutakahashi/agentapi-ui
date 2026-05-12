@@ -326,11 +326,17 @@ export class ACPServerClient {
    * Subscribe to session/update events via GET /acp with Acp-Session-Id header.
    * Uses fetch() + ReadableStream to allow custom headers (EventSource cannot).
    * sessionId is the proxy session ID. Returns a handle with close() to disconnect.
+   *
+   * initialLastEventId: the bridge SSE event index of the last event already loaded
+   * via the HTTP history endpoint. Passed as Last-Event-ID so the bridge skips
+   * replaying already-seen history and only delivers new events.
    */
   subscribeToEvents(
     sessionId: string,
-    callbacks: ACPServerEventCallbacks
+    callbacks: ACPServerEventCallbacks,
+    initialLastEventId?: number,
   ): { close: () => void } {
+    console.error(`[ACP SSE ENTRY] subscribeToEvents called: sessionId=${sessionId} initialLastEventId=${initialLastEventId} acpUrl=${this.acpUrl}`);
     const abortController = new AbortController();
 
     let localIdCounter = Date.now();
@@ -339,14 +345,20 @@ export class ACPServerClient {
     let streamingMsgId: number | null = null;
     let streamingThoughtId: number | null = null;
 
+    // Track the latest SSE event ID so reconnects can resume without history replay.
+    let lastSeenEventId: string | null =
+      initialLastEventId != null ? String(initialLastEventId) : null;
+
     const dispatchEvent = (data: string) => {
       try {
         const msg: JSONRPCResponse = JSON.parse(data);
+        console.log(`[ACP SSE] dispatchEvent: method=${msg.method ?? '(none)'} hasResult=${msg.result != null} hasError=${msg.error != null} id=${msg.id ?? 'null'}`);
 
         if (msg.method === 'session/update') {
           const acpParams = msg.params as { sessionId: string; update: ACPSessionUpdate; time?: string };
           const update = acpParams?.update;
           if (!update) return;
+          console.log(`[ACP SSE] session/update kind=${update.sessionUpdate}`);
           const now = acpParams?.time || new Date().toISOString();
 
           switch (update.sessionUpdate) {
@@ -521,19 +533,35 @@ export class ACPServerClient {
     };
 
     const connect = async (retryDelay = 1000) => {
+      console.error(`[ACP SSE CONNECT] connect() called: aborted=${abortController.signal.aborted} sessionId=${sessionId}`);
       if (abortController.signal.aborted) return;
       try {
+        const reqHeaders: Record<string, string> = {
+          ...this.getHeaders(),
+          'Accept': 'text/event-stream',
+          'Acp-Session-Id': sessionId,
+        };
+        // Pass Last-Event-ID so the bridge skips already-seen events.
+        // On the initial connection this equals the last event in the HTTP history load,
+        // preventing duplicate messages from history replay.
+        // On reconnects it equals the last event received via SSE.
+        if (lastSeenEventId !== null) {
+          reqHeaders['Last-Event-ID'] = lastSeenEventId;
+        }
+
+        console.log(`[ACP SSE] connect attempt: url=${this.acpUrl} sessionId=${sessionId} lastEventId=${lastSeenEventId}`);
+
         const response = await fetch(this.acpUrl, {
           method: 'GET',
-          headers: {
-            ...this.getHeaders(),
-            'Accept': 'text/event-stream',
-            'Acp-Session-Id': sessionId,
-          },
+          headers: reqHeaders,
           signal: abortController.signal,
         });
 
+        console.log(`[ACP SSE] connect response: status=${response.status} ok=${response.ok} hasBody=${!!response.body}`);
+
         if (!response.ok || !response.body) {
+          const errText = await response.text().catch(() => '(unreadable)');
+          console.error(`[ACP SSE] connection failed: status=${response.status} body=${errText}`);
           callbacks.onError?.(new Error(`[ACPServerClient] SSE connection failed: ${response.status}`));
           if (!abortController.signal.aborted) {
             setTimeout(() => connect(Math.min(retryDelay * 2, 30000)), retryDelay);
@@ -544,19 +572,34 @@ export class ACPServerClient {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
+        let chunkCount = 0;
 
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
+          if (done) {
+            console.log(`[ACP SSE] stream done after ${chunkCount} chunks (lastEventId=${lastSeenEventId})`);
+            break;
+          }
+          chunkCount++;
+          const text = decoder.decode(value, { stream: true });
+          if (chunkCount <= 3) {
+            console.log(`[ACP SSE] chunk #${chunkCount} raw: ${JSON.stringify(text.slice(0, 200))}`);
+          }
+          buffer += text;
 
           const lines = buffer.split('\n');
           buffer = lines.pop() ?? '';
 
           for (const line of lines) {
-            if (line.startsWith('data: ')) {
+            if (line.startsWith('id: ')) {
+              // Track the bridge's SSE event ID for resuming on reconnect.
+              lastSeenEventId = line.slice(4).trim();
+            } else if (line.startsWith('data: ')) {
               const data = line.slice(6).trim();
-              if (data) dispatchEvent(data);
+              if (data) {
+                console.log(`[ACP SSE] dispatching event data (first 200): ${data.slice(0, 200)}`);
+                dispatchEvent(data);
+              }
             }
           }
         }

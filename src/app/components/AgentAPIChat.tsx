@@ -149,6 +149,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
               // Shared callback object used for both normal ACP and early-ACP-fallback paths.
               const acpCallbacks = {
                   onMessage: (msg: SessionMessage) => {
+                    console.error('[ACP CB] onMessage called: role=' + msg.role + ' id=' + msg.id);
                     if (msg.toolUseId && msg.role === 'agent') {
                       try {
                         const toolObj = JSON.parse(msg.content || '{}');
@@ -168,6 +169,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     setMessages(prev => [...prev, msg]);
                   },
                   onChunk: (msgId: number, text: string) => {
+                    console.error('[ACP CB] onChunk called: msgId=' + msgId + ' textLen=' + text.length);
                     setMessages(prev => prev.map(m =>
                       m.id === msgId ? { ...m, content: m.content + text } : m
                     ));
@@ -206,6 +208,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     console.log('[ACP] current_mode_update:', modeId);
                   },
                   onStatus: (status: { status: 'stable' | 'running' | 'error'; agent_type?: string }) => {
+                    console.error('[ACP CB] onStatus called: status=' + status.status);
                     if (status.status === 'stable') setAcpRunningTools([]);
                     setAgentStatus(status);
                   },
@@ -225,12 +228,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 setACPInfo(info);
                 setAgentType('acp');
 
-                // Always fetch history from the per-session bridge.
-                // We always use the per-session SSE (which does NOT replay history),
-                // so there is no risk of duplicates from SSE replay.
-                const history = await agentAPIRef.current!.getACPMessageHistory(sessionId, info.sessionId);
-                setMessages(history);
-                console.log(`[ACP] initializeChat: restored ${history.length} messages from bridge history`);
+                // Fetch history from the per-session bridge HTTP endpoint for instant display.
+                // Pass rawEventCount - 1 as Last-Event-ID when subscribing to SSE so the
+                // bridge skips replaying already-loaded history and only delivers new events.
+                const { messages: historyMessages, rawEventCount: historyEventCount } = await agentAPIRef.current!.getACPMessageHistory(sessionId, info.sessionId);
+                setMessages(historyMessages);
+                console.log(`[ACP] initializeChat: restored ${historyMessages.length} messages from bridge history (rawEventCount=${historyEventCount})`);
 
                 setHasMoreMessages(false);
                 setIsInitialLoadComplete(true);
@@ -260,22 +263,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 // Subscribe to SSE. In acpServerEnabled mode, route through the proxy's
                 // GET /acp endpoint with Acp-Session-Id header. Otherwise connect directly
                 // to the per-session bridge SSE.
-                console.log(`[ACP] initializeChat: subscribing to SSE for sessionId=${sessionId} (acpServerEnabled=${acpServerEnabled})`);
-                if (acpServerEnabled && acpServerClientRef.current) {
-                  acpEventSourceRef.current = acpServerClientRef.current.subscribeToEvents(
+                console.log(`[ACP] initializeChat: subscribing to SSE for sessionId=${sessionId} (lastEventId=${historyEventCount > 0 ? historyEventCount - 1 : 'none'})`);
+                {
+                  const acpClient = acpServerClientRef.current ?? createACPServerClientFromStorage();
+                  acpEventSourceRef.current = acpClient.subscribeToEvents(
                     sessionId,
-                    acpCallbacks
-                  );
-                } else {
-                  acpEventSourceRef.current = agentAPIRef.current.subscribeToACPSessionEvents(
-                    sessionId,
-                    info.sessionId,
-                    {
-                      ...acpCallbacks,
-                      onCommandsUpdate: (commands) => {
-                        console.log('[ACP] available_commands_update:', commands);
-                      },
-                    }
+                    acpCallbacks,
+                    historyEventCount > 0 ? historyEventCount - 1 : undefined,
                   );
                 }
                 return;
@@ -842,10 +836,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       console.log('[ACP] Page became visible, refreshing messages and checking SSE connection...');
 
       // 1. Fetch fresh message history from the bridge
+      let reconnectEventCount = 0;
       try {
-        const history = await agentAPIRef.current!.getACPMessageHistory(sessionId, acpInfo.sessionId);
-        setMessages(history);
-        console.log(`[ACP] Refreshed ${history.length} messages after visibility change`);
+        const { messages: historyMessages, rawEventCount } = await agentAPIRef.current!.getACPMessageHistory(sessionId, acpInfo.sessionId);
+        reconnectEventCount = rawEventCount;
+        setMessages(historyMessages);
+        console.log(`[ACP] Refreshed ${historyMessages.length} messages after visibility change (rawEventCount=${rawEventCount})`);
       } catch (err) {
         console.warn('[ACP] Failed to refresh message history on visibility change:', err);
       }
@@ -936,21 +932,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           },
       };
 
-      if (acpServerEnabled && acpServerClientRef.current) {
-        acpEventSourceRef.current = acpServerClientRef.current.subscribeToEvents(
+      {
+        const acpClient = acpServerClientRef.current ?? createACPServerClientFromStorage();
+        acpEventSourceRef.current = acpClient.subscribeToEvents(
           sessionId,
-          reconnectCallbacks
-        );
-      } else {
-        acpEventSourceRef.current = agentAPIRef.current!.subscribeToACPSessionEvents(
-          sessionId,
-          acpInfo.sessionId,
-          {
-            ...reconnectCallbacks,
-            onCommandsUpdate: (commands) => {
-              console.log('[ACP] available_commands_update:', commands);
-            },
-          }
+          reconnectCallbacks,
+          reconnectEventCount > 0 ? reconnectEventCount - 1 : undefined,
         );
       }
       console.log('[ACP] SSE reconnected after visibility change');
@@ -1039,10 +1026,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           // which will arrive via onMessage and be added to the message list.
           setAgentStatus({ status: 'running' });
           const acpClient = acpServerClientRef.current ?? createACPServerClientFromStorage();
-          // In acpServerEnabled mode the global POST /acp endpoint uses proxy session IDs.
-          // The bridge's internal session ID (acpInfo.sessionId) is unknown to the proxy.
-          const sendSessionId = (acpServerEnabled && acpServerClientRef.current) ? sessionId! : acpInfo.sessionId;
-          await acpClient.sendPrompt(sendSessionId, messageContent, promptId);
+          await acpClient.sendPrompt(sessionId!, messageContent, promptId);
         } else if (acpServerEnabled && acpServerClientRef.current) {
           // ── Global ACP server only (no per-session bridge) ────────────
           const promptId = acpNextPromptId.current++;
@@ -1165,8 +1149,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         // ACP セッション: global ACP endpoint で cancel (spec-compliant)
         // POST /acp { method: "session/cancel", params: { sessionId } }
         const acpClient = acpServerClientRef.current ?? createACPServerClientFromStorage();
-        const cancelSessionId = (acpServerEnabled && acpServerClientRef.current) ? sessionId! : acpInfo.sessionId;
-        await acpClient.cancelSession(cancelSessionId);
+        await acpClient.cancelSession(sessionId!);
         setAgentStatus({ status: 'stable' });
         console.log('Stop signal sent via ACP session/cancel (global ACP endpoint)');
       } else if (acpServerEnabled && acpServerClientRef.current) {

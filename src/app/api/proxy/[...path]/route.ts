@@ -251,6 +251,7 @@ async function handleProxyRequest(
       'sec-fetch-mode',
       'sec-fetch-site',
       'acp-session-id',  // ACP Streamable HTTP draft: session identifier for GET /acp SSE
+      'last-event-id',   // SSE resume: tells bridge to skip already-seen events
     ];
 
     headersToForward.forEach(headerName => {
@@ -267,6 +268,7 @@ async function handleProxyRequest(
     if (isSSE) {
       // Forward the Accept: text/event-stream header so the backend knows to stream SSE.
       headers.set('Accept', 'text/event-stream');
+      debugLog(`[API Proxy] SSE request: url=${targetUrl} acp-session-id=${headers.get('acp-session-id')} last-event-id=${headers.get('last-event-id')}`);
       return handleSSERequest(targetUrl, headers);
     }
 
@@ -387,13 +389,17 @@ async function handleSSERequest(
     const stream = new ReadableStream({
       async start(controller) {
         try {
+          debugLog(`[SSE Proxy] fetching backend: ${targetUrl}`);
           const response = await fetch(targetUrl, {
             method: 'GET',
             headers,
           });
 
+          debugLog(`[SSE Proxy] backend responded: status=${response.status} ok=${response.ok}`);
+
           if (!response.ok) {
             const errorData = await response.text();
+            console.error(`[SSE Proxy] backend error: status=${response.status} body=${errorData.slice(0, 200)}`);
             controller.enqueue(
               new TextEncoder().encode(`data: ${JSON.stringify({ error: errorData, status: response.status })}\n\n`)
             );
@@ -403,6 +409,7 @@ async function handleSSERequest(
 
           const reader = response.body?.getReader();
           if (!reader) {
+            console.error(`[SSE Proxy] no response body from backend`);
             controller.enqueue(
               new TextEncoder().encode(`data: ${JSON.stringify({ error: 'No response body' })}\n\n`)
             );
@@ -410,15 +417,22 @@ async function handleSSERequest(
             return;
           }
 
+          debugLog(`[SSE Proxy] streaming from backend...`);
           // Read the stream and forward chunks
+          let chunkCount = 0;
           while (true) {
             const { done, value } = await reader.read();
-            
+
             if (done) {
+              debugLog(`[SSE Proxy] backend stream closed after ${chunkCount} chunks`);
               controller.close();
               break;
             }
 
+            chunkCount++;
+            if (chunkCount <= 3) {
+              debugLog(`[SSE Proxy] forwarding chunk #${chunkCount}: ${new TextDecoder().decode(value).slice(0, 100)}`);
+            }
             controller.enqueue(value);
           }
         } catch (error) {
