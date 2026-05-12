@@ -61,19 +61,12 @@ function getToolDescription(toolName: string, input: Record<string, unknown>): s
   }
 }
 
-export interface ACPRunningTool {
-  toolCallId: string;
-  name: string;
-  input: Record<string, unknown>;
-}
-
 interface ToolExecutionPaneProps {
   sessionId: string;
   agentStatus?: 'stable' | 'running' | 'error';
-  acpRunningTools?: ACPRunningTool[];
 }
 
-export default function ToolExecutionPane({ sessionId, agentStatus, acpRunningTools }: ToolExecutionPaneProps) {
+export default function ToolExecutionPane({ sessionId, agentStatus }: ToolExecutionPaneProps) {
   const [runningTools, setRunningTools] = useState<Array<{ toolUse: ToolUseContent; message: SessionMessage }>>([]);
   const [isEndpointAvailable, setIsEndpointAvailable] = useState<boolean>(true);
 
@@ -128,49 +121,9 @@ export default function ToolExecutionPane({ sessionId, agentStatus, acpRunningTo
     };
   }, [sessionId, isEndpointAvailable]);
 
-  const spinnerYellow = (
-    <svg className="w-3 h-3 text-yellow-600 dark:text-yellow-400 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-    </svg>
-  );
-
-  const spinnerGray = (
-    <svg className="animate-spin w-3 h-3 text-gray-400 dark:text-gray-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-    </svg>
-  );
-
-  // エンドポイントが利用できない場合 (ACP モード等): ACP ツール情報またはエージェント実行中のときのみ表示
+  // エンドポイントが利用できない場合は何も表示しない
   if (!isEndpointAvailable) {
-    const hasAcpTools = acpRunningTools && acpRunningTools.length > 0;
-    if (!hasAcpTools && agentStatus !== 'running') return null;
-    return (
-      <div className="bg-gray-50 dark:bg-gray-800 border-t border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-        <div className="px-4 sm:px-6 py-2">
-          <div className="flex items-center space-x-3 min-h-[20px]">
-            {hasAcpTools ? (
-              acpRunningTools!.map(tool => (
-                <div key={tool.toolCallId} className="flex items-center space-x-2 text-xs">
-                  {spinnerYellow}
-                  <span className="text-gray-600 dark:text-gray-400 max-w-[300px] truncate" title={getToolDescription(tool.name, tool.input)}>
-                    {getToolDescription(tool.name, tool.input)}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <div className="flex items-center space-x-2 text-xs">
-                {spinnerGray}
-                <span className="text-gray-400 dark:text-gray-500">
-                  エージェント実行中
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -184,7 +137,10 @@ export default function ToolExecutionPane({ sessionId, agentStatus, acpRunningTo
                 key={message.toolUseId}
                 className="flex items-center space-x-2 text-xs"
               >
-                {spinnerYellow}
+                <svg className="w-3 h-3 text-yellow-600 dark:text-yellow-400 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
                 <span className="text-gray-600 dark:text-gray-400 max-w-[300px] truncate" title={getToolDescription(toolUse.name, toolUse.input)}>
                   {getToolDescription(toolUse.name, toolUse.input)}
                 </span>
@@ -193,7 +149,10 @@ export default function ToolExecutionPane({ sessionId, agentStatus, acpRunningTo
           ) : agentStatus === 'running' ? (
             // エージェントが running 状態でツールがない場合
             <div className="flex items-center space-x-2 text-xs">
-              {spinnerGray}
+              <svg className="animate-spin w-3 h-3 text-gray-400 dark:text-gray-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
               <span className="text-gray-400 dark:text-gray-500">
                 エージェント実行中
               </span>
