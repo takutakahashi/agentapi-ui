@@ -149,6 +149,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
               // Shared callback object used for both normal ACP and early-ACP-fallback paths.
               const acpCallbacks = {
                   onMessage: (msg: SessionMessage) => {
+                    console.error('[ACP CB] onMessage called: role=' + msg.role + ' id=' + msg.id);
                     if (msg.toolUseId && msg.role === 'agent') {
                       try {
                         const toolObj = JSON.parse(msg.content || '{}');
@@ -168,6 +169,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     setMessages(prev => [...prev, msg]);
                   },
                   onChunk: (msgId: number, text: string) => {
+                    console.error('[ACP CB] onChunk called: msgId=' + msgId + ' textLen=' + text.length);
                     setMessages(prev => prev.map(m =>
                       m.id === msgId ? { ...m, content: m.content + text } : m
                     ));
@@ -206,6 +208,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     console.log('[ACP] current_mode_update:', modeId);
                   },
                   onStatus: (status: { status: 'stable' | 'running' | 'error'; agent_type?: string }) => {
+                    console.error('[ACP CB] onStatus called: status=' + status.status);
                     if (status.status === 'stable') setAcpRunningTools([]);
                     setAgentStatus(status);
                   },

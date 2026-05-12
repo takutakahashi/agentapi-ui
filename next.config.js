@@ -1,3 +1,4 @@
+const defaultCache = require('next-pwa/cache');
 const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
@@ -9,6 +10,20 @@ const withPWA = require('next-pwa')({
   // manifest.json の自動生成を無効化（manifest.ts を使用）
   publicExcludes: ['!manifest.json'],
   buildExcludes: [/manifest\.json$/],
+  runtimeCaching: [
+    {
+      // ACP SSE endpoint must bypass service worker caching entirely.
+      // NetworkFirst calls response.clone() which tees the infinite SSE stream,
+      // causing backpressure that blocks new events from reaching the browser.
+      urlPattern: /\/api\/proxy\/acp/,
+      handler: 'NetworkOnly',
+      method: 'GET',
+      options: {
+        cacheName: 'acp-sse-bypass',
+      },
+    },
+    ...defaultCache,
+  ],
 })
 
 /** @type {import('next').NextConfig} */
