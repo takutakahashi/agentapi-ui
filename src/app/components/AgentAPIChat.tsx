@@ -161,6 +161,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                         }
                       } catch { /* not a tool message */ }
                     }
+                    // per-session bridge signals completion via tool_result message (not onToolUpdate)
+                    if (msg.role === 'tool_result' && msg.parentToolUseId) {
+                      setAcpRunningTools(prev => prev.filter(t => t.toolCallId !== msg.parentToolUseId));
+                    }
                     setMessages(prev => [...prev, msg]);
                   },
                   onChunk: (msgId: number, text: string) => {
@@ -174,7 +178,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     ));
                   },
                   onToolUpdate: (toolCallId: string, status: string) => {
-                    setAcpRunningTools(prev => prev.filter(t => t.toolCallId !== toolCallId));
+                    // Only remove from running tools on actual completion (not in_progress)
+                    if (status === 'success' || status === 'error') {
+                      setAcpRunningTools(prev => prev.filter(t => t.toolCallId !== toolCallId));
+                    }
                     setMessages(prev => prev.map(m =>
                       m.toolUseId === toolCallId
                         ? { ...m, content: JSON.stringify({ ...JSON.parse(m.content || '{}'), _status: status }) }
@@ -871,6 +878,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 }
               } catch { /* not a tool message */ }
             }
+            // per-session bridge signals completion via tool_result message (not onToolUpdate)
+            if (msg.role === 'tool_result' && msg.parentToolUseId) {
+              setAcpRunningTools(prev => prev.filter(t => t.toolCallId !== msg.parentToolUseId));
+            }
             setMessages(prev => [...prev, msg]);
           },
           onChunk: (msgId: number, text: string) => {
@@ -884,7 +895,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             ));
           },
           onToolUpdate: (toolCallId: string, status: string) => {
-            setAcpRunningTools(prev => prev.filter(t => t.toolCallId !== toolCallId));
+            // Only remove from running tools on actual completion (not in_progress)
+            if (status === 'success' || status === 'error') {
+              setAcpRunningTools(prev => prev.filter(t => t.toolCallId !== toolCallId));
+            }
             setMessages(prev => prev.map(m =>
               m.toolUseId === toolCallId
                 ? { ...m, content: JSON.stringify({ ...JSON.parse(m.content || '{}'), _status: status }) }
