@@ -336,6 +336,7 @@ export class ACPServerClient {
     callbacks: ACPServerEventCallbacks,
     initialLastEventId?: number,
   ): { close: () => void } {
+    console.error(`[ACP SSE ENTRY] subscribeToEvents called: sessionId=${sessionId} initialLastEventId=${initialLastEventId} acpUrl=${this.acpUrl}`);
     const abortController = new AbortController();
 
     let localIdCounter = Date.now();
@@ -532,6 +533,7 @@ export class ACPServerClient {
     };
 
     const connect = async (retryDelay = 1000) => {
+      console.error(`[ACP SSE CONNECT] connect() called: aborted=${abortController.signal.aborted} sessionId=${sessionId}`);
       if (abortController.signal.aborted) return;
       try {
         const reqHeaders: Record<string, string> = {
