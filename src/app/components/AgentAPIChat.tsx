@@ -140,6 +140,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         try {
           setError(null);
           setIsConnected(true); // Set connected immediately for better UX
+          setACPConnectionStatus('idle');
 
           if (sessionId) {
             // ── ACP session detection ───────────────────────────────────────
@@ -196,6 +197,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                   onError: (err: Event | Error) => {
                     console.error('[ACP] SSE error callback (from AgentAPIChat):', err);
                   },
+                  onConnectionStatus: (status: 'connecting' | 'connected' | 'reconnecting' | 'disconnected') => {
+                    setACPConnectionStatus(status);
+                  },
               };
 
               const info = await agentAPIRef.current.getACPSessionInfo(sessionId);
@@ -204,13 +208,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 setACPInfo(info);
                 setAgentType('acp');
 
-                // Always fetch history from the per-session bridge.
-                // We always use the per-session SSE (which does NOT replay history),
-                // so there is no risk of duplicates from SSE replay.
-                const history = await agentAPIRef.current!.getACPMessageHistory(sessionId, info.sessionId);
-                setMessages(history);
-                console.log(`[ACP] initializeChat: restored ${history.length} messages from bridge history`);
-
+                // Per the ACP spec, message history is delivered via SSE replay when the
+                // client connects (with optional Last-Event-ID for efficient resumption).
+                // We do NOT call a separate /messages REST endpoint — that is non-ACP.
+                setMessages([]);
                 setHasMoreMessages(false);
                 setIsInitialLoadComplete(true);
                 setIsStarting(false);
@@ -425,6 +426,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [acpPendingPermission, setACPPendingPermission] = useState<{ action: PendingAction; rpcId: number } | null>(null);
   const acpNextPromptId = useRef(1);
   const acpEventSourceRef = useRef<{ close: () => void } | null>(null);
+  /** Tracks the ACP SSE stream connection state for display in the header. */
+  const [acpConnectionStatus, setACPConnectionStatus] = useState<'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected'>('idle');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -1298,10 +1301,36 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             
             {/* Connection Status */}
             <div className="flex items-center space-x-1 sm:space-x-2">
-              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <span className={`text-xs sm:text-sm ${isConnected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} hidden sm:inline`}>
-                {isConnected ? 'Connected' : 'Disconnected'}
-              </span>
+              {acpInfo ? (
+                // ACP mode: reflect the SSE stream state rather than generic HTTP connectivity.
+                <>
+                  <div className={`w-2 h-2 rounded-full ${
+                    acpConnectionStatus === 'connected' ? 'bg-green-500' :
+                    acpConnectionStatus === 'connecting' || acpConnectionStatus === 'reconnecting' ? 'bg-yellow-500 animate-pulse' :
+                    acpConnectionStatus === 'disconnected' ? 'bg-red-500' :
+                    'bg-gray-400'
+                  }`}></div>
+                  <span className={`text-xs sm:text-sm hidden sm:inline ${
+                    acpConnectionStatus === 'connected' ? 'text-green-600 dark:text-green-400' :
+                    acpConnectionStatus === 'connecting' || acpConnectionStatus === 'reconnecting' ? 'text-yellow-600 dark:text-yellow-400' :
+                    acpConnectionStatus === 'disconnected' ? 'text-red-600 dark:text-red-400' :
+                    'text-gray-500 dark:text-gray-400'
+                  }`}>
+                    {acpConnectionStatus === 'connected' ? 'ACP Connected' :
+                     acpConnectionStatus === 'connecting' ? 'ACP Connecting...' :
+                     acpConnectionStatus === 'reconnecting' ? 'ACP Reconnecting...' :
+                     acpConnectionStatus === 'disconnected' ? 'ACP Disconnected' :
+                     'ACP'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span className={`text-xs sm:text-sm ${isConnected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} hidden sm:inline`}>
+                    {isConnected ? 'Connected' : 'Disconnected'}
+                  </span>
+                </>
+              )}
             </div>
 
             {/* Delete Session Button */}

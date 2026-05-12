@@ -113,6 +113,8 @@ export interface ACPServerEventCallbacks {
   onTitleUpdate?: (title: string) => void;
   onModeUpdate?: (mode: string) => void;
   onError?: (err: Event | Error) => void;
+  /** Called when the SSE connection state changes. */
+  onConnectionStatus?: (status: 'connecting' | 'connected' | 'reconnecting' | 'disconnected') => void;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -520,26 +522,43 @@ export class ACPServerClient {
       }
     };
 
+    // Track the last received SSE event id for ACP-compliant Last-Event-ID resumption.
+    let lastEventId: string | null = null;
+    let isFirstConnect = true;
+
     const connect = async (retryDelay = 1000) => {
       if (abortController.signal.aborted) return;
+
+      callbacks.onConnectionStatus?.(isFirstConnect ? 'connecting' : 'reconnecting');
+      isFirstConnect = false;
+
       try {
+        const headers: Record<string, string> = {
+          ...this.getHeaders(),
+          'Accept': 'text/event-stream',
+          'Acp-Session-Id': sessionId,
+        };
+        // On reconnect, send Last-Event-ID so the server can resume from the last seen event.
+        if (lastEventId !== null) {
+          headers['Last-Event-ID'] = lastEventId;
+        }
+
         const response = await fetch(this.acpUrl, {
           method: 'GET',
-          headers: {
-            ...this.getHeaders(),
-            'Accept': 'text/event-stream',
-            'Acp-Session-Id': sessionId,
-          },
+          headers,
           signal: abortController.signal,
         });
 
         if (!response.ok || !response.body) {
+          callbacks.onConnectionStatus?.('disconnected');
           callbacks.onError?.(new Error(`[ACPServerClient] SSE connection failed: ${response.status}`));
           if (!abortController.signal.aborted) {
             setTimeout(() => connect(Math.min(retryDelay * 2, 30000)), retryDelay);
           }
           return;
         }
+
+        callbacks.onConnectionStatus?.('connected');
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -554,27 +573,37 @@ export class ACPServerClient {
           buffer = lines.pop() ?? '';
 
           for (const line of lines) {
-            if (line.startsWith('data: ')) {
+            if (line.startsWith('id: ')) {
+              // Track the last event id for Last-Event-ID on reconnect.
+              lastEventId = line.slice(4).trim();
+            } else if (line.startsWith('data: ')) {
               const data = line.slice(6).trim();
               if (data) dispatchEvent(data);
             }
           }
         }
 
-        // Stream closed normally — reconnect after a short delay
+        // Stream closed normally — reconnect after a short delay.
+        callbacks.onConnectionStatus?.('disconnected');
         if (!abortController.signal.aborted) {
           setTimeout(() => connect(1000), 1000);
         }
       } catch (err) {
         if (abortController.signal.aborted) return;
         console.error('[ACPServerClient] SSE fetch error:', err);
+        callbacks.onConnectionStatus?.('disconnected');
         setTimeout(() => connect(Math.min(retryDelay * 2, 30000)), retryDelay);
       }
     };
 
     connect();
 
-    return { close: () => abortController.abort() };
+    return {
+      close: () => {
+        abortController.abort();
+        callbacks.onConnectionStatus?.('disconnected');
+      },
+    };
   }
 }
 

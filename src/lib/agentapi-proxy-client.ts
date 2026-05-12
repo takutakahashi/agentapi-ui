@@ -258,6 +258,8 @@ export interface ACPSessionCallbacks {
   onPermission: (action: PendingAction, rpcId: number) => void;
   /** Called on transport errors. */
   onError: (error: Error) => void;
+  /** Called when the SSE connection state changes. */
+  onConnectionStatus?: (status: 'connecting' | 'connected' | 'reconnecting' | 'disconnected') => void;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -1999,9 +2001,11 @@ export class AgentAPIProxyClient {
     let streamingMsgId: number | null = null;
 
     console.log(`[ACP] EventSource created (url=${sseUrl}, acpSessionId=${acpSessionId})`);
+    callbacks.onConnectionStatus?.('connecting');
 
     eventSource.addEventListener('open', () => {
       console.log(`[ACP] SSE connection opened (url=${sseUrl}, acpSessionId=${acpSessionId})`);
+      callbacks.onConnectionStatus?.('connected');
     });
 
     eventSource.addEventListener('message', (event: MessageEvent) => {
@@ -2240,9 +2244,11 @@ export class AgentAPIProxyClient {
       console.error(`[ACP] SSE onerror (url=${sseUrl}, acpSessionId=${acpSessionId}, readyState=${state})`, event);
       if (state === EventSource.CLOSED) {
         console.error(`[ACP] SSE connection permanently closed`);
+        callbacks.onConnectionStatus?.('disconnected');
       } else {
         // readyState=CONNECTING means the browser is auto-reconnecting.
         console.warn(`[ACP] SSE error – browser will auto-reconnect (readyState=${state})`);
+        callbacks.onConnectionStatus?.('reconnecting');
       }
       callbacks.onError(new Error(`ACP SSE connection error (readyState=${state})`));
     };
