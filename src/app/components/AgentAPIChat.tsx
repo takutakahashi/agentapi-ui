@@ -16,7 +16,7 @@ import { pushNotificationManager } from '../../utils/pushNotification';
 import { getEnterKeyBehavior, getFontSettings, FontSettings, setFontSettings as saveFontSettings, FontFamily } from '../../types/settings';
 import ShareSessionButton from './ShareSessionButton';
 import MessageItem from './MessageItem';
-import ToolExecutionPane from './ToolExecutionPane';
+import ToolExecutionPane, { ACPRunningTool } from './ToolExecutionPane';
 import PlanApprovalModal from './PlanApprovalModal';
 import AskUserQuestionModal from './AskUserQuestionModal';
 import SessionListSidebar from './SessionListSidebar';
@@ -149,6 +149,18 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
               // Shared callback object used for both normal ACP and early-ACP-fallback paths.
               const acpCallbacks = {
                   onMessage: (msg: SessionMessage) => {
+                    if (msg.toolUseId && msg.role === 'agent') {
+                      try {
+                        const toolObj = JSON.parse(msg.content || '{}');
+                        if (toolObj.type === 'tool_use' && toolObj.name) {
+                          setAcpRunningTools(prev =>
+                            prev.some(t => t.toolCallId === msg.toolUseId)
+                              ? prev
+                              : [...prev, { toolCallId: msg.toolUseId!, name: toolObj.name, input: toolObj.input ?? {} }]
+                          );
+                        }
+                      } catch { /* not a tool message */ }
+                    }
                     setMessages(prev => [...prev, msg]);
                   },
                   onChunk: (msgId: number, text: string) => {
@@ -162,6 +174,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     ));
                   },
                   onToolUpdate: (toolCallId: string, status: string) => {
+                    setAcpRunningTools(prev => prev.filter(t => t.toolCallId !== toolCallId));
                     setMessages(prev => prev.map(m =>
                       m.toolUseId === toolCallId
                         ? { ...m, content: JSON.stringify({ ...JSON.parse(m.content || '{}'), _status: status }) }
@@ -186,6 +199,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     console.log('[ACP] current_mode_update:', modeId);
                   },
                   onStatus: (status: { status: 'stable' | 'running' | 'error'; agent_type?: string }) => {
+                    if (status.status === 'stable') setAcpRunningTools([]);
                     setAgentStatus(status);
                   },
                   onPermission: (action: PendingAction, rpcId: number) => {
@@ -384,6 +398,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [isLoading, setIsLoading] = useState(false);
   const [fontSettings, setFontSettings] = useState<FontSettings>(() => getFontSettings());
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
+  const [acpRunningTools, setAcpRunningTools] = useState<ACPRunningTool[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
@@ -844,6 +859,18 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
       const reconnectCallbacks = {
           onMessage: (msg: SessionMessage) => {
+            if (msg.toolUseId && msg.role === 'agent') {
+              try {
+                const toolObj = JSON.parse(msg.content || '{}');
+                if (toolObj.type === 'tool_use' && toolObj.name) {
+                  setAcpRunningTools(prev =>
+                    prev.some(t => t.toolCallId === msg.toolUseId)
+                      ? prev
+                      : [...prev, { toolCallId: msg.toolUseId!, name: toolObj.name, input: toolObj.input ?? {} }]
+                  );
+                }
+              } catch { /* not a tool message */ }
+            }
             setMessages(prev => [...prev, msg]);
           },
           onChunk: (msgId: number, text: string) => {
@@ -857,6 +884,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             ));
           },
           onToolUpdate: (toolCallId: string, status: string) => {
+            setAcpRunningTools(prev => prev.filter(t => t.toolCallId !== toolCallId));
             setMessages(prev => prev.map(m =>
               m.toolUseId === toolCallId
                 ? { ...m, content: JSON.stringify({ ...JSON.parse(m.content || '{}'), _status: status }) }
@@ -881,6 +909,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             console.log('[ACP] current_mode_update:', modeId);
           },
           onStatus: (status: { status: 'stable' | 'running' | 'error'; agent_type?: string }) => {
+            if (status.status === 'stable') setAcpRunningTools([]);
             setAgentStatus(status);
           },
           onPermission: (action: PendingAction, rpcId: number) => {
@@ -1552,7 +1581,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       </div>
 
       {/* ツール実行確認ペーン */}
-      {sessionId && <ToolExecutionPane sessionId={sessionId} agentStatus={agentStatus?.status} />}
+      {sessionId && <ToolExecutionPane sessionId={sessionId} agentStatus={agentStatus?.status} acpRunningTools={acpRunningTools} />}
 
       {/* Input */}
       <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 flex-shrink-0">
