@@ -260,23 +260,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 // Subscribe to SSE. In acpServerEnabled mode, route through the proxy's
                 // GET /acp endpoint with Acp-Session-Id header. Otherwise connect directly
                 // to the per-session bridge SSE.
-                console.log(`[ACP] initializeChat: subscribing to SSE for sessionId=${sessionId} (acpServerEnabled=${acpServerEnabled}, lastEventId=${historyEventCount > 0 ? historyEventCount - 1 : 'none'})`);
-                if (acpServerEnabled && acpServerClientRef.current) {
-                  acpEventSourceRef.current = acpServerClientRef.current.subscribeToEvents(
+                console.log(`[ACP] initializeChat: subscribing to SSE for sessionId=${sessionId} (lastEventId=${historyEventCount > 0 ? historyEventCount - 1 : 'none'})`);
+                {
+                  const acpClient = acpServerClientRef.current ?? createACPServerClientFromStorage();
+                  acpEventSourceRef.current = acpClient.subscribeToEvents(
                     sessionId,
                     acpCallbacks,
                     historyEventCount > 0 ? historyEventCount - 1 : undefined,
-                  );
-                } else {
-                  acpEventSourceRef.current = agentAPIRef.current.subscribeToACPSessionEvents(
-                    sessionId,
-                    info.sessionId,
-                    {
-                      ...acpCallbacks,
-                      onCommandsUpdate: (commands) => {
-                        console.log('[ACP] available_commands_update:', commands);
-                      },
-                    }
                   );
                 }
                 return;
@@ -939,22 +929,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           },
       };
 
-      if (acpServerEnabled && acpServerClientRef.current) {
-        acpEventSourceRef.current = acpServerClientRef.current.subscribeToEvents(
+      {
+        const acpClient = acpServerClientRef.current ?? createACPServerClientFromStorage();
+        acpEventSourceRef.current = acpClient.subscribeToEvents(
           sessionId,
           reconnectCallbacks,
           reconnectEventCount > 0 ? reconnectEventCount - 1 : undefined,
-        );
-      } else {
-        acpEventSourceRef.current = agentAPIRef.current!.subscribeToACPSessionEvents(
-          sessionId,
-          acpInfo.sessionId,
-          {
-            ...reconnectCallbacks,
-            onCommandsUpdate: (commands) => {
-              console.log('[ACP] available_commands_update:', commands);
-            },
-          }
         );
       }
       console.log('[ACP] SSE reconnected after visibility change');
@@ -1043,10 +1023,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           // which will arrive via onMessage and be added to the message list.
           setAgentStatus({ status: 'running' });
           const acpClient = acpServerClientRef.current ?? createACPServerClientFromStorage();
-          // In acpServerEnabled mode the global POST /acp endpoint uses proxy session IDs.
-          // The bridge's internal session ID (acpInfo.sessionId) is unknown to the proxy.
-          const sendSessionId = (acpServerEnabled && acpServerClientRef.current) ? sessionId! : acpInfo.sessionId;
-          await acpClient.sendPrompt(sendSessionId, messageContent, promptId);
+          await acpClient.sendPrompt(sessionId!, messageContent, promptId);
         } else if (acpServerEnabled && acpServerClientRef.current) {
           // ── Global ACP server only (no per-session bridge) ────────────
           const promptId = acpNextPromptId.current++;
@@ -1169,8 +1146,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         // ACP セッション: global ACP endpoint で cancel (spec-compliant)
         // POST /acp { method: "session/cancel", params: { sessionId } }
         const acpClient = acpServerClientRef.current ?? createACPServerClientFromStorage();
-        const cancelSessionId = (acpServerEnabled && acpServerClientRef.current) ? sessionId! : acpInfo.sessionId;
-        await acpClient.cancelSession(cancelSessionId);
+        await acpClient.cancelSession(sessionId!);
         setAgentStatus({ status: 'stable' });
         console.log('Stop signal sent via ACP session/cancel (global ACP endpoint)');
       } else if (acpServerEnabled && acpServerClientRef.current) {
