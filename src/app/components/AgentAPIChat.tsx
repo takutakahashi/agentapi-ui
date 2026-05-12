@@ -225,12 +225,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 setACPInfo(info);
                 setAgentType('acp');
 
-                // Always fetch history from the per-session bridge.
-                // We always use the per-session SSE (which does NOT replay history),
-                // so there is no risk of duplicates from SSE replay.
-                const history = await agentAPIRef.current!.getACPMessageHistory(sessionId, info.sessionId);
-                setMessages(history);
-                console.log(`[ACP] initializeChat: restored ${history.length} messages from bridge history`);
+                // Fetch history from the per-session bridge HTTP endpoint for instant display.
+                // Pass rawEventCount - 1 as Last-Event-ID when subscribing to SSE so the
+                // bridge skips replaying already-loaded history and only delivers new events.
+                const { messages: historyMessages, rawEventCount: historyEventCount } = await agentAPIRef.current!.getACPMessageHistory(sessionId, info.sessionId);
+                setMessages(historyMessages);
+                console.log(`[ACP] initializeChat: restored ${historyMessages.length} messages from bridge history (rawEventCount=${historyEventCount})`);
 
                 setHasMoreMessages(false);
                 setIsInitialLoadComplete(true);
@@ -260,11 +260,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 // Subscribe to SSE. In acpServerEnabled mode, route through the proxy's
                 // GET /acp endpoint with Acp-Session-Id header. Otherwise connect directly
                 // to the per-session bridge SSE.
-                console.log(`[ACP] initializeChat: subscribing to SSE for sessionId=${sessionId} (acpServerEnabled=${acpServerEnabled})`);
+                console.log(`[ACP] initializeChat: subscribing to SSE for sessionId=${sessionId} (acpServerEnabled=${acpServerEnabled}, lastEventId=${historyEventCount > 0 ? historyEventCount - 1 : 'none'})`);
                 if (acpServerEnabled && acpServerClientRef.current) {
                   acpEventSourceRef.current = acpServerClientRef.current.subscribeToEvents(
                     sessionId,
-                    acpCallbacks
+                    acpCallbacks,
+                    historyEventCount > 0 ? historyEventCount - 1 : undefined,
                   );
                 } else {
                   acpEventSourceRef.current = agentAPIRef.current.subscribeToACPSessionEvents(
@@ -842,10 +843,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       console.log('[ACP] Page became visible, refreshing messages and checking SSE connection...');
 
       // 1. Fetch fresh message history from the bridge
+      let reconnectEventCount = 0;
       try {
-        const history = await agentAPIRef.current!.getACPMessageHistory(sessionId, acpInfo.sessionId);
-        setMessages(history);
-        console.log(`[ACP] Refreshed ${history.length} messages after visibility change`);
+        const { messages: historyMessages, rawEventCount } = await agentAPIRef.current!.getACPMessageHistory(sessionId, acpInfo.sessionId);
+        reconnectEventCount = rawEventCount;
+        setMessages(historyMessages);
+        console.log(`[ACP] Refreshed ${historyMessages.length} messages after visibility change (rawEventCount=${rawEventCount})`);
       } catch (err) {
         console.warn('[ACP] Failed to refresh message history on visibility change:', err);
       }
@@ -939,7 +942,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       if (acpServerEnabled && acpServerClientRef.current) {
         acpEventSourceRef.current = acpServerClientRef.current.subscribeToEvents(
           sessionId,
-          reconnectCallbacks
+          reconnectCallbacks,
+          reconnectEventCount > 0 ? reconnectEventCount - 1 : undefined,
         );
       } else {
         acpEventSourceRef.current = agentAPIRef.current!.subscribeToACPSessionEvents(

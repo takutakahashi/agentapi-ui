@@ -251,6 +251,7 @@ async function handleProxyRequest(
       'sec-fetch-mode',
       'sec-fetch-site',
       'acp-session-id',  // ACP Streamable HTTP draft: session identifier for GET /acp SSE
+      'last-event-id',   // SSE resume: tells bridge to skip already-seen events
     ];
 
     headersToForward.forEach(headerName => {

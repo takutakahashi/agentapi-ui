@@ -326,10 +326,15 @@ export class ACPServerClient {
    * Subscribe to session/update events via GET /acp with Acp-Session-Id header.
    * Uses fetch() + ReadableStream to allow custom headers (EventSource cannot).
    * sessionId is the proxy session ID. Returns a handle with close() to disconnect.
+   *
+   * initialLastEventId: the bridge SSE event index of the last event already loaded
+   * via the HTTP history endpoint. Passed as Last-Event-ID so the bridge skips
+   * replaying already-seen history and only delivers new events.
    */
   subscribeToEvents(
     sessionId: string,
-    callbacks: ACPServerEventCallbacks
+    callbacks: ACPServerEventCallbacks,
+    initialLastEventId?: number,
   ): { close: () => void } {
     const abortController = new AbortController();
 
@@ -338,6 +343,10 @@ export class ACPServerClient {
 
     let streamingMsgId: number | null = null;
     let streamingThoughtId: number | null = null;
+
+    // Track the latest SSE event ID so reconnects can resume without history replay.
+    let lastSeenEventId: string | null =
+      initialLastEventId != null ? String(initialLastEventId) : null;
 
     const dispatchEvent = (data: string) => {
       try {
@@ -523,13 +532,22 @@ export class ACPServerClient {
     const connect = async (retryDelay = 1000) => {
       if (abortController.signal.aborted) return;
       try {
+        const reqHeaders: Record<string, string> = {
+          ...this.getHeaders(),
+          'Accept': 'text/event-stream',
+          'Acp-Session-Id': sessionId,
+        };
+        // Pass Last-Event-ID so the bridge skips already-seen events.
+        // On the initial connection this equals the last event in the HTTP history load,
+        // preventing duplicate messages from history replay.
+        // On reconnects it equals the last event received via SSE.
+        if (lastSeenEventId !== null) {
+          reqHeaders['Last-Event-ID'] = lastSeenEventId;
+        }
+
         const response = await fetch(this.acpUrl, {
           method: 'GET',
-          headers: {
-            ...this.getHeaders(),
-            'Accept': 'text/event-stream',
-            'Acp-Session-Id': sessionId,
-          },
+          headers: reqHeaders,
           signal: abortController.signal,
         });
 
@@ -554,7 +572,10 @@ export class ACPServerClient {
           buffer = lines.pop() ?? '';
 
           for (const line of lines) {
-            if (line.startsWith('data: ')) {
+            if (line.startsWith('id: ')) {
+              // Track the bridge's SSE event ID for resuming on reconnect.
+              lastSeenEventId = line.slice(4).trim();
+            } else if (line.startsWith('data: ')) {
               const data = line.slice(6).trim();
               if (data) dispatchEvent(data);
             }
