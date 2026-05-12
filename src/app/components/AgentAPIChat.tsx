@@ -272,6 +272,28 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                   acpEventSourceRef.current = acpServerClientRef.current.subscribeToEvents(sessionId, acpCallbacks);
                 }
                 return;
+              } else {
+                // For claude-acp per-session bridge (not ACP server mode):
+                // getACPSessionInfo returned null, but the session might be a claude-acp
+                // session whose bridge is still starting. Check agent_type via session status.
+                try {
+                  const statusResult = await agentAPIRef.current!.getSessionStatus(sessionId);
+                  if (statusResult.agent_type === 'claude-acp') {
+                    if (statusResult.status === 'error') {
+                      const detail = statusResult.message || '不明なエラー';
+                      setError(`セッションの起動に失敗しました: ${detail}`);
+                      setIsStarting(false);
+                      return;
+                    }
+                    // Bridge not ready yet — wait and retry
+                    console.log(`[ACP] initializeChat: claude-acp bridge not ready, retrying (sessionId=${sessionId})`);
+                    setIsStarting(true);
+                    retryTimerRef.current = setTimeout(initializeChat, 2000);
+                    return;
+                  }
+                } catch {
+                  // Status check failed (e.g. session provisioning race condition) — fall through
+                }
               }
 
             }
@@ -313,8 +335,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             } catch (err) {
               console.error('Failed to load session messages:', err);
               setIsConnected(false); // Only set disconnected on actual error
-              if (err instanceof AgentAPIProxyError && (err.status === 502 || err.status === 503)) {
-                // サービス起動中の可能性があるため、プロビジョナーのステータスを確認してから再試行
+              if (err instanceof AgentAPIProxyError && (err.status === 404 || err.status === 502 || err.status === 503)) {
+                // 404: セッションがまだセッションマネージャーに登録されていない可能性がある（プロビジョニング中の race condition）
+                // 502/503: サービス起動中の可能性がある
+                // いずれの場合もプロビジョナーのステータスを確認してから再試行
                 if (agentAPIRef.current) {
                   try {
                     const provStatus = await agentAPIRef.current.getSessionStatus(sessionId);
@@ -348,8 +372,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         } catch (err) {
           console.error('Failed to initialize chat:', err);
           setIsConnected(false);
-          if (err instanceof AgentAPIProxyError && (err.status === 502 || err.status === 503)) {
-            // サービス起動中の可能性があるため、処理中として扱い再試行
+          if (err instanceof AgentAPIProxyError && (err.status === 404 || err.status === 502 || err.status === 503)) {
+            // サービス起動中またはセッション登録中の可能性があるため、処理中として扱い再試行
             setIsStarting(true);
             retryTimerRef.current = setTimeout(initializeChat, 2000);
             return;
