@@ -208,10 +208,19 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 setACPInfo(info);
                 setAgentType('acp');
 
-                // Per the ACP spec, message history is delivered via SSE replay when the
-                // client connects (with optional Last-Event-ID for efficient resumption).
-                // We do NOT call a separate /messages REST endpoint — that is non-ACP.
-                setMessages([]);
+                // The bridge's SSE only delivers NEW events on fresh connect (history replay
+                // on fresh connect was disabled in bridge PR #739 to prevent duplicates
+                // when clients fetch history via REST and also receive SSE replay).
+                // Fetch the full message history via REST, then subscribe to SSE for
+                // new events going forward.
+                try {
+                  const history = await agentAPIRef.current!.getACPMessageHistory(sessionId, info.sessionId);
+                  setMessages(history);
+                  console.log(`[ACP] initializeChat: loaded ${history.length} messages from history`);
+                } catch (err) {
+                  console.warn('[ACP] initializeChat: failed to load message history:', err);
+                  setMessages([]);
+                }
                 setHasMoreMessages(false);
                 setIsInitialLoadComplete(true);
                 setIsStarting(false);
@@ -820,9 +829,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     if (!acpInfo || !sessionId || !agentAPIRef.current) return;
 
     const reconnectACP = async () => {
-      console.log('[ACP] Page became visible, refreshing messages and checking SSE connection...');
+      console.log('[ACP] Page became visible, refreshing messages...');
 
-      // 1. Fetch fresh message history from the bridge
+      // Refresh message history from the bridge to catch up on anything missed.
       try {
         const history = await agentAPIRef.current!.getACPMessageHistory(sessionId, acpInfo.sessionId);
         setMessages(history);
@@ -831,7 +840,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         console.warn('[ACP] Failed to refresh message history on visibility change:', err);
       }
 
-      // 2. Fetch current agent status
+      // Refresh agent status.
       try {
         const currentStatus = await agentAPIRef.current!.getSessionStatus(sessionId);
         setAgentStatus(currentStatus);
@@ -839,81 +848,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         // Non-fatal — status will be updated via SSE events
       }
 
-      // 3. Reconnect SSE
-      console.log('[ACP] Reconnecting SSE after visibility change...');
-      if (acpEventSourceRef.current) {
-        acpEventSourceRef.current.close();
-      }
-
-      const reconnectCallbacks = {
-          onMessage: (msg: SessionMessage) => {
-            setMessages(prev => [...prev, msg]);
-          },
-          onChunk: (msgId: number, text: string) => {
-            setMessages(prev => prev.map(m =>
-              m.id === msgId ? { ...m, content: m.content + text } : m
-            ));
-          },
-          onThoughtChunk: (msgId: number, thought: string) => {
-            setMessages(prev => prev.map(m =>
-              m.id === msgId ? { ...m, thought: (m.thought ?? '') + thought } : m
-            ));
-          },
-          onToolUpdate: (toolCallId: string, status: string) => {
-            setMessages(prev => prev.map(m =>
-              m.toolUseId === toolCallId
-                ? { ...m, content: JSON.stringify({ ...JSON.parse(m.content || '{}'), _status: status }) }
-                : m
-            ));
-          },
-          onToolInputUpdate: (toolCallId: string, input: unknown, title?: string, locations?: Array<{ path: string; line?: number }>) => {
-            setMessages(prev => prev.map(m => {
-              if (m.toolUseId !== toolCallId) return m;
-              try {
-                const toolObj = JSON.parse(m.content || '{}');
-                return { ...m, content: JSON.stringify({
-                  ...toolObj,
-                  input,
-                  ...(title != null ? { title } : {}),
-                  ...(locations != null ? { locations } : {}),
-                })};
-              } catch { return m; }
-            }));
-          },
-          onModeUpdate: (modeId: string) => {
-            console.log('[ACP] current_mode_update:', modeId);
-          },
-          onStatus: (status: { status: 'stable' | 'running' | 'error'; agent_type?: string }) => {
-            setAgentStatus(status);
-          },
-          onPermission: (action: PendingAction, rpcId: number) => {
-            setACPPendingPermission({ action, rpcId });
-            setPendingAction(action);
-            setShowQuestionModal(true);
-          },
-          onError: (err: Event | Error) => {
-            console.error('[ACP] SSE error callback (from visibility reconnect):', err);
-          },
-      };
-
-      if (acpServerEnabled && acpServerClientRef.current) {
-        acpEventSourceRef.current = acpServerClientRef.current.subscribeToEvents(
-          sessionId,
-          reconnectCallbacks
-        );
-      } else {
-        acpEventSourceRef.current = agentAPIRef.current!.subscribeToACPSessionEvents(
-          sessionId,
-          acpInfo.sessionId,
-          {
-            ...reconnectCallbacks,
-            onCommandsUpdate: (commands) => {
-              console.log('[ACP] available_commands_update:', commands);
-            },
-          }
-        );
-      }
-      console.log('[ACP] SSE reconnected after visibility change');
+      // The existing SSE subscription auto-reconnects internally with Last-Event-ID,
+      // so any events missed while the page was hidden will arrive via the reconnect.
+      // No need to close/reopen the subscription here.
     };
 
     reconnectACP();
