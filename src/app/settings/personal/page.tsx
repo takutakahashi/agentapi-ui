@@ -619,6 +619,7 @@ export default function PersonalSettingsPage() {
                       { value: 'claude-agentapi', label: 'Claude AgentAPI', description: 'agent_type=claude-agentapi を送信' },
                       { value: 'codex-agentapi', label: 'Codex AgentAPI', description: 'agent_type=codex-agentapi を送信' },
                       { value: 'claude-acp', label: 'Claude ACP', description: 'agent_type=claude-acp を送信' },
+                      { value: 'codex-acp', label: 'Codex ACP', description: 'agent_type=codex-acp を送信' },
                     ] as { value: AgentApiType; label: string; description: string }[]).map(({ value, label, description }) => (
                       <label key={value} className="flex items-start cursor-pointer group">
                         <input

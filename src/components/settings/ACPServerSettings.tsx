@@ -53,7 +53,7 @@ export function ACPServerSettings({
           </ul>
           <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded">
             ACP サーバーモードを使用するには、agentapi-proxy が ACP サーバー機能をサポートしている必要があります。
-            セッション作成時にエージェントタイプが自動的に <code className="bg-amber-100 dark:bg-amber-800 px-1 rounded">claude-acp</code> に設定されます。
+            セッション作成時にエージェントタイプが自動的に <code className="bg-amber-100 dark:bg-amber-800 px-1 rounded">claude-acp</code> または <code className="bg-amber-100 dark:bg-amber-800 px-1 rounded">codex-acp</code> に設定されます。
           </p>
         </div>
       )}

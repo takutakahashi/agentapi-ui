@@ -273,12 +273,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 }
                 return;
               } else {
-                // For claude-acp per-session bridge (not ACP server mode):
-                // getACPSessionInfo returned null, but the session might be a claude-acp
+                // For claude-acp / codex-acp per-session bridge (not ACP server mode):
+                // getACPSessionInfo returned null, but the session might be an ACP
                 // session whose bridge is still starting. Check agent_type via session status.
                 try {
                   const statusResult = await agentAPIRef.current!.getSessionStatus(sessionId);
-                  if (statusResult.agent_type === 'claude-acp') {
+                  if (statusResult.agent_type === 'claude-acp' || statusResult.agent_type === 'codex-acp') {
                     if (statusResult.status === 'error') {
                       const detail = statusResult.message || '不明なエラー';
                       setError(`セッションの起動に失敗しました: ${detail}`);
@@ -286,7 +286,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                       return;
                     }
                     // Bridge not ready yet — wait and retry
-                    console.log(`[ACP] initializeChat: claude-acp bridge not ready, retrying (sessionId=${sessionId})`);
+                    console.log(`[ACP] initializeChat: ${statusResult.agent_type} bridge not ready, retrying (sessionId=${sessionId})`);
                     setIsStarting(true);
                     retryTimerRef.current = setTimeout(initializeChat, 2000);
                     return;

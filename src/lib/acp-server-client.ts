@@ -243,7 +243,7 @@ export class ACPServerClient {
         tags: params.tags || {},
         params: {
           message: params.message,
-          agentType: params.agentType || 'claude-acp',
+          agentType: params.agentType,
         },
       },
     });

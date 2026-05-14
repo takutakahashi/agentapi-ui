@@ -45,9 +45,10 @@ export default function NewSessionPage() {
   useEffect(() => {
     loadTemplates()
     loadRecentMessages()
-    // ACPサーバーモードのときは claude-acp を固定で使用する
+    // ACPサーバーモードのときは claude-acp をデフォルトで使用する
     if (getACPServerEnabled()) {
-      setSelectedAgentType('claude-acp')
+      const saved = getAgentApiType()
+      setSelectedAgentType(saved === 'claude-acp' || saved === 'codex-acp' ? saved : 'claude-acp')
     } else {
       setSelectedAgentType(getAgentApiType())
     }
@@ -245,7 +246,7 @@ export default function NewSessionPage() {
         await acpClient.createSession({
           cwd,
           message: currentMessage,
-          agentType: selectedAgentType !== 'default' ? selectedAgentType : 'claude-acp',
+          agentType: selectedAgentType !== 'default' ? selectedAgentType : undefined,
           tags,
         })
         setCreationProgress(prev => prev ? { ...prev, status: 'completed' } : null)
@@ -488,6 +489,7 @@ export default function NewSessionPage() {
                     {selectedAgentType === 'claude-agentapi' ? 'Claude AgentAPI'
                       : selectedAgentType === 'codex-agentapi' ? 'Codex AgentAPI'
                       : selectedAgentType === 'claude-acp' ? 'Claude ACP'
+                      : selectedAgentType === 'codex-acp' ? 'Codex ACP'
                       : selectedAgentType}
                   </span>
                 )}
@@ -644,7 +646,7 @@ export default function NewSessionPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
                         <span className="text-xs text-blue-700 dark:text-blue-300">
-                          ACP サーバーモード: <strong>Claude</strong>（claude-acp）が使用されます
+                          ACP サーバーモード: <strong>{selectedAgentType === 'codex-acp' ? 'Codex' : 'Claude'}</strong>（{selectedAgentType === 'codex-acp' ? 'codex-acp' : 'claude-acp'}）が使用されます
                         </span>
                       </div>
                     ) : (
@@ -654,6 +656,7 @@ export default function NewSessionPage() {
                         { value: 'claude-agentapi', label: 'Claude AgentAPI', description: 'agent_type=claude-agentapi を送信' },
                         { value: 'codex-agentapi', label: 'Codex AgentAPI', description: 'agent_type=codex-agentapi を送信' },
                         { value: 'claude-acp', label: 'Claude ACP', description: 'agent_type=claude-acp を送信' },
+                        { value: 'codex-acp', label: 'Codex ACP', description: 'agent_type=codex-acp を送信' },
                       ] as { value: AgentApiType; label: string; description: string }[]).map(({ value, label, description }) => (
                         <label key={value} className="flex items-start cursor-pointer group">
                           <input
