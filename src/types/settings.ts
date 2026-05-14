@@ -129,7 +129,8 @@ export interface FontSettings {
 // 'claude-agentapi': claude-agentapi を使用
 // 'codex-agentapi': codex-agentapi を使用
 // 'claude-acp': claude-acp を使用
-export type AgentApiType = 'default' | 'claude-agentapi' | 'codex-agentapi' | 'claude-acp'
+// 'codex-acp': codex-acp を使用
+export type AgentApiType = 'default' | 'claude-agentapi' | 'codex-agentapi' | 'claude-acp' | 'codex-acp'
 
 export interface GlobalSettings {
   agentApiProxy: AgentApiProxySettings
