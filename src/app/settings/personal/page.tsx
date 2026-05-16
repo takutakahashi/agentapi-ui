@@ -35,6 +35,8 @@ export default function PersonalSettingsPage() {
   const [revealedSecrets, setRevealedSecrets] = useState<Record<string, string>>({})
   const [copiedSecretId, setCopiedSecretId] = useState<string | null>(null)
   const [regeneratingEsmId, setRegeneratingEsmId] = useState<string | null>(null)
+  // GitHub Sync state
+  const [gitSyncConfig, setGitSyncConfig] = useState<GitSyncConfig | undefined>(undefined)
   // Credentials state
   const [credentialsMetadata, setCredentialsMetadata] = useState<CredentialsMetadata | null>(null)
   const [credentialsJson, setCredentialsJson] = useState<string>('')
@@ -137,6 +139,14 @@ export default function PersonalSettingsPage() {
         // External session managers を設定
         setEsmList(data.external_session_managers || [])
 
+        // GitHub Sync 設定を読み込み
+        try {
+          const syncConfig = await client.getGitSyncConfig(userName)
+          setGitSyncConfig(syncConfig ?? undefined)
+        } catch {
+          // sync endpoint が存在しない場合は無視
+        }
+
         // 認証ファイルメタデータを読み込み
         try {
           const meta = await client.getCredentials(userName)
@@ -233,8 +243,19 @@ export default function PersonalSettingsPage() {
     setACPServerEnabled(enabled)
   }
 
-  const handleGitSyncChange = (config: GitSyncConfig | undefined) => {
-    setSettings((prev) => ({ ...prev, git_sync: config }))
+  const handleGitSyncSave = async (config: GitSyncConfig) => {
+    const client = createAgentAPIProxyClientFromStorage()
+    const saved = await client.updateGitSyncConfig(userName, config)
+    setGitSyncConfig(saved)
+    showToast('GitHub Sync 設定を保存しました', 'success')
+  }
+
+  const handleGitSyncDelete = async () => {
+    if (!confirm('GitHub Sync 設定を削除しますか？')) return
+    const client = createAgentAPIProxyClientFromStorage()
+    await client.deleteGitSyncConfig(userName)
+    setGitSyncConfig(undefined)
+    showToast('GitHub Sync 設定を削除しました', 'success')
   }
 
   const handleGitSyncPush = async () => {
@@ -692,11 +713,11 @@ export default function PersonalSettingsPage() {
             defaultOpen={false}
           >
             <GitHubSyncSettings
-              config={settings.git_sync}
-              settingsName={userName}
-              onChange={handleGitSyncChange}
-              onPush={handleGitSyncPush}
-              onPull={handleGitSyncPull}
+              config={gitSyncConfig}
+              onSave={handleGitSyncSave}
+              onDelete={gitSyncConfig ? handleGitSyncDelete : undefined}
+              onPush={gitSyncConfig ? handleGitSyncPush : undefined}
+              onPull={gitSyncConfig ? handleGitSyncPull : undefined}
             />
           </SettingsAccordion>
 

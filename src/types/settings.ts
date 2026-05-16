@@ -41,22 +41,21 @@ export interface APIMCPServerResponse {
 // 認証モード
 export type AuthMode = 'oauth' | 'bedrock';
 
-// GitHub Sync 暗号化設定
+// GitHub Sync 暗号化ステータス（読み取り専用 — KMS 設定はプロキシ側で管理）
 export interface GitSyncEncryptionConfig {
-  kms_key_arn?: string;
-  aws_region?: string;
-  encrypted_dek?: string;
   dek_version?: number;
+  dek_ready?: boolean;
 }
 
-// GitHub Sync 設定
+// GitHub Sync 設定（API レスポンス: github_token は返らない）
 export interface GitSyncConfig {
   enabled: boolean;
   repo_full_name: string;  // "owner/repo"
   branch: string;
   root_path: string;       // e.g. "agentapi-config/"
   auto_push: boolean;
-  github_token?: string;   // PAT（保存時のみ使用）
+  has_github_token?: boolean;  // トークン設定済みか（読み取り時のみ）
+  github_token?: string;       // PAT（PUT 時のみ使用、GET では返らない）
   encryption?: GitSyncEncryptionConfig;
 }
 
@@ -77,7 +76,6 @@ export interface SettingsData {
   slack_user_id?: string;  // Slack User ID（設定すると Slack DM 通知が有効になる）
   notification_channels?: string[];  // Active notification channels (e.g. ["web", "slack"])
   external_session_managers?: ExternalSessionManagerConfig[];  // External session managers
-  git_sync?: GitSyncConfig;  // GitHub 双方向同期設定
 }
 
 // External session manager configuration
@@ -356,28 +354,6 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
   // External session managers の処理
   if (data.external_session_managers !== undefined) {
     prepared.external_session_managers = data.external_session_managers
-  }
-
-  // GitHub Sync の処理
-  if (data.git_sync !== undefined) {
-    const gs = data.git_sync
-    const prepared_gs: GitSyncConfig = {
-      enabled: gs.enabled,
-      repo_full_name: gs.repo_full_name.trim(),
-      branch: gs.branch.trim() || 'main',
-      root_path: gs.root_path.trim() || 'agentapi-config/',
-      auto_push: gs.auto_push,
-    }
-    if (gs.github_token?.trim()) {
-      prepared_gs.github_token = gs.github_token.trim()
-    }
-    if (gs.encryption?.kms_key_arn?.trim()) {
-      prepared_gs.encryption = {
-        kms_key_arn: gs.encryption.kms_key_arn.trim(),
-        aws_region: gs.encryption.aws_region?.trim() || 'ap-northeast-1',
-      }
-    }
-    prepared.git_sync = prepared_gs
   }
 
   return prepared
