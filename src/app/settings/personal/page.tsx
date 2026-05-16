@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, ExternalSessionManagerConfig, GitSyncConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, AgentApiType, getAgentApiType, setAgentApiType, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings, getMemoryEnabled, setMemoryEnabled, getMemorySummarizeDrafts, setMemorySummarizeDrafts, getACPServerEnabled, setACPServerEnabled } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings, MemorySettings, SlackSettings, FileSettings, ACPServerSettings, GitHubSyncSettings } from '@/components/settings'
+import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, ExternalSessionManagerConfig, GitSyncConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, AgentApiType, getAgentApiType, setAgentApiType, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
+import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings, SlackSettings, FileSettings, GitHubSyncSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, CredentialsMetadata } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -22,9 +22,6 @@ export default function PersonalSettingsPage() {
   const [agentApiType, setAgentApiTypeState] = useState<AgentApiType>('default')
   const [enterKeyBehavior, setEnterKeyBehaviorState] = useState<EnterKeyBehavior>('send')
   const [fontSettings, setFontSettingsState] = useState<FontSettingsType>({ fontSize: 14, fontFamily: 'sans-serif' })
-  const [memoryEnabled, setMemoryEnabledState] = useState(true)
-  const [memorySummarizeDrafts, setMemorySummarizeDraftsState] = useState<boolean | undefined>(undefined)
-  const [acpServerEnabled, setACPServerEnabledState] = useState(false)
   const [slackUserId, setSlackUserId] = useState<string>('')
   const [notificationChannels, setNotificationChannels] = useState<string[] | undefined>(undefined)
   const [esmList, setEsmList] = useState<ExternalSessionManagerConfig[]>([])
@@ -77,11 +74,6 @@ export default function PersonalSettingsPage() {
     setEnterKeyBehaviorState(getEnterKeyBehavior())
     // Font 設定を読み込み
     setFontSettingsState(getFontSettings())
-    // メモリ設定を localStorage から読み込み（APIロード前の初期値として使用）
-    setMemoryEnabledState(getMemoryEnabled())
-    setMemorySummarizeDraftsState(getMemorySummarizeDrafts())
-    // ACP サーバーモード設定を読み込み
-    setACPServerEnabledState(getACPServerEnabled())
   }, [])
 
   useEffect(() => {
@@ -122,17 +114,6 @@ export default function PersonalSettingsPage() {
         setSettings(data)
         setOriginalSettings(data)
 
-        // API の設定を優先してメモリ設定を同期
-        // memory_enabled が API に保存されていれば state と localStorage を更新
-        if (data.memory_enabled !== undefined) {
-          setMemoryEnabledState(data.memory_enabled)
-          setMemoryEnabled(data.memory_enabled)
-        }
-        // memory_summarize_drafts が API に保存されていれば state と localStorage を更新
-        if (data.memory_summarize_drafts !== undefined) {
-          setMemorySummarizeDraftsState(data.memory_summarize_drafts)
-          setMemorySummarizeDrafts(data.memory_summarize_drafts)
-        }
         // Slack User ID を設定
         setSlackUserId(data.slack_user_id || '')
         setNotificationChannels(data.notification_channels)
@@ -224,23 +205,6 @@ export default function PersonalSettingsPage() {
   const handleFontSettingsChange = (settings: FontSettingsType) => {
     setFontSettingsState(settings)
     setFontSettings(settings)
-  }
-
-  const handleMemoryEnabledChange = (enabled: boolean) => {
-    setMemoryEnabledState(enabled)
-    setMemoryEnabled(enabled) // localStorage にも即時反映（他コンポーネント用）
-    setSettings((prev) => ({ ...prev, memory_enabled: enabled })) // API 保存対象に追加
-  }
-
-  const handleMemorySummarizeDraftsChange = (enabled: boolean | undefined) => {
-    setMemorySummarizeDraftsState(enabled)
-    setMemorySummarizeDrafts(enabled) // localStorage にも即時反映（他コンポーネント用）
-    setSettings((prev) => ({ ...prev, memory_summarize_drafts: enabled })) // API 保存対象に追加
-  }
-
-  const handleACPServerEnabledChange = (enabled: boolean) => {
-    setACPServerEnabledState(enabled)
-    setACPServerEnabled(enabled)
   }
 
   const handleGitSyncSave = async (config: GitSyncConfig) => {
@@ -681,30 +645,6 @@ export default function PersonalSettingsPage() {
                 </div>
               </div>
             </div>
-          </SettingsAccordion>
-
-          <SettingsAccordion
-            title="Memory"
-            description="メモリ機能の有効/無効とドラフト集約の設定"
-            defaultOpen
-          >
-            <MemorySettings
-              memoryEnabled={memoryEnabled}
-              memorySummarizeDrafts={memorySummarizeDrafts}
-              onMemoryEnabledChange={handleMemoryEnabledChange}
-              onMemorySummarizeDraftsChange={handleMemorySummarizeDraftsChange}
-            />
-          </SettingsAccordion>
-
-          <SettingsAccordion
-            title="ACP サーバー"
-            description="Agent Client Protocol サーバーモードの設定"
-            defaultOpen={false}
-          >
-            <ACPServerSettings
-              acpServerEnabled={acpServerEnabled}
-              onACPServerEnabledChange={handleACPServerEnabledChange}
-            />
           </SettingsAccordion>
 
           <SettingsAccordion

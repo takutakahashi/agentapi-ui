@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, prepareSettingsForSave } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, MCPServerSettings, MarketplaceSettings, PluginSettings, EnvVarsSettings, MemorySettings } from '@/components/settings'
+import { BedrockSettings, SettingsAccordion, MCPServerSettings, MarketplaceSettings, PluginSettings, EnvVarsSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -95,14 +95,6 @@ export default function AdminSettingsPage() {
       const newEnvVars = { ...existingEnvVars, ...updates }
       return { ...prev, env_vars: newEnvVars }
     })
-  }
-
-  const handleMemoryEnabledChange = (enabled: boolean) => {
-    setSettings((prev) => ({ ...prev, memory_enabled: enabled }))
-  }
-
-  const handleMemorySummarizeDraftsChange = (enabled: boolean | undefined) => {
-    setSettings((prev) => ({ ...prev, memory_summarize_drafts: enabled }))
   }
 
   const handleSave = async () => {
@@ -243,19 +235,6 @@ export default function AdminSettingsPage() {
         defaultOpen
       >
         <EnvVarsSettings envVarKeys={settings.env_var_keys} onChange={handleEnvVarsChange} />
-      </SettingsAccordion>
-
-      <SettingsAccordion
-        title="Memory"
-        description="Configure default memory settings for all users"
-        defaultOpen
-      >
-        <MemorySettings
-          memoryEnabled={settings.memory_enabled ?? true}
-          memorySummarizeDrafts={settings.memory_summarize_drafts}
-          onMemoryEnabledChange={handleMemoryEnabledChange}
-          onMemorySummarizeDraftsChange={handleMemorySummarizeDraftsChange}
-        />
       </SettingsAccordion>
 
       <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
