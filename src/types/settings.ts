@@ -41,6 +41,24 @@ export interface APIMCPServerResponse {
 // 認証モード
 export type AuthMode = 'oauth' | 'bedrock';
 
+// GitHub Sync 暗号化ステータス（読み取り専用 — KMS 設定はプロキシ側で管理）
+export interface GitSyncEncryptionConfig {
+  dek_version?: number;
+  dek_ready?: boolean;
+}
+
+// GitHub Sync 設定（API レスポンス: github_token は返らない）
+export interface GitSyncConfig {
+  enabled: boolean;
+  repo_full_name: string;  // "owner/repo"
+  branch: string;
+  root_path: string;       // e.g. "agentapi-config/"
+  auto_push: boolean;
+  has_github_token?: boolean;  // トークン設定済みか（読み取り時のみ）
+  github_token?: string;       // PAT（PUT 時のみ使用、GET では返らない）
+  encryption?: GitSyncEncryptionConfig;
+}
+
 // 設定データ（API で保存）
 export interface SettingsData {
   bedrock?: BedrockConfig;
