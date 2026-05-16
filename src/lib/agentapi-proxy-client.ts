@@ -60,7 +60,7 @@ import {
   TaskListResponse,
   TaskListParams
 } from '../types/task';
-import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, getSendGithubTokenOnSessionStart, getMemoryEnabled, getMemorySummarizeDrafts, AvailableManager } from '../types/settings';
+import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, GitSyncConfig, getSendGithubTokenOnSessionStart, getMemoryEnabled, getMemorySummarizeDrafts, AvailableManager } from '../types/settings';
 import { ProxyUserInfo } from '../types/user';
 import { handleAuthenticationRequired, isAuthenticationRequiredError } from './auth-error-handler';
 
@@ -2308,6 +2308,40 @@ export class AgentAPIProxyClient {
         method: 'session/cancel',
         params: { sessionId: acpSessionId },
       }),
+    });
+  }
+
+  async getGitSyncConfig(name: string): Promise<GitSyncConfig | null> {
+    try {
+      return await this.makeRequest<GitSyncConfig>(`/sync/config/${encodeURIComponent(name)}`);
+    } catch (err) {
+      if (err instanceof AgentAPIProxyError && err.status === 404) return null;
+      throw err;
+    }
+  }
+
+  async updateGitSyncConfig(name: string, config: GitSyncConfig): Promise<GitSyncConfig> {
+    return this.makeRequest<GitSyncConfig>(`/sync/config/${encodeURIComponent(name)}`, {
+      method: 'PUT',
+      body: JSON.stringify(config),
+    });
+  }
+
+  async deleteGitSyncConfig(name: string): Promise<void> {
+    await this.makeRequest<unknown>(`/sync/config/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async gitSyncPush(name: string): Promise<void> {
+    await this.makeRequest<unknown>(`/sync/push/${encodeURIComponent(name)}`, {
+      method: 'POST',
+    });
+  }
+
+  async gitSyncPull(name: string): Promise<void> {
+    await this.makeRequest<unknown>(`/sync/pull/${encodeURIComponent(name)}`, {
+      method: 'POST',
     });
   }
 }

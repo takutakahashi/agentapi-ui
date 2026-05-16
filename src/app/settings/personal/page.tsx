@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, ExternalSessionManagerConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, AgentApiType, getAgentApiType, setAgentApiType, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings, getMemoryEnabled, setMemoryEnabled, getMemorySummarizeDrafts, setMemorySummarizeDrafts, getACPServerEnabled, setACPServerEnabled } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings, MemorySettings, SlackSettings, FileSettings, ACPServerSettings } from '@/components/settings'
+import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, ExternalSessionManagerConfig, GitSyncConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, AgentApiType, getAgentApiType, setAgentApiType, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings, getMemoryEnabled, setMemoryEnabled, getMemorySummarizeDrafts, setMemorySummarizeDrafts, getACPServerEnabled, setACPServerEnabled } from '@/types/settings'
+import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings, MemorySettings, SlackSettings, FileSettings, ACPServerSettings, GitHubSyncSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, CredentialsMetadata } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -231,6 +231,22 @@ export default function PersonalSettingsPage() {
   const handleACPServerEnabledChange = (enabled: boolean) => {
     setACPServerEnabledState(enabled)
     setACPServerEnabled(enabled)
+  }
+
+  const handleGitSyncChange = (config: GitSyncConfig | undefined) => {
+    setSettings((prev) => ({ ...prev, git_sync: config }))
+  }
+
+  const handleGitSyncPush = async () => {
+    const client = createAgentAPIProxyClientFromStorage()
+    await client.gitSyncPush(userName)
+    showToast('Push が完了しました', 'success')
+  }
+
+  const handleGitSyncPull = async () => {
+    const client = createAgentAPIProxyClientFromStorage()
+    await client.gitSyncPull(userName)
+    showToast('Pull が完了しました', 'success')
   }
 
   const handleSlackUserIdChange = (value: string) => {
@@ -667,6 +683,20 @@ export default function PersonalSettingsPage() {
             <ACPServerSettings
               acpServerEnabled={acpServerEnabled}
               onACPServerEnabledChange={handleACPServerEnabledChange}
+            />
+          </SettingsAccordion>
+
+          <SettingsAccordion
+            title="GitHub Sync"
+            description="設定・スケジュール・Webhook・Slackbot を GitHub リポジトリに双方向同期"
+            defaultOpen={false}
+          >
+            <GitHubSyncSettings
+              config={settings.git_sync}
+              settingsName={userName}
+              onChange={handleGitSyncChange}
+              onPush={handleGitSyncPush}
+              onPull={handleGitSyncPull}
             />
           </SettingsAccordion>
 
