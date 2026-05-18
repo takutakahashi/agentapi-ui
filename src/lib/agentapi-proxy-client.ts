@@ -2313,7 +2313,8 @@ export class AgentAPIProxyClient {
 
   async getGitSyncConfig(name: string): Promise<GitSyncConfig | null> {
     try {
-      return await this.makeRequest<GitSyncConfig>(`/sync/config/${encodeURIComponent(name)}`);
+      const settings = await this.getSettings(name);
+      return settings.git_sync ?? null;
     } catch (err) {
       if (err instanceof AgentAPIProxyError && err.status === 404) return null;
       throw err;
@@ -2321,26 +2322,24 @@ export class AgentAPIProxyClient {
   }
 
   async updateGitSyncConfig(name: string, config: GitSyncConfig): Promise<GitSyncConfig> {
-    return this.makeRequest<GitSyncConfig>(`/sync/config/${encodeURIComponent(name)}`, {
-      method: 'PUT',
-      body: JSON.stringify(config),
-    });
+    const result = await this.saveSettings(name, { git_sync: config });
+    return result.git_sync!;
   }
 
   async deleteGitSyncConfig(name: string): Promise<void> {
-    await this.makeRequest<unknown>(`/sync/config/${encodeURIComponent(name)}`, {
+    await this.makeRequest<unknown>(`/settings/${encodeURIComponent(name)}/sync`, {
       method: 'DELETE',
     });
   }
 
   async gitSyncPush(name: string): Promise<void> {
-    await this.makeRequest<unknown>(`/sync/push/${encodeURIComponent(name)}`, {
+    await this.makeRequest<unknown>(`/settings/${encodeURIComponent(name)}/sync/push`, {
       method: 'POST',
     });
   }
 
   async gitSyncPull(name: string): Promise<void> {
-    await this.makeRequest<unknown>(`/sync/pull/${encodeURIComponent(name)}`, {
+    await this.makeRequest<unknown>(`/settings/${encodeURIComponent(name)}/sync/pull`, {
       method: 'POST',
     });
   }
