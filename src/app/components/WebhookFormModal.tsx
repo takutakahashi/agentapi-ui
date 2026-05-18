@@ -15,6 +15,7 @@ import {
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { OrganizationHistory } from '../../utils/organizationHistory'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
+import SandboxConfigInput, { SandboxConfigState, defaultSandboxConfigState, sandboxConfigStateToConfig } from './SandboxConfigInput'
 
 interface WebhookFormModalProps {
   isOpen: boolean
@@ -35,6 +36,7 @@ interface TriggerFormData {
   reuseSession: boolean
   mountPayload: boolean
   oneshot: boolean
+  sandboxState: SandboxConfigState
   goTemplate?: string
   environment: Record<string, string>
   tags: Record<string, string>
@@ -52,6 +54,7 @@ const emptyTrigger: TriggerFormData = {
   reuseSession: false,
   mountPayload: false,
   oneshot: false,
+  sandboxState: defaultSandboxConfigState(),
   goTemplate: '',
   environment: {},
   tags: {},
@@ -109,6 +112,7 @@ export default function WebhookFormModal({
             reuseSession: t.session_config?.reuse_session ?? false,
             mountPayload: t.session_config?.mount_payload ?? false,
             oneshot: t.session_config?.params?.oneshot ?? false,
+            sandboxState: defaultSandboxConfigState(),
             goTemplate: t.conditions.go_template || '',
             environment: t.session_config?.environment || {},
             tags: t.session_config?.tags || {},
@@ -380,6 +384,11 @@ export default function WebhookFormModal({
         }
         // Always set oneshot explicitly (true or false)
         session_config.params.oneshot = t.oneshot
+        // Apply sandbox config if enabled
+        const triggerSandbox = sandboxConfigStateToConfig(t.sandboxState)
+        if (triggerSandbox) {
+          session_config.params.sandbox = triggerSandbox
+        }
 
         return {
           id: t.id,
@@ -1091,6 +1100,12 @@ export default function WebhookFormModal({
                       <p className="text-xs text-gray-500 dark:text-gray-400 -mt-3 ml-6">
                         有効にすると、セッション終了後に自動的に削除されます
                       </p>
+
+                      {/* Sandbox Config */}
+                      <SandboxConfigInput
+                        state={trigger.sandboxState}
+                        onChange={(s) => updateTrigger(index, 'sandboxState', s)}
+                      />
 
                       {/* Reuse Message Template */}
                       {trigger.reuseSession && (

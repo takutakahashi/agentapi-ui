@@ -7,6 +7,7 @@ import { SessionFilter, getFilterValuesForSessionCreation } from '../../lib/filt
 import { OrganizationHistory } from '../../utils/organizationHistory'
 import { addRepositoryToHistory } from '../../types/settings'
 import MemoryKeyInput, { MemoryKeyPair, memoryKeyPairsToRecord } from './MemoryKeyInput'
+import SandboxConfigInput, { SandboxConfigState, defaultSandboxConfigState, sandboxConfigStateToConfig } from './SandboxConfigInput'
 
 interface NewConversationModalProps {
   isOpen: boolean
@@ -36,6 +37,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [oneshot, setOneshot] = useState(false)
   const [memoryKeyPairs, setMemoryKeyPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
+  const [sandboxState, setSandboxState] = useState<SandboxConfigState>(defaultSandboxConfigState())
   
   // Initialize with current filter values
   const initializeFromFilters = useCallback(() => {
@@ -235,13 +237,15 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
 
       const agentAPI = createAgentAPIProxyClientFromStorage()
       const memoryKey = memoryKeyPairsToRecord(memoryKeyPairs)
+      const sandbox = sandboxConfigStateToConfig(sandboxState)
       await agentAPI.start({
         environment: sessionData.environment,
         metadata: sessionData.metadata,
         tags: sessionData.tags,
         params: {
           message: description.trim(),
-          ...(oneshot ? { oneshot: true } : {})
+          ...(oneshot ? { oneshot: true } : {}),
+          ...(sandbox ? { sandbox } : {}),
         },
         ...(memoryKey ? { memory_key: memoryKey } : {}),
         ...scopeParams
@@ -512,6 +516,15 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
               onChange={setMemoryKeyPairs}
               disabled={isCreating}
               helpText="メモリを識別するタグマップ。未指定の場合はセッションのタグが使われます。"
+            />
+          </div>
+
+          {/* Sandbox Config */}
+          <div>
+            <SandboxConfigInput
+              state={sandboxState}
+              onChange={setSandboxState}
+              disabled={isCreating}
             />
           </div>
 
