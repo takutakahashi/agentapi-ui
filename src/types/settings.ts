@@ -76,6 +76,7 @@ export interface SettingsData {
   slack_user_id?: string;  // Slack User ID（設定すると Slack DM 通知が有効になる）
   notification_channels?: string[];  // Active notification channels (e.g. ["web", "slack"])
   external_session_managers?: ExternalSessionManagerConfig[];  // External session managers
+  git_sync?: GitSyncConfig;  // GitHub sync configuration (token redacted in responses)
 }
 
 // External session manager configuration
