@@ -17,6 +17,7 @@ import TopBar from '../../components/TopBar'
 import SessionCreationProgressModal from '../../components/SessionCreationProgressModal'
 import { SessionCreationProgress, SessionCreationStatus } from '../../../types/sessionProgress'
 import { useTeamScope } from '../../../contexts/TeamScopeContext'
+import SandboxConfigInput, { SandboxConfigState, defaultSandboxConfigState, sandboxConfigStateToConfig } from '../../components/SandboxConfigInput'
 
 export default function NewSessionPage() {
   const { selectedTeam } = useTeamScope()
@@ -41,6 +42,7 @@ export default function NewSessionPage() {
   const [cycleEnabled, setCycleEnabled] = useState(false)
   const [cycleMessage, setCycleMessage] = useState('')
   const [cycleMaxCount, setCycleMaxCount] = useState(10)
+  const [sandboxState, setSandboxState] = useState<SandboxConfigState>(defaultSandboxConfigState())
 
   useEffect(() => {
     loadTemplates()
@@ -122,7 +124,8 @@ export default function NewSessionPage() {
     message: string,
     repo: string,
     agentType: AgentApiType,
-    managerId: string
+    managerId: string,
+    sandbox?: ReturnType<typeof sandboxConfigStateToConfig>
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       console.log('Starting session creation with initial message...')
@@ -166,6 +169,11 @@ export default function NewSessionPage() {
         if (cycleMaxCount > 0) {
           params.cycle_max_count = cycleMaxCount
         }
+      }
+
+      // サンドボックス設定が有効な場合は送信
+      if (sandbox) {
+        params.sandbox = sandbox
       }
 
       console.log('[NewSessionPage] Final params:', params)
@@ -270,7 +278,8 @@ export default function NewSessionPage() {
         currentMessage,
         currentRepository,
         selectedAgentType,
-        selectedManagerId
+        selectedManagerId,
+        sandboxConfigStateToConfig(sandboxState)
       )
     }
 
@@ -503,6 +512,11 @@ export default function NewSessionPage() {
                     サイクル{cycleMaxCount > 0 ? ` (${cycleMaxCount}回)` : ''}
                   </span>
                 )}
+                {sandboxState.enabled && (
+                  <span className="px-1.5 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 text-xs rounded-full">
+                    Sandbox
+                  </span>
+                )}
               </button>
 
               {showAdvancedSettings && (
@@ -636,6 +650,13 @@ export default function NewSessionPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* サンドボックス設定 */}
+                  <SandboxConfigInput
+                    state={sandboxState}
+                    onChange={setSandboxState}
+                    disabled={isCreating}
+                  />
 
                   {/* エージェントタイプ */}
                   <div>
