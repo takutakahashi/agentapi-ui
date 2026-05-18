@@ -1,4 +1,5 @@
 import { ResourceScope } from './agentapi';
+import { ClaudeSandboxConfig } from '../app/components/SandboxConfigInput';
 
 // Webhook types
 export type WebhookType = 'github' | 'custom';
@@ -37,6 +38,7 @@ export interface SessionParams {
   github_token?: string;
   agent_type?: string;
   oneshot?: boolean;
+  sandbox?: ClaudeSandboxConfig;
 }
 
 // Session configuration for webhook triggers

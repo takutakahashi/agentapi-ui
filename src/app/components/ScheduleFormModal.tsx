@@ -7,6 +7,7 @@ import CronExpressionInput from './CronExpressionInput'
 import { OrganizationHistory } from '../../utils/organizationHistory'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
 import MemoryKeyInput, { MemoryKeyPair, memoryKeyPairsToRecord, recordToMemoryKeyPairs } from './MemoryKeyInput'
+import SandboxConfigInput, { SandboxConfigState, defaultSandboxConfigState, sandboxConfigStateToConfig } from './SandboxConfigInput'
 
 interface ScheduleFormModalProps {
   isOpen: boolean
@@ -40,6 +41,7 @@ export default function ScheduleFormModal({
   const [memoryKeyPairs, setMemoryKeyPairs] = useState<MemoryKeyPair[]>([{ key: '', value: '' }])
   const [showCustomMemory, setShowCustomMemory] = useState(false)
   const [envVarPairs, setEnvVarPairs] = useState<MemoryKeyPair[]>([{ key: '', value: '' }])
+  const [sandboxState, setSandboxState] = useState<SandboxConfigState>(defaultSandboxConfigState())
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -189,6 +191,8 @@ export default function ScheduleFormModal({
       const sessionParams: ScheduleSessionConfig['params'] = {}
       if (message.trim()) sessionParams.message = message.trim()
       if (oneshot) sessionParams.oneshot = true
+      const sandbox = sandboxConfigStateToConfig(sandboxState)
+      if (sandbox) sessionParams.sandbox = sandbox
       const hasParams = Object.keys(sessionParams).length > 0
 
       const environment = memoryKeyPairsToRecord(envVarPairs)
@@ -576,6 +580,15 @@ export default function ScheduleFormModal({
               onChange={setEnvVarPairs}
               disabled={isSubmitting}
               helpText="KEY=VALUE 形式で環境変数を入力してください"
+            />
+          </div>
+
+          {/* Sandbox Config */}
+          <div>
+            <SandboxConfigInput
+              state={sandboxState}
+              onChange={setSandboxState}
+              disabled={isSubmitting}
             />
           </div>
 

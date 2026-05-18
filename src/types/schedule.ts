@@ -1,4 +1,5 @@
 import { ResourceScope } from './agentapi';
+import { ClaudeSandboxConfig } from '../app/components/SandboxConfigInput';
 
 // Schedule status types
 export type ScheduleStatus = 'active' | 'paused' | 'completed';
@@ -11,6 +12,7 @@ export interface ScheduleSessionConfig {
     message?: string;
     github_token?: string;
     oneshot?: boolean;
+    sandbox?: ClaudeSandboxConfig;
     [key: string]: unknown;
   };
   memory_key?: Record<string, string>;
