@@ -58,14 +58,22 @@ async function handleProxyRequest(
   method: string
 ): Promise<NextResponse> {
   try {
+    // Extract raw path from request URL to preserve percent-encoded characters like %2F.
+    // Next.js decodes path segments in [...path] catch-all routes, so `pathParts.join('/')`
+    // turns `our%2Fcc-users` into `our/cc-users` (two segments), producing a wrong backend URL.
+    const proxyPrefix = '/api/proxy/';
+    const rawPathname = request.nextUrl.pathname;
+    const path = rawPathname.startsWith(proxyPrefix)
+      ? rawPathname.slice(proxyPrefix.length)
+      : pathParts.join('/');
+
     // Log the incoming request for debugging
-    debugLog(`[API Proxy] ${method} request to:`, pathParts.join('/'), {
+    debugLog(`[API Proxy] ${method} request to:`, path, {
       searchParams: request.nextUrl.searchParams.toString(),
       hasBody: method !== 'GET' && method !== 'HEAD'
     });
 
     // Check if this is an OAuth endpoint that doesn't require API key
-    const path = pathParts.join('/');
     const isOAuthEndpoint = path.startsWith('oauth/') || path.includes('auth/');
     
     // Get API key from cookie (skip for OAuth endpoints)
