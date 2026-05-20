@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, Suspense } from 'react'
 
 const CHATS_TAG_FILTERS_KEY = 'chats_tag_filters'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import TagFilterSidebar from '../components/TagFilterSidebar'
 import SessionListView from '../components/SessionListView'
 import TopBar from '../components/TopBar'
@@ -14,8 +15,27 @@ interface TagFilter {
   [key: string]: string[]
 }
 
-export default function ChatsPage() {
+function parseTagFiltersFromSearchParams(searchParams: URLSearchParams): TagFilter {
+  const filters: TagFilter = {}
+  searchParams.getAll('tag').forEach(tag => {
+    const colonIdx = tag.indexOf(':')
+    if (colonIdx > 0) {
+      const key = tag.slice(0, colonIdx)
+      const value = tag.slice(colonIdx + 1)
+      if (key && value) {
+        filters[key] = [...(filters[key] || []), value]
+      }
+    }
+  })
+  return filters
+}
+
+function ChatsPageInner() {
+  const searchParams = useSearchParams()
+
   const [tagFilters, setTagFilters] = useState<TagFilter>(() => {
+    const urlFilters = parseTagFiltersFromSearchParams(searchParams)
+    if (Object.keys(urlFilters).length > 0) return urlFilters
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem(CHATS_TAG_FILTERS_KEY)
@@ -161,5 +181,13 @@ export default function ChatsPage() {
       {/* フローティング新セッションボタン */}
       <FloatingNewSessionButton />
     </main>
+  )
+}
+
+export default function ChatsPage() {
+  return (
+    <Suspense>
+      <ChatsPageInner />
+    </Suspense>
   )
 }
