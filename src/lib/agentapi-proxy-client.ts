@@ -43,6 +43,13 @@ import {
   UpdateSlackBotRequest
 } from '../types/slackbot';
 import {
+  SessionProfile,
+  SessionProfileListParams,
+  SessionProfileListResponse,
+  CreateSessionProfileRequest,
+  UpdateSessionProfileRequest
+} from '../types/session_profile';
+import {
   Memory,
   MemoryListParams,
   MemoryListResponse,
@@ -1659,6 +1666,95 @@ export class AgentAPIProxyClient {
 
     if (this.debug) {
       console.log(`[AgentAPIProxy] Deleted slackbot: ${slackbotId}`);
+    }
+  }
+
+  // Session Profile methods
+
+  /**
+   * Create a new Session Profile
+   */
+  async createSessionProfile(data: CreateSessionProfileRequest): Promise<SessionProfile> {
+    if (this.debug) {
+      console.log('[AgentAPIProxy] Creating session profile:', data);
+    }
+
+    const profile = await this.makeRequest<SessionProfile>('/session-profiles', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Created session profile: ${profile.id}`);
+    }
+
+    return profile;
+  }
+
+  /**
+   * Get list of Session Profiles
+   */
+  async getSessionProfiles(params?: SessionProfileListParams): Promise<SessionProfileListResponse> {
+    const searchParams = new URLSearchParams();
+
+    if (params?.scope) searchParams.set('scope', params.scope);
+    if (params?.team_id) searchParams.set('team_id', params.team_id);
+
+    const endpoint = `/session-profiles${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const result = await this.makeRequest<SessionProfile[] | SessionProfileListResponse>(endpoint);
+
+    // API may return array directly (not wrapped in object)
+    if (Array.isArray(result)) {
+      return { session_profiles: result };
+    }
+
+    return {
+      ...result,
+      session_profiles: result.session_profiles || []
+    };
+  }
+
+  /**
+   * Get a specific Session Profile by ID
+   */
+  async getSessionProfile(profileId: string): Promise<SessionProfile> {
+    return this.makeRequest<SessionProfile>(`/session-profiles/${profileId}`);
+  }
+
+  /**
+   * Update a Session Profile
+   */
+  async updateSessionProfile(profileId: string, data: UpdateSessionProfileRequest): Promise<SessionProfile> {
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Updating session profile ${profileId}:`, data);
+    }
+
+    const profile = await this.makeRequest<SessionProfile>(`/session-profiles/${profileId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Updated session profile: ${profile.id}`);
+    }
+
+    return profile;
+  }
+
+  /**
+   * Delete a Session Profile
+   */
+  async deleteSessionProfile(profileId: string): Promise<void> {
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Deleting session profile: ${profileId}`);
+    }
+
+    await this.makeRequest<void>(`/session-profiles/${profileId}`, {
+      method: 'DELETE',
+    });
+
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Deleted session profile: ${profileId}`);
     }
   }
 
