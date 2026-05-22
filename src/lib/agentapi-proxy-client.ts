@@ -582,7 +582,7 @@ export class AgentAPIProxyClient {
     // Handle backward compatibility and new format
     let data: Partial<CreateSessionRequest>;
 
-    if (sessionData && (sessionData.environment || sessionData.tags || sessionData.metadata || sessionData.params || sessionData.scope || sessionData.team_id)) {
+    if (sessionData && (sessionData.environment || sessionData.tags || sessionData.metadata || sessionData.params || sessionData.scope || sessionData.team_id || sessionData.session_profile_id)) {
       // New format: sessionData contains environment, metadata, tags, params, scope, and/or team_id
       data = {
         environment: sessionData.environment as Record<string, string> | undefined,
@@ -590,7 +590,8 @@ export class AgentAPIProxyClient {
         tags: sessionData.tags as Record<string, string> | undefined,
         params: sessionData.params as { message?: string; github_token?: string; [key: string]: unknown } | undefined,
         scope: sessionData.scope as CreateSessionRequest['scope'],
-        team_id: sessionData.team_id as string | undefined
+        team_id: sessionData.team_id as string | undefined,
+        session_profile_id: sessionData.session_profile_id as string | undefined,
       };
     } else {
       // Backward compatibility: sessionData is just metadata

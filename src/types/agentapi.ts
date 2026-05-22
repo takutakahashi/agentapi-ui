@@ -209,6 +209,7 @@ export interface CreateSessionRequest {
   team_id?: string;
   memory_key?: Record<string, string>;
   memory_summarize_drafts?: boolean;
+  session_profile_id?: string;
 }
 
 // Session message types

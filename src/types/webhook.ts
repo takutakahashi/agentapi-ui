@@ -48,6 +48,7 @@ export interface WebhookSessionConfig {
   reuse_session?: boolean;
   mount_payload?: boolean;
   params?: SessionParams;
+  session_profile_id?: string;
 }
 
 // Webhook trigger

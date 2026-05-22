@@ -15,6 +15,7 @@ import { createAgentAPIProxyClientFromStorage } from '../../../lib/agentapi-prox
 import { createACPServerClientFromStorage } from '../../../lib/acp-server-client'
 import TopBar from '../../components/TopBar'
 import SessionCreationProgressModal from '../../components/SessionCreationProgressModal'
+import SessionProfileSelect from '../../components/SessionProfileSelect'
 import { SessionCreationProgress, SessionCreationStatus } from '../../../types/sessionProgress'
 import { useTeamScope } from '../../../contexts/TeamScopeContext'
 
@@ -41,6 +42,7 @@ export default function NewSessionPage() {
   const [cycleEnabled, setCycleEnabled] = useState(false)
   const [cycleMessage, setCycleMessage] = useState('')
   const [cycleMaxCount, setCycleMaxCount] = useState(10)
+  const [sessionProfileId, setSessionProfileId] = useState('')
 
   useEffect(() => {
     loadTemplates()
@@ -177,6 +179,7 @@ export default function NewSessionPage() {
         },
         tags: Object.keys(tags).length > 0 ? tags : undefined,
         params,
+        ...(sessionProfileId ? { session_profile_id: sessionProfileId } : {}),
         ...scopeParams
       })
       console.log('Session created with initial message:', session)
@@ -464,6 +467,21 @@ export default function NewSessionPage() {
 
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                 リポジトリを指定しない場合は一般的なチャットになります
+              </p>
+            </div>
+
+            {/* セッションプロファイル */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                セッションプロファイル
+              </label>
+              <SessionProfileSelect
+                value={sessionProfileId}
+                onChange={setSessionProfileId}
+                disabled={isCreating}
+              />
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                プロファイルを選択すると、環境変数・タグ・テンプレートなどの設定を適用します
               </p>
             </div>
 

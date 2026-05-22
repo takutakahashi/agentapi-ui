@@ -19,6 +19,7 @@ export interface SlackBotSessionConfig {
   environment?: Record<string, string>;
   params?: SlackBotSessionParams;
   memory_key?: Record<string, string>;
+  session_profile_id?: string;
 }
 
 // SlackBot entity

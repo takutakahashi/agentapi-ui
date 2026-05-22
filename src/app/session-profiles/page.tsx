@@ -4,13 +4,14 @@ import { useState, useCallback } from 'react'
 import { SessionProfile } from '../../types/session_profile'
 import SessionProfileListView from '../components/SessionProfileListView'
 import SessionProfileFormModal from '../components/SessionProfileFormModal'
+import SessionProfileSidebar from '../components/SessionProfileSidebar'
 import TopBar from '../components/TopBar'
-import NavigationTabs from '../components/NavigationTabs'
 
 export default function SessionProfilesPage() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [isFormModalOpen, setIsFormModalOpen] = useState(false)
   const [editingProfile, setEditingProfile] = useState<SessionProfile | null>(null)
+  const [sidebarVisible, setSidebarVisible] = useState(false)
 
   const handleProfilesUpdate = useCallback(() => {
     setRefreshKey((prev) => prev + 1)
@@ -40,16 +41,18 @@ export default function SessionProfilesPage() {
     <main className="min-h-dvh bg-gray-50 dark:bg-gray-900">
       <TopBar
         title="Session Profiles"
-        showFilterButton={false}
+        showFilterButton={true}
         showSettingsButton={true}
-      >
-        {/* Mobile Navigation Tabs */}
-        <div className="md:hidden">
-          <NavigationTabs />
-        </div>
-      </TopBar>
+        onFilterToggle={() => setSidebarVisible((prev) => !prev)}
+      />
 
       <div className="flex">
+        {/* Sidebar */}
+        <SessionProfileSidebar
+          isVisible={sidebarVisible}
+          onToggleVisibility={() => setSidebarVisible((prev) => !prev)}
+        />
+
         {/* Main Content */}
         <div className="flex-1 px-4 md:px-6 lg:px-8 pt-6 md:pt-8 pb-6 md:pb-8">
           {/* New Profile Button (Desktop) */}
