@@ -1,9 +1,10 @@
-import { ResourceScope } from './agentapi';
+import { ResourceScope, SandboxConfig } from './agentapi';
 
 // Session profile params
 export interface SessionProfileParams {
   initial_message?: string;
   github_token?: string;
+  sandbox?: SandboxConfig;
 }
 
 // Session profile config

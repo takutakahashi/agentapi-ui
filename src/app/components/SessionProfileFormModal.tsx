@@ -38,6 +38,11 @@ export default function SessionProfileFormModal({
   const [reuseMessageTemplate, setReuseMessageTemplate] = useState('')
   const [reuseSession, setReuseSession] = useState(false)
 
+  // Sandbox fields
+  const [sandboxEnabled, setSandboxEnabled] = useState(false)
+  const [sandboxMode, setSandboxMode] = useState<'allowlist' | 'denylist'>('allowlist')
+  const [sandboxDomains, setSandboxDomains] = useState('')
+
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -74,6 +79,24 @@ export default function SessionProfileFormModal({
       if (cfg?.initial_message_template || cfg?.reuse_message_template || cfg?.reuse_session) {
         setShowAdvanced(true)
       }
+
+      // Initialize sandbox from profile params
+      const sandbox = cfg?.params?.sandbox
+      if (sandbox) {
+        setSandboxEnabled(sandbox.enabled)
+        if (sandbox.allowed_domains && sandbox.allowed_domains.length > 0) {
+          setSandboxMode('allowlist')
+          setSandboxDomains(sandbox.allowed_domains.join('\n'))
+        } else if (sandbox.denied_domains && sandbox.denied_domains.length > 0) {
+          setSandboxMode('denylist')
+          setSandboxDomains(sandbox.denied_domains.join('\n'))
+        }
+        if (sandbox.enabled) setShowAdvanced(true)
+      } else {
+        setSandboxEnabled(false)
+        setSandboxMode('allowlist')
+        setSandboxDomains('')
+      }
     } else {
       // Reset form
       setName('')
@@ -84,6 +107,9 @@ export default function SessionProfileFormModal({
       setInitialMessageTemplate('')
       setReuseMessageTemplate('')
       setReuseSession(false)
+      setSandboxEnabled(false)
+      setSandboxMode('allowlist')
+      setSandboxDomains('')
       setShowAdvanced(false)
     }
     setError(null)
@@ -157,12 +183,24 @@ export default function SessionProfileFormModal({
       const environment = pairsToRecord(envPairs)
       const tags = pairsToRecord(tagPairs)
 
+      // Build sandbox config if enabled
+      let sandboxConfig: { enabled: boolean; allowed_domains?: string[]; denied_domains?: string[] } | undefined
+      if (sandboxEnabled) {
+        const domainList = sandboxDomains.split('\n').map(d => d.trim()).filter(Boolean)
+        sandboxConfig = {
+          enabled: true,
+          ...(sandboxMode === 'allowlist' && domainList.length > 0 ? { allowed_domains: domainList } : {}),
+          ...(sandboxMode === 'denylist' && domainList.length > 0 ? { denied_domains: domainList } : {}),
+        }
+      }
+
       const config = {
         ...(initialMessageTemplate.trim() ? { initial_message_template: initialMessageTemplate.trim() } : {}),
         ...(reuseMessageTemplate.trim() ? { reuse_message_template: reuseMessageTemplate.trim() } : {}),
         ...(reuseSession ? { reuse_session: reuseSession } : {}),
         ...(Object.keys(environment).length > 0 ? { environment } : {}),
         ...(Object.keys(tags).length > 0 ? { tags } : {}),
+        ...(sandboxConfig ? { params: { sandbox: sandboxConfig } } : {}),
       }
 
       if (isEditing && editingProfile) {
@@ -456,6 +494,70 @@ export default function SessionProfileFormModal({
                         </p>
                       </div>
                     </label>
+                  </div>
+
+                  {/* Sandbox */}
+                  <div>
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={sandboxEnabled}
+                        onChange={(e) => setSandboxEnabled(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          サンドボックス（ネットワーク制限）を有効にする
+                        </span>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          セッションのアウトバウンドネットワークアクセスをドメインレベルで制限します。
+                        </p>
+                      </div>
+                    </label>
+
+                    {sandboxEnabled && (
+                      <div className="mt-3 ml-6 space-y-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            モード
+                          </label>
+                          <div className="flex gap-4">
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="radio"
+                                value="allowlist"
+                                checked={sandboxMode === 'allowlist'}
+                                onChange={() => setSandboxMode('allowlist')}
+                                className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500"
+                              />
+                              <span className="text-xs text-gray-700 dark:text-gray-300">許可リスト（指定ドメインのみ許可）</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="radio"
+                                value="denylist"
+                                checked={sandboxMode === 'denylist'}
+                                onChange={() => setSandboxMode('denylist')}
+                                className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500"
+                              />
+                              <span className="text-xs text-gray-700 dark:text-gray-300">拒否リスト（指定ドメインをブロック）</span>
+                            </label>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            ドメインリスト（1行に1ドメイン）
+                          </label>
+                          <textarea
+                            value={sandboxDomains}
+                            onChange={(e) => setSandboxDomains(e.target.value)}
+                            placeholder={sandboxMode === 'allowlist' ? 'example.com\napi.github.com' : 'example.com\nbad-domain.com'}
+                            rows={4}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono resize-y"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
