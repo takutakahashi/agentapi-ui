@@ -80,7 +80,7 @@ export default function SessionProfileSelect({
               {profiles.map((profile) => (
                 <option key={profile.id} value={profile.id}>
                   {profile.name}
-                  {profile.is_default ? ' ★' : ''}
+                  {profile.is_default ? ' (default)' : ''}
                   {profile.scope === 'team' ? ' [チーム]' : ''}
                 </option>
               ))}
@@ -99,11 +99,8 @@ export default function SessionProfileSelect({
       {selected && (
         <div className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 border-t border-gray-100 dark:border-gray-700 flex items-center gap-2 flex-wrap">
           {selected.is_default && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-              </svg>
-              デフォルト
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+              default
             </span>
           )}
           {selected.scope === 'team' && (
