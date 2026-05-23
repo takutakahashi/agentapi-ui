@@ -196,6 +196,7 @@ export interface SessionListResponse {
 
 export interface SandboxConfig {
   enabled: boolean;
+  allowed_domains?: string[];
   denied_domains?: string[];
 }
 

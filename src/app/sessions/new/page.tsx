@@ -42,7 +42,8 @@ export default function NewSessionPage() {
   const [cycleMessage, setCycleMessage] = useState('')
   const [cycleMaxCount, setCycleMaxCount] = useState(10)
   const [sandboxEnabled, setSandboxEnabled] = useState(false)
-  const [sandboxDeniedDomains, setSandboxDeniedDomains] = useState('')
+  const [sandboxMode, setSandboxMode] = useState<'allowlist' | 'denylist'>('allowlist')
+  const [sandboxDomains, setSandboxDomains] = useState('')
 
   useEffect(() => {
     loadTemplates()
@@ -172,13 +173,14 @@ export default function NewSessionPage() {
 
       // サンドボックスが有効な場合はsandboxを送信
       if (sandboxEnabled) {
-        const deniedDomains = sandboxDeniedDomains
+        const domains = sandboxDomains
           .split('\n')
           .map(d => d.trim())
           .filter(d => d.length > 0)
         params.sandbox = {
           enabled: true,
-          ...(deniedDomains.length > 0 ? { denied_domains: deniedDomains } : {})
+          ...(sandboxMode === 'allowlist' && domains.length > 0 ? { allowed_domains: domains } : {}),
+          ...(sandboxMode === 'denylist' && domains.length > 0 ? { denied_domains: domains } : {}),
         }
       }
 
@@ -686,21 +688,48 @@ export default function NewSessionPage() {
                       iptables でセッションの外部ネットワークアクセスを制限します。ブロックするドメインを指定できます。
                     </p>
                     {sandboxEnabled && (
-                      <div className="pl-1">
-                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                          ブロックするドメイン
-                        </label>
-                        <textarea
-                          value={sandboxDeniedDomains}
-                          onChange={(e) => setSandboxDeniedDomains(e.target.value)}
-                          placeholder={'github.com\n*.github.com'}
-                          rows={3}
-                          disabled={isCreating}
-                          className="w-full px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white resize-y font-mono"
-                        />
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                          1行に1ドメイン。ワイルドカード（<code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">*.example.com</code>）も使用可能。空の場合はすべてのドメインをブロック。
-                        </p>
+                      <div className="pl-1 space-y-3">
+                        {/* モード選択 */}
+                        <div className="flex gap-3">
+                          {([
+                            { value: 'allowlist', label: '許可リスト', description: '指定ドメインのみ通過' },
+                            { value: 'denylist', label: 'ブロックリスト', description: '指定ドメインのみ拒否' },
+                          ] as { value: 'allowlist' | 'denylist'; label: string; description: string }[]).map(({ value, label, description }) => (
+                            <label key={value} className={`flex-1 flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${sandboxMode === value ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}>
+                              <input
+                                type="radio"
+                                name="sandbox-mode"
+                                value={value}
+                                checked={sandboxMode === value}
+                                onChange={() => setSandboxMode(value)}
+                                disabled={isCreating}
+                                className="mt-0.5 w-3.5 h-3.5 text-orange-500 border-gray-300 dark:border-gray-600 focus:ring-orange-500 flex-shrink-0"
+                              />
+                              <span>
+                                <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">{label}</span>
+                                <span className="block text-xs text-gray-400 dark:text-gray-500">{description}</span>
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                        {/* ドメイン入力 */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            {sandboxMode === 'allowlist' ? '許可するドメイン' : 'ブロックするドメイン'}
+                          </label>
+                          <textarea
+                            value={sandboxDomains}
+                            onChange={(e) => setSandboxDomains(e.target.value)}
+                            placeholder={sandboxMode === 'allowlist' ? 'api.example.com\n*.trusted.com' : 'github.com\n*.github.com'}
+                            rows={3}
+                            disabled={isCreating}
+                            className="w-full px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white resize-y font-mono"
+                          />
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                            1行に1ドメイン。ワイルドカード（<code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">*.example.com</code>）も使用可能。
+                            {sandboxMode === 'allowlist' && '空の場合はすべてのドメインをブロック。'}
+                          </p>
+                        </div>
                       </div>
                     )}
                   </div>
