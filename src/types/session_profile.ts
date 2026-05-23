@@ -4,6 +4,7 @@ import { ResourceScope, SandboxConfig } from './agentapi';
 export interface SessionProfileParams {
   initial_message?: string;
   github_token?: string;
+  agent_type?: string;
   sandbox?: SandboxConfig;
 }
 

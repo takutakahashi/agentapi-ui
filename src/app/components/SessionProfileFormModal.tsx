@@ -35,8 +35,7 @@ export default function SessionProfileFormModal({
   const [envPairs, setEnvPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
   const [tagPairs, setTagPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
   const [initialMessageTemplate, setInitialMessageTemplate] = useState('')
-  const [reuseMessageTemplate, setReuseMessageTemplate] = useState('')
-  const [reuseSession, setReuseSession] = useState(false)
+  const [agentType, setAgentType] = useState('')
 
   // Sandbox fields
   const [sandboxEnabled, setSandboxEnabled] = useState(false)
@@ -59,8 +58,7 @@ export default function SessionProfileFormModal({
 
       const cfg = editingProfile.config
       setInitialMessageTemplate(cfg?.initial_message_template ?? '')
-      setReuseMessageTemplate(cfg?.reuse_message_template ?? '')
-      setReuseSession(cfg?.reuse_session ?? false)
+      setAgentType(cfg?.params?.agent_type ?? '')
 
       if (cfg?.environment && Object.keys(cfg.environment).length > 0) {
         setEnvPairs(Object.entries(cfg.environment).map(([key, value]) => ({ key, value })))
@@ -76,7 +74,7 @@ export default function SessionProfileFormModal({
         setTagPairs([{ key: '', value: '' }])
       }
 
-      if (cfg?.initial_message_template || cfg?.reuse_message_template || cfg?.reuse_session) {
+      if (cfg?.initial_message_template || cfg?.params?.agent_type) {
         setShowAdvanced(true)
       }
 
@@ -105,8 +103,7 @@ export default function SessionProfileFormModal({
       setEnvPairs([{ key: '', value: '' }])
       setTagPairs([{ key: '', value: '' }])
       setInitialMessageTemplate('')
-      setReuseMessageTemplate('')
-      setReuseSession(false)
+      setAgentType('')
       setSandboxEnabled(false)
       setSandboxMode('allowlist')
       setSandboxDomains('')
@@ -194,13 +191,18 @@ export default function SessionProfileFormModal({
         }
       }
 
+      // Build params if any param is set
+      const hasParams = agentType.trim() || sandboxConfig
+      const params = hasParams ? {
+        ...(agentType.trim() ? { agent_type: agentType.trim() } : {}),
+        ...(sandboxConfig ? { sandbox: sandboxConfig } : {}),
+      } : undefined
+
       const config = {
         ...(initialMessageTemplate.trim() ? { initial_message_template: initialMessageTemplate.trim() } : {}),
-        ...(reuseMessageTemplate.trim() ? { reuse_message_template: reuseMessageTemplate.trim() } : {}),
-        ...(reuseSession ? { reuse_session: reuseSession } : {}),
         ...(Object.keys(environment).length > 0 ? { environment } : {}),
         ...(Object.keys(tags).length > 0 ? { tags } : {}),
-        ...(sandboxConfig ? { params: { sandbox: sandboxConfig } } : {}),
+        ...(params ? { params } : {}),
       }
 
       if (isEditing && editingProfile) {
@@ -459,41 +461,25 @@ export default function SessionProfileFormModal({
                     </p>
                   </div>
 
-                  {/* Reuse Message Template */}
+                  {/* Agent Type */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      再利用メッセージテンプレート
+                      エージェントタイプ
                     </label>
-                    <textarea
-                      value={reuseMessageTemplate}
-                      onChange={(e) => setReuseMessageTemplate(e.target.value)}
-                      placeholder="例: 続きのタスクを実行してください: ..."
-                      rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono resize-y"
-                    />
+                    <select
+                      value={agentType}
+                      onChange={(e) => setAgentType(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">指定しない（サーバーデフォルト）</option>
+                      <option value="claude-agentapi">Claude AgentAPI</option>
+                      <option value="codex-agentapi">Codex AgentAPI</option>
+                      <option value="claude-acp">Claude ACP</option>
+                      <option value="codex-acp">Codex ACP</option>
+                    </select>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      既存セッションを再利用する際に送信されるメッセージのテンプレート。
+                      セッション作成時に使用するエージェントの種類を指定します。
                     </p>
-                  </div>
-
-                  {/* Reuse Session */}
-                  <div>
-                    <label className="flex items-start gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={reuseSession}
-                        onChange={(e) => setReuseSession(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                      />
-                      <div>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          セッションを再利用する
-                        </span>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                          有効にすると、既存のセッションを再利用して新しいメッセージを送信します。
-                        </p>
-                      </div>
-                    </label>
                   </div>
 
                   {/* Sandbox */}
