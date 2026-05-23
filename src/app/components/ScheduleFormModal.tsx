@@ -7,6 +7,7 @@ import CronExpressionInput from './CronExpressionInput'
 import { OrganizationHistory } from '../../utils/organizationHistory'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
 import MemoryKeyInput, { MemoryKeyPair, memoryKeyPairsToRecord, recordToMemoryKeyPairs } from './MemoryKeyInput'
+import SessionProfileSelect from './SessionProfileSelect'
 
 interface ScheduleFormModalProps {
   isOpen: boolean
@@ -34,6 +35,7 @@ export default function ScheduleFormModal({
   const [repositorySuggestions, setRepositorySuggestions] = useState<string[]>([])
   const [showRepositorySuggestions, setShowRepositorySuggestions] = useState(false)
 
+  const [sessionProfileId, setSessionProfileId] = useState('')
   const [oneshot, setOneshot] = useState(false)
   const [reuseSession, setReuseSession] = useState(false)
   const [reuseMessage, setReuseMessage] = useState('')
@@ -52,6 +54,7 @@ export default function ScheduleFormModal({
       setTimezone(editingSchedule.timezone || 'Asia/Tokyo')
       setMessage(editingSchedule.session_config?.params?.message || '')
       setRepository(editingSchedule.session_config?.tags?.repository || '')
+      setSessionProfileId(editingSchedule.session_config?.session_profile_id || '')
       setOneshot(editingSchedule.session_config?.params?.oneshot === true)
       setReuseSession(editingSchedule.session_config?.reuse_session === true)
       setReuseMessage(editingSchedule.session_config?.reuse_message || '')
@@ -103,6 +106,7 @@ export default function ScheduleFormModal({
     setTimezone('Asia/Tokyo')
     setMessage('')
     setRepository('')
+    setSessionProfileId('')
     setOneshot(false)
     setReuseSession(false)
     setReuseMessage('')
@@ -202,6 +206,7 @@ export default function ScheduleFormModal({
           reuse_session: reuseSession || undefined,
           reuse_message: (reuseSession && reuseMessage.trim()) ? reuseMessage.trim() : undefined,
           environment: environment || undefined,
+          session_profile_id: sessionProfileId.trim() || undefined,
         },
         ...scopeParams,
       }
@@ -577,6 +582,21 @@ export default function ScheduleFormModal({
               disabled={isSubmitting}
               helpText="KEY=VALUE 形式で環境変数を入力してください"
             />
+          </div>
+
+          {/* Session Profile */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              セッションプロファイル
+            </label>
+            <SessionProfileSelect
+              value={sessionProfileId}
+              onChange={setSessionProfileId}
+              disabled={isSubmitting}
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              プロファイルを選択すると、環境変数・タグ・テンプレートなどの設定を適用します
+            </p>
           </div>
 
           {/* Error */}

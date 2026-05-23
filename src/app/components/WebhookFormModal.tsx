@@ -15,6 +15,7 @@ import {
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { OrganizationHistory } from '../../utils/organizationHistory'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
+import SessionProfileSelect from './SessionProfileSelect'
 
 interface WebhookFormModalProps {
   isOpen: boolean
@@ -39,6 +40,7 @@ interface TriggerFormData {
   environment: Record<string, string>
   tags: Record<string, string>
   showAdvanced: boolean
+  sessionProfileId: string
 }
 
 const emptyTrigger: TriggerFormData = {
@@ -56,6 +58,7 @@ const emptyTrigger: TriggerFormData = {
   environment: {},
   tags: {},
   showAdvanced: false,
+  sessionProfileId: '',
 }
 
 export default function WebhookFormModal({
@@ -113,6 +116,7 @@ export default function WebhookFormModal({
             environment: t.session_config?.environment || {},
             tags: t.session_config?.tags || {},
             showAdvanced: false,
+            sessionProfileId: t.session_config?.session_profile_id || '',
           }))
         )
       } else {
@@ -372,6 +376,11 @@ export default function WebhookFormModal({
         // Add tags if present
         if (Object.keys(t.tags).length > 0) {
           session_config.tags = t.tags
+        }
+
+        // Add session profile if present
+        if (t.sessionProfileId.trim()) {
+          session_config.session_profile_id = t.sessionProfileId.trim()
         }
 
         // Build params
@@ -900,6 +909,21 @@ export default function WebhookFormModal({
                         />
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           Goテンプレート形式。例: {'{{.pull_request.Number}}'}
+                        </p>
+                      </div>
+
+                      {/* Session Profile */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          セッションプロファイル
+                        </label>
+                        <SessionProfileSelect
+                          value={trigger.sessionProfileId}
+                          onChange={(val) => updateTrigger(index, 'sessionProfileId', val)}
+                          disabled={isSubmitting}
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          プロファイルを選択すると、環境変数・タグ・テンプレートなどの設定を適用します
                         </p>
                       </div>
 

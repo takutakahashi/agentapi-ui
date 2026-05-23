@@ -47,17 +47,17 @@ export default function SlackbotFilterSidebar({
       {/* Sidebar */}
       <div
         className={`
-          fixed inset-y-0 left-0 z-10 w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out overflow-y-auto
+          fixed inset-y-0 left-0 z-10 w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out flex flex-col
           md:relative md:translate-x-0 md:inset-auto md:w-80 md:h-screen
           ${isVisible ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
-        <div className="p-4">
-          {/* Navigation Tabs */}
-          <div className="mb-4">
-            <NavigationTabs />
-          </div>
+        {/* Navigation Tabs - outside overflow container so dropdown isn't clipped */}
+        <div className="flex-shrink-0 px-4 pt-4 pb-0">
+          <NavigationTabs />
+        </div>
 
+        <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
           {/* Tab Switcher */}
           <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4">
             <button

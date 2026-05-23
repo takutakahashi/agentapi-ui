@@ -9,6 +9,7 @@ import {
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
 import MemoryKeyInput, { MemoryKeyPair, memoryKeyPairsToRecord, recordToMemoryKeyPairs } from './MemoryKeyInput'
+import SessionProfileSelect from './SessionProfileSelect'
 
 interface SlackbotFormModalProps {
   isOpen: boolean
@@ -55,6 +56,7 @@ export default function SlackbotFormModal({
   // Memory key
   const [memoryKeyPairs, setMemoryKeyPairs] = useState<MemoryKeyPair[]>([{ key: '', value: '' }])
   const [showCustomMemory, setShowCustomMemory] = useState(false)
+  const [sessionProfileId, setSessionProfileId] = useState('')
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -75,6 +77,7 @@ export default function SlackbotFormModal({
       setAllowedUserIDs(editingSlackbot.allowed_user_ids || [])
 
       const sc = editingSlackbot.session_config
+      setSessionProfileId(sc?.session_profile_id || '')
       setInitialMessageTemplate(sc?.initial_message_template ?? '{{ .event.text }}')
       setReuseMessageTemplate(sc?.reuse_message_template ?? '{{ .event.text }}')
 
@@ -148,6 +151,7 @@ export default function SlackbotFormModal({
       setShowBotTokenSection(false)
       setShowAdvanced(false)
       setRepoFullName('')
+      setSessionProfileId('')
     }
     setError(null)
   }, [editingSlackbot, isOpen])
@@ -278,6 +282,7 @@ export default function SlackbotFormModal({
         ...(Object.keys(environment).length > 0 ? { environment } : {}),
         ...(Object.keys(tags).length > 0 ? { tags } : {}),
         ...(Object.keys(sessionParams).length > 0 ? { params: sessionParams } : {}),
+        ...(sessionProfileId.trim() ? { session_profile_id: sessionProfileId.trim() } : {}),
       }
 
       if (isEditing && editingSlackbot) {
@@ -802,6 +807,21 @@ export default function SlackbotFormModal({
                         />
                       </div>
                     )}
+                  </div>
+
+                  {/* Session Profile */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      セッションプロファイル
+                    </label>
+                    <SessionProfileSelect
+                      value={sessionProfileId}
+                      onChange={setSessionProfileId}
+                      disabled={isSubmitting}
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      プロファイルを選択すると、環境変数・タグ・テンプレートなどの設定を適用します
+                    </p>
                   </div>
 
                   {/* Tags */}

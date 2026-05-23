@@ -18,6 +18,7 @@ export interface ScheduleSessionConfig {
   reuse_session?: boolean;
   /** Message sent to the reused session. Falls back to params.message when empty. */
   reuse_message?: string;
+  session_profile_id?: string;
 }
 
 // Schedule entity
