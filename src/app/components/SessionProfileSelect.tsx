@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { SessionProfile } from '../../types/session_profile'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
@@ -23,6 +23,8 @@ export default function SessionProfileSelect({
   const { getScopeParams } = useTeamScope()
   const [profiles, setProfiles] = useState<SessionProfile[]>([])
   const [loading, setLoading] = useState(false)
+  // Prevent auto-select from firing more than once per mount
+  const autoSelectedRef = useRef(false)
 
   useEffect(() => {
     const fetchProfiles = async () => {
@@ -30,15 +32,7 @@ export default function SessionProfileSelect({
         setLoading(true)
         const client = createAgentAPIProxyClientFromStorage()
         const response = await client.getSessionProfiles({ ...getScopeParams() })
-        const fetched = response.session_profiles || []
-        setProfiles(fetched)
-        // Auto-select the default profile if nothing is selected yet
-        if (!value) {
-          const defaultProfile = fetched.find((p) => p.is_default)
-          if (defaultProfile) {
-            onChange(defaultProfile.id)
-          }
-        }
+        setProfiles(response.session_profiles || [])
       } catch {
         // silently ignore fetch errors
       } finally {
@@ -47,6 +41,18 @@ export default function SessionProfileSelect({
     }
     fetchProfiles()
   }, [getScopeParams]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-select the default profile only when no value is set.
+  // This runs after the fetch settles and after the parent may have initialised `value`,
+  // so `value` here is always the current prop (not a stale closure capture).
+  useEffect(() => {
+    if (autoSelectedRef.current || value || loading || profiles.length === 0) return
+    const defaultProfile = profiles.find((p) => p.is_default)
+    if (defaultProfile) {
+      autoSelectedRef.current = true
+      onChange(defaultProfile.id)
+    }
+  }, [profiles, value, loading, onChange])
 
   const selected = profiles.find((p) => p.id === value)
 
