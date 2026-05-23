@@ -6,6 +6,7 @@ import SessionProfileListView from '../components/SessionProfileListView'
 import SessionProfileFormModal from '../components/SessionProfileFormModal'
 import SessionProfileSidebar from '../components/SessionProfileSidebar'
 import TopBar from '../components/TopBar'
+import NavigationTabs from '../components/NavigationTabs'
 
 export default function SessionProfilesPage() {
   const [refreshKey, setRefreshKey] = useState(0)
@@ -44,7 +45,12 @@ export default function SessionProfilesPage() {
         showFilterButton={true}
         showSettingsButton={true}
         onFilterToggle={() => setSidebarVisible((prev) => !prev)}
-      />
+      >
+        {/* Mobile Navigation Tabs */}
+        <div className="md:hidden">
+          <NavigationTabs />
+        </div>
+      </TopBar>
 
       <div className="flex">
         {/* Sidebar */}
