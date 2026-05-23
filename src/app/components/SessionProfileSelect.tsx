@@ -30,7 +30,15 @@ export default function SessionProfileSelect({
         setLoading(true)
         const client = createAgentAPIProxyClientFromStorage()
         const response = await client.getSessionProfiles({ ...getScopeParams() })
-        setProfiles(response.session_profiles || [])
+        const fetched = response.session_profiles || []
+        setProfiles(fetched)
+        // Auto-select the default profile if nothing is selected yet
+        if (!value) {
+          const defaultProfile = fetched.find((p) => p.is_default)
+          if (defaultProfile) {
+            onChange(defaultProfile.id)
+          }
+        }
       } catch {
         // silently ignore fetch errors
       } finally {
@@ -38,7 +46,7 @@ export default function SessionProfileSelect({
       }
     }
     fetchProfiles()
-  }, [getScopeParams])
+  }, [getScopeParams]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (

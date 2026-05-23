@@ -41,7 +41,7 @@ export default function SessionProfilesPage() {
   return (
     <main className="min-h-dvh bg-gray-50 dark:bg-gray-900">
       <TopBar
-        title="Session Profiles"
+        title="Profiles"
         showFilterButton={true}
         showSettingsButton={true}
         onFilterToggle={() => setSidebarVisible((prev) => !prev)}
