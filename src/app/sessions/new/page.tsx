@@ -41,6 +41,8 @@ export default function NewSessionPage() {
   const [cycleEnabled, setCycleEnabled] = useState(false)
   const [cycleMessage, setCycleMessage] = useState('')
   const [cycleMaxCount, setCycleMaxCount] = useState(10)
+  const [sandboxEnabled, setSandboxEnabled] = useState(false)
+  const [sandboxDeniedDomains, setSandboxDeniedDomains] = useState('')
 
   useEffect(() => {
     loadTemplates()
@@ -165,6 +167,18 @@ export default function NewSessionPage() {
         params.cycle_message = cycleMessage.trim()
         if (cycleMaxCount > 0) {
           params.cycle_max_count = cycleMaxCount
+        }
+      }
+
+      // サンドボックスが有効な場合はsandboxを送信
+      if (sandboxEnabled) {
+        const deniedDomains = sandboxDeniedDomains
+          .split('\n')
+          .map(d => d.trim())
+          .filter(d => d.length > 0)
+        params.sandbox = {
+          enabled: true,
+          ...(deniedDomains.length > 0 ? { denied_domains: deniedDomains } : {})
         }
       }
 
@@ -503,6 +517,11 @@ export default function NewSessionPage() {
                     サイクル{cycleMaxCount > 0 ? ` (${cycleMaxCount}回)` : ''}
                   </span>
                 )}
+                {sandboxEnabled && (
+                  <span className="px-1.5 py-0.5 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 text-xs rounded-full">
+                    サンドボックス
+                  </span>
+                )}
               </button>
 
               {showAdvancedSettings && (
@@ -633,6 +652,55 @@ export default function NewSessionPage() {
                             0 の場合は無制限。<code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">/tmp/check/CYCLE_COUNT</code> で進捗を確認できます。
                           </p>
                         </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* サンドボックス */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400">ネットワークサンドボックス</p>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                          {sandboxEnabled ? '有効' : '無効'}
+                        </span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={sandboxEnabled}
+                          onClick={() => setSandboxEnabled(!sandboxEnabled)}
+                          disabled={isCreating}
+                          className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            sandboxEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                              sandboxEnabled ? 'translate-x-4' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </label>
+                    </div>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
+                      iptables でセッションの外部ネットワークアクセスを制限します。ブロックするドメインを指定できます。
+                    </p>
+                    {sandboxEnabled && (
+                      <div className="pl-1">
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                          ブロックするドメイン
+                        </label>
+                        <textarea
+                          value={sandboxDeniedDomains}
+                          onChange={(e) => setSandboxDeniedDomains(e.target.value)}
+                          placeholder={'github.com\n*.github.com'}
+                          rows={3}
+                          disabled={isCreating}
+                          className="w-full px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white resize-y font-mono"
+                        />
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                          1行に1ドメイン。ワイルドカード（<code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">*.example.com</code>）も使用可能。空の場合はすべてのドメインをブロック。
+                        </p>
                       </div>
                     )}
                   </div>

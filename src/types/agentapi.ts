@@ -194,6 +194,11 @@ export interface SessionListResponse {
   limit: number;
 }
 
+export interface SandboxConfig {
+  enabled: boolean;
+  denied_domains?: string[];
+}
+
 export interface CreateSessionRequest {
   user_id: string;
   environment?: Record<string, string>;
@@ -203,6 +208,7 @@ export interface CreateSessionRequest {
     message?: string;
     github_token?: string;
     oneshot?: boolean;
+    sandbox?: SandboxConfig;
     [key: string]: unknown;
   };
   scope?: ResourceScope;
