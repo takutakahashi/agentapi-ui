@@ -463,23 +463,37 @@ export default function SessionProfileFormModal({
 
                   {/* Agent Type */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       エージェントタイプ
                     </label>
-                    <select
-                      value={agentType}
-                      onChange={(e) => setAgentType(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">指定しない（サーバーデフォルト）</option>
-                      <option value="claude-agentapi">Claude AgentAPI</option>
-                      <option value="codex-agentapi">Codex AgentAPI</option>
-                      <option value="claude-acp">Claude ACP</option>
-                      <option value="codex-acp">Codex ACP</option>
-                    </select>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      セッション作成時に使用するエージェントの種類を指定します。
-                    </p>
+                    <div className="space-y-2">
+                      {([
+                        { value: '', label: 'デフォルト', description: 'agent_type を送信しない' },
+                        { value: 'claude-agentapi', label: 'Claude AgentAPI', description: 'agent_type=claude-agentapi を送信' },
+                        { value: 'codex-agentapi', label: 'Codex AgentAPI', description: 'agent_type=codex-agentapi を送信' },
+                        { value: 'claude-acp', label: 'Claude ACP', description: 'agent_type=claude-acp を送信' },
+                        { value: 'codex-acp', label: 'Codex ACP', description: 'agent_type=codex-acp を送信' },
+                      ]).map(({ value: v, label, description }) => (
+                        <label key={v} className="flex items-start cursor-pointer group">
+                          <input
+                            type="radio"
+                            name="profile-agent-type"
+                            value={v}
+                            checked={agentType === v}
+                            onChange={() => setAgentType(v)}
+                            className="mt-0.5 w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+                          />
+                          <span className="ml-2">
+                            <span className="block text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-gray-800 dark:group-hover:text-gray-200">
+                              {label}
+                            </span>
+                            <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                              {description}
+                            </span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Sandbox */}
