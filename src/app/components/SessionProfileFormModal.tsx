@@ -34,7 +34,6 @@ export default function SessionProfileFormModal({
   // Config fields
   const [envPairs, setEnvPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
   const [tagPairs, setTagPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
-  const [initialMessageTemplate, setInitialMessageTemplate] = useState('')
   const [agentType, setAgentType] = useState('')
 
   // Sandbox fields
@@ -57,7 +56,6 @@ export default function SessionProfileFormModal({
       setIsDefault(editingProfile.is_default ?? false)
 
       const cfg = editingProfile.config
-      setInitialMessageTemplate(cfg?.initial_message_template ?? '')
       setAgentType(cfg?.params?.agent_type ?? '')
 
       if (cfg?.environment && Object.keys(cfg.environment).length > 0) {
@@ -74,7 +72,7 @@ export default function SessionProfileFormModal({
         setTagPairs([{ key: '', value: '' }])
       }
 
-      if (cfg?.initial_message_template || cfg?.params?.agent_type) {
+      if (cfg?.params?.agent_type) {
         setShowAdvanced(true)
       }
 
@@ -102,7 +100,6 @@ export default function SessionProfileFormModal({
       setIsDefault(false)
       setEnvPairs([{ key: '', value: '' }])
       setTagPairs([{ key: '', value: '' }])
-      setInitialMessageTemplate('')
       setAgentType('')
       setSandboxEnabled(false)
       setSandboxMode('allowlist')
@@ -199,7 +196,6 @@ export default function SessionProfileFormModal({
       } : undefined
 
       const config = {
-        ...(initialMessageTemplate.trim() ? { initial_message_template: initialMessageTemplate.trim() } : {}),
         ...(Object.keys(environment).length > 0 ? { environment } : {}),
         ...(Object.keys(tags).length > 0 ? { tags } : {}),
         ...(params ? { params } : {}),
@@ -442,23 +438,6 @@ export default function SessionProfileFormModal({
                         追加
                       </button>
                     </div>
-                  </div>
-
-                  {/* Initial Message Template */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      初期メッセージテンプレート
-                    </label>
-                    <textarea
-                      value={initialMessageTemplate}
-                      onChange={(e) => setInitialMessageTemplate(e.target.value)}
-                      placeholder="例: 以下のタスクを実行してください: ..."
-                      rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono resize-y"
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      新規セッション作成時に送信されるメッセージのテンプレート。
-                    </p>
                   </div>
 
                   {/* Agent Type */}

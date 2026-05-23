@@ -77,16 +77,6 @@ export default function SessionProfileCard({
         </div>
       )}
 
-      {/* Initial message template */}
-      {profile.config?.initial_message_template && (
-        <div className="mb-3">
-          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">初期メッセージテンプレート</div>
-          <p className="text-xs text-gray-700 dark:text-gray-300 line-clamp-2 bg-gray-50 dark:bg-gray-700/50 px-2 py-1.5 rounded font-mono">
-            {profile.config.initial_message_template}
-          </p>
-        </div>
-      )}
-
       {/* Config summary */}
       <div className="flex items-center gap-4 mb-3 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
         {profile.config?.params?.agent_type && (
