@@ -269,7 +269,7 @@ export default function SessionProfileFormModal({
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
+          <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto overflow-x-hidden">
             {/* Error */}
             {error && (
               <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
@@ -353,31 +353,32 @@ export default function SessionProfileFormModal({
                     </label>
                     <div className="space-y-2">
                       {envPairs.map((pair, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
+                        <div key={idx} className="rounded border border-gray-200 dark:border-gray-600 p-2 space-y-1.5 bg-gray-50 dark:bg-gray-900/40">
                           <input
                             type="text"
                             value={pair.key}
                             onChange={(e) => updatePair(envPairs, setEnvPairs, idx, 'key', e.target.value)}
                             placeholder="KEY"
-                            className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
                           />
-                          <span className="text-gray-400 dark:text-gray-500 text-xs">=</span>
-                          <input
-                            type="text"
-                            value={pair.value}
-                            onChange={(e) => updatePair(envPairs, setEnvPairs, idx, 'value', e.target.value)}
-                            placeholder="value"
-                            className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removePair(envPairs, setEnvPairs, idx)}
-                            className="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={pair.value}
+                              onChange={(e) => updatePair(envPairs, setEnvPairs, idx, 'value', e.target.value)}
+                              placeholder="value"
+                              className="flex-1 min-w-0 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removePair(envPairs, setEnvPairs, idx)}
+                              className="shrink-0 p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       ))}
                       <button
@@ -400,31 +401,32 @@ export default function SessionProfileFormModal({
                     </label>
                     <div className="space-y-2">
                       {tagPairs.map((pair, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
+                        <div key={idx} className="rounded border border-gray-200 dark:border-gray-600 p-2 space-y-1.5 bg-gray-50 dark:bg-gray-900/40">
                           <input
                             type="text"
                             value={pair.key}
                             onChange={(e) => updatePair(tagPairs, setTagPairs, idx, 'key', e.target.value)}
                             placeholder="key"
-                            className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
                           />
-                          <span className="text-gray-400 dark:text-gray-500 text-xs">=</span>
-                          <input
-                            type="text"
-                            value={pair.value}
-                            onChange={(e) => updatePair(tagPairs, setTagPairs, idx, 'value', e.target.value)}
-                            placeholder="value"
-                            className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removePair(tagPairs, setTagPairs, idx)}
-                            className="p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={pair.value}
+                              onChange={(e) => updatePair(tagPairs, setTagPairs, idx, 'value', e.target.value)}
+                              placeholder="value"
+                              className="flex-1 min-w-0 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removePair(tagPairs, setTagPairs, idx)}
+                              className="shrink-0 p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       ))}
                       <button
