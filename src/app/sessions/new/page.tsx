@@ -9,7 +9,7 @@ import { messageTemplateManager } from '../../../utils/messageTemplateManager'
 import { MessageTemplate } from '../../../types/messageTemplate'
 import { recentMessagesManager } from '../../../utils/recentMessagesManager'
 import { OrganizationHistory } from '../../../utils/organizationHistory'
-import { addRepositoryToHistory, getAgentApiType, AgentApiType, getACPServerEnabled } from '../../../types/settings'
+import { addRepositoryToHistory, AgentApiType, getACPServerEnabled } from '../../../types/settings'
 import { AvailableManager } from '../../../types/settings'
 import { createAgentAPIProxyClientFromStorage } from '../../../lib/agentapi-proxy-client'
 import { createACPServerClientFromStorage } from '../../../lib/acp-server-client'
@@ -50,13 +50,6 @@ export default function NewSessionPage() {
   useEffect(() => {
     loadTemplates()
     loadRecentMessages()
-    // ACPサーバーモードのときは claude-acp をデフォルトで使用する
-    if (getACPServerEnabled()) {
-      const saved = getAgentApiType()
-      setSelectedAgentType(saved === 'claude-acp' || saved === 'codex-acp' ? saved : 'claude-acp')
-    } else {
-      setSelectedAgentType(getAgentApiType())
-    }
     loadAvailableManagers()
   }, [])
 

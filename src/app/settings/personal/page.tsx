@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, ExternalSessionManagerConfig, GitSyncConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, AgentApiType, getAgentApiType, setAgentApiType, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
+import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, ExternalSessionManagerConfig, GitSyncConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
 import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings, SlackSettings, FileSettings, GitHubSyncSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, CredentialsMetadata } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
@@ -19,7 +19,6 @@ export default function PersonalSettingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [isAuthError, setIsAuthError] = useState(false)
   const [sendGithubToken, setSendGithubToken] = useState(false)
-  const [agentApiType, setAgentApiTypeState] = useState<AgentApiType>('default')
   const [enterKeyBehavior, setEnterKeyBehaviorState] = useState<EnterKeyBehavior>('send')
   const [fontSettings, setFontSettingsState] = useState<FontSettingsType>({ fontSize: 14, fontFamily: 'sans-serif' })
   const [slackUserId, setSlackUserId] = useState<string>('')
@@ -68,8 +67,6 @@ export default function PersonalSettingsPage() {
   useEffect(() => {
     // GitHub Token 設定を読み込み
     setSendGithubToken(getSendGithubTokenOnSessionStart())
-    // AgentAPI タイプ設定を読み込み
-    setAgentApiTypeState(getAgentApiType())
     // Enter キー設定を読み込み
     setEnterKeyBehaviorState(getEnterKeyBehavior())
     // Font 設定を読み込み
@@ -190,11 +187,6 @@ export default function PersonalSettingsPage() {
   const handleGithubTokenChange = (enabled: boolean) => {
     setSendGithubToken(enabled)
     setSendGithubTokenOnSessionStart(enabled)
-  }
-
-  const handleAgentApiTypeChange = (type: AgentApiType) => {
-    setAgentApiTypeState(type)
-    setAgentApiType(type)
   }
 
   const handleEnterKeyBehaviorChange = (behavior: EnterKeyBehavior) => {
@@ -605,44 +597,6 @@ export default function PersonalSettingsPage() {
               </div>
               <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
                 <GithubTokenSettings enabled={sendGithubToken} onChange={handleGithubTokenChange} />
-              </div>
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                <div className="text-sm">
-                  <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    エージェントタイプ
-                  </p>
-                  <p className="text-gray-500 dark:text-gray-400 mb-3">
-                    セッション作成時に送信する agent_type を選択します。&quot;デフォルト&quot; を選択すると agent_type は送信されません。
-                  </p>
-                  <div className="space-y-2">
-                    {([
-                      { value: 'default', label: 'デフォルト', description: 'agent_type を送信しない（バックエンドのデフォルト動作）' },
-                      { value: 'claude-agentapi', label: 'Claude AgentAPI', description: 'agent_type=claude-agentapi を送信' },
-                      { value: 'codex-agentapi', label: 'Codex AgentAPI', description: 'agent_type=codex-agentapi を送信' },
-                      { value: 'claude-acp', label: 'Claude ACP', description: 'agent_type=claude-acp を送信' },
-                      { value: 'codex-acp', label: 'Codex ACP', description: 'agent_type=codex-acp を送信' },
-                    ] as { value: AgentApiType; label: string; description: string }[]).map(({ value, label, description }) => (
-                      <label key={value} className="flex items-start cursor-pointer group">
-                        <input
-                          type="radio"
-                          name="agent-api-type"
-                          value={value}
-                          checked={agentApiType === value}
-                          onChange={() => handleAgentApiTypeChange(value)}
-                          className="mt-0.5 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                        />
-                        <span className="ml-3">
-                          <span className="block font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                            {label}
-                          </span>
-                          <span className="block text-gray-500 dark:text-gray-400 text-xs mt-0.5">
-                            {description}
-                          </span>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
               </div>
             </div>
           </SettingsAccordion>
