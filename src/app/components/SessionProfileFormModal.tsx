@@ -682,8 +682,10 @@ export default function SessionProfileFormModal({
                                 key={rule.id}
                                 className="rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800/50 p-2.5 space-y-2"
                               >
-                                {/* Main row: index | action dropdown | inline content | delete */}
-                                <div className="flex items-center gap-2">
+                                {/* Main row: index | action dropdown | inline content | delete
+                                    On mobile, import selectors wrap to a second line (order-last + w-full).
+                                    On sm+, they stay inline (order-none + flex-1). */}
+                                <div className="flex flex-wrap items-center gap-2">
                                   {/* Index */}
                                   <input
                                     type="number"
@@ -706,9 +708,31 @@ export default function SessionProfileFormModal({
                                     <option value="managed_import_all">Managed全インポート</option>
                                   </select>
 
-                                  {/* Inline content for import-type actions */}
+                                  {/* managed_import_all / spacers: always inline */}
+                                  {rule.action === 'managed_import_all' && (
+                                    <span className="flex-1 text-xs text-purple-600 dark:text-purple-400 italic">
+                                      全Managedプロファイルをインポート（追加設定なし）
+                                    </span>
+                                  )}
+                                  {(rule.action === 'allow' || rule.action === 'deny') && (
+                                    <div className="flex-1" />
+                                  )}
+
+                                  {/* Delete — stays on the first row */}
+                                  <button
+                                    type="button"
+                                    onClick={() => removeRule(rule.id)}
+                                    className="shrink-0 p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400"
+                                    title="このルールを削除"
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+
+                                  {/* Import selectors: inline on sm+, wrap to 2nd row on mobile */}
                                   {rule.action === 'import' && (
-                                    <div className="flex-1 min-w-0">
+                                    <div className="order-last w-full sm:order-none sm:flex-1 sm:w-auto min-w-0">
                                       {availableProfiles.length > 0 ? (
                                         <select
                                           value={rule.importProfileId}
@@ -733,7 +757,7 @@ export default function SessionProfileFormModal({
                                   )}
 
                                   {rule.action === 'managed_import' && (
-                                    <div className="flex-1 min-w-0">
+                                    <div className="order-last w-full sm:order-none sm:flex-1 sm:w-auto min-w-0">
                                       {managedProfiles.length > 0 ? (
                                         <select
                                           value={rule.importManagedName}
@@ -756,28 +780,6 @@ export default function SessionProfileFormModal({
                                       )}
                                     </div>
                                   )}
-
-                                  {rule.action === 'managed_import_all' && (
-                                    <span className="flex-1 text-xs text-purple-600 dark:text-purple-400 italic">
-                                      全Managedプロファイルをインポート（追加設定なし）
-                                    </span>
-                                  )}
-
-                                  {(rule.action === 'allow' || rule.action === 'deny') && (
-                                    <div className="flex-1" />
-                                  )}
-
-                                  {/* Delete */}
-                                  <button
-                                    type="button"
-                                    onClick={() => removeRule(rule.id)}
-                                    className="shrink-0 p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400"
-                                    title="このルールを削除"
-                                  >
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
                                 </div>
 
                                 {/* Domains textarea for allow/deny (below the main row) */}
