@@ -1759,6 +1759,16 @@ export class AgentAPIProxyClient {
     }
   }
 
+  async getManagedSessionProfiles(): Promise<SessionProfileListResponse> {
+    const result = await this.makeRequest<SessionProfileListResponse | SessionProfile[]>('/session-profiles/managed');
+    if (Array.isArray(result)) {
+      return { session_profiles: result };
+    }
+    return {
+      session_profiles: result.session_profiles || []
+    };
+  }
+
   // ============================================================
   // Memory methods
   // ============================================================

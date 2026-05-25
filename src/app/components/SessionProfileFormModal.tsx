@@ -22,9 +22,10 @@ type KeyValuePair = { key: string; value: string }
 type SandboxRuleEdit = {
   id: string
   index: number
-  action: 'allow' | 'deny' | 'import'
-  domains: string        // newline-separated for allow/deny
-  importProfileId: string // for import action
+  action: 'allow' | 'deny' | 'import' | 'managed_import' | 'managed_import_all'
+  domains: string          // newline-separated for allow/deny
+  importProfileId: string  // for import action
+  importManagedName: string // for managed_import action
 }
 
 let ruleEditCounter = 0
@@ -35,9 +36,10 @@ function rulesFromAPI(apiRules: NetworkFilterRule[] | undefined): SandboxRuleEdi
   return apiRules.map((r) => ({
     id: newRuleId(),
     index: r.index,
-    action: (r.action === 'import' ? 'import' : r.action === 'deny' ? 'deny' : 'allow') as SandboxRuleEdit['action'],
+    action: r.action as SandboxRuleEdit['action'],
     domains: (r.domains ?? []).join('\n'),
     importProfileId: r.import_profile_id ?? '',
+    importManagedName: r.import_managed_name ?? '',
   }))
 }
 
@@ -49,6 +51,10 @@ function rulesToAPI(rules: SandboxRuleEdit[]): NetworkFilterRule[] {
       const base: NetworkFilterRule = { index: r.index, action: r.action }
       if (r.action === 'import') {
         base.import_profile_id = r.importProfileId.trim()
+      } else if (r.action === 'managed_import') {
+        base.import_managed_name = r.importManagedName.trim()
+      } else if (r.action === 'managed_import_all') {
+        // no extra fields
       } else {
         base.domains = r.domains
           .split('\n')
@@ -63,12 +69,16 @@ const ACTION_LABELS: Record<SandboxRuleEdit['action'], string> = {
   allow: '許可',
   deny: '拒否',
   import: 'インポート',
+  managed_import: 'Managedインポート',
+  managed_import_all: 'Managed全インポート',
 }
 
 const ACTION_COLORS: Record<SandboxRuleEdit['action'], string> = {
   allow: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 border-green-200 dark:border-green-800',
   deny: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 border-red-200 dark:border-red-800',
   import: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 border-blue-200 dark:border-blue-800',
+  managed_import: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400 border-purple-200 dark:border-purple-800',
+  managed_import_all: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400 border-purple-200 dark:border-purple-800',
 }
 
 export default function SessionProfileFormModal({
@@ -83,6 +93,7 @@ export default function SessionProfileFormModal({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [isDefault, setIsDefault] = useState(false)
+  const [isManaged, setIsManaged] = useState(false)
 
   // Config fields
   const [envPairs, setEnvPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
@@ -93,8 +104,12 @@ export default function SessionProfileFormModal({
   const [sandboxEnabled, setSandboxEnabled] = useState(false)
   const [sandboxRules, setSandboxRules] = useState<SandboxRuleEdit[]>([])
 
-  // Profiles for import action dropdown
+  // Profiles for import action dropdowns
   const [availableProfiles, setAvailableProfiles] = useState<SessionProfile[]>([])
+  const [managedProfiles, setManagedProfiles] = useState<SessionProfile[]>([])
+
+  // Current user admin status
+  const [isAdmin, setIsAdmin] = useState(false)
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -103,16 +118,33 @@ export default function SessionProfileFormModal({
 
   const isEditing = !!editingProfile
 
+  // Fetch current user admin status
+  useEffect(() => {
+    if (!isOpen) return
+    const client = createAgentAPIProxyClientFromStorage()
+    client.getUserInfo().then((info) => {
+      setIsAdmin(info.is_admin === true)
+    }).catch(() => {})
+  }, [isOpen])
+
   // Fetch profiles for import dropdown when sandbox is open
   useEffect(() => {
     if (!isOpen || !sandboxEnabled) return
-    const hasImport = sandboxRules.some((r) => r.action === 'import')
-    if (!hasImport) return
     const client = createAgentAPIProxyClientFromStorage()
-    client.getSessionProfiles().then((res) => {
-      const profiles = Array.isArray(res) ? res : res.session_profiles ?? []
-      setAvailableProfiles(profiles.filter((p) => p.id !== editingProfile?.id))
-    }).catch(() => {})
+    const hasImport = sandboxRules.some((r) => r.action === 'import')
+    const hasManagedImport = sandboxRules.some((r) => r.action === 'managed_import')
+    if (hasImport) {
+      client.getSessionProfiles().then((res) => {
+        const profiles = Array.isArray(res) ? res : res.session_profiles ?? []
+        setAvailableProfiles(profiles.filter((p) => p.id !== editingProfile?.id))
+      }).catch(() => {})
+    }
+    if (hasManagedImport) {
+      client.getManagedSessionProfiles().then((res) => {
+        const profiles = Array.isArray(res) ? res : res.session_profiles ?? []
+        setManagedProfiles(profiles)
+      }).catch(() => {})
+    }
   }, [isOpen, sandboxEnabled, sandboxRules, editingProfile?.id])
 
   // Initialize form when editing
@@ -121,6 +153,7 @@ export default function SessionProfileFormModal({
       setName(editingProfile.name)
       setDescription(editingProfile.description ?? '')
       setIsDefault(editingProfile.is_default ?? false)
+      setIsManaged(editingProfile.is_managed ?? false)
 
       const cfg = editingProfile.config
       setAgentType(cfg?.params?.agent_type ?? '')
@@ -151,12 +184,12 @@ export default function SessionProfileFormModal({
         } else if (sandbox.allowed_domains && sandbox.allowed_domains.length > 0) {
           // Migrate legacy allowlist to rules
           setSandboxRules([
-            { id: newRuleId(), index: 0, action: 'deny', domains: '*', importProfileId: '' },
-            { id: newRuleId(), index: 10, action: 'allow', domains: sandbox.allowed_domains.join('\n'), importProfileId: '' },
+            { id: newRuleId(), index: 0, action: 'deny', domains: '*', importProfileId: '', importManagedName: '' },
+            { id: newRuleId(), index: 10, action: 'allow', domains: sandbox.allowed_domains.join('\n'), importProfileId: '', importManagedName: '' },
           ])
         } else if (sandbox.denied_domains && sandbox.denied_domains.length > 0) {
           setSandboxRules([
-            { id: newRuleId(), index: 0, action: 'deny', domains: sandbox.denied_domains.join('\n'), importProfileId: '' },
+            { id: newRuleId(), index: 0, action: 'deny', domains: sandbox.denied_domains.join('\n'), importProfileId: '', importManagedName: '' },
           ])
         } else {
           setSandboxRules([])
@@ -170,6 +203,7 @@ export default function SessionProfileFormModal({
       setName('')
       setDescription('')
       setIsDefault(false)
+      setIsManaged(false)
       setEnvPairs([{ key: '', value: '' }])
       setTagPairs([{ key: '', value: '' }])
       setAgentType('')
@@ -241,7 +275,7 @@ export default function SessionProfileFormModal({
   const addRule = (action: SandboxRuleEdit['action']) => {
     setSandboxRules((prev) => [
       ...prev,
-      { id: newRuleId(), index: nextRuleIndex(), action, domains: '', importProfileId: '' },
+      { id: newRuleId(), index: nextRuleIndex(), action, domains: '', importProfileId: '', importManagedName: '' },
     ])
   }
 
@@ -256,7 +290,7 @@ export default function SessionProfileFormModal({
   const addDenyAllRule = () => {
     const minIndex = sandboxRules.length > 0 ? Math.min(...sandboxRules.map((r) => r.index)) - 10 : 0
     setSandboxRules((prev) => [
-      { id: newRuleId(), index: minIndex < 0 ? 0 : minIndex, action: 'deny', domains: '*', importProfileId: '' },
+      { id: newRuleId(), index: minIndex < 0 ? 0 : minIndex, action: 'deny', domains: '*', importProfileId: '', importManagedName: '' },
       ...prev,
     ])
   }
@@ -303,6 +337,7 @@ export default function SessionProfileFormModal({
           name: name.trim(),
           description: description.trim() || undefined,
           is_default: isDefault,
+          ...(isAdmin ? { is_managed: isManaged } : {}),
           config: Object.keys(config).length > 0 ? config : undefined,
         }
         await client.updateSessionProfile(editingProfile.id, updateData)
@@ -312,6 +347,7 @@ export default function SessionProfileFormModal({
           name: name.trim(),
           description: description.trim() || undefined,
           is_default: isDefault,
+          ...(isAdmin ? { is_managed: isManaged } : {}),
           ...(Object.keys(config).length > 0 ? { config } : {}),
           ...scopeParams,
         }
@@ -424,6 +460,29 @@ export default function SessionProfileFormModal({
                 </div>
               </label>
             </div>
+
+            {/* is_managed (admin only) */}
+            {isAdmin && (
+              <div>
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isManaged}
+                    onChange={(e) => setIsManaged(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Managedプロファイルとして登録する
+                      <span className="ml-1.5 text-xs px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 font-normal">管理者専用</span>
+                    </span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      Managedプロファイルはシステム管理者が提供するルールセットです。他のプロファイルからmanaged_importアクションで参照できます。
+                    </p>
+                  </div>
+                </label>
+              </div>
+            )}
 
             {/* Config Section */}
             <div>
@@ -637,8 +696,8 @@ export default function SessionProfileFormModal({
                                   </div>
 
                                   {/* Action selector */}
-                                  <div className="flex gap-1">
-                                    {(['allow', 'deny', 'import'] as const).map((a) => (
+                                  <div className="flex flex-wrap gap-1">
+                                    {(['allow', 'deny', 'import', 'managed_import', 'managed_import_all'] as const).map((a) => (
                                       <button
                                         key={a}
                                         type="button"
@@ -697,6 +756,39 @@ export default function SessionProfileFormModal({
                                       指定プロファイルのサンドボックスルールをこの位置に展開します
                                     </p>
                                   </div>
+                                ) : rule.action === 'managed_import' ? (
+                                  <div>
+                                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                      インポートするManagedプロファイル名
+                                    </label>
+                                    {managedProfiles.length > 0 ? (
+                                      <select
+                                        value={rule.importManagedName}
+                                        onChange={(e) => updateRule(rule.id, { importManagedName: e.target.value })}
+                                        className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                      >
+                                        <option value="">Managedプロファイルを選択...</option>
+                                        {managedProfiles.map((p) => (
+                                          <option key={p.id} value={p.name}>{p.name}</option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <input
+                                        type="text"
+                                        value={rule.importManagedName}
+                                        onChange={(e) => updateRule(rule.id, { importManagedName: e.target.value })}
+                                        placeholder="Managedプロファイル名 (例: corp-baseline)"
+                                        className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                      />
+                                    )}
+                                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                      指定した名前のManagedプロファイルのルールをこの位置に展開します
+                                    </p>
+                                  </div>
+                                ) : rule.action === 'managed_import_all' ? (
+                                  <div className="px-2 py-1.5 bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800 rounded text-xs text-purple-700 dark:text-purple-400">
+                                    全てのManagedプロファイルのルールを名前順にこの位置に展開します。追加設定は不要です。
+                                  </div>
                                 ) : (
                                   <div>
                                     <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
@@ -747,6 +839,26 @@ export default function SessionProfileFormModal({
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                             </svg>
                             インポート追加
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => addRule('managed_import')}
+                            className="text-xs px-2.5 py-1 rounded border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 flex items-center gap-1"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            Managedインポート追加
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => addRule('managed_import_all')}
+                            className="text-xs px-2.5 py-1 rounded border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 flex items-center gap-1"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            Managed全インポート追加
                           </button>
                         </div>
                       </div>

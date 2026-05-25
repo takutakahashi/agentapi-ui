@@ -194,17 +194,19 @@ export interface SessionListResponse {
   limit: number;
 }
 
-export type NetworkFilterRuleAction = 'allow' | 'deny' | 'import';
+export type NetworkFilterRuleAction = 'allow' | 'deny' | 'import' | 'managed_import' | 'managed_import_all';
 
 export interface NetworkFilterRule {
   /** Evaluation order. Lower indices are evaluated first; last matching rule wins. */
   index: number;
-  /** allow: permit traffic. deny: block traffic. import: inline another profile's rules. */
+  /** allow: permit traffic. deny: block traffic. import: inline another profile's rules. managed_import: import a specific managed profile by name. managed_import_all: import all managed profiles. */
   action: NetworkFilterRuleAction;
   /** Domain patterns for allow/deny rules. Supports *.example.com wildcards. */
   domains?: string[];
   /** SessionProfile ID to import rules from. Used only when action is 'import'. */
   import_profile_id?: string;
+  /** Managed profile name to import. Used only when action is 'managed_import'. */
+  import_managed_name?: string;
 }
 
 export interface SandboxConfig {
