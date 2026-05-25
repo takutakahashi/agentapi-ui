@@ -6,6 +6,7 @@ import {
   CreateSessionProfileRequest,
   UpdateSessionProfileRequest,
 } from '../../types/session_profile'
+import { NetworkFilterRule } from '../../types/agentapi'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
 
@@ -17,6 +18,58 @@ interface SessionProfileFormModalProps {
 }
 
 type KeyValuePair = { key: string; value: string }
+
+type SandboxRuleEdit = {
+  id: string
+  index: number
+  action: 'allow' | 'deny' | 'import'
+  domains: string        // newline-separated for allow/deny
+  importProfileId: string // for import action
+}
+
+let ruleEditCounter = 0
+const newRuleId = () => `rule-${++ruleEditCounter}`
+
+function rulesFromAPI(apiRules: NetworkFilterRule[] | undefined): SandboxRuleEdit[] {
+  if (!apiRules || apiRules.length === 0) return []
+  return apiRules.map((r) => ({
+    id: newRuleId(),
+    index: r.index,
+    action: (r.action === 'import' ? 'import' : r.action === 'deny' ? 'deny' : 'allow') as SandboxRuleEdit['action'],
+    domains: (r.domains ?? []).join('\n'),
+    importProfileId: r.import_profile_id ?? '',
+  }))
+}
+
+function rulesToAPI(rules: SandboxRuleEdit[]): NetworkFilterRule[] {
+  return rules
+    .slice()
+    .sort((a, b) => a.index - b.index)
+    .map((r) => {
+      const base: NetworkFilterRule = { index: r.index, action: r.action }
+      if (r.action === 'import') {
+        base.import_profile_id = r.importProfileId.trim()
+      } else {
+        base.domains = r.domains
+          .split('\n')
+          .map((d) => d.trim())
+          .filter(Boolean)
+      }
+      return base
+    })
+}
+
+const ACTION_LABELS: Record<SandboxRuleEdit['action'], string> = {
+  allow: '許可',
+  deny: '拒否',
+  import: 'インポート',
+}
+
+const ACTION_COLORS: Record<SandboxRuleEdit['action'], string> = {
+  allow: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 border-green-200 dark:border-green-800',
+  deny: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 border-red-200 dark:border-red-800',
+  import: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 border-blue-200 dark:border-blue-800',
+}
 
 export default function SessionProfileFormModal({
   isOpen,
@@ -36,10 +89,12 @@ export default function SessionProfileFormModal({
   const [tagPairs, setTagPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
   const [agentType, setAgentType] = useState('')
 
-  // Sandbox fields
+  // Sandbox fields (rules-based)
   const [sandboxEnabled, setSandboxEnabled] = useState(false)
-  const [sandboxMode, setSandboxMode] = useState<'allowlist' | 'denylist'>('allowlist')
-  const [sandboxDomains, setSandboxDomains] = useState('')
+  const [sandboxRules, setSandboxRules] = useState<SandboxRuleEdit[]>([])
+
+  // Profiles for import action dropdown
+  const [availableProfiles, setAvailableProfiles] = useState<SessionProfile[]>([])
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -47,6 +102,18 @@ export default function SessionProfileFormModal({
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   const isEditing = !!editingProfile
+
+  // Fetch profiles for import dropdown when sandbox is open
+  useEffect(() => {
+    if (!isOpen || !sandboxEnabled) return
+    const hasImport = sandboxRules.some((r) => r.action === 'import')
+    if (!hasImport) return
+    const client = createAgentAPIProxyClientFromStorage()
+    client.getSessionProfiles().then((res) => {
+      const profiles = Array.isArray(res) ? res : res.session_profiles ?? []
+      setAvailableProfiles(profiles.filter((p) => p.id !== editingProfile?.id))
+    }).catch(() => {})
+  }, [isOpen, sandboxEnabled, sandboxRules, editingProfile?.id])
 
   // Initialize form when editing
   useEffect(() => {
@@ -76,25 +143,30 @@ export default function SessionProfileFormModal({
         setShowAdvanced(true)
       }
 
-      // Initialize sandbox from profile params
       const sandbox = cfg?.params?.sandbox
       if (sandbox) {
         setSandboxEnabled(sandbox.enabled)
-        if (sandbox.allowed_domains && sandbox.allowed_domains.length > 0) {
-          setSandboxMode('allowlist')
-          setSandboxDomains(sandbox.allowed_domains.join('\n'))
+        if (sandbox.rules && sandbox.rules.length > 0) {
+          setSandboxRules(rulesFromAPI(sandbox.rules))
+        } else if (sandbox.allowed_domains && sandbox.allowed_domains.length > 0) {
+          // Migrate legacy allowlist to rules
+          setSandboxRules([
+            { id: newRuleId(), index: 0, action: 'deny', domains: '*', importProfileId: '' },
+            { id: newRuleId(), index: 10, action: 'allow', domains: sandbox.allowed_domains.join('\n'), importProfileId: '' },
+          ])
         } else if (sandbox.denied_domains && sandbox.denied_domains.length > 0) {
-          setSandboxMode('denylist')
-          setSandboxDomains(sandbox.denied_domains.join('\n'))
+          setSandboxRules([
+            { id: newRuleId(), index: 0, action: 'deny', domains: sandbox.denied_domains.join('\n'), importProfileId: '' },
+          ])
+        } else {
+          setSandboxRules([])
         }
         if (sandbox.enabled) setShowAdvanced(true)
       } else {
         setSandboxEnabled(false)
-        setSandboxMode('allowlist')
-        setSandboxDomains('')
+        setSandboxRules([])
       }
     } else {
-      // Reset form
       setName('')
       setDescription('')
       setIsDefault(false)
@@ -102,8 +174,7 @@ export default function SessionProfileFormModal({
       setTagPairs([{ key: '', value: '' }])
       setAgentType('')
       setSandboxEnabled(false)
-      setSandboxMode('allowlist')
-      setSandboxDomains('')
+      setSandboxRules([])
       setShowAdvanced(false)
     }
     setError(null)
@@ -161,6 +232,35 @@ export default function SessionProfileFormModal({
     return record
   }
 
+  // Sandbox rule helpers
+  const nextRuleIndex = () => {
+    if (sandboxRules.length === 0) return 0
+    return Math.max(...sandboxRules.map((r) => r.index)) + 10
+  }
+
+  const addRule = (action: SandboxRuleEdit['action']) => {
+    setSandboxRules((prev) => [
+      ...prev,
+      { id: newRuleId(), index: nextRuleIndex(), action, domains: '', importProfileId: '' },
+    ])
+  }
+
+  const updateRule = (id: string, patch: Partial<SandboxRuleEdit>) => {
+    setSandboxRules((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+  }
+
+  const removeRule = (id: string) => {
+    setSandboxRules((prev) => prev.filter((r) => r.id !== id))
+  }
+
+  const addDenyAllRule = () => {
+    const minIndex = sandboxRules.length > 0 ? Math.min(...sandboxRules.map((r) => r.index)) - 10 : 0
+    setSandboxRules((prev) => [
+      { id: newRuleId(), index: minIndex < 0 ? 0 : minIndex, action: 'deny', domains: '*', importProfileId: '' },
+      ...prev,
+    ])
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -177,18 +277,15 @@ export default function SessionProfileFormModal({
       const environment = pairsToRecord(envPairs)
       const tags = pairsToRecord(tagPairs)
 
-      // Build sandbox config if enabled
-      let sandboxConfig: { enabled: boolean; allowed_domains?: string[]; denied_domains?: string[] } | undefined
+      // Build sandbox config
+      let sandboxConfig: { enabled: boolean; rules?: NetworkFilterRule[] } | undefined
       if (sandboxEnabled) {
-        const domainList = sandboxDomains.split('\n').map(d => d.trim()).filter(Boolean)
         sandboxConfig = {
           enabled: true,
-          ...(sandboxMode === 'allowlist' && domainList.length > 0 ? { allowed_domains: domainList } : {}),
-          ...(sandboxMode === 'denylist' && domainList.length > 0 ? { denied_domains: domainList } : {}),
+          ...(sandboxRules.length > 0 ? { rules: rulesToAPI(sandboxRules) } : {}),
         }
       }
 
-      // Build params if any param is set
       const hasParams = agentType.trim() || sandboxConfig
       const params = hasParams ? {
         ...(agentType.trim() ? { agent_type: agentType.trim() } : {}),
@@ -231,6 +328,8 @@ export default function SessionProfileFormModal({
   }
 
   if (!isOpen) return null
+
+  const sortedRules = sandboxRules.slice().sort((a, b) => a.index - b.index)
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -498,44 +597,157 @@ export default function SessionProfileFormModal({
 
                     {sandboxEnabled && (
                       <div className="mt-3 ml-6 space-y-3">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                            モード
-                          </label>
-                          <div className="flex gap-4">
-                            <label className="flex items-center gap-1.5 cursor-pointer">
-                              <input
-                                type="radio"
-                                value="allowlist"
-                                checked={sandboxMode === 'allowlist'}
-                                onChange={() => setSandboxMode('allowlist')}
-                                className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500"
-                              />
-                              <span className="text-xs text-gray-700 dark:text-gray-300">許可リスト（指定ドメインのみ許可）</span>
-                            </label>
-                            <label className="flex items-center gap-1.5 cursor-pointer">
-                              <input
-                                type="radio"
-                                value="denylist"
-                                checked={sandboxMode === 'denylist'}
-                                onChange={() => setSandboxMode('denylist')}
-                                className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500"
-                              />
-                              <span className="text-xs text-gray-700 dark:text-gray-300">拒否リスト（指定ドメインをブロック）</span>
-                            </label>
-                          </div>
+                        {/* Explanation */}
+                        <div className="p-2.5 bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-600 dark:text-gray-400">
+                          ルールは <strong>index 昇順</strong> に評価され、<strong>最後にマッチしたルールが適用</strong>されます。どのルールにもマッチしない場合は<strong>拒否</strong>（デフォルト拒否）。
+                          <br />
+                          <span className="mt-1 block">例: index 0 で全拒否 → index 10 で別プロファイルをインポート → index 20 で特定ドメインを拒否</span>
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                            ドメインリスト（1行に1ドメイン）
-                          </label>
-                          <textarea
-                            value={sandboxDomains}
-                            onChange={(e) => setSandboxDomains(e.target.value)}
-                            placeholder={sandboxMode === 'allowlist' ? 'example.com\napi.github.com' : 'example.com\nbad-domain.com'}
-                            rows={4}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono resize-y"
-                          />
+
+                        {/* Quick presets */}
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={addDenyAllRule}
+                            className="text-xs px-2 py-1 rounded border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40"
+                          >
+                            + 全拒否ルール追加 (deny *)
+                          </button>
+                        </div>
+
+                        {/* Rule list */}
+                        {sortedRules.length > 0 && (
+                          <div className="space-y-2">
+                            {sortedRules.map((rule) => (
+                              <div
+                                key={rule.id}
+                                className="rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-750 p-3 space-y-2"
+                              >
+                                {/* Rule header */}
+                                <div className="flex items-center gap-2">
+                                  {/* Index */}
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">index</span>
+                                    <input
+                                      type="number"
+                                      value={rule.index}
+                                      onChange={(e) => updateRule(rule.id, { index: parseInt(e.target.value) || 0 })}
+                                      className="w-14 px-1.5 py-1 border border-gray-300 dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500 text-center"
+                                    />
+                                  </div>
+
+                                  {/* Action selector */}
+                                  <div className="flex gap-1">
+                                    {(['allow', 'deny', 'import'] as const).map((a) => (
+                                      <button
+                                        key={a}
+                                        type="button"
+                                        onClick={() => updateRule(rule.id, { action: a })}
+                                        className={`text-xs px-2 py-0.5 rounded border font-medium transition-colors ${
+                                          rule.action === a
+                                            ? ACTION_COLORS[a]
+                                            : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                        }`}
+                                      >
+                                        {ACTION_LABELS[a]}
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  {/* Delete */}
+                                  <button
+                                    type="button"
+                                    onClick={() => removeRule(rule.id)}
+                                    className="ml-auto shrink-0 p-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400"
+                                    title="このルールを削除"
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </div>
+
+                                {/* Rule body */}
+                                {rule.action === 'import' ? (
+                                  <div>
+                                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                      インポート元プロファイル
+                                    </label>
+                                    {availableProfiles.length > 0 ? (
+                                      <select
+                                        value={rule.importProfileId}
+                                        onChange={(e) => updateRule(rule.id, { importProfileId: e.target.value })}
+                                        className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                      >
+                                        <option value="">プロファイルを選択...</option>
+                                        {availableProfiles.map((p) => (
+                                          <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <input
+                                        type="text"
+                                        value={rule.importProfileId}
+                                        onChange={(e) => updateRule(rule.id, { importProfileId: e.target.value })}
+                                        placeholder="プロファイルID (例: abc123-...)"
+                                        className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                      />
+                                    )}
+                                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                      指定プロファイルのサンドボックスルールをこの位置に展開します
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                      ドメイン（1行に1つ、*.example.com のワイルドカード使用可、* で全ドメイン）
+                                    </label>
+                                    <textarea
+                                      value={rule.domains}
+                                      onChange={(e) => updateRule(rule.id, { domains: e.target.value })}
+                                      placeholder={rule.action === 'deny' ? '* （全ドメイン拒否）\nbad.example.com' : 'api.github.com\n*.npm.com'}
+                                      rows={3}
+                                      className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Add rule buttons */}
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => addRule('allow')}
+                            className="text-xs px-2.5 py-1 rounded border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 flex items-center gap-1"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            許可ルール追加
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => addRule('deny')}
+                            className="text-xs px-2.5 py-1 rounded border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 flex items-center gap-1"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            拒否ルール追加
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => addRule('import')}
+                            className="text-xs px-2.5 py-1 rounded border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 flex items-center gap-1"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            インポート追加
+                          </button>
                         </div>
                       </div>
                     )}

@@ -194,9 +194,26 @@ export interface SessionListResponse {
   limit: number;
 }
 
+export type NetworkFilterRuleAction = 'allow' | 'deny' | 'import';
+
+export interface NetworkFilterRule {
+  /** Evaluation order. Lower indices are evaluated first; last matching rule wins. */
+  index: number;
+  /** allow: permit traffic. deny: block traffic. import: inline another profile's rules. */
+  action: NetworkFilterRuleAction;
+  /** Domain patterns for allow/deny rules. Supports *.example.com wildcards. */
+  domains?: string[];
+  /** SessionProfile ID to import rules from. Used only when action is 'import'. */
+  import_profile_id?: string;
+}
+
 export interface SandboxConfig {
   enabled: boolean;
+  /** Ordered rule chain. Last matching rule wins; unmatched traffic is blocked. */
+  rules?: NetworkFilterRule[];
+  /** @deprecated Use rules instead. */
   allowed_domains?: string[];
+  /** @deprecated Use rules instead. */
   denied_domains?: string[];
 }
 
