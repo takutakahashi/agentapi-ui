@@ -74,11 +74,11 @@ const ACTION_LABELS: Record<SandboxRuleEdit['action'], string> = {
 }
 
 const ACTION_COLORS: Record<SandboxRuleEdit['action'], string> = {
-  allow: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 border-green-200 dark:border-green-800',
-  deny: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 border-red-200 dark:border-red-800',
-  import: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 border-blue-200 dark:border-blue-800',
-  managed_import: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400 border-purple-200 dark:border-purple-800',
-  managed_import_all: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400 border-purple-200 dark:border-purple-800',
+  allow: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 border-green-200 dark:border-green-600',
+  deny: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 border-red-200 dark:border-red-600',
+  import: 'bg-blue-100 text-blue-700 dark:bg-blue-800/50 dark:text-blue-200 border-blue-200 dark:border-blue-500',
+  managed_import: 'bg-purple-100 text-purple-700 dark:bg-purple-800/50 dark:text-purple-200 border-purple-200 dark:border-purple-500',
+  managed_import_all: 'bg-purple-100 text-purple-700 dark:bg-purple-800/50 dark:text-purple-200 border-purple-200 dark:border-purple-500',
 }
 
 export default function SessionProfileFormModal({
@@ -786,7 +786,7 @@ export default function SessionProfileFormModal({
                                     </p>
                                   </div>
                                 ) : rule.action === 'managed_import_all' ? (
-                                  <div className="px-2 py-1.5 bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800 rounded text-xs text-purple-700 dark:text-purple-400">
+                                  <div className="px-2 py-1.5 bg-purple-50 dark:bg-purple-900/25 border border-purple-200 dark:border-purple-600 rounded text-xs text-purple-700 dark:text-purple-300">
                                     全てのManagedプロファイルのルールを名前順にこの位置に展開します。追加設定は不要です。
                                   </div>
                                 ) : (
@@ -833,7 +833,7 @@ export default function SessionProfileFormModal({
                           <button
                             type="button"
                             onClick={() => addRule('import')}
-                            className="text-xs px-2.5 py-1 rounded border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 flex items-center gap-1"
+                            className="text-xs px-2.5 py-1 rounded border border-blue-200 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800/50 flex items-center gap-1"
                           >
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -843,7 +843,7 @@ export default function SessionProfileFormModal({
                           <button
                             type="button"
                             onClick={() => addRule('managed_import')}
-                            className="text-xs px-2.5 py-1 rounded border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 flex items-center gap-1"
+                            className="text-xs px-2.5 py-1 rounded border border-purple-200 dark:border-purple-500 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-800/50 flex items-center gap-1"
                           >
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -853,7 +853,7 @@ export default function SessionProfileFormModal({
                           <button
                             type="button"
                             onClick={() => addRule('managed_import_all')}
-                            className="text-xs px-2.5 py-1 rounded border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 flex items-center gap-1"
+                            className="text-xs px-2.5 py-1 rounded border border-purple-200 dark:border-purple-500 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-800/50 flex items-center gap-1"
                           >
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
