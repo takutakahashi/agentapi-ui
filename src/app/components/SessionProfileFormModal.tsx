@@ -22,10 +22,9 @@ type KeyValuePair = { key: string; value: string }
 type SandboxRuleEdit = {
   id: string
   index: number
-  action: 'allow' | 'deny' | 'import' | 'managed_import' | 'managed_import_all'
-  domains: string          // newline-separated for allow/deny
-  importProfileId: string  // for import action
-  importManagedName: string // for managed_import action
+  action: 'allow' | 'deny' | 'import'
+  domains: string         // newline-separated for allow/deny
+  importProfileId: string // for import action
 }
 
 let ruleEditCounter = 0
@@ -33,14 +32,15 @@ const newRuleId = () => `rule-${++ruleEditCounter}`
 
 function rulesFromAPI(apiRules: NetworkFilterRule[] | undefined): SandboxRuleEdit[] {
   if (!apiRules || apiRules.length === 0) return []
-  return apiRules.map((r) => ({
-    id: newRuleId(),
-    index: r.index,
-    action: r.action as SandboxRuleEdit['action'],
-    domains: (r.domains ?? []).join('\n'),
-    importProfileId: r.import_profile_id ?? '',
-    importManagedName: r.import_managed_name ?? '',
-  }))
+  return apiRules
+    .filter((r) => r.action === 'allow' || r.action === 'deny' || r.action === 'import')
+    .map((r) => ({
+      id: newRuleId(),
+      index: r.index,
+      action: r.action as SandboxRuleEdit['action'],
+      domains: (r.domains ?? []).join('\n'),
+      importProfileId: r.import_profile_id ?? '',
+    }))
 }
 
 function rulesToAPI(rules: SandboxRuleEdit[]): NetworkFilterRule[] {
@@ -51,10 +51,6 @@ function rulesToAPI(rules: SandboxRuleEdit[]): NetworkFilterRule[] {
       const base: NetworkFilterRule = { index: r.index, action: r.action }
       if (r.action === 'import') {
         base.import_profile_id = r.importProfileId.trim()
-      } else if (r.action === 'managed_import') {
-        base.import_managed_name = r.importManagedName.trim()
-      } else if (r.action === 'managed_import_all') {
-        // no extra fields
       } else {
         base.domains = r.domains
           .split('\n')
@@ -65,20 +61,10 @@ function rulesToAPI(rules: SandboxRuleEdit[]): NetworkFilterRule[] {
     })
 }
 
-const ACTION_LABELS: Record<SandboxRuleEdit['action'], string> = {
-  allow: '許可 (allow)',
-  deny: '拒否 (deny)',
-  import: 'インポート (import)',
-  managed_import: 'Managedインポート',
-  managed_import_all: 'Managed全インポート',
-}
-
 const ACTION_SELECT_COLORS: Record<SandboxRuleEdit['action'], string> = {
   allow: 'border-green-300 dark:border-green-600 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/25 focus:ring-green-500',
   deny: 'border-red-300 dark:border-red-600 text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/25 focus:ring-red-500',
   import: 'border-blue-300 dark:border-blue-500 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/25 focus:ring-blue-500',
-  managed_import: 'border-purple-300 dark:border-purple-500 text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/25 focus:ring-purple-500',
-  managed_import_all: 'border-purple-300 dark:border-purple-500 text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/25 focus:ring-purple-500',
 }
 
 export default function SessionProfileFormModal({
@@ -104,9 +90,8 @@ export default function SessionProfileFormModal({
   const [sandboxEnabled, setSandboxEnabled] = useState(false)
   const [sandboxRules, setSandboxRules] = useState<SandboxRuleEdit[]>([])
 
-  // Profiles for import action dropdowns
+  // Profiles for import action dropdown
   const [availableProfiles, setAvailableProfiles] = useState<SessionProfile[]>([])
-  const [managedProfiles, setManagedProfiles] = useState<SessionProfile[]>([])
 
   // Current user admin status
   const [isAdmin, setIsAdmin] = useState(false)
@@ -130,21 +115,13 @@ export default function SessionProfileFormModal({
   // Fetch profiles for import dropdown when sandbox is open
   useEffect(() => {
     if (!isOpen || !sandboxEnabled) return
-    const client = createAgentAPIProxyClientFromStorage()
     const hasImport = sandboxRules.some((r) => r.action === 'import')
-    const hasManagedImport = sandboxRules.some((r) => r.action === 'managed_import')
-    if (hasImport) {
-      client.getSessionProfiles().then((res) => {
-        const profiles = Array.isArray(res) ? res : res.session_profiles ?? []
-        setAvailableProfiles(profiles.filter((p) => p.id !== editingProfile?.id))
-      }).catch(() => {})
-    }
-    if (hasManagedImport) {
-      client.getManagedSessionProfiles().then((res) => {
-        const profiles = Array.isArray(res) ? res : res.session_profiles ?? []
-        setManagedProfiles(profiles)
-      }).catch(() => {})
-    }
+    if (!hasImport) return
+    const client = createAgentAPIProxyClientFromStorage()
+    client.getSessionProfiles().then((res) => {
+      const profiles = Array.isArray(res) ? res : res.session_profiles ?? []
+      setAvailableProfiles(profiles.filter((p) => p.id !== editingProfile?.id))
+    }).catch(() => {})
   }, [isOpen, sandboxEnabled, sandboxRules, editingProfile?.id])
 
   // Initialize form when editing
@@ -184,12 +161,12 @@ export default function SessionProfileFormModal({
         } else if (sandbox.allowed_domains && sandbox.allowed_domains.length > 0) {
           // Migrate legacy allowlist to rules
           setSandboxRules([
-            { id: newRuleId(), index: 0, action: 'deny', domains: '*', importProfileId: '', importManagedName: '' },
-            { id: newRuleId(), index: 10, action: 'allow', domains: sandbox.allowed_domains.join('\n'), importProfileId: '', importManagedName: '' },
+            { id: newRuleId(), index: 0, action: 'deny', domains: '*', importProfileId: '' },
+            { id: newRuleId(), index: 10, action: 'allow', domains: sandbox.allowed_domains.join('\n'), importProfileId: '' },
           ])
         } else if (sandbox.denied_domains && sandbox.denied_domains.length > 0) {
           setSandboxRules([
-            { id: newRuleId(), index: 0, action: 'deny', domains: sandbox.denied_domains.join('\n'), importProfileId: '', importManagedName: '' },
+            { id: newRuleId(), index: 0, action: 'deny', domains: sandbox.denied_domains.join('\n'), importProfileId: '' },
           ])
         } else {
           setSandboxRules([])
@@ -275,7 +252,7 @@ export default function SessionProfileFormModal({
   const addRule = (action: SandboxRuleEdit['action']) => {
     setSandboxRules((prev) => [
       ...prev,
-      { id: newRuleId(), index: nextRuleIndex(), action, domains: '', importProfileId: '', importManagedName: '' },
+      { id: newRuleId(), index: nextRuleIndex(), action, domains: '', importProfileId: '' },
     ])
   }
 
@@ -290,7 +267,7 @@ export default function SessionProfileFormModal({
   const addDenyAllRule = () => {
     const minIndex = sandboxRules.length > 0 ? Math.min(...sandboxRules.map((r) => r.index)) - 10 : 0
     setSandboxRules((prev) => [
-      { id: newRuleId(), index: minIndex < 0 ? 0 : minIndex, action: 'deny', domains: '*', importProfileId: '', importManagedName: '' },
+      { id: newRuleId(), index: minIndex < 0 ? 0 : minIndex, action: 'deny', domains: '*', importProfileId: '' },
       ...prev,
     ])
   }
@@ -477,7 +454,7 @@ export default function SessionProfileFormModal({
                       <span className="ml-1.5 text-xs px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 font-normal">管理者専用</span>
                     </span>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      Managedプロファイルはシステム管理者が提供するルールセットです。他のプロファイルからmanaged_importアクションで参照できます。
+                      Managedプロファイルはシステム管理者が提供するルールセットです。サンドボックスが有効なセッションに自動的に適用されます。
                     </p>
                   </div>
                 </label>
@@ -657,10 +634,9 @@ export default function SessionProfileFormModal({
                     {sandboxEnabled && (
                       <div className="mt-3 ml-6 space-y-3">
                         {/* Explanation */}
-                        <div className="p-2.5 bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-600 dark:text-gray-400">
-                          ルールは <strong>index 昇順</strong> に評価され、<strong>最後にマッチしたルールが適用</strong>されます。どのルールにもマッチしない場合は<strong>拒否</strong>（デフォルト拒否）。
-                          <br />
-                          <span className="mt-1 block">例: index 0 で全拒否 → index 10 で別プロファイルをインポート → index 20 で特定ドメインを拒否</span>
+                        <div className="p-2.5 bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                          <p>ルールは <strong>index 昇順</strong> に評価され、<strong>最後にマッチしたルールが適用</strong>されます。マッチしない場合は<strong>拒否</strong>（デフォルト拒否）。</p>
+                          <p className="text-purple-600 dark:text-purple-400">管理者が作成した Managed プロファイルのルールは、負のインデックスとして自動的に適用されます（ユーザーのルールで上書き可能）。</p>
                         </div>
 
                         {/* Quick presets */}
@@ -704,16 +680,8 @@ export default function SessionProfileFormModal({
                                     <option value="allow">許可 (allow)</option>
                                     <option value="deny">拒否 (deny)</option>
                                     <option value="import">インポート</option>
-                                    <option value="managed_import">Managedインポート</option>
-                                    <option value="managed_import_all">Managed全インポート</option>
                                   </select>
 
-                                  {/* managed_import_all / spacers: always inline */}
-                                  {rule.action === 'managed_import_all' && (
-                                    <span className="flex-1 text-xs text-purple-600 dark:text-purple-400 italic">
-                                      全Managedプロファイルをインポート（追加設定なし）
-                                    </span>
-                                  )}
                                   {(rule.action === 'allow' || rule.action === 'deny') && (
                                     <div className="flex-1" />
                                   )}
@@ -756,30 +724,6 @@ export default function SessionProfileFormModal({
                                     </div>
                                   )}
 
-                                  {rule.action === 'managed_import' && (
-                                    <div className="order-last w-full sm:order-none sm:flex-1 sm:w-auto min-w-0">
-                                      {managedProfiles.length > 0 ? (
-                                        <select
-                                          value={rule.importManagedName}
-                                          onChange={(e) => updateRule(rule.id, { importManagedName: e.target.value })}
-                                          className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
-                                        >
-                                          <option value="">Managedプロファイルを選択...</option>
-                                          {managedProfiles.map((p) => (
-                                            <option key={p.id} value={p.name}>{p.name}</option>
-                                          ))}
-                                        </select>
-                                      ) : (
-                                        <input
-                                          type="text"
-                                          value={rule.importManagedName}
-                                          onChange={(e) => updateRule(rule.id, { importManagedName: e.target.value })}
-                                          placeholder="Managedプロファイル名..."
-                                          className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-purple-500"
-                                        />
-                                      )}
-                                    </div>
-                                  )}
                                 </div>
 
                                 {/* Domains textarea for allow/deny (below the main row) */}
