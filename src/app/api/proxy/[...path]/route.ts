@@ -73,8 +73,10 @@ async function handleProxyRequest(
       hasBody: method !== 'GET' && method !== 'HEAD'
     });
 
-    // Check if this is an OAuth endpoint that doesn't require API key
-    const isOAuthEndpoint = path.startsWith('oauth/') || path.includes('auth/');
+    // Check if this is an OAuth endpoint that doesn't require API key.
+    // Use startsWith (not includes) to avoid matching paths like codex/device-auth/token
+    // that merely contain "auth/" somewhere in the middle.
+    const isOAuthEndpoint = path.startsWith('oauth/') || path.startsWith('auth/');
     
     // Get API key from cookie (skip for OAuth endpoints)
     let apiKey: string | null = null;
