@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, ExternalSessionManagerConfig, GitSyncConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings, SlackSettings, FileSettings, GitHubSyncSettings } from '@/components/settings'
+import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings, SlackSettings, FileSettings, GitHubSyncSettings, CodexDeviceAuthSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, CredentialsMetadata } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -401,6 +401,17 @@ export default function PersonalSettingsPage() {
       showToast('削除に失敗しました', 'error')
     } finally {
       setDeletingCredentials(false)
+    }
+  }
+
+  const handleDeviceAuthComplete = async () => {
+    showToast('Codex 認証が完了しました', 'success')
+    try {
+      const client = createAgentAPIProxyClientFromStorage()
+      const meta = await client.getCredentials(userName)
+      setCredentialsMetadata(meta)
+    } catch {
+      // ignore
     }
   }
 
@@ -839,6 +850,26 @@ export default function PersonalSettingsPage() {
                 <p className="text-xs text-blue-700 dark:text-blue-300">
                   <strong>codex の認証ファイル</strong>について: <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">~/.codex/auth.json</code> は Codex が使用する認証情報ファイルです。ここにアップロードすると、エージェントセッション開始時に自動で適用されます。
                 </p>
+              </div>
+
+              {/* デバイス認証セクション */}
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  デバイス認証 (推奨)
+                </h4>
+                <CodexDeviceAuthSettings
+                  hasCredentials={!!credentialsMetadata?.has_data}
+                  onAuthComplete={handleDeviceAuthComplete}
+                />
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                  <div className="w-full border-t border-gray-200 dark:border-gray-700" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-white dark:bg-gray-900 px-3 text-xs text-gray-500 dark:text-gray-400">または手動でアップロード</span>
+                </div>
               </div>
               {/* 現在のステータス */}
               <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">

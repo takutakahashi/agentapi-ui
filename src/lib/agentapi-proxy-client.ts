@@ -79,6 +79,26 @@ export interface CredentialsMetadata {
   updated_at: string;
 }
 
+// CodexDeviceAuthConfig is returned by GET /codex/device-auth/config
+export interface CodexDeviceAuthConfig {
+  configured: boolean;
+}
+
+// CodexDeviceAuthStart is returned by POST /codex/device-auth
+export interface CodexDeviceAuthStart {
+  device_code: string;
+  user_code: string;
+  verification_uri: string;
+  verification_uri_complete?: string;
+  expires_in: number;
+  interval: number;
+}
+
+// CodexDeviceAuthStatus is returned by POST /codex/device-auth/token
+export interface CodexDeviceAuthStatus {
+  status: 'pending' | 'authorized' | 'expired' | 'denied';
+}
+
 // GitHubUser type (moved from profile.ts)
 export interface GitHubUser {
   id: number;
@@ -1342,6 +1362,40 @@ export class AgentAPIProxyClient {
     }
     await this.makeRequest<void>(`/credentials/${encodeURIComponent(name)}`, {
       method: 'DELETE',
+    });
+  }
+
+  // Codex device auth operations
+
+  /**
+   * Check if Codex device auth is configured on the proxy
+   * GET /codex/device-auth/config
+   */
+  async getCodexDeviceAuthConfig(): Promise<CodexDeviceAuthConfig> {
+    return await this.makeRequest<CodexDeviceAuthConfig>('/codex/device-auth/config');
+  }
+
+  /**
+   * Start Codex OAuth device authorization flow
+   * POST /codex/device-auth
+   */
+  async startCodexDeviceAuth(): Promise<CodexDeviceAuthStart> {
+    if (this.debug) {
+      console.log('[AgentAPIProxy] Starting Codex device auth');
+    }
+    return await this.makeRequest<CodexDeviceAuthStart>('/codex/device-auth', {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Poll for Codex device auth token
+   * POST /codex/device-auth/token
+   */
+  async pollCodexDeviceAuth(deviceCode: string): Promise<CodexDeviceAuthStatus> {
+    return await this.makeRequest<CodexDeviceAuthStatus>('/codex/device-auth/token', {
+      method: 'POST',
+      body: JSON.stringify({ device_code: deviceCode }),
     });
   }
 
