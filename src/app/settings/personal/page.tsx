@@ -535,8 +535,8 @@ export default function PersonalSettingsPage() {
           </SettingsAccordion>
 
           <SettingsAccordion
-            title="AI Settings"
-            description="Configure AI providers and models"
+            title="LLM プロバイダ認証設定"
+            description="Claude・Bedrock・Codex などの LLM プロバイダ認証を設定します"
             defaultOpen
           >
             <div className="space-y-6">
@@ -566,14 +566,19 @@ export default function PersonalSettingsPage() {
                   )}
                 </div>
               )}
-              <ClaudeOAuthSettings
-                hasToken={settings.has_claude_code_oauth_token ?? false}
-                authMode={settings.auth_mode}
-                onChange={handleClaudeOAuthChange}
-              />
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                  Claude (OAuth)
+                </h4>
+                <ClaudeOAuthSettings
+                  hasToken={settings.has_claude_code_oauth_token ?? false}
+                  authMode={settings.auth_mode}
+                  onChange={handleClaudeOAuthChange}
+                />
+              </div>
               <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
                 <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
-                  Bedrock Settings
+                  Amazon Bedrock
                 </h4>
                 <BedrockSettings config={settings.bedrock} onChange={handleBedrockChange} />
               </div>

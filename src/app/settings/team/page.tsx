@@ -282,11 +282,16 @@ export default function TeamSettingsPage() {
           </SettingsAccordion>
 
           <SettingsAccordion
-            title="AI Settings"
-            description="Configure AI providers and models"
+            title="LLM プロバイダ認証設定"
+            description="Amazon Bedrock などの LLM プロバイダ認証を設定します"
             defaultOpen
           >
-            <BedrockSettings config={settings.bedrock} onChange={handleBedrockChange} showCredentials />
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Amazon Bedrock
+              </h4>
+              <BedrockSettings config={settings.bedrock} onChange={handleBedrockChange} showCredentials />
+            </div>
           </SettingsAccordion>
 
           <SettingsAccordion
