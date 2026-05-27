@@ -30,7 +30,11 @@ export function CodexDeviceAuthSettings({ hasCredentials, onAuthComplete }: Code
     const client = createAgentAPIProxyClientFromStorage()
     client.getCodexDeviceAuthConfig()
       .then(cfg => setConfigured(cfg.configured))
-      .catch(() => setConfigured(false))
+      .catch(() => {
+        // On error (e.g. 401, network failure), assume configured so the start
+        // button remains visible and the real error surfaces when the user clicks it.
+        setConfigured(true)
+      })
   }, [])
 
   const clearPollTimer = () => {
