@@ -3,21 +3,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 
-type AuthPhase = 'idle' | 'polling' | 'authorized' | 'expired' | 'denied' | 'error'
+type AuthPhase = 'idle' | 'polling' | 'authorized' | 'denied' | 'error'
 
 interface DeviceAuthState {
-  deviceCode: string
   userCode: string
   verificationUri: string
-  verificationUriComplete?: string
-  expiresAt: number
-  interval: number
 }
 
 interface CodexDeviceAuthSettingsProps {
   hasCredentials: boolean
   onAuthComplete?: () => void
 }
+
+const POLL_INTERVAL_MS = 3000
 
 export function CodexDeviceAuthSettings({ hasCredentials, onAuthComplete }: CodexDeviceAuthSettingsProps) {
   const [phase, setPhase] = useState<AuthPhase>('idle')
@@ -42,25 +40,14 @@ export function CodexDeviceAuthSettings({ hasCredentials, onAuthComplete }: Code
     }
   }
 
-  const poll = useCallback(async (deviceCode: string, interval: number, expiresAt: number) => {
-    if (Date.now() / 1000 > expiresAt) {
-      setPhase('expired')
-      setDeviceAuth(null)
-      return
-    }
-
+  const poll = useCallback(async () => {
     const client = createAgentAPIProxyClientFromStorage()
     try {
-      const result = await client.pollCodexDeviceAuth(deviceCode)
+      const result = await client.pollCodexDeviceAuth()
       if (result.status === 'authorized') {
         setPhase('authorized')
         setDeviceAuth(null)
         onAuthComplete?.()
-        return
-      }
-      if (result.status === 'expired') {
-        setPhase('expired')
-        setDeviceAuth(null)
         return
       }
       if (result.status === 'denied') {
@@ -69,9 +56,7 @@ export function CodexDeviceAuthSettings({ hasCredentials, onAuthComplete }: Code
         return
       }
       // still pending — schedule next poll
-      pollTimerRef.current = setTimeout(() => {
-        poll(deviceCode, interval, expiresAt)
-      }, interval * 1000)
+      pollTimerRef.current = setTimeout(poll, POLL_INTERVAL_MS)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ポーリングエラーが発生しました')
       setPhase('error')
@@ -90,20 +75,9 @@ export function CodexDeviceAuthSettings({ hasCredentials, onAuthComplete }: Code
     const client = createAgentAPIProxyClientFromStorage()
     try {
       const res = await client.startCodexDeviceAuth()
-      const expiresAt = Math.floor(Date.now() / 1000) + res.expires_in
-      const state: DeviceAuthState = {
-        deviceCode: res.device_code,
-        userCode: res.user_code,
-        verificationUri: res.verification_uri,
-        verificationUriComplete: res.verification_uri_complete,
-        expiresAt,
-        interval: res.interval,
-      }
-      setDeviceAuth(state)
+      setDeviceAuth({ userCode: res.user_code, verificationUri: res.verification_uri })
       setPhase('polling')
-      pollTimerRef.current = setTimeout(() => {
-        poll(res.device_code, res.interval, expiresAt)
-      }, res.interval * 1000)
+      pollTimerRef.current = setTimeout(poll, POLL_INTERVAL_MS)
     } catch (err) {
       setError(err instanceof Error ? err.message : '認証フローの開始に失敗しました')
       setPhase('error')
@@ -140,7 +114,7 @@ export function CodexDeviceAuthSettings({ hasCredentials, onAuthComplete }: Code
     return (
       <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
         <p className="text-xs text-yellow-700 dark:text-yellow-300">
-          デバイス認証が設定されていません。プロキシに <code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">AGENTAPI_CODEX_AUTH_DEVICE_AUTH_URL</code>、<code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">AGENTAPI_CODEX_AUTH_TOKEN_URL</code>、<code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">AGENTAPI_CODEX_AUTH_CLIENT_ID</code> を設定してください。
+          デバイス認証を利用するには、プロキシサーバーに <code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">codex</code> コマンドがインストールされている必要があります。
         </p>
       </div>
     )
@@ -155,7 +129,7 @@ export function CodexDeviceAuthSettings({ hasCredentials, onAuthComplete }: Code
             デバイス認証
           </label>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            OAuth デバイスフローで Codex 認証を行います。auth.json を手動でアップロードする代わりに利用できます。
+            codex コマンドを使って認証を行います。auth.json を手動でアップロードする代わりに利用できます。
           </p>
         </div>
         <div>
@@ -179,11 +153,10 @@ export function CodexDeviceAuthSettings({ hasCredentials, onAuthComplete }: Code
         </div>
       </div>
 
-      {/* Error */}
-      {(phase === 'error' || phase === 'expired' || phase === 'denied') && (
+      {/* Error / denied */}
+      {(phase === 'error' || phase === 'denied') && (
         <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
           <p className="text-xs text-red-700 dark:text-red-300">
-            {phase === 'expired' && 'デバイスコードの有効期限が切れました。もう一度お試しください。'}
             {phase === 'denied' && '認証が拒否されました。もう一度お試しください。'}
             {phase === 'error' && (error || '認証エラーが発生しました。')}
           </p>
@@ -209,12 +182,12 @@ export function CodexDeviceAuthSettings({ hasCredentials, onAuthComplete }: Code
             <li>
               下記の URL にアクセスしてください：
               <a
-                href={deviceAuth.verificationUriComplete || deviceAuth.verificationUri}
+                href={deviceAuth.verificationUri}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block mt-1 text-blue-600 dark:text-blue-400 hover:underline font-mono text-xs break-all"
               >
-                {deviceAuth.verificationUriComplete || deviceAuth.verificationUri}
+                {deviceAuth.verificationUri}
               </a>
             </li>
             <li>

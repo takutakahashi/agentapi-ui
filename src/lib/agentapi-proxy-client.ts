@@ -86,17 +86,13 @@ export interface CodexDeviceAuthConfig {
 
 // CodexDeviceAuthStart is returned by POST /codex/device-auth
 export interface CodexDeviceAuthStart {
-  device_code: string;
   user_code: string;
   verification_uri: string;
-  verification_uri_complete?: string;
-  expires_in: number;
-  interval: number;
 }
 
 // CodexDeviceAuthStatus is returned by POST /codex/device-auth/token
 export interface CodexDeviceAuthStatus {
-  status: 'pending' | 'authorized' | 'expired' | 'denied';
+  status: 'pending' | 'authorized' | 'denied';
 }
 
 // GitHubUser type (moved from profile.ts)
@@ -1389,13 +1385,12 @@ export class AgentAPIProxyClient {
   }
 
   /**
-   * Poll for Codex device auth token
+   * Poll for Codex device auth status
    * POST /codex/device-auth/token
    */
-  async pollCodexDeviceAuth(deviceCode: string): Promise<CodexDeviceAuthStatus> {
+  async pollCodexDeviceAuth(): Promise<CodexDeviceAuthStatus> {
     return await this.makeRequest<CodexDeviceAuthStatus>('/codex/device-auth/token', {
       method: 'POST',
-      body: JSON.stringify({ device_code: deviceCode }),
     });
   }
 
