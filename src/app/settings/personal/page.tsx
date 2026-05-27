@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, ExternalSessionManagerConfig, GitSyncConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings, SlackSettings, FileSettings, GitHubSyncSettings } from '@/components/settings'
+import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings, SlackSettings, FileSettings, GitHubSyncSettings, CodexDeviceAuthSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, CredentialsMetadata } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -404,6 +404,17 @@ export default function PersonalSettingsPage() {
     }
   }
 
+  const handleDeviceAuthComplete = async () => {
+    showToast('Codex 認証が完了しました', 'success')
+    try {
+      const client = createAgentAPIProxyClientFromStorage()
+      const meta = await client.getCredentials(userName)
+      setCredentialsMetadata(meta)
+    } catch {
+      // ignore
+    }
+  }
+
   const handleLogout = async () => {
     if (loggingOut) return
     setLoggingOut(true)
@@ -565,6 +576,120 @@ export default function PersonalSettingsPage() {
                   Bedrock Settings
                 </h4>
                 <BedrockSettings config={settings.bedrock} onChange={handleBedrockChange} />
+              </div>
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                  Codex 認証 (auth.json)
+                </h4>
+                <div className="space-y-4">
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                      <strong>codex の認証ファイル</strong>について: <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">~/.codex/auth.json</code> は Codex が使用する認証情報ファイルです。ここにアップロードすると、エージェントセッション開始時に自動で適用されます。
+                    </p>
+                  </div>
+
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                      デバイス認証 (推奨)
+                    </h4>
+                    <CodexDeviceAuthSettings
+                      hasCredentials={!!credentialsMetadata?.has_data}
+                      onAuthComplete={handleDeviceAuthComplete}
+                    />
+                  </div>
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                      <div className="w-full border-t border-gray-200 dark:border-gray-700" />
+                    </div>
+                    <div className="relative flex justify-center">
+                      <span className="bg-white dark:bg-gray-900 px-3 text-xs text-gray-500 dark:text-gray-400">または手動でアップロード</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      {credentialsMetadata?.has_data ? (
+                        <>
+                          <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
+                            auth.json がアップロード済みです
+                            {credentialsMetadata.updated_at && (
+                              <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
+                                (更新: {new Date(credentialsMetadata.updated_at).toLocaleString()})
+                              </span>
+                            )}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">auth.json が未設定です</span>
+                        </>
+                      )}
+                    </div>
+                    {credentialsMetadata?.has_data && (
+                      <button
+                        type="button"
+                        onClick={handleDeleteCredentials}
+                        disabled={deletingCredentials}
+                        className="text-xs px-2 py-1 rounded border border-red-200 dark:border-red-700 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {deletingCredentials ? '削除中...' : '削除'}
+                      </button>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      ファイルを選択 (~/.codex/auth.json)
+                    </label>
+                    <input
+                      type="file"
+                      accept=".json,application/json"
+                      onChange={handleCredentialsFileChange}
+                      className="block w-full text-sm text-gray-500 dark:text-gray-400
+                        file:mr-3 file:py-1.5 file:px-3
+                        file:rounded file:border file:border-gray-300 dark:file:border-gray-600
+                        file:text-xs file:font-medium
+                        file:bg-white dark:file:bg-gray-700
+                        file:text-gray-700 dark:file:text-gray-300
+                        file:cursor-pointer
+                        hover:file:bg-gray-50 dark:hover:file:bg-gray-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      または JSON を直接貼り付け
+                    </label>
+                    <textarea
+                      value={credentialsJson}
+                      onChange={(e) => handleCredentialsJsonChange(e.target.value)}
+                      placeholder=""
+                      rows={6}
+                      className="w-full px-3 py-2 text-xs font-mono border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                    />
+                    {credentialsJsonError && (
+                      <p className="mt-1 text-xs text-red-500">{credentialsJsonError}</p>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleUploadCredentials}
+                    disabled={!credentialsJson.trim() || !!credentialsJsonError || uploadingCredentials}
+                    className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  >
+                    {uploadingCredentials && (
+                      <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white"></div>
+                    )}
+                    {uploadingCredentials ? 'アップロード中...' : 'アップロード'}
+                  </button>
+                </div>
               </div>
             </div>
           </SettingsAccordion>
@@ -826,106 +951,6 @@ export default function PersonalSettingsPage() {
                   マネージャーを追加
                 </button>
               )}
-            </div>
-          </SettingsAccordion>
-
-          <SettingsAccordion
-            title="認証ファイル (auth.json)"
-            description="Codex の auth.json をアップロードします。セッション開始時に自動で適用されます。"
-          >
-            <div className="space-y-4">
-              {/* codex auth.json の説明 */}
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <p className="text-xs text-blue-700 dark:text-blue-300">
-                  <strong>codex の認証ファイル</strong>について: <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">~/.codex/auth.json</code> は Codex が使用する認証情報ファイルです。ここにアップロードすると、エージェントセッション開始時に自動で適用されます。
-                </p>
-              </div>
-              {/* 現在のステータス */}
-              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <div className="flex items-center gap-2">
-                  {credentialsMetadata?.has_data ? (
-                    <>
-                      <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span className="text-sm text-gray-700 dark:text-gray-300">
-                        auth.json がアップロード済みです
-                        {credentialsMetadata.updated_at && (
-                          <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
-                            (更新: {new Date(credentialsMetadata.updated_at).toLocaleString()})
-                          </span>
-                        )}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">auth.json が未設定です</span>
-                    </>
-                  )}
-                </div>
-                {credentialsMetadata?.has_data && (
-                  <button
-                    type="button"
-                    onClick={handleDeleteCredentials}
-                    disabled={deletingCredentials}
-                    className="text-xs px-2 py-1 rounded border border-red-200 dark:border-red-700 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {deletingCredentials ? '削除中...' : '削除'}
-                  </button>
-                )}
-              </div>
-
-              {/* ファイルアップロード */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  ファイルを選択 (~/.codex/auth.json)
-                </label>
-                <input
-                  type="file"
-                  accept=".json,application/json"
-                  onChange={handleCredentialsFileChange}
-                  className="block w-full text-sm text-gray-500 dark:text-gray-400
-                    file:mr-3 file:py-1.5 file:px-3
-                    file:rounded file:border file:border-gray-300 dark:file:border-gray-600
-                    file:text-xs file:font-medium
-                    file:bg-white dark:file:bg-gray-700
-                    file:text-gray-700 dark:file:text-gray-300
-                    file:cursor-pointer
-                    hover:file:bg-gray-50 dark:hover:file:bg-gray-600"
-                />
-              </div>
-
-              {/* テキスト入力 */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  または JSON を直接貼り付け
-                </label>
-                <textarea
-                  value={credentialsJson}
-                  onChange={(e) => handleCredentialsJsonChange(e.target.value)}
-                  placeholder=""
-                  rows={6}
-                  className="w-full px-3 py-2 text-xs font-mono border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
-                />
-                {credentialsJsonError && (
-                  <p className="mt-1 text-xs text-red-500">{credentialsJsonError}</p>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={handleUploadCredentials}
-                disabled={!credentialsJson.trim() || !!credentialsJsonError || uploadingCredentials}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-              >
-                {uploadingCredentials && (
-                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white"></div>
-                )}
-                {uploadingCredentials ? 'アップロード中...' : 'アップロード'}
-              </button>
             </div>
           </SettingsAccordion>
 
