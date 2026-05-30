@@ -101,6 +101,22 @@ export default function SessionProfileCard({
         {profile.config?.tags && Object.keys(profile.config.tags).length > 0 && (
           <span>タグ: <strong className="text-gray-700 dark:text-gray-300">{Object.keys(profile.config.tags).length}</strong></span>
         )}
+        {profile.config?.initial_message_template && (
+          <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+            初期テンプレート
+          </span>
+        )}
+        {profile.config?.reuse_message_template && (
+          <span className="inline-flex items-center gap-1 text-teal-600 dark:text-teal-400">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v6h6M20 20v-6h-6M20 9A8 8 0 006.34 5.34L4 10m16 4l-2.34 4.66A8 8 0 014 15" />
+            </svg>
+            再利用テンプレート
+          </span>
+        )}
       </div>
 
       {/* Timestamps */}

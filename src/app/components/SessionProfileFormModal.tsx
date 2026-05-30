@@ -35,6 +35,8 @@ export default function SessionProfileFormModal({
   const [envPairs, setEnvPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
   const [tagPairs, setTagPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
   const [agentType, setAgentType] = useState('')
+  const [initialMessageTemplate, setInitialMessageTemplate] = useState('')
+  const [reuseMessageTemplate, setReuseMessageTemplate] = useState('')
 
   // Sandbox fields
   const [sandboxEnabled, setSandboxEnabled] = useState(false)
@@ -57,6 +59,8 @@ export default function SessionProfileFormModal({
 
       const cfg = editingProfile.config
       setAgentType(cfg?.params?.agent_type ?? '')
+      setInitialMessageTemplate(cfg?.initial_message_template ?? '')
+      setReuseMessageTemplate(cfg?.reuse_message_template ?? '')
 
       if (cfg?.environment && Object.keys(cfg.environment).length > 0) {
         setEnvPairs(Object.entries(cfg.environment).map(([key, value]) => ({ key, value })))
@@ -72,7 +76,7 @@ export default function SessionProfileFormModal({
         setTagPairs([{ key: '', value: '' }])
       }
 
-      if (cfg?.params?.agent_type) {
+      if (cfg?.params?.agent_type || cfg?.initial_message_template || cfg?.reuse_message_template) {
         setShowAdvanced(true)
       }
 
@@ -101,6 +105,8 @@ export default function SessionProfileFormModal({
       setEnvPairs([{ key: '', value: '' }])
       setTagPairs([{ key: '', value: '' }])
       setAgentType('')
+      setInitialMessageTemplate('')
+      setReuseMessageTemplate('')
       setSandboxEnabled(false)
       setSandboxMode('allowlist')
       setSandboxDomains('')
@@ -198,6 +204,8 @@ export default function SessionProfileFormModal({
       const config = {
         ...(Object.keys(environment).length > 0 ? { environment } : {}),
         ...(Object.keys(tags).length > 0 ? { tags } : {}),
+        ...(initialMessageTemplate.trim() ? { initial_message_template: initialMessageTemplate.trim() } : {}),
+        ...(reuseMessageTemplate.trim() ? { reuse_message_template: reuseMessageTemplate.trim() } : {}),
         ...(params ? { params } : {}),
       }
 
@@ -439,6 +447,35 @@ export default function SessionProfileFormModal({
                         </svg>
                         追加
                       </button>
+                    </div>
+                  </div>
+
+                  {/* Message Templates */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        初期メッセージテンプレート
+                      </label>
+                      <textarea
+                        value={initialMessageTemplate}
+                        onChange={(e) => setInitialMessageTemplate(e.target.value)}
+                        placeholder="例: {{ .tags.repository }} のレビューをしてください"
+                        rows={5}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono resize-y"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        再利用メッセージテンプレート
+                      </label>
+                      <textarea
+                        value={reuseMessageTemplate}
+                        onChange={(e) => setReuseMessageTemplate(e.target.value)}
+                        placeholder="例: {{ .tags.repository }} に追加対応してください"
+                        rows={4}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono resize-y"
+                      />
                     </div>
                   </div>
 
