@@ -245,22 +245,25 @@ export default function SandboxPoliciesPage() {
       </TopBar>
 
       <div className="px-4 md:px-6 lg:px-8 pt-6 md:pt-8 pb-6 md:pb-8 max-w-4xl mx-auto">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">サンドボックスポリシー</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              名前付きのネットワークフィルタールールセットを定義し、セッションプロファイルから参照できます。
-            </p>
+        <div className="mb-6">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">サンドボックスポリシー</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                名前付きのネットワークフィルタールールセットを定義し、セッションプロファイルから参照できます。
+              </p>
+            </div>
+            {/* Desktop button */}
+            <button
+              onClick={() => { setEditing(null); setIsFormOpen(true) }}
+              className="hidden md:inline-flex shrink-0 items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              新しいポリシー
+            </button>
           </div>
-          <button
-            onClick={() => { setEditing(null); setIsFormOpen(true) }}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            新しいポリシー
-          </button>
         </div>
 
         {loading ? (
@@ -293,6 +296,17 @@ export default function SandboxPoliciesPage() {
           </div>
         )}
       </div>
+
+      {/* Mobile FAB */}
+      <button
+        onClick={() => { setEditing(null); setIsFormOpen(true) }}
+        className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center z-50 transition-colors"
+        aria-label="新しいポリシー"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+        </svg>
+      </button>
 
       <SandboxPolicyFormModal
         isOpen={isFormOpen}
