@@ -50,6 +50,13 @@ import {
   UpdateSessionProfileRequest
 } from '../types/session_profile';
 import {
+  SandboxPolicy,
+  SandboxPolicyListParams,
+  SandboxPolicyListResponse,
+  CreateSandboxPolicyRequest,
+  UpdateSandboxPolicyRequest
+} from '../types/sandbox_policy';
+import {
   Memory,
   MemoryListParams,
   MemoryListResponse,
@@ -1806,6 +1813,46 @@ export class AgentAPIProxyClient {
     if (this.debug) {
       console.log(`[AgentAPIProxy] Deleted session profile: ${profileId}`);
     }
+  }
+
+  // ============================================================
+  // Sandbox Policy methods
+  // ============================================================
+
+  async createSandboxPolicy(data: CreateSandboxPolicyRequest): Promise<SandboxPolicy> {
+    return this.makeRequest<SandboxPolicy>('/sandbox-policies', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getSandboxPolicies(params?: SandboxPolicyListParams): Promise<SandboxPolicyListResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.scope) searchParams.set('scope', params.scope);
+    if (params?.team_id) searchParams.set('team_id', params.team_id);
+    const endpoint = `/sandbox-policies${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const result = await this.makeRequest<SandboxPolicy[] | SandboxPolicyListResponse>(endpoint);
+    if (Array.isArray(result)) {
+      return { sandbox_policies: result };
+    }
+    return { ...result, sandbox_policies: result.sandbox_policies || [] };
+  }
+
+  async getSandboxPolicy(policyId: string): Promise<SandboxPolicy> {
+    return this.makeRequest<SandboxPolicy>(`/sandbox-policies/${policyId}`);
+  }
+
+  async updateSandboxPolicy(policyId: string, data: UpdateSandboxPolicyRequest): Promise<SandboxPolicy> {
+    return this.makeRequest<SandboxPolicy>(`/sandbox-policies/${policyId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteSandboxPolicy(policyId: string): Promise<void> {
+    await this.makeRequest<void>(`/sandbox-policies/${policyId}`, {
+      method: 'DELETE',
+    });
   }
 
   // ============================================================

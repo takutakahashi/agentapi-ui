@@ -17,6 +17,7 @@ export interface SessionProfileConfig {
   reuse_session?: boolean;
   memory_key?: Record<string, string>;
   params?: SessionProfileParams;
+  sandbox_policy_id?: string;
 }
 
 // SessionProfile entity

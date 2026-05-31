@@ -6,6 +6,7 @@ import {
   CreateSessionProfileRequest,
   UpdateSessionProfileRequest,
 } from '../../types/session_profile'
+import { SandboxPolicy } from '../../types/sandbox_policy'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
 
@@ -38,8 +39,10 @@ export default function SessionProfileFormModal({
 
   // Sandbox fields
   const [sandboxEnabled, setSandboxEnabled] = useState(false)
+  const [sandboxPolicyId, setSandboxPolicyId] = useState('')
   const [sandboxMode, setSandboxMode] = useState<'allowlist' | 'denylist'>('allowlist')
   const [sandboxDomains, setSandboxDomains] = useState('')
+  const [availablePolicies, setAvailablePolicies] = useState<SandboxPolicy[]>([])
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -47,6 +50,17 @@ export default function SessionProfileFormModal({
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   const isEditing = !!editingProfile
+
+  // Load available sandbox policies when modal opens
+  useEffect(() => {
+    if (!isOpen) return
+    const client = createAgentAPIProxyClientFromStorage()
+    client.getSandboxPolicies().then((res) => {
+      setAvailablePolicies(res.sandbox_policies || [])
+    }).catch(() => {
+      setAvailablePolicies([])
+    })
+  }, [isOpen])
 
   // Initialize form when editing
   useEffect(() => {
@@ -76,6 +90,11 @@ export default function SessionProfileFormModal({
         setShowAdvanced(true)
       }
 
+      // Initialize sandbox_policy_id from profile config
+      const policyId = cfg?.sandbox_policy_id ?? ''
+      setSandboxPolicyId(policyId)
+      if (policyId) setShowAdvanced(true)
+
       // Initialize sandbox from profile params
       const sandbox = cfg?.params?.sandbox
       if (sandbox) {
@@ -102,6 +121,7 @@ export default function SessionProfileFormModal({
       setTagPairs([{ key: '', value: '' }])
       setAgentType('')
       setSandboxEnabled(false)
+      setSandboxPolicyId('')
       setSandboxMode('allowlist')
       setSandboxDomains('')
       setShowAdvanced(false)
@@ -199,6 +219,7 @@ export default function SessionProfileFormModal({
         ...(Object.keys(environment).length > 0 ? { environment } : {}),
         ...(Object.keys(tags).length > 0 ? { tags } : {}),
         ...(params ? { params } : {}),
+        ...(sandboxPolicyId ? { sandbox_policy_id: sandboxPolicyId } : {}),
       }
 
       if (isEditing && editingProfile) {
@@ -477,7 +498,34 @@ export default function SessionProfileFormModal({
                     </div>
                   </div>
 
-                  {/* Sandbox */}
+                  {/* Sandbox Policy */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      サンドボックスポリシー
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      事前定義されたポリシーを選択すると、セッション作成時にそのドメインルールが自動的に適用されます。
+                    </p>
+                    <select
+                      value={sandboxPolicyId}
+                      onChange={(e) => setSandboxPolicyId(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">使用しない</option>
+                      {availablePolicies.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}{p.description ? ` — ${p.description}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {sandboxPolicyId && (
+                      <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                        ポリシーのドメインルールが自動でサンドボックスを有効にします。追加の制限は下の設定で上書きできます。
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Sandbox manual override */}
                   <div>
                     <label className="flex items-start gap-2 cursor-pointer">
                       <input
@@ -488,10 +536,12 @@ export default function SessionProfileFormModal({
                       />
                       <div>
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          サンドボックス（ネットワーク制限）を有効にする
+                          {sandboxPolicyId ? 'ドメインを追加で上書き設定する' : 'サンドボックス（ネットワーク制限）を有効にする'}
                         </span>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                          セッションのアウトバウンドネットワークアクセスをドメインレベルで制限します。
+                          {sandboxPolicyId
+                            ? 'ポリシーのドメインリストに加えて、追加の許可/拒否ドメインを設定します。'
+                            : 'セッションのアウトバウンドネットワークアクセスをドメインレベルで制限します。'}
                         </p>
                       </div>
                     </label>
