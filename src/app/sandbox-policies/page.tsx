@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { SandboxPolicy, CreateSandboxPolicyRequest, UpdateSandboxPolicyRequest } from '../../types/sandbox_policy'
-import { Session } from '../../types/agentapi'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
 import TopBar from '../components/TopBar'
@@ -17,8 +16,7 @@ interface SessionDomainImportModalProps {
 }
 
 function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: SessionDomainImportModalProps) {
-  const [domains, setDomains] = useState<{ allowed: string[]; denied: string[] } | null>(null)
-  const [matchCount, setMatchCount] = useState(0)
+  const [domains, setDomains] = useState<{ allowed: string[]; denied: string[]; updated_at?: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [selectedDomains, setSelectedDomains] = useState<Set<string>>(new Set())
   const [activeTab, setActiveTab] = useState<'denied' | 'allowed'>('denied')
@@ -26,7 +24,6 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  // Fetch and aggregate domains from all sessions using this policy
   const fetchDomains = useCallback(async () => {
     setLoading(true)
     setDomains(null)
@@ -35,28 +32,14 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
     setSuccess(null)
     try {
       const client = createAgentAPIProxyClientFromStorage()
-      const res = await client.search()
-      const matching = (res.sessions ?? []).filter((s) => s.sandbox_policy_id === policy.id)
-      setMatchCount(matching.length)
-      if (matching.length === 0) {
-        setDomains({ allowed: [], denied: [] })
-        return
+      const result = await client.getSandboxPolicyDomains(policy.id)
+      setDomains(result)
+    } catch (err) {
+      if (err instanceof AgentAPIProxyError && err.status === 501) {
+        setError('ドメイン収集機能が利用できません')
+      } else {
+        setError('ドメインデータの取得に失敗しました')
       }
-      // Fetch domains from all matching sessions in parallel, ignore failures
-      const results = await Promise.allSettled(
-        matching.map((s) => client.getSessionSandboxDomains(s.session_id))
-      )
-      const allowedSet = new Set<string>()
-      const deniedSet = new Set<string>()
-      for (const r of results) {
-        if (r.status === 'fulfilled') {
-          r.value.allowed?.forEach((d) => allowedSet.add(d))
-          r.value.denied?.forEach((d) => deniedSet.add(d))
-        }
-      }
-      setDomains({ allowed: Array.from(allowedSet), denied: Array.from(deniedSet) })
-    } catch {
-      setError('セッション情報の取得に失敗しました')
     } finally {
       setLoading(false)
     }
@@ -115,7 +98,7 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">セッションからドメインを取り込む</h2>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                 ポリシー: {policy.name}
-                {!loading && domains && ` — 対象セッション ${matchCount} 件`}
+                {!loading && domains?.updated_at && ` — 最終更新: ${new Date(domains.updated_at).toLocaleString('ja-JP')}`}
               </p>
             </div>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
@@ -147,13 +130,13 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
               </div>
             )}
 
-            {!loading && domains && matchCount === 0 && (
+            {!loading && domains && domains.allowed.length === 0 && domains.denied.length === 0 && (
               <p className="text-sm text-gray-400 text-center py-6">
-                このポリシーを使用しているセッションが見つかりませんでした
+                まだドメインが収集されていません。このポリシーを使用したセッションが起動されると自動的に収集されます。
               </p>
             )}
 
-            {!loading && domains && matchCount > 0 && (
+            {!loading && domains && (domains.allowed.length > 0 || domains.denied.length > 0) && (
               <>
                 <div className="flex border-b border-gray-200 dark:border-gray-700">
                   <button
