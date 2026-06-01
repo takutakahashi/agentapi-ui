@@ -17,57 +17,56 @@ interface SessionDomainImportModalProps {
 }
 
 function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: SessionDomainImportModalProps) {
-  const [sessions, setSessions] = useState<Session[]>([])
-  const [selectedSessionId, setSelectedSessionId] = useState('')
   const [domains, setDomains] = useState<{ allowed: string[]; denied: string[] } | null>(null)
-  const [loadingSessions, setLoadingSessions] = useState(false)
-  const [loadingDomains, setLoadingDomains] = useState(false)
+  const [matchCount, setMatchCount] = useState(0)
+  const [loading, setLoading] = useState(false)
   const [selectedDomains, setSelectedDomains] = useState<Set<string>>(new Set())
   const [activeTab, setActiveTab] = useState<'denied' | 'allowed'>('denied')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!isOpen) return
-    setDomains(null)
-    setSelectedDomains(new Set())
-    setSelectedSessionId('')
-    setError(null)
-    setSuccess(null)
-    setActiveTab('denied')
-
-    setLoadingSessions(true)
-    const client = createAgentAPIProxyClientFromStorage()
-    client.search({ status: 'running' })
-      .then((res) => setSessions(res.sessions ?? []))
-      .catch(() => setSessions([]))
-      .finally(() => setLoadingSessions(false))
-  }, [isOpen])
-
-  const fetchDomains = async () => {
-    if (!selectedSessionId) return
-    setLoadingDomains(true)
+  // Fetch and aggregate domains from all sessions using this policy
+  const fetchDomains = useCallback(async () => {
+    setLoading(true)
     setDomains(null)
     setSelectedDomains(new Set())
     setError(null)
     setSuccess(null)
     try {
       const client = createAgentAPIProxyClientFromStorage()
-      const result = await client.getSessionSandboxDomains(selectedSessionId)
-      setDomains(result)
-    } catch (err) {
-      if (err instanceof AgentAPIProxyError && err.status === 503) {
-        setError('このセッションにはネットワークフィルター（サンドボックス）が設定されていません')
-      } else if (err instanceof AgentAPIProxyError && err.status === 501) {
-        setError('このセッションタイプではサンドボックスドメインの取得はサポートされていません')
-      } else {
-        setError('ドメインリストの取得に失敗しました')
+      const res = await client.search()
+      const matching = (res.sessions ?? []).filter((s) => s.sandbox_policy_id === policy.id)
+      setMatchCount(matching.length)
+      if (matching.length === 0) {
+        setDomains({ allowed: [], denied: [] })
+        return
       }
+      // Fetch domains from all matching sessions in parallel, ignore failures
+      const results = await Promise.allSettled(
+        matching.map((s) => client.getSessionSandboxDomains(s.session_id))
+      )
+      const allowedSet = new Set<string>()
+      const deniedSet = new Set<string>()
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          r.value.allowed?.forEach((d) => allowedSet.add(d))
+          r.value.denied?.forEach((d) => deniedSet.add(d))
+        }
+      }
+      setDomains({ allowed: Array.from(allowedSet), denied: Array.from(deniedSet) })
+    } catch {
+      setError('セッション情報の取得に失敗しました')
     } finally {
-      setLoadingDomains(false)
+      setLoading(false)
     }
-  }
+  }, [policy.id])
+
+  useEffect(() => {
+    if (!isOpen) return
+    setActiveTab('denied')
+    fetchDomains()
+  }, [isOpen, fetchDomains])
 
   const toggleDomain = (domain: string) => {
     setSelectedDomains((prev) => {
@@ -104,8 +103,6 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
   if (!isOpen) return null
 
   const currentDomains = activeTab === 'denied' ? (domains?.denied ?? []) : (domains?.allowed ?? [])
-  const sessionLabel = (s: Session) =>
-    s.tags?.description || s.tags?.repo || s.session_id.slice(0, 8)
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -116,7 +113,10 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">セッションからドメインを取り込む</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">ポリシー: {policy.name}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                ポリシー: {policy.name}
+                {!loading && domains && ` — 対象セッション ${matchCount} 件`}
+              </p>
             </div>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -126,7 +126,6 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
           </div>
 
           <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
-            {/* Error / success */}
             {error && (
               <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                 <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
@@ -138,42 +137,23 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
               </div>
             )}
 
-            {/* Session picker */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                セッションを選択
-              </label>
-              {loadingSessions ? (
-                <p className="text-sm text-gray-400">セッションを取得中...</p>
-              ) : sessions.length === 0 ? (
-                <p className="text-sm text-gray-400">実行中のセッションがありません</p>
-              ) : (
-                <div className="flex gap-2">
-                  <select
-                    value={selectedSessionId}
-                    onChange={(e) => { setSelectedSessionId(e.target.value); setDomains(null); setError(null); setSuccess(null) }}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">-- セッションを選択 --</option>
-                    {sessions.map((s) => (
-                      <option key={s.session_id} value={s.session_id}>
-                        {sessionLabel(s)} ({s.status})
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={fetchDomains}
-                    disabled={!selectedSessionId || loadingDomains}
-                    className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white rounded-lg transition-colors disabled:cursor-not-allowed"
-                  >
-                    {loadingDomains ? '取得中...' : '取得'}
-                  </button>
-                </div>
-              )}
-            </div>
+            {loading && (
+              <div className="flex items-center justify-center py-8 gap-2 text-gray-400">
+                <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                <span className="text-sm">セッションのアクセスログを収集中...</span>
+              </div>
+            )}
 
-            {/* Domain tabs */}
-            {domains && (
+            {!loading && domains && matchCount === 0 && (
+              <p className="text-sm text-gray-400 text-center py-6">
+                このポリシーを使用しているセッションが見つかりませんでした
+              </p>
+            )}
+
+            {!loading && domains && matchCount > 0 && (
               <>
                 <div className="flex border-b border-gray-200 dark:border-gray-700">
                   <button
@@ -240,7 +220,14 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
             )}
           </div>
 
-          <div className="flex justify-end px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+            <button
+              onClick={fetchDomains}
+              disabled={loading}
+              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 disabled:opacity-50"
+            >
+              再取得
+            </button>
             <button onClick={onClose} className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
               閉じる
             </button>

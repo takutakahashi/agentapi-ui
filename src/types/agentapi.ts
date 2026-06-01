@@ -176,6 +176,7 @@ export interface Session {
   tags?: Record<string, string>;
   scope?: ResourceScope;
   team_id?: string;
+  sandbox_policy_id?: string;
 }
 
 export interface SessionListParams {
