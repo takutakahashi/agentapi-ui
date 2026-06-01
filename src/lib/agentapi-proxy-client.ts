@@ -1456,6 +1456,13 @@ export class AgentAPIProxyClient {
    * Revoke share for a session
    * DELETE /sessions/{sessionId}/share
    */
+  async getSessionSandboxDomains(sessionId: string): Promise<{ allowed: string[]; denied: string[] }> {
+    if (this.debug) {
+      console.log(`[AgentAPIProxy] Fetching sandbox domains for session: ${sessionId}`);
+    }
+    return this.makeRequest<{ allowed: string[]; denied: string[] }>(`/sessions/${sessionId}/sandbox-domains`);
+  }
+
   async revokeShare(sessionId: string): Promise<RevokeShareResponse> {
     if (this.debug) {
       console.log(`[AgentAPIProxy] Revoking share for session: ${sessionId}`);
