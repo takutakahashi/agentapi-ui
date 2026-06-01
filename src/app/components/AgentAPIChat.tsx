@@ -15,7 +15,6 @@ import { recentMessagesManager } from '../../utils/recentMessagesManager';
 import { pushNotificationManager } from '../../utils/pushNotification';
 import { getEnterKeyBehavior, getFontSettings, FontSettings, setFontSettings as saveFontSettings, FontFamily } from '../../types/settings';
 import ShareSessionButton from './ShareSessionButton';
-import SandboxDomainsButton from './SandboxDomainsButton';
 import MessageItem from './MessageItem';
 import ToolExecutionPane from './ToolExecutionPane';
 import PlanApprovalModal from './PlanApprovalModal';
@@ -1372,11 +1371,6 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
               </button>
             )}
 
-
-            {/* Sandbox Domains Button */}
-            {sessionId && agentAPI && (
-              <SandboxDomainsButton sessionId={sessionId} agentAPI={agentAPI} />
-            )}
 
             {/* Share Session Button */}
             {sessionId && agentAPI && (
