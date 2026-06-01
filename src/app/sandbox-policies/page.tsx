@@ -19,6 +19,8 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
   const [domains, setDomains] = useState<{ allowed: string[]; denied: string[]; updated_at?: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [selectedDomains, setSelectedDomains] = useState<Set<string>>(new Set())
+  // Track domains already registered in the policy (pre-existing + just added this session)
+  const [registeredDomains, setRegisteredDomains] = useState<Set<string>>(new Set())
   const [activeTab, setActiveTab] = useState<'denied' | 'allowed'>('denied')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -48,8 +50,11 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
   useEffect(() => {
     if (!isOpen) return
     setActiveTab('denied')
+    // Seed registered set from the policy's current domain list
+    const isAllowlist = (policy.allowed_domains?.length ?? 0) > 0 || (policy.denied_domains?.length ?? 0) === 0
+    setRegisteredDomains(new Set(isAllowlist ? (policy.allowed_domains ?? []) : (policy.denied_domains ?? [])))
     fetchDomains()
-  }, [isOpen, fetchDomains])
+  }, [isOpen, fetchDomains, policy.allowed_domains, policy.denied_domains])
 
   const toggleDomain = (domain: string) => {
     setSelectedDomains((prev) => {
@@ -75,6 +80,7 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
       await client.updateSandboxPolicy(policy.id, update)
       setSuccess(`${toAdd.length} 件のドメインをポリシーに追加しました`)
       setSelectedDomains(new Set())
+      setRegisteredDomains((prev) => new Set([...prev, ...toAdd]))
       onImported()
     } catch (err) {
       setError(err instanceof AgentAPIProxyError ? err.message : 'ポリシーの更新に失敗しました')
@@ -85,7 +91,8 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
 
   if (!isOpen) return null
 
-  const currentDomains = activeTab === 'denied' ? (domains?.denied ?? []) : (domains?.allowed ?? [])
+  const currentDomains = (activeTab === 'denied' ? (domains?.denied ?? []) : (domains?.allowed ?? []))
+    .filter((d) => !registeredDomains.has(d))
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
