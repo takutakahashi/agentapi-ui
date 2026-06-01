@@ -2,10 +2,231 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { SandboxPolicy, CreateSandboxPolicyRequest, UpdateSandboxPolicyRequest } from '../../types/sandbox_policy'
-import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
+import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
 import TopBar from '../components/TopBar'
 import NavigationTabs from '../components/NavigationTabs'
+
+// ---- Session Domain Import Modal ----
+interface SessionDomainImportModalProps {
+  isOpen: boolean
+  onClose: () => void
+  policy: SandboxPolicy
+  onImported: () => void
+}
+
+function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: SessionDomainImportModalProps) {
+  const [domains, setDomains] = useState<{ allowed: string[]; denied: string[]; updated_at?: string } | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [selectedDomains, setSelectedDomains] = useState<Set<string>>(new Set())
+  // Track domains already registered in the policy (pre-existing + just added this session)
+  const [registeredDomains, setRegisteredDomains] = useState<Set<string>>(new Set())
+  const [activeTab, setActiveTab] = useState<'denied' | 'allowed'>('denied')
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+
+  const fetchDomains = useCallback(async () => {
+    setLoading(true)
+    setDomains(null)
+    setSelectedDomains(new Set())
+    setError(null)
+    setSuccess(null)
+    try {
+      const client = createAgentAPIProxyClientFromStorage()
+      const result = await client.getSandboxPolicyDomains(policy.id)
+      setDomains(result)
+    } catch (err) {
+      if (err instanceof AgentAPIProxyError && err.status === 501) {
+        setError('ドメイン収集機能が利用できません')
+      } else {
+        setError('ドメインデータの取得に失敗しました')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [policy.id])
+
+  useEffect(() => {
+    if (!isOpen) return
+    setActiveTab('denied')
+    // Seed registered set from the policy's current domain list
+    const isAllowlist = (policy.allowed_domains?.length ?? 0) > 0 || (policy.denied_domains?.length ?? 0) === 0
+    setRegisteredDomains(new Set(isAllowlist ? (policy.allowed_domains ?? []) : (policy.denied_domains ?? [])))
+    fetchDomains()
+  }, [isOpen, fetchDomains, policy.allowed_domains, policy.denied_domains])
+
+  const toggleDomain = (domain: string) => {
+    setSelectedDomains((prev) => {
+      const next = new Set(prev)
+      if (next.has(domain)) next.delete(domain)
+      else next.add(domain)
+      return next
+    })
+  }
+
+  const handleAddToPolicy = async () => {
+    if (selectedDomains.size === 0) return
+    setIsSaving(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const client = createAgentAPIProxyClientFromStorage()
+      const toAdd = Array.from(selectedDomains)
+      const isAllowlist = (policy.allowed_domains?.length ?? 0) > 0 || (policy.denied_domains?.length ?? 0) === 0
+      const update: UpdateSandboxPolicyRequest = isAllowlist
+        ? { allowed_domains: [...new Set([...(policy.allowed_domains ?? []), ...toAdd])] }
+        : { denied_domains: (policy.denied_domains ?? []).filter((d) => !toAdd.includes(d)) }
+      await client.updateSandboxPolicy(policy.id, update)
+      setSuccess(`${toAdd.length} 件のドメインをポリシーに追加しました`)
+      setSelectedDomains(new Set())
+      setRegisteredDomains((prev) => new Set([...prev, ...toAdd]))
+      onImported()
+    } catch (err) {
+      setError(err instanceof AgentAPIProxyError ? err.message : 'ポリシーの更新に失敗しました')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (!isOpen) return null
+
+  const currentDomains = (activeTab === 'denied' ? (domains?.denied ?? []) : (domains?.allowed ?? []))
+    .filter((d) => !registeredDomains.has(d))
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
+      <div className="relative min-h-full flex items-center justify-center p-4">
+        <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">セッションからドメインを取り込む</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                ポリシー: {policy.name}
+                {!loading && domains?.updated_at && ` — 最終更新: ${new Date(domains.updated_at).toLocaleString('ja-JP')}`}
+              </p>
+            </div>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+            {error && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+              </div>
+            )}
+            {success && (
+              <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                <p className="text-sm text-green-700 dark:text-green-400">{success}</p>
+              </div>
+            )}
+
+            {loading && (
+              <div className="flex items-center justify-center py-8 gap-2 text-gray-400">
+                <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                <span className="text-sm">セッションのアクセスログを収集中...</span>
+              </div>
+            )}
+
+            {!loading && domains && domains.allowed.length === 0 && domains.denied.length === 0 && (
+              <p className="text-sm text-gray-400 text-center py-6">
+                まだドメインが収集されていません。このポリシーを使用したセッションが起動されると自動的に収集されます。
+              </p>
+            )}
+
+            {!loading && domains && (domains.allowed.length > 0 || domains.denied.length > 0) && (
+              <>
+                <div className="flex border-b border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => setActiveTab('denied')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'denied'
+                        ? 'border-red-500 text-red-600 dark:text-red-400'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                    }`}
+                  >
+                    ブロック済み ({domains.denied.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('allowed')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'allowed'
+                        ? 'border-green-500 text-green-600 dark:text-green-400'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                    }`}
+                  >
+                    許可済み ({domains.allowed.length})
+                  </button>
+                </div>
+
+                {currentDomains.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-3">
+                    {activeTab === 'denied' ? 'ブロックされたドメインはありません' : '許可されたドメインはありません'}
+                  </p>
+                ) : (
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {currentDomains.map((domain) => (
+                      <label key={domain} className="flex items-center gap-3 px-2 py-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedDomains.has(domain)}
+                          onChange={() => toggleDomain(domain)}
+                          className="rounded border-gray-300 dark:border-gray-600 text-blue-600 shrink-0"
+                        />
+                        <span className={`text-sm font-mono flex-1 truncate ${
+                          activeTab === 'denied' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
+                        }`}>
+                          {domain}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {selectedDomains.size > 0 && (
+                  <div className="pt-2">
+                    <button
+                      onClick={handleAddToPolicy}
+                      disabled={isSaving}
+                      className="w-full px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white rounded-lg transition-colors disabled:cursor-not-allowed"
+                    >
+                      {isSaving ? '追加中...' : `選択した ${selectedDomains.size} 件をポリシーに追加`}
+                    </button>
+                    <p className="text-xs text-gray-400 mt-1 text-center">
+                      {(policy.allowed_domains?.length ?? 0) > 0 ? '許可リストに追加されます' : '拒否リストから除外されます'}
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+            <button
+              onClick={fetchDomains}
+              disabled={loading}
+              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 disabled:opacity-50"
+            >
+              再取得
+            </button>
+            <button onClick={onClose} className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+              閉じる
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ---- Form Modal ----
 interface SandboxPolicyFormModalProps {
@@ -168,7 +389,17 @@ function SandboxPolicyFormModal({ isOpen, onClose, onSuccess, editing }: Sandbox
 }
 
 // ---- Policy Card ----
-function PolicyCard({ policy, onEdit, onDelete }: { policy: SandboxPolicy; onEdit: () => void; onDelete: () => void }) {
+function PolicyCard({
+  policy,
+  onEdit,
+  onDelete,
+  onImportDomains,
+}: {
+  policy: SandboxPolicy
+  onEdit: () => void
+  onDelete: () => void
+  onImportDomains: () => void
+}) {
   const domains = policy.allowed_domains?.length
     ? { mode: '許可リスト', list: policy.allowed_domains }
     : policy.denied_domains?.length
@@ -183,6 +414,9 @@ function PolicyCard({ policy, onEdit, onDelete }: { policy: SandboxPolicy; onEdi
           {policy.description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{policy.description}</p>}
         </div>
         <div className="flex gap-2 shrink-0">
+          <button onClick={onImportDomains} title="セッションからドメインを取り込む" className="text-xs px-2 py-1 rounded border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20">
+            取り込む
+          </button>
           <button onClick={onEdit} className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700">編集</button>
           <button onClick={onDelete} className="text-xs px-2 py-1 rounded border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">削除</button>
         </div>
@@ -209,6 +443,7 @@ export default function SandboxPoliciesPage() {
   const [loading, setLoading] = useState(true)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editing, setEditing] = useState<SandboxPolicy | null>(null)
+  const [importTarget, setImportTarget] = useState<SandboxPolicy | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -291,6 +526,7 @@ export default function SandboxPoliciesPage() {
                 policy={policy}
                 onEdit={() => { setEditing(policy); setIsFormOpen(true) }}
                 onDelete={() => handleDelete(policy)}
+                onImportDomains={() => setImportTarget(policy)}
               />
             ))}
           </div>
@@ -314,6 +550,15 @@ export default function SandboxPoliciesPage() {
         onSuccess={() => { setIsFormOpen(false); setEditing(null); load() }}
         editing={editing}
       />
+
+      {importTarget && (
+        <SessionDomainImportModal
+          isOpen={!!importTarget}
+          onClose={() => setImportTarget(null)}
+          policy={importTarget}
+          onImported={load}
+        />
+      )}
     </main>
   )
 }
