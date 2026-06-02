@@ -200,6 +200,7 @@ export interface SandboxConfig {
   policy_id?: string;
   allowed_domains?: string[];
   denied_domains?: string[];
+  count_mode?: boolean;
 }
 
 export interface CreateSessionRequest {
