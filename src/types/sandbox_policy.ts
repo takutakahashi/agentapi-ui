@@ -6,6 +6,7 @@ export interface SandboxPolicy {
   description?: string;
   allowed_domains?: string[];
   denied_domains?: string[];
+  count_mode?: boolean;
   scope: ResourceScope;
   owner_id: string;
   team_id?: string;
@@ -18,6 +19,7 @@ export interface CreateSandboxPolicyRequest {
   description?: string;
   allowed_domains?: string[];
   denied_domains?: string[];
+  count_mode?: boolean;
   scope: ResourceScope;
   team_id?: string;
 }
@@ -27,6 +29,7 @@ export interface UpdateSandboxPolicyRequest {
   description?: string;
   allowed_domains?: string[];
   denied_domains?: string[];
+  count_mode?: boolean;
 }
 
 export interface SandboxPolicyListParams {

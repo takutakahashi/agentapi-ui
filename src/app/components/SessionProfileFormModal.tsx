@@ -42,6 +42,7 @@ export default function SessionProfileFormModal({
   const [sandboxPolicyId, setSandboxPolicyId] = useState('')
   const [sandboxMode, setSandboxMode] = useState<'allowlist' | 'denylist'>('allowlist')
   const [sandboxDomains, setSandboxDomains] = useState('')
+  const [sandboxCountMode, setSandboxCountMode] = useState(false)
   const [availablePolicies, setAvailablePolicies] = useState<SandboxPolicy[]>([])
 
   // UI state
@@ -106,11 +107,13 @@ export default function SessionProfileFormModal({
           setSandboxMode('denylist')
           setSandboxDomains(sandbox.denied_domains.join('\n'))
         }
+        setSandboxCountMode(sandbox.count_mode ?? false)
         if (sandbox.enabled) setShowAdvanced(true)
       } else {
         setSandboxEnabled(false)
         setSandboxMode('allowlist')
         setSandboxDomains('')
+        setSandboxCountMode(false)
       }
     } else {
       // Reset form
@@ -124,6 +127,7 @@ export default function SessionProfileFormModal({
       setSandboxPolicyId('')
       setSandboxMode('allowlist')
       setSandboxDomains('')
+      setSandboxCountMode(false)
       setShowAdvanced(false)
     }
     setError(null)
@@ -198,13 +202,14 @@ export default function SessionProfileFormModal({
       const tags = pairsToRecord(tagPairs)
 
       // Build sandbox config if enabled
-      let sandboxConfig: { enabled: boolean; allowed_domains?: string[]; denied_domains?: string[] } | undefined
+      let sandboxConfig: { enabled: boolean; allowed_domains?: string[]; denied_domains?: string[]; count_mode?: boolean } | undefined
       if (sandboxEnabled) {
         const domainList = sandboxDomains.split('\n').map(d => d.trim()).filter(Boolean)
         sandboxConfig = {
           enabled: true,
           ...(sandboxMode === 'allowlist' && domainList.length > 0 ? { allowed_domains: domainList } : {}),
           ...(sandboxMode === 'denylist' && domainList.length > 0 ? { denied_domains: domainList } : {}),
+          ...(sandboxCountMode ? { count_mode: true } : {}),
         }
       }
 
@@ -586,6 +591,20 @@ export default function SessionProfileFormModal({
                             rows={4}
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono resize-y"
                           />
+                        </div>
+                        <div>
+                          <label className="flex items-start gap-1.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={sandboxCountMode}
+                              onChange={(e) => setSandboxCountMode(e.target.checked)}
+                              className="mt-0.5 h-3.5 w-3.5 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                            <div>
+                              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">カウントモード</span>
+                              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">ポリシーを評価してブロック対象ドメインを記録するが、トラフィックは実際にはブロックしない。本番適用前の監査に利用できる。</p>
+                            </div>
+                          </label>
                         </div>
                       </div>
                     )}
