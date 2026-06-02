@@ -21,7 +21,7 @@ const baseNavItems = [
   },
   {
     label: 'Sandbox Policies',
-    href: '/settings/sandbox-policies',
+    href: '/sandbox-policies',
     icon: Shield,
     adminOnly: false,
   },
