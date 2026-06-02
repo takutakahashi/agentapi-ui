@@ -47,11 +47,11 @@ export default function SessionProfileFormModal({
 
   // Docker / DinD fields
   const [dockerEnabled, setDockerEnabled] = useState(false)
-  const [dockerRegistries, setDockerRegistries] = useState<Array<{ server: string; username: string; password: string; secretName: string }>>([])
+  const [dockerRegistries, setDockerRegistries] = useState<Array<{ server: string; username: string; password: string; secretName: string; insecure: boolean }>>([])
 
-  const addDockerRegistry = () => setDockerRegistries(prev => [...prev, { server: '', username: '', password: '', secretName: '' }])
+  const addDockerRegistry = () => setDockerRegistries(prev => [...prev, { server: '', username: '', password: '', secretName: '', insecure: false }])
   const removeDockerRegistry = (index: number) => setDockerRegistries(prev => prev.filter((_, i) => i !== index))
-  const updateDockerRegistry = (index: number, field: string, value: string) =>
+  const updateDockerRegistry = (index: number, field: string, value: string | boolean) =>
     setDockerRegistries(prev => prev.map((r, i) => i === index ? { ...r, [field]: value } : r))
 
   // UI state
@@ -134,6 +134,7 @@ export default function SessionProfileFormModal({
           username: r.username ?? '',
           password: r.password ?? '',
           secretName: r.secret_name ?? '',
+          insecure: r.insecure ?? false,
         })))
         if (docker.enabled) setShowAdvanced(true)
       } else {
@@ -241,7 +242,7 @@ export default function SessionProfileFormModal({
       }
 
       // Build docker config if enabled
-      let dockerConfig: { enabled: boolean; registries?: { server?: string; username?: string; password?: string; secret_name?: string }[] } | undefined
+      let dockerConfig: { enabled: boolean; registries?: { server?: string; username?: string; password?: string; secret_name?: string; insecure?: boolean }[] } | undefined
       if (dockerEnabled) {
         const regs = dockerRegistries
           .filter(r => r.server || r.username || r.secretName)
@@ -249,6 +250,7 @@ export default function SessionProfileFormModal({
             ...(r.server ? { server: r.server } : {}),
             ...(r.secretName ? { secret_name: r.secretName } : {}),
             ...(r.username && !r.secretName ? { username: r.username, password: r.password } : {}),
+            ...(r.insecure ? { insecure: true } : {}),
           }))
         dockerConfig = { enabled: true, ...(regs.length > 0 ? { registries: regs } : {}) }
       }
@@ -707,6 +709,16 @@ export default function SessionProfileFormModal({
                                 placeholder="ghcr.io"
                                 className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                               />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                id={`insecure-${index}`}
+                                checked={registry.insecure}
+                                onChange={e => updateDockerRegistry(index, 'insecure', e.target.checked)}
+                                className="w-3 h-3 rounded"
+                              />
+                              <label htmlFor={`insecure-${index}`} className="text-xs text-gray-500 dark:text-gray-400">HTTP（insecure）レジストリ</label>
                             </div>
                             <div>
                               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">K8s Secret 名（docker config JSON）</label>

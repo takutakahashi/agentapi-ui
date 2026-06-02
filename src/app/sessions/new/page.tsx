@@ -47,15 +47,15 @@ export default function NewSessionPage() {
   const [sandboxMode, setSandboxMode] = useState<'allowlist' | 'denylist'>('allowlist')
   const [sandboxDomains, setSandboxDomains] = useState('')
   const [dockerEnabled, setDockerEnabled] = useState(false)
-  const [dockerRegistries, setDockerRegistries] = useState<Array<{ server: string; username: string; password: string; secretName: string }>>([])
+  const [dockerRegistries, setDockerRegistries] = useState<Array<{ server: string; username: string; password: string; secretName: string; insecure: boolean }>>([])
 
   const addDockerRegistry = () => {
-    setDockerRegistries(prev => [...prev, { server: '', username: '', password: '', secretName: '' }])
+    setDockerRegistries(prev => [...prev, { server: '', username: '', password: '', secretName: '', insecure: false }])
   }
   const removeDockerRegistry = (index: number) => {
     setDockerRegistries(prev => prev.filter((_, i) => i !== index))
   }
-  const updateDockerRegistry = (index: number, field: string, value: string) => {
+  const updateDockerRegistry = (index: number, field: string, value: string | boolean) => {
     setDockerRegistries(prev => prev.map((r, i) => i === index ? { ...r, [field]: value } : r))
   }
 
@@ -199,6 +199,7 @@ export default function NewSessionPage() {
             ...(r.server ? { server: r.server } : {}),
             ...(r.secretName ? { secret_name: r.secretName } : {}),
             ...(r.username && !r.secretName ? { username: r.username, password: r.password } : {}),
+            ...(r.insecure ? { insecure: true } : {}),
           }))
         params.docker = {
           enabled: true,
@@ -842,6 +843,17 @@ export default function NewSessionPage() {
                                 disabled={isCreating}
                                 className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                               />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                id={`insecure-${index}`}
+                                checked={registry.insecure}
+                                onChange={e => updateDockerRegistry(index, 'insecure', e.target.checked)}
+                                disabled={isCreating}
+                                className="w-3 h-3 rounded"
+                              />
+                              <label htmlFor={`insecure-${index}`} className="text-xs text-gray-500 dark:text-gray-400">HTTP（insecure）レジストリ</label>
                             </div>
                             <div>
                               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">K8s Secret 名（docker config JSON）</label>

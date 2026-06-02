@@ -208,6 +208,7 @@ export interface DockerRegistry {
   username?: string;
   password?: string;
   secret_name?: string;
+  insecure?: boolean;
 }
 
 export interface DockerConfig {
