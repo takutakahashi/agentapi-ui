@@ -1,4 +1,4 @@
-import { ResourceScope, SandboxConfig } from './agentapi';
+import { ResourceScope, SandboxConfig, DockerConfig } from './agentapi';
 
 // Session profile params
 export interface SessionProfileParams {
@@ -6,6 +6,7 @@ export interface SessionProfileParams {
   github_token?: string;
   agent_type?: string;
   sandbox?: SandboxConfig;
+  docker?: DockerConfig;
 }
 
 // Session profile config

@@ -203,6 +203,18 @@ export interface SandboxConfig {
   count_mode?: boolean;
 }
 
+export interface DockerRegistry {
+  server?: string;
+  username?: string;
+  password?: string;
+  secret_name?: string;
+}
+
+export interface DockerConfig {
+  enabled: boolean;
+  registries?: DockerRegistry[];
+}
+
 export interface CreateSessionRequest {
   user_id: string;
   environment?: Record<string, string>;
@@ -213,6 +225,7 @@ export interface CreateSessionRequest {
     github_token?: string;
     oneshot?: boolean;
     sandbox?: SandboxConfig;
+    docker?: DockerConfig;
     [key: string]: unknown;
   };
   scope?: ResourceScope;

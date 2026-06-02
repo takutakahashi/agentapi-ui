@@ -45,6 +45,15 @@ export default function SessionProfileFormModal({
   const [sandboxCountMode, setSandboxCountMode] = useState(false)
   const [availablePolicies, setAvailablePolicies] = useState<SandboxPolicy[]>([])
 
+  // Docker / DinD fields
+  const [dockerEnabled, setDockerEnabled] = useState(false)
+  const [dockerRegistries, setDockerRegistries] = useState<Array<{ server: string; username: string; password: string; secretName: string }>>([])
+
+  const addDockerRegistry = () => setDockerRegistries(prev => [...prev, { server: '', username: '', password: '', secretName: '' }])
+  const removeDockerRegistry = (index: number) => setDockerRegistries(prev => prev.filter((_, i) => i !== index))
+  const updateDockerRegistry = (index: number, field: string, value: string) =>
+    setDockerRegistries(prev => prev.map((r, i) => i === index ? { ...r, [field]: value } : r))
+
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -115,6 +124,22 @@ export default function SessionProfileFormModal({
         setSandboxDomains('')
         setSandboxCountMode(false)
       }
+
+      // Initialize docker from profile params
+      const docker = cfg?.params?.docker
+      if (docker) {
+        setDockerEnabled(docker.enabled)
+        setDockerRegistries((docker.registries ?? []).map(r => ({
+          server: r.server ?? '',
+          username: r.username ?? '',
+          password: r.password ?? '',
+          secretName: r.secret_name ?? '',
+        })))
+        if (docker.enabled) setShowAdvanced(true)
+      } else {
+        setDockerEnabled(false)
+        setDockerRegistries([])
+      }
     } else {
       // Reset form
       setName('')
@@ -128,6 +153,8 @@ export default function SessionProfileFormModal({
       setSandboxMode('allowlist')
       setSandboxDomains('')
       setSandboxCountMode(false)
+      setDockerEnabled(false)
+      setDockerRegistries([])
       setShowAdvanced(false)
     }
     setError(null)
@@ -213,11 +240,25 @@ export default function SessionProfileFormModal({
         }
       }
 
+      // Build docker config if enabled
+      let dockerConfig: { enabled: boolean; registries?: { server?: string; username?: string; password?: string; secret_name?: string }[] } | undefined
+      if (dockerEnabled) {
+        const regs = dockerRegistries
+          .filter(r => r.server || r.username || r.secretName)
+          .map(r => ({
+            ...(r.server ? { server: r.server } : {}),
+            ...(r.secretName ? { secret_name: r.secretName } : {}),
+            ...(r.username && !r.secretName ? { username: r.username, password: r.password } : {}),
+          }))
+        dockerConfig = { enabled: true, ...(regs.length > 0 ? { registries: regs } : {}) }
+      }
+
       // Build params if any param is set
-      const hasParams = agentType.trim() || sandboxConfig
+      const hasParams = agentType.trim() || sandboxConfig || dockerConfig
       const params = hasParams ? {
         ...(agentType.trim() ? { agent_type: agentType.trim() } : {}),
         ...(sandboxConfig ? { sandbox: sandboxConfig } : {}),
+        ...(dockerConfig ? { docker: dockerConfig } : {}),
       } : undefined
 
       const config = {
@@ -606,6 +647,103 @@ export default function SessionProfileFormModal({
                             </div>
                           </label>
                         </div>
+                      </div>
+                    )}
+                  </div>
+                  {/* Docker in Docker (DinD) */}
+                  <div>
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={dockerEnabled}
+                        onChange={(e) => setDockerEnabled(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Docker in Docker (DinD) を有効にする
+                        </span>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          セッション Pod に docker:dind サイドカーを追加し、<code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">DOCKER_HOST</code> を自動設定します。
+                        </p>
+                      </div>
+                    </label>
+
+                    {dockerEnabled && (
+                      <div className="mt-3 ml-6 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-gray-600 dark:text-gray-400">認証済みレジストリ（任意）</span>
+                          <button
+                            type="button"
+                            onClick={addDockerRegistry}
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700"
+                          >
+                            + 追加
+                          </button>
+                        </div>
+                        {dockerRegistries.length === 0 && (
+                          <p className="text-xs text-gray-400 dark:text-gray-500">
+                            認証不要な場合は追加不要です。
+                          </p>
+                        )}
+                        {dockerRegistries.map((registry, index) => (
+                          <div key={index} className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">レジストリ #{index + 1}</span>
+                              <button
+                                type="button"
+                                onClick={() => removeDockerRegistry(index)}
+                                className="text-xs text-red-500 hover:text-red-600"
+                              >
+                                削除
+                              </button>
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">サーバー（空 = Docker Hub）</label>
+                              <input
+                                type="text"
+                                value={registry.server}
+                                onChange={e => updateDockerRegistry(index, 'server', e.target.value)}
+                                placeholder="ghcr.io"
+                                className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">K8s Secret 名（docker config JSON）</label>
+                              <input
+                                type="text"
+                                value={registry.secretName}
+                                onChange={e => updateDockerRegistry(index, 'secretName', e.target.value)}
+                                placeholder="my-registry-secret"
+                                className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                              />
+                            </div>
+                            {!registry.secretName && (
+                              <>
+                                <div>
+                                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">ユーザー名</label>
+                                  <input
+                                    type="text"
+                                    value={registry.username}
+                                    onChange={e => updateDockerRegistry(index, 'username', e.target.value)}
+                                    placeholder="myuser"
+                                    className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">パスワード / アクセストークン</label>
+                                  <input
+                                    type="password"
+                                    value={registry.password}
+                                    onChange={e => updateDockerRegistry(index, 'password', e.target.value)}
+                                    placeholder="••••••••"
+                                    className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                                  />
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
