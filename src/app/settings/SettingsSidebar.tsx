@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { User, Users, ArrowLeft, ShieldCheck, Shield } from 'lucide-react'
+import { User, Users, ArrowLeft, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 
@@ -17,12 +17,6 @@ const baseNavItems = [
     label: 'Team',
     href: '/settings/team',
     icon: Users,
-    adminOnly: false,
-  },
-  {
-    label: 'Sandbox Policies',
-    href: '/sandbox-policies',
-    icon: Shield,
     adminOnly: false,
   },
   {

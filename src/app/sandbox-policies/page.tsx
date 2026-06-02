@@ -6,7 +6,7 @@ import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../
 import { useTeamScope } from '../../contexts/TeamScopeContext'
 import TopBar from '../components/TopBar'
 import NavigationTabs from '../components/NavigationTabs'
-import { SettingsSidebar } from '../settings/SettingsSidebar'
+import TagFilterSidebar from '../components/TagFilterSidebar'
 
 // ---- Session Domain Import Modal ----
 interface SessionDomainImportModalProps {
@@ -544,6 +544,7 @@ export default function SandboxPoliciesPage() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editing, setEditing] = useState<SandboxPolicy | null>(null)
   const [importTarget, setImportTarget] = useState<SandboxPolicy | null>(null)
+  const [sidebarVisible, setSidebarVisible] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -573,21 +574,28 @@ export default function SandboxPoliciesPage() {
 
   return (
     <main className="min-h-dvh bg-gray-50 dark:bg-gray-900">
-      <TopBar title="Sandbox Policies" showSettingsButton={true}>
+      <TopBar
+        title="Sandbox Policies"
+        showSettingsButton={true}
+        showFilterButton={true}
+        filterButtonText="ナビゲーション"
+        onFilterToggle={() => setSidebarVisible(!sidebarVisible)}
+      >
         <div className="md:hidden">
           <NavigationTabs />
         </div>
       </TopBar>
 
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <div className="flex flex-col md:flex-row gap-8">
-          {/* Sidebar — desktop only */}
-          <div className="hidden md:block">
-            <SettingsSidebar />
-          </div>
+      <div className="flex">
+        <TagFilterSidebar
+          onFiltersChange={() => {}}
+          currentFilters={{}}
+          isVisible={sidebarVisible}
+          onToggleVisibility={() => setSidebarVisible(!sidebarVisible)}
+        />
 
-          {/* Content */}
-          <div className="flex-1 min-w-0">
+        {/* Content */}
+        <div className="flex-1 px-4 md:px-6 lg:px-8 pt-6 md:pt-8 pb-6 md:pb-8">
             <div className="mb-6 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">サンドボックスポリシー</h1>
@@ -636,7 +644,6 @@ export default function SandboxPoliciesPage() {
                 ))}
               </div>
             )}
-          </div>
         </div>
       </div>
 
