@@ -41,3 +41,10 @@ export interface SandboxPolicyListResponse {
   sandbox_policies: SandboxPolicy[];
   total?: number;
 }
+
+export interface SandboxPolicyDomainsResponse {
+  allowed: string[];
+  denied: string[];
+  ignored: string[];
+  updated_at?: string;
+}

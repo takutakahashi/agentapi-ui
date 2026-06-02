@@ -16,11 +16,13 @@ interface SessionDomainImportModalProps {
 }
 
 function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: SessionDomainImportModalProps) {
-  const [domains, setDomains] = useState<{ allowed: string[]; denied: string[]; updated_at?: string } | null>(null)
+  const [domains, setDomains] = useState<{ allowed: string[]; denied: string[]; ignored: string[]; updated_at?: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [selectedDomains, setSelectedDomains] = useState<Set<string>>(new Set())
   // Track domains already registered in the policy (pre-existing + just added this session)
   const [registeredDomains, setRegisteredDomains] = useState<Set<string>>(new Set())
+  // Track locally ignored domains (synced from server on fetch)
+  const [ignoredDomains, setIgnoredDomains] = useState<Set<string>>(new Set())
   const [activeTab, setActiveTab] = useState<'denied' | 'allowed'>('denied')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -36,6 +38,7 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
       const client = createAgentAPIProxyClientFromStorage()
       const result = await client.getSandboxPolicyDomains(policy.id)
       setDomains(result)
+      setIgnoredDomains(new Set(result.ignored ?? []))
     } catch (err) {
       if (err instanceof AgentAPIProxyError && err.status === 501) {
         setError('ドメイン収集機能が利用できません')
@@ -89,10 +92,33 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
     }
   }
 
+  const handleIgnoreDomain = async (domain: string) => {
+    const newIgnored = new Set(ignoredDomains)
+    newIgnored.add(domain)
+    setIgnoredDomains(newIgnored)
+    setSelectedDomains((prev) => {
+      const next = new Set(prev)
+      next.delete(domain)
+      return next
+    })
+    try {
+      const client = createAgentAPIProxyClientFromStorage()
+      await client.updateIgnoredSandboxPolicyDomains(policy.id, Array.from(newIgnored))
+    } catch {
+      // Roll back on failure
+      setIgnoredDomains((prev) => {
+        const reverted = new Set(prev)
+        reverted.delete(domain)
+        return reverted
+      })
+      setError('無視リストの更新に失敗しました')
+    }
+  }
+
   if (!isOpen) return null
 
   const currentDomains = (activeTab === 'denied' ? (domains?.denied ?? []) : (domains?.allowed ?? []))
-    .filter((d) => !registeredDomains.has(d))
+    .filter((d) => !registeredDomains.has(d) && !ignoredDomains.has(d))
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -175,7 +201,7 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
                 ) : (
                   <div className="space-y-1 max-h-48 overflow-y-auto">
                     {currentDomains.map((domain) => (
-                      <label key={domain} className="flex items-center gap-3 px-2 py-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                      <div key={domain} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                         <input
                           type="checkbox"
                           checked={selectedDomains.has(domain)}
@@ -187,7 +213,14 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
                         }`}>
                           {domain}
                         </span>
-                      </label>
+                        <button
+                          onClick={() => handleIgnoreDomain(domain)}
+                          title="このドメインを無視する"
+                          className="shrink-0 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-400 transition-colors"
+                        >
+                          無視
+                        </button>
+                      </div>
                     ))}
                   </div>
                 )}
