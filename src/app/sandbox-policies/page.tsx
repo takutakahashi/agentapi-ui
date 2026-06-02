@@ -16,11 +16,14 @@ interface SessionDomainImportModalProps {
 }
 
 function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: SessionDomainImportModalProps) {
-  const [domains, setDomains] = useState<{ allowed: string[]; denied: string[]; updated_at?: string } | null>(null)
+  const [domains, setDomains] = useState<{ allowed: string[]; denied: string[]; ignored: string[]; updated_at?: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [selectedDomains, setSelectedDomains] = useState<Set<string>>(new Set())
   // Track domains already registered in the policy (pre-existing + just added this session)
   const [registeredDomains, setRegisteredDomains] = useState<Set<string>>(new Set())
+  // Track locally ignored domains (synced from server on fetch)
+  const [ignoredDomains, setIgnoredDomains] = useState<Set<string>>(new Set())
+  const [showHidden, setShowHidden] = useState(false)
   const [activeTab, setActiveTab] = useState<'denied' | 'allowed'>('denied')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -36,6 +39,7 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
       const client = createAgentAPIProxyClientFromStorage()
       const result = await client.getSandboxPolicyDomains(policy.id)
       setDomains(result)
+      setIgnoredDomains(new Set(result.ignored ?? []))
     } catch (err) {
       if (err instanceof AgentAPIProxyError && err.status === 501) {
         setError('ドメイン収集機能が利用できません')
@@ -89,10 +93,48 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
     }
   }
 
+  const handleHideDomain = async (domain: string) => {
+    const newIgnored = new Set(ignoredDomains)
+    newIgnored.add(domain)
+    setIgnoredDomains(newIgnored)
+    setSelectedDomains((prev) => {
+      const next = new Set(prev)
+      next.delete(domain)
+      return next
+    })
+    try {
+      const client = createAgentAPIProxyClientFromStorage()
+      await client.updateIgnoredSandboxPolicyDomains(policy.id, Array.from(newIgnored))
+    } catch {
+      setIgnoredDomains((prev) => {
+        const reverted = new Set(prev)
+        reverted.delete(domain)
+        return reverted
+      })
+      setError('非表示リストの更新に失敗しました')
+    }
+  }
+
+  const handleUnhideDomain = async (domain: string) => {
+    const newIgnored = new Set(ignoredDomains)
+    newIgnored.delete(domain)
+    setIgnoredDomains(newIgnored)
+    try {
+      const client = createAgentAPIProxyClientFromStorage()
+      await client.updateIgnoredSandboxPolicyDomains(policy.id, Array.from(newIgnored))
+    } catch {
+      setIgnoredDomains((prev) => new Set([...prev, domain]))
+      setError('非表示リストの更新に失敗しました')
+    }
+  }
+
   if (!isOpen) return null
 
   const currentDomains = (activeTab === 'denied' ? (domains?.denied ?? []) : (domains?.allowed ?? []))
-    .filter((d) => !registeredDomains.has(d))
+    .filter((d) => !registeredDomains.has(d) && !ignoredDomains.has(d))
+
+  const ignoredDomainsForTab = (activeTab === 'denied' ? (domains?.denied ?? []) : (domains?.allowed ?? []))
+    .filter((d) => !registeredDomains.has(d) && ignoredDomains.has(d))
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -102,7 +144,7 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">セッションからドメインを取り込む</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">検出ドメインを確認</h2>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                 ポリシー: {policy.name}
                 {!loading && domains?.updated_at && ` — 最終更新: ${new Date(domains.updated_at).toLocaleString('ja-JP')}`}
@@ -168,14 +210,14 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
                   </button>
                 </div>
 
-                {currentDomains.length === 0 ? (
+                {currentDomains.length === 0 && ignoredDomainsForTab.length === 0 ? (
                   <p className="text-sm text-gray-400 text-center py-3">
                     {activeTab === 'denied' ? 'ブロックされたドメインはありません' : '許可されたドメインはありません'}
                   </p>
                 ) : (
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                  <div className="space-y-1 max-h-56 overflow-y-auto">
                     {currentDomains.map((domain) => (
-                      <label key={domain} className="flex items-center gap-3 px-2 py-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                      <div key={domain} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                         <input
                           type="checkbox"
                           checked={selectedDomains.has(domain)}
@@ -187,8 +229,39 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
                         }`}>
                           {domain}
                         </span>
-                      </label>
+                        <button
+                          onClick={() => handleHideDomain(domain)}
+                          title="このドメインを非表示にする"
+                          className="shrink-0 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-400 transition-colors"
+                        >
+                          非表示
+                        </button>
+                      </div>
                     ))}
+                    {ignoredDomainsForTab.length > 0 && (
+                      <>
+                        <button
+                          onClick={() => setShowHidden((v) => !v)}
+                          className="w-full text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 py-1.5 text-center transition-colors"
+                        >
+                          {showHidden ? '非表示ドメインを隠す' : `非表示のドメイン ${ignoredDomainsForTab.length} 件を表示`}
+                        </button>
+                        {showHidden && ignoredDomainsForTab.map((domain) => (
+                          <div key={domain} className="flex items-center gap-2 px-2 py-1.5 rounded bg-gray-50 dark:bg-gray-700/50 opacity-60">
+                            <span className="text-sm font-mono flex-1 truncate text-gray-400 dark:text-gray-500 line-through">
+                              {domain}
+                            </span>
+                            <button
+                              onClick={() => handleUnhideDomain(domain)}
+                              title="このドメインを再表示する"
+                              className="shrink-0 text-xs text-blue-500 hover:text-blue-700 dark:hover:text-blue-300 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-700 hover:border-blue-400 transition-colors"
+                            >
+                              再表示
+                            </button>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -429,25 +502,23 @@ function PolicyCard({
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-gray-900 dark:text-white">{policy.name}</h3>
-            {policy.count_mode && (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300">
-                カウント
-              </span>
-            )}
-          </div>
-          {policy.description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{policy.description}</p>}
+      <div>
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-gray-900 dark:text-white">{policy.name}</h3>
+          {policy.count_mode && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300">
+              カウント
+            </span>
+          )}
         </div>
-        <div className="flex gap-2 shrink-0">
-          <button onClick={onImportDomains} title="セッションからドメインを取り込む" className="text-xs px-2 py-1 rounded border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20">
-            取り込む
-          </button>
-          <button onClick={onEdit} className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700">編集</button>
-          <button onClick={onDelete} className="text-xs px-2 py-1 rounded border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">削除</button>
-        </div>
+        {policy.description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{policy.description}</p>}
+      </div>
+      <div className="flex gap-2">
+        <button onClick={onImportDomains} title="検出ドメインを確認" className="text-xs px-2 py-1 rounded border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20">
+          検出ドメインを確認
+        </button>
+        <button onClick={onEdit} className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700">編集</button>
+        <button onClick={onDelete} className="text-xs px-2 py-1 rounded border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">削除</button>
       </div>
       {domains ? (
         <div>

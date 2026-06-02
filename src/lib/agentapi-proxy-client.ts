@@ -1456,8 +1456,15 @@ export class AgentAPIProxyClient {
    * Revoke share for a session
    * DELETE /sessions/{sessionId}/share
    */
-  async getSandboxPolicyDomains(policyId: string): Promise<{ allowed: string[]; denied: string[]; updated_at?: string }> {
-    return this.makeRequest<{ allowed: string[]; denied: string[]; updated_at?: string }>(`/sandbox-policies/${policyId}/domains`);
+  async getSandboxPolicyDomains(policyId: string): Promise<{ allowed: string[]; denied: string[]; ignored: string[]; updated_at?: string }> {
+    return this.makeRequest<{ allowed: string[]; denied: string[]; ignored: string[]; updated_at?: string }>(`/sandbox-policies/${policyId}/domains`);
+  }
+
+  async updateIgnoredSandboxPolicyDomains(policyId: string, ignored: string[]): Promise<{ allowed: string[]; denied: string[]; ignored: string[]; updated_at?: string }> {
+    return this.makeRequest<{ allowed: string[]; denied: string[]; ignored: string[]; updated_at?: string }>(`/sandbox-policies/${policyId}/domains/ignored`, {
+      method: 'PUT',
+      body: JSON.stringify({ ignored }),
+    });
   }
 
   async getSessionSandboxDomains(sessionId: string): Promise<{ allowed: string[]; denied: string[] }> {
