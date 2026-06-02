@@ -242,6 +242,7 @@ function SandboxPolicyFormModal({ isOpen, onClose, onSuccess, editing }: Sandbox
   const [description, setDescription] = useState('')
   const [mode, setMode] = useState<'allowlist' | 'denylist'>('allowlist')
   const [domains, setDomains] = useState('')
+  const [countMode, setCountMode] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -259,11 +260,13 @@ function SandboxPolicyFormModal({ isOpen, onClose, onSuccess, editing }: Sandbox
         setMode('allowlist')
         setDomains('')
       }
+      setCountMode(editing.count_mode ?? false)
     } else {
       setName('')
       setDescription('')
       setMode('allowlist')
       setDomains('')
+      setCountMode(false)
     }
     setError(null)
   }, [editing, isOpen])
@@ -280,6 +283,7 @@ function SandboxPolicyFormModal({ isOpen, onClose, onSuccess, editing }: Sandbox
           name: name.trim(),
           description: description.trim() || undefined,
           ...(mode === 'allowlist' ? { allowed_domains: domainList, denied_domains: [] } : { denied_domains: domainList, allowed_domains: [] }),
+          count_mode: countMode,
         }
         await client.updateSandboxPolicy(editing.id, data)
       } else {
@@ -288,6 +292,7 @@ function SandboxPolicyFormModal({ isOpen, onClose, onSuccess, editing }: Sandbox
           name: name.trim(),
           description: description.trim() || undefined,
           ...(mode === 'allowlist' ? { allowed_domains: domainList } : { denied_domains: domainList }),
+          count_mode: countMode,
           scope: (scopeParams as { scope?: 'user' | 'team' }).scope ?? 'user',
           ...(scopeParams as { team_id?: string }).team_id ? { team_id: (scopeParams as { team_id?: string }).team_id } : {},
         }
@@ -372,6 +377,22 @@ function SandboxPolicyFormModal({ isOpen, onClose, onSuccess, editing }: Sandbox
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono resize-y"
               />
             </div>
+            <div>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={countMode}
+                  onChange={(e) => setCountMode(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">カウントモード</span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    ポリシーを評価してブロック対象ドメインを記録するが、トラフィックは実際にはブロックしない。本番適用前の監査に利用できる。
+                  </p>
+                </div>
+              </label>
+            </div>
           </form>
 
           <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
@@ -410,7 +431,14 @@ function PolicyCard({
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h3 className="font-semibold text-gray-900 dark:text-white">{policy.name}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-gray-900 dark:text-white">{policy.name}</h3>
+            {policy.count_mode && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300">
+                カウント
+              </span>
+            )}
+          </div>
           {policy.description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{policy.description}</p>}
         </div>
         <div className="flex gap-2 shrink-0">
