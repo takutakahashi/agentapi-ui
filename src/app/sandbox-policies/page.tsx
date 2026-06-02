@@ -23,6 +23,7 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
   const [registeredDomains, setRegisteredDomains] = useState<Set<string>>(new Set())
   // Track locally ignored domains (synced from server on fetch)
   const [ignoredDomains, setIgnoredDomains] = useState<Set<string>>(new Set())
+  const [showHidden, setShowHidden] = useState(false)
   const [activeTab, setActiveTab] = useState<'denied' | 'allowed'>('denied')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -92,7 +93,7 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
     }
   }
 
-  const handleIgnoreDomain = async (domain: string) => {
+  const handleHideDomain = async (domain: string) => {
     const newIgnored = new Set(ignoredDomains)
     newIgnored.add(domain)
     setIgnoredDomains(newIgnored)
@@ -105,13 +106,25 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
       const client = createAgentAPIProxyClientFromStorage()
       await client.updateIgnoredSandboxPolicyDomains(policy.id, Array.from(newIgnored))
     } catch {
-      // Roll back on failure
       setIgnoredDomains((prev) => {
         const reverted = new Set(prev)
         reverted.delete(domain)
         return reverted
       })
-      setError('無視リストの更新に失敗しました')
+      setError('非表示リストの更新に失敗しました')
+    }
+  }
+
+  const handleUnhideDomain = async (domain: string) => {
+    const newIgnored = new Set(ignoredDomains)
+    newIgnored.delete(domain)
+    setIgnoredDomains(newIgnored)
+    try {
+      const client = createAgentAPIProxyClientFromStorage()
+      await client.updateIgnoredSandboxPolicyDomains(policy.id, Array.from(newIgnored))
+    } catch {
+      setIgnoredDomains((prev) => new Set([...prev, domain]))
+      setError('非表示リストの更新に失敗しました')
     }
   }
 
@@ -119,6 +132,9 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
 
   const currentDomains = (activeTab === 'denied' ? (domains?.denied ?? []) : (domains?.allowed ?? []))
     .filter((d) => !registeredDomains.has(d) && !ignoredDomains.has(d))
+
+  const ignoredDomainsForTab = (activeTab === 'denied' ? (domains?.denied ?? []) : (domains?.allowed ?? []))
+    .filter((d) => !registeredDomains.has(d) && ignoredDomains.has(d))
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -194,12 +210,12 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
                   </button>
                 </div>
 
-                {currentDomains.length === 0 ? (
+                {currentDomains.length === 0 && ignoredDomainsForTab.length === 0 ? (
                   <p className="text-sm text-gray-400 text-center py-3">
                     {activeTab === 'denied' ? 'ブロックされたドメインはありません' : '許可されたドメインはありません'}
                   </p>
                 ) : (
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                  <div className="space-y-1 max-h-56 overflow-y-auto">
                     {currentDomains.map((domain) => (
                       <div key={domain} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
                         <input
@@ -214,14 +230,38 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
                           {domain}
                         </span>
                         <button
-                          onClick={() => handleIgnoreDomain(domain)}
-                          title="このドメインを無視する"
+                          onClick={() => handleHideDomain(domain)}
+                          title="このドメインを非表示にする"
                           className="shrink-0 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-400 transition-colors"
                         >
-                          無視
+                          非表示
                         </button>
                       </div>
                     ))}
+                    {ignoredDomainsForTab.length > 0 && (
+                      <>
+                        <button
+                          onClick={() => setShowHidden((v) => !v)}
+                          className="w-full text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 py-1.5 text-center transition-colors"
+                        >
+                          {showHidden ? '非表示ドメインを隠す' : `非表示のドメイン ${ignoredDomainsForTab.length} 件を表示`}
+                        </button>
+                        {showHidden && ignoredDomainsForTab.map((domain) => (
+                          <div key={domain} className="flex items-center gap-2 px-2 py-1.5 rounded bg-gray-50 dark:bg-gray-700/50 opacity-60">
+                            <span className="text-sm font-mono flex-1 truncate text-gray-400 dark:text-gray-500 line-through">
+                              {domain}
+                            </span>
+                            <button
+                              onClick={() => handleUnhideDomain(domain)}
+                              title="このドメインを再表示する"
+                              className="shrink-0 text-xs text-blue-500 hover:text-blue-700 dark:hover:text-blue-300 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-700 hover:border-blue-400 transition-colors"
+                            >
+                              再表示
+                            </button>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
                 )}
 
