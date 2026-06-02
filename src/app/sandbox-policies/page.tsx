@@ -144,7 +144,7 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">セッションからドメインを取り込む</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">検出ドメインを確認</h2>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                 ポリシー: {policy.name}
                 {!loading && domains?.updated_at && ` — 最終更新: ${new Date(domains.updated_at).toLocaleString('ja-JP')}`}
@@ -515,8 +515,8 @@ function PolicyCard({
           {policy.description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{policy.description}</p>}
         </div>
         <div className="flex gap-2 shrink-0">
-          <button onClick={onImportDomains} title="セッションからドメインを取り込む" className="text-xs px-2 py-1 rounded border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20">
-            取り込む
+          <button onClick={onImportDomains} title="検出ドメインを確認" className="text-xs px-2 py-1 rounded border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20">
+            検出ドメインを確認
           </button>
           <button onClick={onEdit} className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700">編集</button>
           <button onClick={onDelete} className="text-xs px-2 py-1 rounded border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">削除</button>
