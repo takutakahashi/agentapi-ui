@@ -49,6 +49,9 @@ export default function SessionProfileFormModal({
   const [dockerEnabled, setDockerEnabled] = useState(false)
   const [dockerRegistries, setDockerRegistries] = useState<Array<{ server: string; username: string; password: string; secretName: string; insecure: boolean }>>([])
 
+  // Session TTL
+  const [sessionTTL, setSessionTTL] = useState('')
+
   const addDockerRegistry = () => setDockerRegistries(prev => [...prev, { server: '', username: '', password: '', secretName: '', insecure: false }])
   const removeDockerRegistry = (index: number) => setDockerRegistries(prev => prev.filter((_, i) => i !== index))
   const updateDockerRegistry = (index: number, field: string, value: string | boolean) =>
@@ -141,6 +144,11 @@ export default function SessionProfileFormModal({
         setDockerEnabled(false)
         setDockerRegistries([])
       }
+
+      // Initialize session_ttl from profile config
+      const ttl = cfg?.session_ttl ?? ''
+      setSessionTTL(ttl)
+      if (ttl) setShowAdvanced(true)
     } else {
       // Reset form
       setName('')
@@ -156,6 +164,7 @@ export default function SessionProfileFormModal({
       setSandboxCountMode(false)
       setDockerEnabled(false)
       setDockerRegistries([])
+      setSessionTTL('')
       setShowAdvanced(false)
     }
     setError(null)
@@ -268,6 +277,7 @@ export default function SessionProfileFormModal({
         ...(Object.keys(tags).length > 0 ? { tags } : {}),
         ...(params ? { params } : {}),
         ...(sandboxPolicyId ? { sandbox_policy_id: sandboxPolicyId } : {}),
+        ...(sessionTTL.trim() ? { session_ttl: sessionTTL.trim() } : {}),
       }
 
       if (isEditing && editingProfile) {
@@ -758,6 +768,23 @@ export default function SessionProfileFormModal({
                         ))}
                       </div>
                     )}
+                  </div>
+
+                  {/* セッション TTL */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      セッション自動削除 TTL
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      最後のメッセージからこの時間が経過するとセッションを自動削除します。例: <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">24h</code>、<code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">168h</code>（空欄 = 自動削除なし / グローバル設定に従う）
+                    </p>
+                    <input
+                      type="text"
+                      value={sessionTTL}
+                      onChange={e => setSessionTTL(e.target.value)}
+                      placeholder="例: 24h、72h、168h"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    />
                   </div>
                 </div>
               )}
