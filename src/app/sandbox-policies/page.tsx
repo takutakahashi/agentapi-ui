@@ -302,16 +302,16 @@ function SessionDomainImportModal({ isOpen, onClose, policy, onImported }: Sessi
   )
 }
 
-// ---- Form Modal ----
-interface SandboxPolicyFormModalProps {
-  isOpen: boolean
+// ---- Settings Page ----
+interface SandboxPolicySettingsPanelProps {
   onClose: () => void
   onSuccess: () => void
   editing?: SandboxPolicy | null
 }
 
-function SandboxPolicyFormModal({ isOpen, onClose, onSuccess, editing }: SandboxPolicyFormModalProps) {
+function SandboxPolicySettingsPanel({ onClose, onSuccess, editing }: SandboxPolicySettingsPanelProps) {
   const { getScopeParams } = useTeamScope()
+  const [activeTab, setActiveTab] = useState<'basic' | 'domains' | 'evaluation'>('basic')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [mode, setMode] = useState<'allowlist' | 'denylist'>('allowlist')
@@ -343,7 +343,8 @@ function SandboxPolicyFormModal({ isOpen, onClose, onSuccess, editing }: Sandbox
       setCountMode(false)
     }
     setError(null)
-  }, [editing, isOpen])
+    setActiveTab('basic')
+  }, [editing])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -380,79 +381,170 @@ function SandboxPolicyFormModal({ isOpen, onClose, onSuccess, editing }: Sandbox
     }
   }
 
-  if (!isOpen) return null
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
-      <div className="relative min-h-full flex items-center justify-center p-4">
-        <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {editing ? 'ポリシーを編集' : '新しいサンドボックスポリシー'}
-            </h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+  const tabs = [
+    {
+      id: 'basic' as const,
+      label: '基本設定',
+      description: '名前と説明',
+    },
+    {
+      id: 'domains' as const,
+      label: 'ドメイン',
+      description: mode === 'allowlist' ? '許可リスト' : '拒否リスト',
+    },
+    {
+      id: 'evaluation' as const,
+      label: '評価',
+      description: countMode ? 'カウントのみ' : '通常適用',
+    },
+  ]
 
-          <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
-            {error && (
-              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            一覧へ戻る
+          </button>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+            {editing ? 'サンドボックスポリシーを編集' : '新しいサンドボックスポリシー'}
+          </h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            ネットワークフィルターの対象ドメインと適用方法を設定します。
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50">
+            キャンセル
+          </button>
+          <button type="submit" form="sandbox-policy-settings-form" disabled={isSubmitting} className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50">
+            {isSubmitting ? '保存中...' : editing ? '保存' : '作成'}
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <aside className="lg:sticky lg:top-20 lg:self-start">
+          <div className="rounded-lg border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-800">
+            <nav className="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible" aria-label="サンドボックスポリシー設定">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`min-w-[150px] rounded-md px-3 py-2 text-left transition-colors lg:min-w-0 ${
+                    activeTab === tab.id
+                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
+                  }`}
+                >
+                  <span className="block text-sm font-medium">{tab.label}</span>
+                  <span className="mt-0.5 block text-xs opacity-75">{tab.description}</span>
+                </button>
+              ))}
+            </nav>
+          </div>
+        </aside>
+
+        <form id="sandbox-policy-settings-form" onSubmit={handleSubmit} className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+          {error && (
+            <div className="mx-5 mt-5 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
+              <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+            </div>
+          )}
+
+          {activeTab === 'basic' && (
+            <section className="space-y-5 p-5 md:p-6">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">基本設定</h2>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">一覧やセッションプロファイルで識別するための情報です。</p>
               </div>
-            )}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                名前 <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="例: github-access"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">説明</label>
-              <input
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="例: GitHub と npm へのアクセスを許可"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">モード</label>
-              <div className="flex gap-4">
-                {(['allowlist', 'denylist'] as const).map((m) => (
-                  <label key={m} className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" value={m} checked={mode === m} onChange={() => setMode(m)} className="h-4 w-4 text-blue-600 focus:ring-blue-500" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      {m === 'allowlist' ? '許可リスト（指定ドメインのみ許可）' : '拒否リスト（指定ドメインをブロック）'}
-                    </span>
-                  </label>
-                ))}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  名前 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="例: github-access"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                ドメインリスト <span className="text-gray-400 font-normal">（1行に1ドメイン、ワイルドカード *.example.com 可）</span>
-              </label>
-              <textarea
-                value={domains}
-                onChange={(e) => setDomains(e.target.value)}
-                placeholder={mode === 'allowlist' ? 'github.com\n*.github.com\nregistry.npmjs.org' : 'example.com\nbad-domain.com'}
-                rows={6}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono resize-y"
-              />
-            </div>
-            <div>
-              <label className="flex items-start gap-2 cursor-pointer">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">説明</label>
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="例: GitHub と npm へのアクセスを許可"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </section>
+          )}
+
+          {activeTab === 'domains' && (
+            <section className="space-y-5 p-5 md:p-6">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">ドメイン</h2>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">許可または拒否するドメインを 1 行ずつ指定します。</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">モード</label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {(['allowlist', 'denylist'] as const).map((m) => (
+                    <label
+                      key={m}
+                      className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
+                        mode === m
+                          ? 'border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-900/20'
+                          : 'border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500'
+                      }`}
+                    >
+                      <input type="radio" value={m} checked={mode === m} onChange={() => setMode(m)} className="mt-0.5 h-4 w-4 text-blue-600 focus:ring-blue-500" />
+                      <span>
+                        <span className="block text-sm font-medium text-gray-800 dark:text-gray-200">
+                          {m === 'allowlist' ? '許可リスト' : '拒否リスト'}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+                          {m === 'allowlist' ? '指定したドメインのみ許可します' : '指定したドメインをブロックします'}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  ドメインリスト <span className="text-gray-400 font-normal">（ワイルドカード *.example.com 可）</span>
+                </label>
+                <textarea
+                  value={domains}
+                  onChange={(e) => setDomains(e.target.value)}
+                  placeholder={mode === 'allowlist' ? 'github.com\n*.github.com\nregistry.npmjs.org' : 'example.com\nbad-domain.com'}
+                  rows={12}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono resize-y"
+                />
+              </div>
+            </section>
+          )}
+
+          {activeTab === 'evaluation' && (
+            <section className="space-y-5 p-5 md:p-6">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">評価</h2>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">ポリシーを実際にブロックへ反映するか、記録だけにするかを選びます。</p>
+              </div>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-4 dark:border-gray-600">
                 <input
                   type="checkbox"
                   checked={countMode}
@@ -466,18 +558,18 @@ function SandboxPolicyFormModal({ isOpen, onClose, onSuccess, editing }: Sandbox
                   </p>
                 </div>
               </label>
-            </div>
-          </form>
+            </section>
+          )}
 
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-5 py-4 dark:border-gray-700">
             <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50">
               キャンセル
             </button>
-            <button type="submit" onClick={handleSubmit} disabled={isSubmitting} className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50">
-              {editing ? '保存' : '作成'}
+            <button type="submit" disabled={isSubmitting} className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50">
+              {isSubmitting ? '保存中...' : editing ? '保存' : '作成'}
             </button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   )
@@ -594,8 +686,15 @@ export default function SandboxPoliciesPage() {
           onToggleVisibility={() => setSidebarVisible(!sidebarVisible)}
         />
 
-        {/* Content */}
         <div className="flex-1 px-4 md:px-6 lg:px-8 pt-6 md:pt-8 pb-6 md:pb-8">
+          {isFormOpen ? (
+            <SandboxPolicySettingsPanel
+              onClose={() => { setIsFormOpen(false); setEditing(null) }}
+              onSuccess={() => { setIsFormOpen(false); setEditing(null); load() }}
+              editing={editing}
+            />
+          ) : (
+            <>
             <div className="mb-6 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">サンドボックスポリシー</h1>
@@ -644,26 +743,23 @@ export default function SandboxPoliciesPage() {
                 ))}
               </div>
             )}
+            </>
+          )}
         </div>
       </div>
 
       {/* Mobile FAB */}
-      <button
-        onClick={() => { setEditing(null); setIsFormOpen(true) }}
-        className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center z-50 transition-colors"
-        aria-label="新しいポリシー"
-      >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-        </svg>
-      </button>
-
-      <SandboxPolicyFormModal
-        isOpen={isFormOpen}
-        onClose={() => { setIsFormOpen(false); setEditing(null) }}
-        onSuccess={() => { setIsFormOpen(false); setEditing(null); load() }}
-        editing={editing}
-      />
+      {!isFormOpen && (
+        <button
+          onClick={() => { setEditing(null); setIsFormOpen(true) }}
+          className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center z-50 transition-colors"
+          aria-label="新しいポリシー"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+        </button>
+      )}
 
       {importTarget && (
         <SessionDomainImportModal
