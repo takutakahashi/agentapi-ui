@@ -296,11 +296,11 @@ export default function PersonalSettingsPage() {
     if (!token) return
     const command = [
       'SESSION_MANAGER_ENABLED=true',
-      'SESSION_MANAGER_UPSTREAM_URL=<proxy-a-url>',
+      'SESSION_MANAGER_UPSTREAM_URL=<parent-proxy-url>',
       `SESSION_MANAGER_CONNECTION_TOKEN=${token}`,
       `SESSION_MANAGER_HMAC_SECRET=${token}`,
-      'SESSION_MANAGER_PUBLIC_URL=<proxy-b-url>',
-      'AGENTAPI_K8S_SESSION_PROVISIONER_PROXY_URL=<proxy-b-url>',
+      'SESSION_MANAGER_PUBLIC_URL=<external-session-manager-url>',
+      'AGENTAPI_K8S_SESSION_PROVISIONER_PROXY_URL=<external-session-manager-url>',
       'agentapi-proxy server',
     ].join(' ')
     await navigator.clipboard.writeText(command)
@@ -856,7 +856,7 @@ export default function PersonalSettingsPage() {
                               onClick={() => handleCopyCommand(esm.id!)}
                               className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
                             >
-                              {copiedSecretId === `${esm.id}:command` ? '起動コマンドをコピーしました' : 'Proxy B 起動コマンドをコピー'}
+                              {copiedSecretId === `${esm.id}:command` ? '起動コマンドをコピーしました' : 'External Session Manager 起動コマンドをコピー'}
                             </button>
                           </div>
                         ) : null}
@@ -923,7 +923,7 @@ export default function PersonalSettingsPage() {
                     />
                   </div>
                   <p className="text-xs text-gray-600 dark:text-gray-400">
-                    保存すると接続トークンが発行されます。外部マネージャーはこの token で Proxy A に接続します。
+                    保存すると接続トークンが発行されます。External Session Managerはこの token で 親プロキシ に接続します。
                   </p>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
