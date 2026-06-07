@@ -24,10 +24,10 @@ export default function PersonalSettingsPage() {
   const [slackUserId, setSlackUserId] = useState<string>('')
   const [notificationChannels, setNotificationChannels] = useState<string[] | undefined>(undefined)
   const [esmList, setEsmList] = useState<ExternalSessionManagerConfig[]>([])
-  const [newEsm, setNewEsm] = useState<{ name: string; url: string; default: boolean }>({ name: '', url: '', default: false })
+  const [newEsm, setNewEsm] = useState<{ name: string; default: boolean }>({ name: '', default: false })
   const [showAddEsm, setShowAddEsm] = useState(false)
   const [editingEsmIndex, setEditingEsmIndex] = useState<number | null>(null)
-  const [editEsm, setEditEsm] = useState<{ name: string; url: string; default: boolean }>({ name: '', url: '', default: false })
+  const [editEsm, setEditEsm] = useState<{ name: string; default: boolean }>({ name: '', default: false })
   const [revealedTokens, setRevealedTokens] = useState<Record<string, string>>({})
   const [copiedSecretId, setCopiedSecretId] = useState<string | null>(null)
   const [regeneratingEsmId, setRegeneratingEsmId] = useState<string | null>(null)
@@ -242,10 +242,10 @@ export default function PersonalSettingsPage() {
     const updatedList = newEsm.default
       ? esmList.map(e => ({ ...e, default: false }))
       : [...esmList]
-    const updated = [...updatedList, { name: newEsm.name.trim(), url: newEsm.url.trim(), default: newEsm.default }]
+    const updated = [...updatedList, { name: newEsm.name.trim(), default: newEsm.default }]
     setEsmList(updated)
     setSettings((prev) => ({ ...prev, external_session_managers: updated }))
-    setNewEsm({ name: '', url: '', default: false })
+    setNewEsm({ name: '', default: false })
     setShowAddEsm(false)
   }
 
@@ -264,7 +264,7 @@ export default function PersonalSettingsPage() {
   const handleStartEditEsm = (index: number) => {
     const esm = esmList[index]
     setEditingEsmIndex(index)
-    setEditEsm({ name: esm.name, url: esm.url || '', default: esm.default ?? false })
+    setEditEsm({ name: esm.name, default: esm.default ?? false })
   }
 
   const handleSaveEditEsm = () => {
@@ -276,7 +276,6 @@ export default function PersonalSettingsPage() {
     updatedList[editingEsmIndex] = {
       ...esmList[editingEsmIndex],
       name: editEsm.name.trim(),
-      url: editEsm.url.trim(),
       default: editEsm.default,
     }
     setEsmList(updatedList)
@@ -295,7 +294,15 @@ export default function PersonalSettingsPage() {
   const handleCopyCommand = async (id: string) => {
     const token = revealedTokens[id]
     if (!token) return
-    const command = `SESSION_MANAGER_UPSTREAM_URL=<proxy-url> SESSION_MANAGER_CONNECTION_TOKEN=${token} agentapi-proxy server`
+    const command = [
+      'SESSION_MANAGER_ENABLED=true',
+      'SESSION_MANAGER_UPSTREAM_URL=<proxy-a-url>',
+      `SESSION_MANAGER_CONNECTION_TOKEN=${token}`,
+      `SESSION_MANAGER_HMAC_SECRET=${token}`,
+      'SESSION_MANAGER_PUBLIC_URL=<proxy-b-url>',
+      'AGENTAPI_K8S_SESSION_PROVISIONER_PROXY_URL=<proxy-b-url>',
+      'agentapi-proxy server',
+    ].join(' ')
     await navigator.clipboard.writeText(command)
     setCopiedSecretId(`${id}:command`)
     setTimeout(() => setCopiedSecretId(null), 2000)
@@ -328,7 +335,7 @@ export default function PersonalSettingsPage() {
       setEsmList(savedSettings.external_session_managers || [])
       const savedManager = savedSettings.external_session_managers?.find((m) =>
         (esm.id && m.id === esm.id) ||
-        (!esm.id && m.name === esm.name && (m.url || '') === (esm.url || ''))
+        (!esm.id && m.name === esm.name)
       )
       setRevealedTokens(prev => ({ ...prev, [savedManager?.id || esmId]: newSecret }))
       showToast('接続トークンを再発行しました', 'success')
@@ -451,7 +458,7 @@ export default function PersonalSettingsPage() {
       if (savedSettings?.external_session_managers) {
         const tokens: Record<string, string> = {}
         for (const m of savedSettings.external_session_managers) {
-          const token = m.connection_token || m.hmac_secret
+          const token = m.connection_token
           if (m.id && token) {
             tokens[m.id] = token
           }
@@ -776,16 +783,6 @@ export default function PersonalSettingsPage() {
                           className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">URL（旧転送方式・任意）</label>
-                        <input
-                          type="url"
-                          value={editEsm.url}
-                          onChange={(e) => setEditEsm(prev => ({ ...prev, url: e.target.value }))}
-                          placeholder="https://agentapi.example.com"
-                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
@@ -824,12 +821,8 @@ export default function PersonalSettingsPage() {
                           )}
                         </div>
                         <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                          {esm.url ? (
-                            <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{esm.url}</span>
-                          ) : (
-                            <span className="text-xs text-gray-500 dark:text-gray-400">allocator 接続</span>
-                          )}
-                          {(esm.has_connection_token || esm.has_hmac_secret || esm.hmac_secret || (esm.id && revealedTokens[esm.id])) && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">allocator 接続</span>
+                          {(esm.has_connection_token || esm.hmac_secret || (esm.id && revealedTokens[esm.id])) && (
                             <span className="px-1.5 py-0.5 text-xs bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 rounded">
                               token 設定済み
                             </span>
@@ -932,16 +925,6 @@ export default function PersonalSettingsPage() {
                   <p className="text-xs text-gray-600 dark:text-gray-400">
                     保存すると接続トークンが発行されます。外部マネージャーはこの token で Proxy A に接続します。
                   </p>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">URL（旧転送方式・任意）</label>
-                    <input
-                      type="url"
-                      value={newEsm.url}
-                      onChange={(e) => setNewEsm(prev => ({ ...prev, url: e.target.value }))}
-                      placeholder="空欄なら allocator 接続"
-                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -962,7 +945,7 @@ export default function PersonalSettingsPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setShowAddEsm(false); setNewEsm({ name: '', url: '', default: false }) }}
+                      onClick={() => { setShowAddEsm(false); setNewEsm({ name: '', default: false }) }}
                       className="px-3 py-1.5 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                     >
                       キャンセル

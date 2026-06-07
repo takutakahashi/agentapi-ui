@@ -629,8 +629,8 @@ export default function NewSessionPage() {
                                   {m.source === 'team' ? `チーム: ${m.source_name}` : '個人'}
                                 </span>
                               </span>
-                              <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate" title={m.url || 'allocator 接続'}>
-                                {m.url || 'allocator 接続'}
+                              <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate" title="allocator 接続">
+                                allocator 接続
                               </span>
                             </span>
                           </label>
