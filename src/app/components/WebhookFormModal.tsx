@@ -274,15 +274,11 @@ export default function WebhookFormModal({
     newValue: string
   ) => {
     const trigger = triggers[index]
-    const updated = { ...trigger[field] }
-
-    // If key changed, remove old key and add new key
-    if (oldKey !== newKey) {
-      delete updated[oldKey]
-      updated[newKey] = newValue
-    } else {
-      updated[oldKey] = newValue
-    }
+    const updated = Object.fromEntries(
+      Object.entries(trigger[field]).map(([key, value]) => (
+        key === oldKey ? [newKey, newValue] : [key, value]
+      ))
+    )
 
     updateTrigger(index, field, updated)
   }
@@ -968,8 +964,8 @@ export default function WebhookFormModal({
                             </div>
                             {Object.entries(trigger.environment).length > 0 ? (
                               <div className="space-y-2">
-                                {Object.entries(trigger.environment).map(([key, value]) => (
-                                  <div key={key} className="flex flex-col sm:flex-row gap-2">
+                                {Object.entries(trigger.environment).map(([key, value], entryIndex) => (
+                                  <div key={`environment-${entryIndex}`} className="flex flex-col sm:flex-row gap-2">
                                     <input
                                       type="text"
                                       value={key}
@@ -1025,8 +1021,8 @@ export default function WebhookFormModal({
                             </div>
                             {Object.entries(trigger.tags).length > 0 ? (
                               <div className="space-y-2">
-                                {Object.entries(trigger.tags).map(([key, value]) => (
-                                  <div key={key} className="flex flex-col sm:flex-row gap-2">
+                                {Object.entries(trigger.tags).map(([key, value], entryIndex) => (
+                                  <div key={`tags-${entryIndex}`} className="flex flex-col sm:flex-row gap-2">
                                     <input
                                       type="text"
                                       value={key}
