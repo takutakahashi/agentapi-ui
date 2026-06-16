@@ -166,12 +166,16 @@ export class AgentAPIProxyError extends Error {
 
 /** Response from GET /{sessionId}/session for ACP sessions. */
 export interface ACPConfigOption {
+  id?: string;
   key?: string;
   name?: string;
   description?: string;
+  category?: string;
+  type?: string;
   value?: unknown;
   currentValue?: unknown;
   default?: unknown;
+  options?: unknown;
 }
 
 export interface ACPSessionInfo {
@@ -214,6 +218,8 @@ export interface ACPSessionUpdate {
   modeId?: string;
   // available_commands_update
   availableCommands?: Array<{ name: string; description: string; input?: { hint?: string } }>;
+  // config_option_update
+  configOptions?: ACPConfigOption[];
 }
 
 /**
@@ -298,6 +304,10 @@ export interface ACPSessionCallbacks {
    * Called when the agent advertises its slash-command list (available_commands_update).
    */
   onCommandsUpdate?: (commands: Array<{ name: string; description: string; hint?: string }>) => void;
+  /**
+   * Called when the agent reports updated session configuration options.
+   */
+  onConfigOptionsUpdate?: (configOptions: ACPConfigOption[]) => void;
   /** Called when agent status changes (e.g. prompt turn finished). */
   onStatus: (status: AgentStatus) => void;
   /** Called when a permission request arrives from the agent. */
@@ -2411,6 +2421,13 @@ export class AgentAPIProxyClient {
               }
               break;
             }
+
+            case 'config_option_update': {
+              if (update.configOptions && Array.isArray(update.configOptions)) {
+                callbacks.onConfigOptionsUpdate?.(update.configOptions);
+              }
+              break;
+            }
           }
           return;
         }
@@ -2569,6 +2586,36 @@ export class AgentAPIProxyClient {
     await this.makeRequest<unknown>(`/settings/${encodeURIComponent(name)}/sync/pull`, {
       method: 'POST',
     });
+  }
+
+  /**
+   * Set an ACP session configuration option, such as the active model.
+   * The ACP agent returns the complete configuration state after applying it.
+   */
+  async setACPSessionConfigOption(
+    sessionId: string,
+    acpSessionId: string,
+    configId: string,
+    value: string
+  ): Promise<{ configOptions: ACPConfigOption[] }> {
+    const response = await this.makeRequest<{
+      configOptions?: ACPConfigOption[];
+      result?: { configOptions?: ACPConfigOption[] };
+    }>(`/${sessionId}/rpc`, {
+      method: 'POST',
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: Date.now(),
+        method: 'session/set_config_option',
+        params: {
+          sessionId: acpSessionId,
+          configId,
+          value,
+        },
+      }),
+    });
+
+    return { configOptions: response.result?.configOptions ?? response.configOptions ?? [] };
   }
 }
 

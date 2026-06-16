@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createAgentAPIProxyClientFromStorage, ACPSessionInfo } from '../../lib/agentapi-proxy-client';
+import { createAgentAPIProxyClientFromStorage, ACPSessionInfo, ACPConfigOption } from '../../lib/agentapi-proxy-client';
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client';
 import { createACPServerClientFromStorage, ACPServerClient } from '../../lib/acp-server-client';
 import { getACPServerEnabled } from '../../types/settings';
@@ -117,6 +117,76 @@ function formatACPModelValue(value: unknown): string | null {
   return direct;
 }
 
+interface ACPModelOption {
+  value: string;
+  label: string;
+  description?: string;
+  group?: string;
+}
+
+function getACPConfigOptionId(option: ACPConfigOption | undefined): string | null {
+  if (!option) return null;
+  return formatACPModelValue(option.id) || formatACPModelValue(option.key);
+}
+
+function getACPConfigOptionCurrentValue(option: ACPConfigOption | undefined): string | null {
+  if (!option) return null;
+  return (
+    formatACPModelValue(option.currentValue) ||
+    formatACPModelValue(option.value) ||
+    formatACPModelValue(option.default)
+  );
+}
+
+function getACPModelConfigOption(info: ACPSessionInfo | null): ACPConfigOption | null {
+  if (!info?.configOptions?.length) return null;
+
+  const byCategory = info.configOptions.find(option => option.category === 'model');
+  if (byCategory) return byCategory;
+
+  return info.configOptions.find(option => {
+    const haystack = [option.id, option.key, option.name, option.description]
+      .filter((value): value is string => typeof value === 'string')
+      .join(' ')
+      .toLowerCase();
+    return /\bmodel\b/.test(haystack) || haystack.includes('modelid');
+  }) ?? null;
+}
+
+function flattenACPModelOptions(options: unknown): ACPModelOption[] {
+  if (!Array.isArray(options)) return [];
+
+  const flattened: ACPModelOption[] = [];
+  for (const item of options) {
+    if (typeof item === 'string') {
+      flattened.push({ value: item, label: item });
+      continue;
+    }
+
+    if (!item || typeof item !== 'object') continue;
+    const record = item as Record<string, unknown>;
+
+    if (Array.isArray(record.options)) {
+      const groupName = formatACPModelValue(record.name) || formatACPModelValue(record.group) || undefined;
+      flattened.push(...flattenACPModelOptions(record.options).map(option => ({
+        ...option,
+        group: option.group ?? groupName,
+      })));
+      continue;
+    }
+
+    const value = formatACPModelValue(record.value);
+    if (!value) continue;
+    flattened.push({
+      value,
+      label: formatACPModelValue(record.name) || value,
+      description: formatACPModelValue(record.description) || undefined,
+    });
+  }
+
+  return flattened;
+}
+
 export function getACPModelDisplay(info: ACPSessionInfo | null): string | null {
   if (!info) return null;
 
@@ -140,20 +210,12 @@ export function getACPModelDisplay(info: ACPSessionInfo | null): string | null {
     );
   if (metaModel) return metaModel;
 
-  const modelOption = info.configOptions?.find(option => {
-    const haystack = [option.key, option.name, option.description]
-      .filter((value): value is string => typeof value === 'string')
-      .join(' ')
-      .toLowerCase();
-    return /\bmodel\b/.test(haystack) || haystack.includes('modelid');
-  });
+  const modelOption = getACPModelConfigOption(info);
 
   if (!modelOption) return null;
-  return (
-    formatACPModelValue(modelOption.value) ||
-    formatACPModelValue(modelOption.currentValue) ||
-    formatACPModelValue(modelOption.default)
-  );
+  const currentValue = getACPConfigOptionCurrentValue(modelOption);
+  const selected = flattenACPModelOptions(modelOption.options).find(option => option.value === currentValue);
+  return selected ? `${selected.label} (${selected.value})` : currentValue;
 }
 
 interface SessionTokenUsage {
@@ -352,6 +414,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                   },
                   onModeUpdate: (modeId: string) => {
                     console.log('[ACP] current_mode_update:', modeId);
+                  },
+                  onConfigOptionsUpdate: (configOptions: ACPConfigOption[]) => {
+                    applyACPConfigOptions(configOptions);
                   },
                   onStatus: (status: { status: 'stable' | 'running' | 'error'; agent_type?: string }) => {
                     setAgentStatus(status);
@@ -615,7 +680,14 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
   // ACP session state
   const [acpInfo, setACPInfo] = useState<ACPSessionInfo | null>(null);
+  const acpModelConfigOption = useMemo(() => getACPModelConfigOption(acpInfo), [acpInfo]);
+  const acpModelConfigId = useMemo(() => getACPConfigOptionId(acpModelConfigOption ?? undefined), [acpModelConfigOption]);
+  const acpModelOptions = useMemo(() => flattenACPModelOptions(acpModelConfigOption?.options), [acpModelConfigOption]);
+  const acpCurrentModelValue = useMemo(() => getACPConfigOptionCurrentValue(acpModelConfigOption ?? undefined), [acpModelConfigOption]);
   const acpModelDisplay = useMemo(() => getACPModelDisplay(acpInfo), [acpInfo]);
+  const [selectedACPModel, setSelectedACPModel] = useState('');
+  const [isSettingACPModel, setIsSettingACPModel] = useState(false);
+  const [acpModelMessage, setACPModelMessage] = useState<string | null>(null);
   const isACPSession = !!acpInfo || (!!agentType && agentType.includes('acp')) || acpServerEnabled;
   const tokenUsage = useMemo(() => getSessionTokenUsage(acpInfo, messages), [acpInfo, messages]);
   const [acpPendingPermission, setACPPendingPermission] = useState<{ action: PendingAction; rpcId: number } | null>(null);
@@ -636,6 +708,66 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       setShowSessionInfo(false);
     }
   }, [isACPSession]);
+
+  useEffect(() => {
+    setSelectedACPModel(acpCurrentModelValue ?? '');
+    setACPModelMessage(null);
+  }, [acpCurrentModelValue, acpModelConfigId]);
+
+  const applyACPConfigOptions = useCallback((configOptions: ACPConfigOption[]) => {
+    setACPInfo(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        configOptions,
+      };
+    });
+  }, []);
+
+  const handleSetACPModel = useCallback(async () => {
+    if (!sessionId || !acpModelConfigId || !selectedACPModel) return;
+    if (selectedACPModel === acpCurrentModelValue) return;
+
+    setIsSettingACPModel(true);
+    setACPModelMessage(null);
+
+    try {
+      let result: { configOptions?: ACPConfigOption[] } | undefined;
+      if (acpServerEnabled && acpServerClientRef.current) {
+        result = await acpServerClientRef.current.setSessionConfigOption(
+          sessionId,
+          acpModelConfigId,
+          selectedACPModel
+        );
+      } else {
+        if (!acpInfo || !agentAPIRef.current) return;
+        result = await agentAPIRef.current.setACPSessionConfigOption(
+          sessionId,
+          acpInfo.sessionId,
+          acpModelConfigId,
+          selectedACPModel
+        );
+      }
+
+      if (result?.configOptions) {
+        applyACPConfigOptions(result.configOptions);
+      }
+      setACPModelMessage('Model updated');
+    } catch (err) {
+      console.error('Failed to update ACP model:', err);
+      setACPModelMessage(err instanceof Error ? err.message : 'Failed to update model');
+    } finally {
+      setIsSettingACPModel(false);
+    }
+  }, [
+    sessionId,
+    acpInfo,
+    acpServerEnabled,
+    acpModelConfigId,
+    selectedACPModel,
+    acpCurrentModelValue,
+    applyACPConfigOptions,
+  ]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1084,6 +1216,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           onModeUpdate: (modeId: string) => {
             console.log('[ACP] current_mode_update:', modeId);
           },
+          onConfigOptionsUpdate: (configOptions: ACPConfigOption[]) => {
+            applyACPConfigOptions(configOptions);
+          },
           onStatus: (status: { status: 'stable' | 'running' | 'error'; agent_type?: string }) => {
             setAgentStatus(status);
           },
@@ -1118,7 +1253,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     };
 
     reconnectACP();
-  }, [isPageVisible, acpInfo, sessionId]);
+  }, [isPageVisible, acpInfo, sessionId, acpServerEnabled, applyACPConfigOptions]);
 
   // Get agent type from /status endpoint
   useEffect(() => {
@@ -1315,7 +1450,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     } finally {
       setIsLoading(false);
     }
-  }, [sessionId, acpInfo, acpPendingPermission, acpServerEnabled]);
+  }, [sessionId, acpInfo, acpPendingPermission]);
 
   const sendStopSignal = async () => {
     if (!sessionId || !agentAPIRef.current) {
@@ -1865,6 +2000,52 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                   <span className="text-gray-500 dark:text-gray-400">Model</span>
                   <span className="break-all text-gray-900 dark:text-gray-100">{acpModelDisplay || '-'}</span>
                 </div>
+                {acpModelConfigId && acpModelOptions.length > 0 && (
+                  <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
+                    <label htmlFor="acp-model-select" className="text-gray-500 dark:text-gray-400 pt-2">
+                      Switch Model
+                    </label>
+                    <div className="min-w-0">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                        <select
+                          id="acp-model-select"
+                          value={selectedACPModel}
+                          onChange={(event) => setSelectedACPModel(event.target.value)}
+                          disabled={isSettingACPModel}
+                          className="min-w-0 flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1.5 text-xs text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-gray-700"
+                        >
+                          {acpModelOptions.map(option => (
+                            <option key={`${option.group ?? 'model'}:${option.value}`} value={option.value}>
+                              {option.group ? `${option.group} / ${option.label}` : option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={handleSetACPModel}
+                          disabled={
+                            isSettingACPModel ||
+                            !selectedACPModel ||
+                            selectedACPModel === acpCurrentModelValue
+                          }
+                          className="shrink-0 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-600"
+                        >
+                          {isSettingACPModel ? 'Applying...' : 'Apply'}
+                        </button>
+                      </div>
+                      {acpModelOptions.find(option => option.value === selectedACPModel)?.description && (
+                        <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                          {acpModelOptions.find(option => option.value === selectedACPModel)?.description}
+                        </p>
+                      )}
+                      {acpModelMessage && (
+                        <p className={`mt-1 text-[11px] ${acpModelMessage === 'Model updated' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {acpModelMessage}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
                   <span className="text-gray-500 dark:text-gray-400">ACP Status</span>
                   <span className="break-all text-gray-900 dark:text-gray-100">{acpInfo.status || '-'}</span>

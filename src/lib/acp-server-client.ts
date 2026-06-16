@@ -86,6 +86,20 @@ interface ACPSessionUpdate {
   locations?: Array<{ path: string; line?: number }>;
   entries?: Array<{ content: string; status?: string; priority?: number }>;
   mode?: string;
+  configOptions?: ACPConfigOption[];
+}
+
+export interface ACPConfigOption {
+  id?: string;
+  key?: string;
+  name?: string;
+  description?: string;
+  category?: string;
+  type?: string;
+  value?: unknown;
+  currentValue?: unknown;
+  default?: unknown;
+  options?: unknown;
 }
 
 interface ACPPermissionOption {
@@ -112,6 +126,7 @@ export interface ACPServerEventCallbacks {
   onPermission?: (action: PendingAction, rpcId: number) => void;
   onTitleUpdate?: (title: string) => void;
   onModeUpdate?: (mode: string) => void;
+  onConfigOptionsUpdate?: (configOptions: ACPConfigOption[]) => void;
   onError?: (err: Event | Error) => void;
 }
 
@@ -303,6 +318,19 @@ export class ACPServerClient {
     await this.rpc<void>('session/cancel', { sessionId });
   }
 
+  /** Set a session configuration option, such as the active model. */
+  async setSessionConfigOption(
+    sessionId: string,
+    configId: string,
+    value: string
+  ): Promise<{ configOptions: ACPConfigOption[] }> {
+    return this.rpc<{ configOptions: ACPConfigOption[] }>('session/set_config_option', {
+      sessionId,
+      configId,
+      value,
+    });
+  }
+
   /**
    * Send a permission response back to the agent.
    * The agent sends a session/request_permission via SSE; the client
@@ -453,6 +481,13 @@ export class ACPServerClient {
 
             case 'current_mode_update': {
               if (update.mode) callbacks.onModeUpdate?.(update.mode);
+              break;
+            }
+
+            case 'config_option_update': {
+              if (update.configOptions && Array.isArray(update.configOptions)) {
+                callbacks.onConfigOptionsUpdate?.(update.configOptions);
+              }
               break;
             }
 
