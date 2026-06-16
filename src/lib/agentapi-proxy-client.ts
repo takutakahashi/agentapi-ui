@@ -165,9 +165,25 @@ export class AgentAPIProxyError extends Error {
 // ──────────────────────────────────────────────────────────────────────────────
 
 /** Response from GET /{sessionId}/session for ACP sessions. */
+export interface ACPConfigOption {
+  key?: string;
+  name?: string;
+  description?: string;
+  value?: unknown;
+  currentValue?: unknown;
+  default?: unknown;
+}
+
 export interface ACPSessionInfo {
   sessionId: string;
   status: string;
+  model?: unknown;
+  modelId?: unknown;
+  currentModel?: unknown;
+  selectedModel?: unknown;
+  modelInfo?: unknown;
+  configOptions?: ACPConfigOption[];
+  _meta?: Record<string, unknown>;
 }
 
 /** Discriminated union for ACP session/update payloads. */
