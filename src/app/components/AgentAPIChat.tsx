@@ -85,6 +85,173 @@ function extractPRUrls(text: string): string[] {
   return result;
 }
 
+function formatACPModelValue(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const provider = formatACPModelValue(record.provider);
+  const direct =
+    formatACPModelValue(record.id) ||
+    formatACPModelValue(record.model) ||
+    formatACPModelValue(record.modelId) ||
+    formatACPModelValue(record.name) ||
+    formatACPModelValue(record.displayName) ||
+    formatACPModelValue(record.value) ||
+    formatACPModelValue(record.currentValue) ||
+    formatACPModelValue(record.default);
+
+  if (provider && direct && !direct.includes(provider)) {
+    return `${provider}/${direct}`;
+  }
+  return direct;
+}
+
+export function getACPModelDisplay(info: ACPSessionInfo | null): string | null {
+  if (!info) return null;
+
+  const direct =
+    formatACPModelValue(info.model) ||
+    formatACPModelValue(info.modelId) ||
+    formatACPModelValue(info.currentModel) ||
+    formatACPModelValue(info.selectedModel) ||
+    formatACPModelValue(info.modelInfo);
+
+  if (direct) return direct;
+
+  const meta = info._meta;
+  const metaModel =
+    meta &&
+    (
+      formatACPModelValue(meta.model) ||
+      formatACPModelValue(meta.modelId) ||
+      formatACPModelValue(meta.currentModel) ||
+      formatACPModelValue(meta.modelInfo)
+    );
+  if (metaModel) return metaModel;
+
+  const modelOption = info.configOptions?.find(option => {
+    const haystack = [option.key, option.name, option.description]
+      .filter((value): value is string => typeof value === 'string')
+      .join(' ')
+      .toLowerCase();
+    return /\bmodel\b/.test(haystack) || haystack.includes('modelid');
+  });
+
+  if (!modelOption) return null;
+  return (
+    formatACPModelValue(modelOption.value) ||
+    formatACPModelValue(modelOption.currentValue) ||
+    formatACPModelValue(modelOption.default)
+  );
+}
+
+interface SessionTokenUsage {
+  total: number;
+  input?: number;
+  output?: number;
+  source: 'reported' | 'estimated';
+}
+
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat().format(value);
+}
+
+function getNumberField(record: Record<string, unknown>, keys: string[]): number | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '') {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return undefined;
+}
+
+function extractReportedTokenUsage(value: unknown): SessionTokenUsage | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+
+  const record = value as Record<string, unknown>;
+  const candidates = [
+    record.usage,
+    record.tokenUsage,
+    record.tokens,
+    record.modelUsage,
+    record._meta,
+    value,
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) continue;
+    const usage = candidate as Record<string, unknown>;
+    const input = getNumberField(usage, ['inputTokens', 'input_tokens', 'promptTokens', 'prompt_tokens']);
+    const output = getNumberField(usage, ['outputTokens', 'output_tokens', 'completionTokens', 'completion_tokens']);
+    const total = getNumberField(usage, ['totalTokens', 'total_tokens', 'tokens', 'total']);
+    const computedTotal = total ?? ((input ?? 0) + (output ?? 0));
+
+    if (computedTotal > 0) {
+      return {
+        total: computedTotal,
+        input,
+        output,
+        source: 'reported',
+      };
+    }
+  }
+
+  return null;
+}
+
+function estimateMessageTokens(messages: SessionMessage[]): SessionTokenUsage {
+  const totalChars = messages.reduce((sum, message) => {
+    return sum + (message.content?.length ?? 0) + (message.thought?.length ?? 0);
+  }, 0);
+
+  return {
+    total: Math.ceil(totalChars / 4),
+    source: 'estimated',
+  };
+}
+
+function aggregateReportedMessageUsage(messages: SessionMessage[]): SessionTokenUsage | null {
+  const total = messages.reduce(
+    (sum, message) => {
+      const usage = extractReportedTokenUsage(message.metadata);
+      if (!usage) return sum;
+      return {
+        total: sum.total + usage.total,
+        input: sum.input + (usage.input ?? 0),
+        output: sum.output + (usage.output ?? 0),
+        count: sum.count + 1,
+      };
+    },
+    { total: 0, input: 0, output: 0, count: 0 }
+  );
+
+  if (total.count === 0 || total.total <= 0) return null;
+  return {
+    total: total.total,
+    input: total.input > 0 ? total.input : undefined,
+    output: total.output > 0 ? total.output : undefined,
+    source: 'reported',
+  };
+}
+
+function getSessionTokenUsage(info: ACPSessionInfo | null, messages: SessionMessage[]): SessionTokenUsage {
+  return extractReportedTokenUsage(info) ?? aggregateReportedMessageUsage(messages) ?? estimateMessageTokens(messages);
+}
+
 
 interface AgentAPIChatProps {
   sessionId?: string;
@@ -129,6 +296,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       // Reset initial load flag when session changes
       setIsInitialLoadComplete(false);
       setIsStarting(false);
+      setACPInfo(null);
       // Clear any pending retry timer
       if (retryTimerRef.current) {
         clearTimeout(retryTimerRef.current);
@@ -438,6 +606,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [showPRLinks, setShowPRLinks] = useState(false);
   const [prLinks, setPRLinks] = useState<string[]>([]);
   const [showFontSettings, setShowFontSettings] = useState(false);
+  const [showSessionInfo, setShowSessionInfo] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [planContent, setPlanContent] = useState<string>('');
   const [agentType, setAgentType] = useState<string | null>(null);
@@ -446,6 +615,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
   // ACP session state
   const [acpInfo, setACPInfo] = useState<ACPSessionInfo | null>(null);
+  const acpModelDisplay = useMemo(() => getACPModelDisplay(acpInfo), [acpInfo]);
+  const isACPSession = !!acpInfo || (!!agentType && agentType.includes('acp')) || acpServerEnabled;
+  const tokenUsage = useMemo(() => getSessionTokenUsage(acpInfo, messages), [acpInfo, messages]);
   const [acpPendingPermission, setACPPendingPermission] = useState<{ action: PendingAction; rpcId: number } | null>(null);
   const acpNextPromptId = useRef(1);
   const acpEventSourceRef = useRef<{ close: () => void } | null>(null);
@@ -456,6 +628,14 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const prevMessagesLengthRef = useRef(0);
   const prevAgentStatusRef = useRef<AgentStatus | null>(null);
   const lastLoadTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (isACPSession) {
+      setShowControlPanel(false);
+    } else {
+      setShowSessionInfo(false);
+    }
+  }, [isACPSession]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1642,7 +1822,55 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 </svg>
                 <span>ESC</span>
               </button>
+
             </div>
+          </div>
+        )}
+
+        {showSessionInfo && (
+          <div className="mb-3 grid gap-2 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-3 text-xs">
+            <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
+              <span className="text-gray-500 dark:text-gray-400">Session ID</span>
+              <span className="break-all font-mono text-gray-900 dark:text-gray-100">{sessionId || '-'}</span>
+            </div>
+            <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
+              <span className="text-gray-500 dark:text-gray-400">Agent Type</span>
+              <span className="break-all text-gray-900 dark:text-gray-100">{agentType || '-'}</span>
+            </div>
+            <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
+              <span className="text-gray-500 dark:text-gray-400">Status</span>
+              <span className="break-all text-gray-900 dark:text-gray-100">{agentStatus?.status || '-'}</span>
+            </div>
+            <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
+              <span className="text-gray-500 dark:text-gray-400">Connection</span>
+              <span className="break-all text-gray-900 dark:text-gray-100">{isConnected ? 'connected' : 'disconnected'}</span>
+            </div>
+            <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
+              <span className="text-gray-500 dark:text-gray-400">Tokens so far</span>
+              <span className="break-all text-gray-900 dark:text-gray-100">
+                {formatNumber(tokenUsage.total)}
+                {tokenUsage.source === 'estimated' ? ' estimated' : ''}
+                {tokenUsage.source === 'reported' && tokenUsage.input != null && tokenUsage.output != null
+                  ? ` (${formatNumber(tokenUsage.input)} in / ${formatNumber(tokenUsage.output)} out)`
+                  : ''}
+              </span>
+            </div>
+            {acpInfo && (
+              <>
+                <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
+                  <span className="text-gray-500 dark:text-gray-400">ACP Session</span>
+                  <span className="break-all font-mono text-gray-900 dark:text-gray-100">{acpInfo.sessionId || '-'}</span>
+                </div>
+                <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
+                  <span className="text-gray-500 dark:text-gray-400">Model</span>
+                  <span className="break-all text-gray-900 dark:text-gray-100">{acpModelDisplay || '-'}</span>
+                </div>
+                <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
+                  <span className="text-gray-500 dark:text-gray-400">ACP Status</span>
+                  <span className="break-all text-gray-900 dark:text-gray-100">{acpInfo.status || '-'}</span>
+                </div>
+              </>
+            )}
           </div>
         )}
         
@@ -1729,17 +1957,32 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 })()}
               </div>
               <div className="flex items-center space-x-2">
-                {/* Control Panel Toggle */}
-                <button
-                  onClick={() => setShowControlPanel(!showControlPanel)}
-                  disabled={!isConnected}
-                  className="px-2 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white text-xs rounded-md transition-colors disabled:cursor-not-allowed flex items-center"
-                  title="Toggle Control Panel"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
-                  </svg>
-                </button>
+                {isACPSession ? (
+                  <button
+                    onClick={() => setShowSessionInfo(prev => !prev)}
+                    disabled={!sessionId}
+                    className={`px-2 py-2 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white text-xs rounded-md transition-colors disabled:cursor-not-allowed flex items-center ${
+                      showSessionInfo ? 'bg-gray-700 hover:bg-gray-800' : 'bg-gray-600 hover:bg-gray-700'
+                    }`}
+                    title="セッション情報"
+                    aria-label="セッション情報"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowControlPanel(!showControlPanel)}
+                    disabled={!isConnected}
+                    className="px-2 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white text-xs rounded-md transition-colors disabled:cursor-not-allowed flex items-center"
+                    title="Toggle Control Panel"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                    </svg>
+                  </button>
+                )}
 
                 {/* Font Settings Button */}
                 <button
@@ -1776,6 +2019,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             </div>
           </div>
         </div>
+
       </div>
 
         </div> {/* end: Chat content column */}
