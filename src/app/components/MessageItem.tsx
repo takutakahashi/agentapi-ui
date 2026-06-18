@@ -60,6 +60,30 @@ function isGenericToolTitle(title: string | undefined, toolName: string): boolea
   );
 }
 
+function truncateBrief(text: string, maxLength: number): string {
+  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+}
+
+function firstMeaningfulLine(text: string): string | null {
+  const line = text
+    .split('\n')
+    .map(part => part.trim())
+    .find(part => part.length > 0);
+  return line || null;
+}
+
+function getToolResultBrief(result: ToolResultContent | null, fallbackContent: string | undefined, maxLength: number): string | null {
+  const content = result?.error || result?.result || fallbackContent;
+  if (!content) return null;
+
+  if (typeof content === 'string') {
+    const line = firstMeaningfulLine(content);
+    return line ? truncateBrief(line, maxLength) : null;
+  }
+
+  return null;
+}
+
 // Markdown の特徴的な記法をチェックする関数
 function hasMarkdownSyntax(text: string): boolean {
   if (!text || typeof text !== 'string') return false;
@@ -306,41 +330,31 @@ function MessageItem({
 
         // description があれば優先
         if (input.description && typeof input.description === 'string') {
-          return input.description.length > maxLength
-            ? input.description.substring(0, maxLength) + '...'
-            : input.description;
+          return truncateBrief(input.description, maxLength);
         }
 
         // ファイル系のツール
         if (input.file_path && typeof input.file_path === 'string') {
           const path = input.file_path;
-          return path.length > maxLength
-            ? '...' + path.substring(path.length - maxLength)
-            : path;
+          return path.length > maxLength ? '...' + path.substring(path.length - maxLength) : path;
         }
 
         // パターン検索系
         if (input.pattern && typeof input.pattern === 'string') {
-          return input.pattern.length > maxLength
-            ? input.pattern.substring(0, maxLength) + '...'
-            : input.pattern;
+          return truncateBrief(input.pattern, maxLength);
         }
 
         // コマンド系
         if (input.command && typeof input.command === 'string') {
-          return input.command.length > maxLength
-            ? input.command.substring(0, maxLength) + '...'
-            : input.command;
+          return truncateBrief(input.command, maxLength);
         }
 
         // ACP title は補助情報として使うが、"Read File" のような汎用 title は抑制する
         if (toolUse.title && typeof toolUse.title === 'string' && !isGenericToolTitle(toolUse.title, toolUse.name)) {
-          return toolUse.title.length > maxLength
-            ? toolUse.title.substring(0, maxLength) + '...'
-            : toolUse.title;
+          return truncateBrief(toolUse.title, maxLength);
         }
 
-        return null;
+        return getToolResultBrief(result, toolResult?.content, maxLength);
       };
 
       const briefInfo = getBriefInfo();
