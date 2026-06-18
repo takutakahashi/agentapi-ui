@@ -551,6 +551,7 @@ export default function NewSessionPage() {
                       : selectedAgentType === 'codex-agentapi' ? 'Codex AgentAPI'
                       : selectedAgentType === 'claude-acp' ? 'Claude ACP'
                       : selectedAgentType === 'codex-acp' ? 'Codex ACP'
+                      : selectedAgentType === 'cursor' ? 'Cursor ACP'
                       : selectedAgentType}
                   </span>
                 )}
@@ -940,6 +941,7 @@ export default function NewSessionPage() {
                         { value: 'codex-agentapi', label: 'Codex AgentAPI', description: 'agent_type=codex-agentapi を送信' },
                         { value: 'claude-acp', label: 'Claude ACP', description: 'agent_type=claude-acp を送信' },
                         { value: 'codex-acp', label: 'Codex ACP', description: 'agent_type=codex-acp を送信' },
+                        { value: 'cursor', label: 'Cursor ACP', description: 'agent_type=cursor を送信' },
                       ] as { value: AgentApiType; label: string; description: string }[]).map(({ value, label, description }) => (
                         <label key={value} className="flex items-start cursor-pointer group">
                           <input
