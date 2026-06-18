@@ -232,10 +232,21 @@ const ACP_KIND_TO_NAME: Record<string, string> = {
   execute: 'Bash',
   read: 'Read',
   write: 'Write',
+  edit: 'Edit',
   search: 'Search',
+  glob: 'Glob',
+  other: 'Tool',
   think: 'Think',
+  task: 'Task',
   browse: 'Browser',
 };
+
+function titleToToolName(title: string | undefined): string | undefined {
+  if (!title) return undefined;
+  const match = title.match(/^[A-Za-z][A-Za-z0-9_-]*/);
+  if (!match) return undefined;
+  return match[0];
+}
 
 /**
  * Returns a short human-readable tool name for display.
@@ -243,7 +254,14 @@ const ACP_KIND_TO_NAME: Record<string, string> = {
  */
 function acpToolDisplayName(kind: string | undefined, title: string | undefined): string {
   if (kind && ACP_KIND_TO_NAME[kind]) return ACP_KIND_TO_NAME[kind];
-  return title || kind || 'tool';
+  return titleToToolName(title) || kind || 'tool';
+}
+
+function acpToolNameFromRawInput(rawInput: unknown): string | undefined {
+  if (!rawInput || typeof rawInput !== 'object' || Array.isArray(rawInput)) return undefined;
+  const toolName = (rawInput as Record<string, unknown>)._toolName;
+  if (typeof toolName !== 'string' || toolName.length === 0) return undefined;
+  return ACP_KIND_TO_NAME[toolName] || titleToToolName(toolName) || toolName;
 }
 
 /** A permission option offered by the ACP agent. */
@@ -376,6 +394,22 @@ function extractRawOutputText(rawOutput: unknown): string {
   const obj = rawOutput as Record<string, unknown>;
   if (typeof obj.text === 'string') {
     return obj.text;
+  }
+  if (typeof obj.content === 'string') {
+    return obj.content;
+  }
+  const outputParts: string[] = [];
+  if (typeof obj.stdout === 'string' && obj.stdout.length > 0) {
+    outputParts.push(obj.stdout);
+  }
+  if (typeof obj.stderr === 'string' && obj.stderr.length > 0) {
+    outputParts.push(obj.stderr);
+  }
+  if (outputParts.length > 0) {
+    if (typeof obj.exitCode === 'number') {
+      outputParts.push(`exit code: ${obj.exitCode}`);
+    }
+    return outputParts.join('\n');
   }
   return JSON.stringify(rawOutput);
 }
@@ -2133,7 +2167,7 @@ export class AgentAPIProxyClient {
               streamingMsgId = null;
               const toolObj = {
                 type: 'tool_use',
-                name: acpToolDisplayName(update.kind, update.title),
+                name: acpToolNameFromRawInput(update.rawInput) || acpToolDisplayName(update.kind, update.title),
                 id: update.toolCallId,
                 input: update.rawInput ?? {},
                 title: update.title,
@@ -2317,7 +2351,7 @@ export class AgentAPIProxyClient {
                 type: 'tool_use',
                 // Use kind→name mapping for a proper tool name (e.g. "Bash" for "execute").
                 // title often contains the full command/path text, not a short name.
-                name: acpToolDisplayName(update.kind, update.title),
+                name: acpToolNameFromRawInput(update.rawInput) || acpToolDisplayName(update.kind, update.title),
                 id: update.toolCallId,
                 input: update.rawInput ?? {},
                 title: update.title,
