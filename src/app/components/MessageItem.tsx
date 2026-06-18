@@ -40,6 +40,26 @@ function parseToolResultContent(content: string): ToolResultContent | null {
   return null;
 }
 
+function hasObjectEntries(value: Record<string, unknown> | undefined): boolean {
+  return !!value && Object.keys(value).length > 0;
+}
+
+function visibleToolInput(input: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(input).filter(([key]) => key !== '_toolName'));
+}
+
+function isGenericToolTitle(title: string | undefined, toolName: string): boolean {
+  if (!title) return true;
+  const normalizedTitle = title.trim().toLowerCase();
+  const normalizedName = toolName.trim().toLowerCase();
+  if (!normalizedTitle) return true;
+  return (
+    normalizedTitle === normalizedName ||
+    normalizedTitle === `${normalizedName} file` ||
+    normalizedTitle === `${normalizedName} tool`
+  );
+}
+
 // Markdown の特徴的な記法をチェックする関数
 function hasMarkdownSyntax(text: string): boolean {
   if (!text || typeof text !== 'string') return false;
@@ -279,17 +299,10 @@ function MessageItem({
     const hasResult = !!toolResult;
 
     if (toolUse) {
-      // ツールの簡易情報を抽出（ACP title > description, file_path, pattern など）
+      // ツールの簡易情報を抽出（具体的な input を優先し、汎用 title は表示しない）
       const getBriefInfo = (): string | null => {
         const input = toolUse.input;
         const maxLength = 40;
-
-        // ACP title (コマンド全文やファイルパスのサマリーなど) を最優先で表示
-        if (toolUse.title && typeof toolUse.title === 'string') {
-          return toolUse.title.length > maxLength
-            ? toolUse.title.substring(0, maxLength) + '...'
-            : toolUse.title;
-        }
 
         // description があれば優先
         if (input.description && typeof input.description === 'string') {
@@ -320,10 +333,19 @@ function MessageItem({
             : input.command;
         }
 
+        // ACP title は補助情報として使うが、"Read File" のような汎用 title は抑制する
+        if (toolUse.title && typeof toolUse.title === 'string' && !isGenericToolTitle(toolUse.title, toolUse.name)) {
+          return toolUse.title.length > maxLength
+            ? toolUse.title.substring(0, maxLength) + '...'
+            : toolUse.title;
+        }
+
         return null;
       };
 
       const briefInfo = getBriefInfo();
+      const inputForDisplay = visibleToolInput(toolUse.input);
+      const hasInput = hasObjectEntries(inputForDisplay);
 
       return (
         <div className="px-4 sm:px-6 py-0.5">
@@ -387,12 +409,14 @@ function MessageItem({
           {isExpanded && (
             <div className="ml-3 mt-1 mb-2 text-xs">
               {/* ツール入力 */}
-              <div className="mb-2">
-                <div className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Input:</div>
-                <pre className="bg-gray-50 dark:bg-gray-800 p-2 rounded text-gray-600 dark:text-gray-400 overflow-x-auto">
-                  {JSON.stringify(toolUse.input, null, 2)}
-                </pre>
-              </div>
+              {hasInput && (
+                <div className="mb-2">
+                  <div className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Input:</div>
+                  <pre className="bg-gray-50 dark:bg-gray-800 p-2 rounded text-gray-600 dark:text-gray-400 overflow-x-auto">
+                    {JSON.stringify(inputForDisplay, null, 2)}
+                  </pre>
+                </div>
+              )}
 
               {/* ツール結果 */}
               {hasResult && (
