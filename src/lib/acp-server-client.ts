@@ -136,15 +136,32 @@ const ACP_KIND_TO_NAME: Record<string, string> = {
   execute: 'Bash',
   read: 'Read',
   write: 'Write',
+  edit: 'Edit',
   search: 'Search',
   glob: 'Glob',
+  other: 'Tool',
   think: 'Think',
+  task: 'Task',
   explore: 'Explore',
 };
 
+function titleToToolName(title: string | undefined): string | undefined {
+  if (!title) return undefined;
+  const match = title.match(/^[A-Za-z][A-Za-z0-9_-]*/);
+  if (!match) return undefined;
+  return match[0];
+}
+
 function acpToolDisplayName(kind?: string, title?: string): string {
   if (kind && ACP_KIND_TO_NAME[kind]) return ACP_KIND_TO_NAME[kind];
-  return title || kind || 'tool';
+  return titleToToolName(title) || kind || 'tool';
+}
+
+function acpToolNameFromRawInput(rawInput: unknown): string | undefined {
+  if (!rawInput || typeof rawInput !== 'object' || Array.isArray(rawInput)) return undefined;
+  const toolName = (rawInput as Record<string, unknown>)._toolName;
+  if (typeof toolName !== 'string' || toolName.length === 0) return undefined;
+  return ACP_KIND_TO_NAME[toolName] || titleToToolName(toolName) || toolName;
 }
 
 function acpExtractText(content: unknown): string {
@@ -172,13 +189,31 @@ function extractACPToolContent(content: unknown): string {
 }
 
 function extractRawOutputText(rawOutput: unknown): string {
+  if (rawOutput == null) return '';
   if (typeof rawOutput === 'string') return rawOutput;
   if (Array.isArray(rawOutput)) {
-    return rawOutput.map(b => (typeof b === 'object' && b !== null ? (b as Record<string, unknown>).text || '' : '')).join('\n');
+    return rawOutput.map(b => {
+      if (typeof b === 'string') return b;
+      if (typeof b === 'object' && b !== null) {
+        const obj = b as Record<string, unknown>;
+        if (typeof obj.text === 'string') return obj.text;
+        if (typeof obj.content === 'string') return obj.content;
+        return JSON.stringify(obj);
+      }
+      return '';
+    }).join('\n');
   }
   if (typeof rawOutput === 'object' && rawOutput !== null) {
     const obj = rawOutput as Record<string, unknown>;
     if (typeof obj.text === 'string') return obj.text;
+    if (typeof obj.content === 'string') return obj.content;
+    const outputParts: string[] = [];
+    if (typeof obj.stdout === 'string' && obj.stdout.length > 0) outputParts.push(obj.stdout);
+    if (typeof obj.stderr === 'string' && obj.stderr.length > 0) outputParts.push(obj.stderr);
+    if (outputParts.length > 0) {
+      if (typeof obj.exitCode === 'number') outputParts.push(`exit code: ${obj.exitCode}`);
+      return outputParts.join('\n');
+    }
     return JSON.stringify(rawOutput);
   }
   return '';
@@ -408,7 +443,7 @@ export class ACPServerClient {
               streamingThoughtId = null;
               const toolObj = {
                 type: 'tool_use',
-                name: acpToolDisplayName(update.kind, update.title),
+                name: acpToolNameFromRawInput(update.rawInput) || acpToolDisplayName(update.kind, update.title),
                 id: update.toolCallId,
                 input: update.rawInput ?? {},
                 ...(update.title != null ? { title: update.title } : {}),
