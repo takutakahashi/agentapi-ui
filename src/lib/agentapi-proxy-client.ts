@@ -288,6 +288,10 @@ export interface ACPJSONRPCMessage {
   error?: { code: number; message: string };
 }
 
+export interface EventSubscription {
+  close: () => void;
+}
+
 /** Callbacks for subscribeToACPSessionEvents. */
 export interface ACPSessionCallbacks {
   /** Called for each complete or streaming agent message. */
@@ -456,6 +460,95 @@ export class AgentAPIProxyClient {
         sessionTimeout: this.sessionTimeout
       });
     }
+  }
+
+  private subscribeWithEventSource(
+    url: string,
+    handlers: {
+      onOpen?: () => void;
+      onMessage: (event: MessageEvent) => void;
+      onTransientError?: (event: Event, state: number) => void;
+      onReconnect?: (attempt: number, delayMs: number) => void;
+      onClosed?: (event: Event, state: number) => void;
+    },
+    options?: SessionEventsOptions
+  ): EventSubscription {
+    let eventSource: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let closed = false;
+    let reconnectAttempts = 0;
+
+    const reconnectEnabled = options?.reconnect !== false;
+    const baseDelayMs = options?.reconnectInterval ?? 1000;
+    const maxDelayMs = 30000;
+
+    const clearReconnectTimer = () => {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+    };
+
+    const scheduleReconnect = (event: Event, state: number) => {
+      if (closed || !reconnectEnabled) {
+        handlers.onClosed?.(event, state);
+        return;
+      }
+
+      reconnectAttempts += 1;
+      if (options?.maxReconnectAttempts && reconnectAttempts > options.maxReconnectAttempts) {
+        handlers.onClosed?.(event, state);
+        return;
+      }
+
+      const delayMs = Math.min(baseDelayMs * Math.pow(2, reconnectAttempts - 1), maxDelayMs);
+      handlers.onReconnect?.(reconnectAttempts, delayMs);
+      clearReconnectTimer();
+      reconnectTimer = setTimeout(connect, delayMs);
+    };
+
+    const connect = () => {
+      if (closed) return;
+
+      const source = new EventSource(url);
+      eventSource = source;
+
+      source.onopen = () => {
+        if (source !== eventSource || closed) return;
+        reconnectAttempts = 0;
+        handlers.onOpen?.();
+      };
+
+      source.onmessage = (event) => {
+        if (source !== eventSource || closed) return;
+        handlers.onMessage(event);
+      };
+
+      source.onerror = (event) => {
+        if (source !== eventSource || closed) return;
+
+        const state = source.readyState;
+        if (state === EventSource.CLOSED) {
+          source.close();
+          eventSource = null;
+          scheduleReconnect(event, state);
+          return;
+        }
+
+        handlers.onTransientError?.(event, state);
+      };
+    };
+
+    connect();
+
+    return {
+      close: () => {
+        closed = true;
+        clearReconnectTimer();
+        eventSource?.close();
+        eventSource = null;
+      },
+    };
   }
 
   private async makeRequest<T>(
@@ -893,7 +986,7 @@ export class AgentAPIProxyClient {
     onStatus?: (status: AgentStatus) => void,
     onError?: (error: Error) => void,
     options?: SessionEventsOptions
-  ): EventSource {
+  ): EventSubscription {
     // For SSE, we need to construct the full URL - check if we're using proxy
     const isUsingProxy = this.baseURL.includes('/api/proxy');
     const eventSourceUrl = isUsingProxy 
@@ -904,61 +997,61 @@ export class AgentAPIProxyClient {
       console.log(`[AgentAPIProxy] Creating EventSource for session ${sessionId}:`, eventSourceUrl);
     }
 
-    const eventSource = new EventSource(eventSourceUrl);
+    return this.subscribeWithEventSource(
+      eventSourceUrl,
+      {
+        onMessage: (event) => {
+          try {
+            const eventData: SessionEventData = JSON.parse(event.data);
 
-    eventSource.onmessage = (event) => {
-      try {
-        const eventData: SessionEventData = JSON.parse(event.data);
-        
-        if (this.debug) {
-          console.log(`[AgentAPIProxy] Session event received:`, eventData);
-        }
-
-        switch (eventData.type) {
-          case 'message':
-            onMessage(eventData.data as SessionMessage);
-            break;
-          case 'status':
-            if (onStatus) {
-              onStatus(eventData.data as AgentStatus);
-            }
-            break;
-          case 'error':
-            if (onError) {
-              const errorData = eventData.data as { error: string };
-              onError(new Error(errorData.error));
-            }
-            break;
-          default:
             if (this.debug) {
-              console.warn(`[AgentAPIProxy] Unknown event type: ${eventData.type}`);
+              console.log(`[AgentAPIProxy] Session event received:`, eventData);
             }
-        }
-      } catch (err) {
-        console.error('[AgentAPIProxy] Failed to parse session event:', err);
-        if (onError) {
-          onError(err instanceof Error ? err : new Error('Failed to parse event data'));
-        }
-      }
-    };
 
-    eventSource.onerror = (event) => {
-      console.error('[AgentAPIProxy] Session EventSource error:', event);
-      if (onError) {
-        onError(new Error('Session EventSource connection error'));
-      }
-
-      // Handle reconnection if enabled
-      if (options?.reconnect !== false) {
-        const reconnectInterval = options?.reconnectInterval || 5000;
-        
-        if (this.debug) {
-          console.log(`[AgentAPIProxy] Session EventSource will attempt to reconnect in ${reconnectInterval}ms`);
-        }
-      }
-    };
-
-    return eventSource;
+            switch (eventData.type) {
+              case 'message':
+                onMessage(eventData.data as SessionMessage);
+                break;
+              case 'status':
+                if (onStatus) {
+                  onStatus(eventData.data as AgentStatus);
+                }
+                break;
+              case 'error':
+                if (onError) {
+                  const errorData = eventData.data as { error: string };
+                  onError(new Error(errorData.error));
+                }
+                break;
+              default:
+                if (this.debug) {
+                  console.warn(`[AgentAPIProxy] Unknown event type: ${eventData.type}`);
+                }
+            }
+          } catch (err) {
+            console.error('[AgentAPIProxy] Failed to parse session event:', err);
+            if (onError) {
+              onError(err instanceof Error ? err : new Error('Failed to parse event data'));
+            }
+          }
+        },
+        onTransientError: (event, state) => {
+          if (this.debug) {
+            console.warn(`[AgentAPIProxy] Session EventSource transient error (readyState=${state})`, event);
+          }
+        },
+        onReconnect: (attempt, delayMs) => {
+          if (this.debug) {
+            console.log(`[AgentAPIProxy] Session EventSource closed; reconnecting in ${delayMs}ms (attempt ${attempt})`);
+          }
+        },
+        onClosed: (event, state) => {
+          console.error(`[AgentAPIProxy] Session EventSource closed permanently (readyState=${state})`, event);
+          onError?.(new Error('Session EventSource connection closed'));
+        },
+      },
+      options
+    );
   }
 
   /**
@@ -2248,13 +2341,13 @@ export class AgentAPIProxyClient {
    *   - session/request_permission    → converted to PendingAction via callbacks.onPermission
    *   - session/prompt result         → signals turn end via callbacks.onStatus({status:'stable'})
    *
-   * Returns the EventSource; call .close() to unsubscribe.
+   * Returns a subscription handle; call .close() to unsubscribe.
    */
   subscribeToACPSessionEvents(
     sessionId: string,
     acpSessionId: string,
     callbacks: ACPSessionCallbacks
-  ): EventSource {
+  ): EventSubscription {
     const isUsingProxy = this.baseURL.includes('/api/proxy');
     const sseUrl = isUsingProxy
       ? `/api/proxy/${sessionId}/sse`
@@ -2264,19 +2357,20 @@ export class AgentAPIProxyClient {
       console.log(`[AgentAPIProxy] ACP SSE subscribe: ${sseUrl}`);
     }
 
-    const eventSource = new EventSource(sseUrl);
     let nextLocalId = 1;
     // Track the current streaming agent message id (for chunk accumulation).
     let streamingMsgId: number | null = null;
 
-    console.log(`[ACP] EventSource created (url=${sseUrl}, acpSessionId=${acpSessionId})`);
+    console.log(`[ACP] EventSource subscription created (url=${sseUrl}, acpSessionId=${acpSessionId})`);
 
-    eventSource.addEventListener('open', () => {
-      console.log(`[ACP] SSE connection opened (url=${sseUrl}, acpSessionId=${acpSessionId})`);
-    });
-
-    eventSource.addEventListener('message', (event: MessageEvent) => {
-      try {
+    return this.subscribeWithEventSource(
+      sseUrl,
+      {
+        onOpen: () => {
+          console.log(`[ACP] SSE connection opened (url=${sseUrl}, acpSessionId=${acpSessionId})`);
+        },
+        onMessage: (event: MessageEvent) => {
+          try {
         const msg: ACPJSONRPCMessage = JSON.parse(event.data);
 
         if (this.debug) {
@@ -2510,22 +2604,20 @@ export class AgentAPIProxyClient {
         }
         callbacks.onError(err instanceof Error ? err : new Error('Failed to parse ACP SSE message'));
       }
-    });
-
-    eventSource.onerror = (event) => {
-      // EventSource.readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
-      const state = eventSource.readyState;
-      console.error(`[ACP] SSE onerror (url=${sseUrl}, acpSessionId=${acpSessionId}, readyState=${state})`, event);
-      if (state === EventSource.CLOSED) {
-        console.error(`[ACP] SSE connection permanently closed`);
-      } else {
-        // readyState=CONNECTING means the browser is auto-reconnecting.
-        console.warn(`[ACP] SSE error – browser will auto-reconnect (readyState=${state})`);
-      }
-      callbacks.onError(new Error(`ACP SSE connection error (readyState=${state})`));
-    };
-
-    return eventSource;
+        },
+        onTransientError: (event, state) => {
+          console.warn(`[ACP] SSE transient error; browser is reconnecting (url=${sseUrl}, acpSessionId=${acpSessionId}, readyState=${state})`, event);
+        },
+        onReconnect: (attempt, delayMs) => {
+          console.warn(`[ACP] SSE closed; recreating EventSource in ${delayMs}ms (url=${sseUrl}, acpSessionId=${acpSessionId}, attempt=${attempt})`);
+        },
+        onClosed: (event, state) => {
+          console.error(`[ACP] SSE connection permanently closed (url=${sseUrl}, acpSessionId=${acpSessionId}, readyState=${state})`, event);
+          callbacks.onError(new Error(`ACP SSE connection closed (readyState=${state})`));
+        },
+      },
+      { reconnect: true, reconnectInterval: 1000 }
+    );
   }
 
   /**
