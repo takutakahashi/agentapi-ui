@@ -40,6 +40,10 @@ function normalizeAgentStatus(raw: string): 'stable' | 'running' | 'error' {
   return 'stable';
 }
 
+function isACPAgentType(agentType?: string | null): boolean {
+  return !!agentType && (agentType.includes('acp') || agentType === 'cursor');
+}
+
 // Type guard function to validate session message response
 function isValidSessionMessageResponse(response: unknown): response is SessionMessageListResponse {
   return (
@@ -511,7 +515,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 // session whose bridge is still starting. Check agent_type via session status.
                 try {
                   const statusResult = await agentAPIRef.current!.getSessionStatus(sessionId);
-                  if (statusResult.agent_type === 'claude-acp' || statusResult.agent_type === 'codex-acp') {
+                  if (isACPAgentType(statusResult.agent_type)) {
                     if (statusResult.status === 'error') {
                       const detail = statusResult.message || '不明なエラー';
                       setError(`セッションの起動に失敗しました: ${detail}`);
@@ -688,7 +692,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [selectedACPModel, setSelectedACPModel] = useState('');
   const [isSettingACPModel, setIsSettingACPModel] = useState(false);
   const [acpModelMessage, setACPModelMessage] = useState<string | null>(null);
-  const isACPSession = !!acpInfo || (!!agentType && agentType.includes('acp')) || acpServerEnabled;
+  const isACPSession = !!acpInfo || isACPAgentType(agentType) || acpServerEnabled;
   const tokenUsage = useMemo(() => getSessionTokenUsage(acpInfo, messages), [acpInfo, messages]);
   const [acpPendingPermission, setACPPendingPermission] = useState<{ action: PendingAction; rpcId: number } | null>(null);
   const acpNextPromptId = useRef(1);
@@ -1825,7 +1829,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     formatTimestamp={formatTimestamp}
                     fontSettings={fontSettings}
                     onShowPlanModal={planModalCallbacks.get(message.id.toString())}
-                    isClaudeAgent={agentType === 'claude' || agentType === 'codex' || (!!agentType && agentType.includes('acp'))}
+                    isClaudeAgent={agentType === 'claude' || agentType === 'codex' || isACPAgentType(agentType)}
                   />
                 );
                 processedIds.add(message.id);
@@ -1846,7 +1850,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     formatTimestamp={formatTimestamp}
                     fontSettings={fontSettings}
                     onShowPlanModal={planModalCallbacks.get(message.id.toString())}
-                    isClaudeAgent={agentType === 'claude' || agentType === 'codex' || (!!agentType && agentType.includes('acp'))}
+                    isClaudeAgent={agentType === 'claude' || agentType === 'codex' || isACPAgentType(agentType)}
                   />
                 );
                 processedIds.add(message.id);
