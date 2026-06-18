@@ -547,9 +547,7 @@ export default function NewSessionPage() {
                 その他の設定
                 {selectedAgentType !== 'default' && (
                   <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-xs rounded-full">
-                    {selectedAgentType === 'claude-agentapi' ? 'Claude AgentAPI'
-                      : selectedAgentType === 'codex-agentapi' ? 'Codex AgentAPI'
-                      : selectedAgentType === 'claude-acp' ? 'Claude ACP'
+                    {selectedAgentType === 'claude-acp' ? 'Claude ACP'
                       : selectedAgentType === 'codex-acp' ? 'Codex ACP'
                       : selectedAgentType === 'cursor' ? 'Cursor ACP'
                       : selectedAgentType}
@@ -937,8 +935,6 @@ export default function NewSessionPage() {
                       <div className="space-y-2">
                       {([
                         { value: 'default', label: 'デフォルト', description: 'agent_type を送信しない' },
-                        { value: 'claude-agentapi', label: 'Claude AgentAPI', description: 'agent_type=claude-agentapi を送信' },
-                        { value: 'codex-agentapi', label: 'Codex AgentAPI', description: 'agent_type=codex-agentapi を送信' },
                         { value: 'claude-acp', label: 'Claude ACP', description: 'agent_type=claude-acp を送信' },
                         { value: 'codex-acp', label: 'Codex ACP', description: 'agent_type=codex-acp を送信' },
                         { value: 'cursor', label: 'Cursor ACP', description: 'agent_type=cursor を送信' },

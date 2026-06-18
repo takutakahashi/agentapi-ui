@@ -420,7 +420,7 @@ function MessageItem({
     }
   }
 
-  // スタンドアロンの tool_result（parentToolUseId なし、codex-agentapi など）
+  // スタンドアロンの tool_result（parentToolUseId なし）
   if (message.role === 'tool_result') {
     const isSuccess = message.status === 'success';
     const contentPreview =
