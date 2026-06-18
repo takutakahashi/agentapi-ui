@@ -18,6 +18,11 @@ interface SessionProfileFormModalProps {
 }
 
 type KeyValuePair = { key: string; value: string }
+const SUPPORTED_AGENT_TYPES = new Set(['claude-acp', 'codex-acp', 'cursor'])
+
+const normalizeAgentType = (value?: string): string => {
+  return value && SUPPORTED_AGENT_TYPES.has(value) ? value : ''
+}
 
 export default function SessionProfileFormModal({
   isOpen,
@@ -83,7 +88,7 @@ export default function SessionProfileFormModal({
       setIsDefault(editingProfile.is_default ?? false)
 
       const cfg = editingProfile.config
-      setAgentType(cfg?.params?.agent_type ?? '')
+      setAgentType(normalizeAgentType(cfg?.params?.agent_type))
 
       if (cfg?.environment && Object.keys(cfg.environment).length > 0) {
         setEnvPairs(Object.entries(cfg.environment).map(([key, value]) => ({ key, value })))
@@ -529,8 +534,6 @@ export default function SessionProfileFormModal({
                     <div className="space-y-2">
                       {([
                         { value: '', label: 'デフォルト', description: 'agent_type を送信しない' },
-                        { value: 'claude-agentapi', label: 'Claude AgentAPI', description: 'agent_type=claude-agentapi を送信' },
-                        { value: 'codex-agentapi', label: 'Codex AgentAPI', description: 'agent_type=codex-agentapi を送信' },
                         { value: 'claude-acp', label: 'Claude ACP', description: 'agent_type=claude-acp を送信' },
                         { value: 'codex-acp', label: 'Codex ACP', description: 'agent_type=codex-acp を送信' },
                         { value: 'cursor', label: 'Cursor ACP', description: 'agent_type=cursor を送信' },

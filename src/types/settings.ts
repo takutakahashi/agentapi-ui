@@ -145,12 +145,10 @@ export interface FontSettings {
 
 // セッション作成時に使用するエージェント種別
 // 'default': agent_type を送信しない（バックエンドのデフォルト動作）
-// 'claude-agentapi': claude-agentapi を使用
-// 'codex-agentapi': codex-agentapi を使用
 // 'claude-acp': claude-acp を使用
 // 'codex-acp': codex-acp を使用
 // 'cursor': Cursor ACP を使用
-export type AgentApiType = 'default' | 'claude-agentapi' | 'codex-agentapi' | 'claude-acp' | 'codex-acp' | 'cursor'
+export type AgentApiType = 'default' | 'claude-acp' | 'codex-acp' | 'cursor'
 
 export interface GlobalSettings {
   agentApiProxy: AgentApiProxySettings
@@ -159,7 +157,6 @@ export interface GlobalSettings {
   messageTemplates: MessageTemplate[]
   githubAuth?: GitHubOAuthSettings
   sendGithubTokenOnSessionStart?: boolean  // デフォルト true
-  useClaudeAgentAPI?: boolean  // 後方互換性のために残す（非推奨: agentApiType を使用）
   agentApiType?: AgentApiType  // デフォルト 'default'
   enterKeyBehavior?: EnterKeyBehavior  // デフォルト 'send' (Enter で送信、Shift+Enter で改行)
   fontSettings?: FontSettings  // デフォルト { fontSize: 14, fontFamily: 'sans-serif' }
@@ -753,27 +750,21 @@ export const setFontSettings = (fontSettings: FontSettings): void => {
 // AgentAPI Type utilities
 export const getAgentApiType = (): AgentApiType => {
   const settings = loadFullGlobalSettings()
-  // 新しい agentApiType が設定されていればそれを返す
-  if (settings.agentApiType) return settings.agentApiType
-  // 後方互換性: 旧 useClaudeAgentAPI が true なら claude-agentapi
-  if (settings.useClaudeAgentAPI) return 'claude-agentapi'
+  if (
+    settings.agentApiType === 'claude-acp' ||
+    settings.agentApiType === 'codex-acp' ||
+    settings.agentApiType === 'cursor'
+  ) {
+    return settings.agentApiType
+  }
   return 'default'
 }
 
 export const setAgentApiType = (type: AgentApiType): void => {
   const settings = loadFullGlobalSettings()
   settings.agentApiType = type
-  // 後方互換性のため useClaudeAgentAPI も同期
-  settings.useClaudeAgentAPI = type === 'claude-agentapi'
+  delete (settings as { useClaudeAgentAPI?: boolean }).useClaudeAgentAPI
   saveFullGlobalSettings(settings)
-}
-
-// @deprecated: getAgentApiType を使用してください
-export const getUseClaudeAgentAPI = (): boolean => getAgentApiType() === 'claude-agentapi'
-
-// @deprecated: setAgentApiType を使用してください
-export const setUseClaudeAgentAPI = (enabled: boolean): void => {
-  setAgentApiType(enabled ? 'claude-agentapi' : 'default')
 }
 
 // Memory Settings utilities
