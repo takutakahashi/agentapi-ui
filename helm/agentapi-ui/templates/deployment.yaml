@@ -88,6 +88,8 @@ spec:
             {{- end }}
             - name: NEXT_PUBLIC_ALLOWED_ORIGINS
               value: "https://{{ $hostname }}"
+            - name: NEXT_PUBLIC_BASE_URL
+              value: "https://{{ $hostname }}"
             # Application configuration (runtime settings)
             {{- if .Values.oauthOnlyMode.enabled }}
             - name: AUTH_MODE
