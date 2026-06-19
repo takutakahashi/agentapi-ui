@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const DEFAULT_SCIA_INTERNAL_URL = 'http://scia-oauth.agentapi-ui-dev.svc.cluster.local:8081'
-const DEFAULT_COMPLETE_PATH = '/settings/personal?google_oauth=connected'
+const DEFAULT_COMPLETE_PATH = '/integrations?google_oauth=connected'
 
 export async function GET(request: NextRequest) {
   const sciaBaseUrl = (process.env.SCIA_OAUTH_INTERNAL_URL || DEFAULT_SCIA_INTERNAL_URL).replace(/\/$/, '')
