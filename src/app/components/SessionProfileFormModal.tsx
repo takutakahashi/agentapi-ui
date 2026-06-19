@@ -18,6 +18,7 @@ interface SessionProfileFormModalProps {
 }
 
 type KeyValuePair = { key: string; value: string }
+type AuthProxyMode = 'default' | 'enabled' | 'disabled'
 const SUPPORTED_AGENT_TYPES = new Set(['claude-acp', 'codex-acp', 'cursor'])
 
 const normalizeAgentType = (value?: string): string => {
@@ -53,6 +54,9 @@ export default function SessionProfileFormModal({
   // Docker / DinD fields
   const [dockerEnabled, setDockerEnabled] = useState(false)
   const [dockerRegistries, setDockerRegistries] = useState<Array<{ server: string; username: string; password: string; secretName: string; insecure: boolean }>>([])
+
+  // Auth proxy
+  const [authProxyMode, setAuthProxyMode] = useState<AuthProxyMode>('default')
 
   // Session TTL
   const [sessionTTL, setSessionTTL] = useState('')
@@ -106,6 +110,17 @@ export default function SessionProfileFormModal({
 
       if (cfg?.params?.agent_type) {
         setShowAdvanced(true)
+      }
+
+      const authProxy = cfg?.params?.auth_proxy
+      if (authProxy === true) {
+        setAuthProxyMode('enabled')
+        setShowAdvanced(true)
+      } else if (authProxy === false) {
+        setAuthProxyMode('disabled')
+        setShowAdvanced(true)
+      } else {
+        setAuthProxyMode('default')
       }
 
       // Initialize sandbox_policy_id from profile config
@@ -169,6 +184,7 @@ export default function SessionProfileFormModal({
       setSandboxCountMode(false)
       setDockerEnabled(false)
       setDockerRegistries([])
+      setAuthProxyMode('default')
       setSessionTTL('')
       setShowAdvanced(false)
     }
@@ -270,11 +286,13 @@ export default function SessionProfileFormModal({
       }
 
       // Build params if any param is set
-      const hasParams = agentType.trim() || sandboxConfig || dockerConfig
+      const authProxyValue = authProxyMode === 'default' ? undefined : authProxyMode === 'enabled'
+      const hasParams = agentType.trim() || sandboxConfig || dockerConfig || authProxyValue !== undefined
       const params = hasParams ? {
         ...(agentType.trim() ? { agent_type: agentType.trim() } : {}),
         ...(sandboxConfig ? { sandbox: sandboxConfig } : {}),
         ...(dockerConfig ? { docker: dockerConfig } : {}),
+        ...(authProxyValue !== undefined ? { auth_proxy: authProxyValue } : {}),
       } : undefined
 
       const config = {
@@ -554,6 +572,42 @@ export default function SessionProfileFormModal({
                             <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                               {description}
                             </span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Auth Proxy */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      認証プロキシ
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {([
+                        { value: 'default', label: 'デフォルト', description: 'サーバー設定に従う' },
+                        { value: 'enabled', label: '有効', description: 'セッションに追加' },
+                        { value: 'disabled', label: '無効', description: 'セッションでは使わない' },
+                      ] as { value: AuthProxyMode; label: string; description: string }[]).map(({ value, label, description }) => (
+                        <label
+                          key={value}
+                          className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                            authProxyMode === value
+                              ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20'
+                              : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="profile-auth-proxy"
+                            value={value}
+                            checked={authProxyMode === value}
+                            onChange={() => setAuthProxyMode(value)}
+                            className="mt-0.5 w-3.5 h-3.5 text-emerald-600 border-gray-300 dark:border-gray-600 focus:ring-emerald-500"
+                          />
+                          <span>
+                            <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">{label}</span>
+                            <span className="block text-xs text-gray-400 dark:text-gray-500">{description}</span>
                           </span>
                         </label>
                       ))}

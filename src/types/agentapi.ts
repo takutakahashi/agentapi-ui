@@ -227,6 +227,7 @@ export interface CreateSessionRequest {
     oneshot?: boolean;
     sandbox?: SandboxConfig;
     docker?: DockerConfig;
+    auth_proxy?: boolean;
     [key: string]: unknown;
   };
   scope?: ResourceScope;
