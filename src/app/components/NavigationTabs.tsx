@@ -78,6 +78,15 @@ const allTabs: Tab[] = [
       </svg>
     ),
   },
+  {
+    label: 'Integrations',
+    href: '/integrations',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-2.829 2.829a4 4 0 105.657 5.657l1.414-1.414M10.172 13.828a4 4 0 005.656 0l2.829-2.829A4 4 0 1013 5.343L11.586 6.757" />
+      </svg>
+    ),
+  },
 ]
 
 export default function NavigationTabs({ className = '' }: NavigationTabsProps) {
