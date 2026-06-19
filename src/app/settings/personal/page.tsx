@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, ExternalSessionManagerConfig, GitSyncConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings, SlackSettings, FileSettings, GitHubSyncSettings, CodexDeviceAuthSettings } from '@/components/settings'
+import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, ExternalSessionManagerConfig, GitSyncConfig, GoogleOAuthStatus, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
+import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, GoogleOAuthSettings, FontSettings, EnvVarsSettings, SlackSettings, FileSettings, GitHubSyncSettings, CodexDeviceAuthSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, CredentialsMetadata } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -33,6 +33,8 @@ export default function PersonalSettingsPage() {
   const [regeneratingEsmId, setRegeneratingEsmId] = useState<string | null>(null)
   // GitHub Sync state
   const [gitSyncConfig, setGitSyncConfig] = useState<GitSyncConfig | undefined>(undefined)
+  const [googleOAuthStatus, setGoogleOAuthStatus] = useState<GoogleOAuthStatus | null>(null)
+  const [googleOAuthLoading, setGoogleOAuthLoading] = useState(false)
   // Credentials state
   const [credentialsMetadata, setCredentialsMetadata] = useState<CredentialsMetadata | null>(null)
   const [credentialsJson, setCredentialsJson] = useState<string>('')
@@ -132,6 +134,8 @@ export default function PersonalSettingsPage() {
         } catch {
           // credentials endpoint が存在しない場合は無視
         }
+
+        await loadGoogleOAuthStatus()
       } catch (err) {
         console.error('Failed to load personal settings:', err)
         if (err instanceof AgentAPIProxyError && err.status === 401) {
@@ -147,6 +151,26 @@ export default function PersonalSettingsPage() {
 
     fetchSettings()
   }, [userName])
+
+  const loadGoogleOAuthStatus = async () => {
+    setGoogleOAuthLoading(true)
+    try {
+      const client = createAgentAPIProxyClientFromStorage()
+      const status = await client.getGoogleOAuthStatus()
+      setGoogleOAuthStatus(status)
+    } catch (err) {
+      console.error('Failed to load Google OAuth status:', err)
+      setGoogleOAuthStatus({
+        enabled: false,
+        health_ok: false,
+        client_configured: false,
+        connected: false,
+        proxy_configured: false,
+      })
+    } finally {
+      setGoogleOAuthLoading(false)
+    }
+  }
 
   const handleMarketplacesChange = (marketplaces: Record<string, MarketplaceConfig>) => {
     setSettings((prev) => ({ ...prev, marketplaces }))
@@ -589,6 +613,13 @@ export default function PersonalSettingsPage() {
                 authMode={settings.auth_mode}
                 onChange={handleClaudeOAuthChange}
               />
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                <GoogleOAuthSettings
+                  status={googleOAuthStatus}
+                  loading={googleOAuthLoading}
+                  onRefresh={loadGoogleOAuthStatus}
+                />
+              </div>
               <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
                 <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
                   Bedrock Settings

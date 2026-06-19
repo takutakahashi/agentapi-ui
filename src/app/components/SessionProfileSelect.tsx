@@ -127,6 +127,11 @@ export default function SessionProfileSelect({
               サンドボックス
             </span>
           )}
+          {selected.config?.params?.auth_proxy !== undefined && (
+            <span className={`text-[10px] font-medium ${selected.config.params.auth_proxy ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
+              認証プロキシ{selected.config.params.auth_proxy ? '' : 'OFF'}
+            </span>
+          )}
           {selected.config?.environment && Object.keys(selected.config.environment).length > 0 && (
             <span className="text-[10px] text-gray-500 dark:text-gray-400">
               ENV×{Object.keys(selected.config.environment).length}

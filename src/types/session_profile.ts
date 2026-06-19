@@ -7,6 +7,7 @@ export interface SessionProfileParams {
   agent_type?: string;
   sandbox?: SandboxConfig;
   docker?: DockerConfig;
+  auth_proxy?: boolean;
   session_ttl?: string;
 }
 

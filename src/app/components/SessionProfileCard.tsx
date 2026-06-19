@@ -95,6 +95,14 @@ export default function SessionProfileCard({
             サンドボックス
           </span>
         )}
+        {profile.config?.params?.auth_proxy !== undefined && (
+          <span className={`inline-flex items-center gap-1 ${profile.config.params.auth_proxy ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c1.657 0 3-1.12 3-2.5S13.657 6 12 6 9 7.12 9 8.5 10.343 11 12 11zm0 0c-3.314 0-6 1.79-6 4v1h12v-1c0-2.21-2.686-4-6-4z" />
+            </svg>
+            認証プロキシ{profile.config.params.auth_proxy ? '' : 'OFF'}
+          </span>
+        )}
         {profile.config?.environment && Object.keys(profile.config.environment).length > 0 && (
           <span>環境変数: <strong className="text-gray-700 dark:text-gray-300">{Object.keys(profile.config.environment).length}</strong></span>
         )}

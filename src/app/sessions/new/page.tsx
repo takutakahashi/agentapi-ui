@@ -19,6 +19,8 @@ import SessionProfileSelect from '../../components/SessionProfileSelect'
 import { SessionCreationProgress, SessionCreationStatus } from '../../../types/sessionProgress'
 import { useTeamScope } from '../../../contexts/TeamScopeContext'
 
+type AuthProxyMode = 'default' | 'enabled' | 'disabled'
+
 export default function NewSessionPage() {
   const { selectedTeam } = useTeamScope()
   const router = useRouter()
@@ -48,6 +50,7 @@ export default function NewSessionPage() {
   const [sandboxDomains, setSandboxDomains] = useState('')
   const [dockerEnabled, setDockerEnabled] = useState(false)
   const [dockerRegistries, setDockerRegistries] = useState<Array<{ server: string; username: string; password: string; secretName: string; insecure: boolean }>>([])
+  const [authProxyMode, setAuthProxyMode] = useState<AuthProxyMode>('default')
   const [sessionTTL, setSessionTTL] = useState('')
 
   const addDockerRegistry = () => {
@@ -177,6 +180,11 @@ export default function NewSessionPage() {
         if (cycleMaxCount > 0) {
           params.cycle_max_count = cycleMaxCount
         }
+      }
+
+      // 認証プロキシが明示指定されている場合は送信
+      if (authProxyMode !== 'default') {
+        params.auth_proxy = authProxyMode === 'enabled'
       }
 
       // サンドボックスが有効な場合はsandboxを送信
@@ -702,6 +710,34 @@ export default function NewSessionPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+
+                  {/* 認証プロキシ */}
+                  <div>
+                    <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">認証プロキシ</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {([
+                        { value: 'default', label: 'デフォルト', description: 'profile/server に従う' },
+                        { value: 'enabled', label: '有効', description: 'このセッションに追加' },
+                        { value: 'disabled', label: '無効', description: 'このセッションでは使わない' },
+                      ] as { value: AuthProxyMode; label: string; description: string }[]).map(({ value, label, description }) => (
+                        <label key={value} className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${authProxyMode === value ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}>
+                          <input
+                            type="radio"
+                            name="auth-proxy-mode"
+                            value={value}
+                            checked={authProxyMode === value}
+                            onChange={() => setAuthProxyMode(value)}
+                            disabled={isCreating}
+                            className="mt-0.5 w-3.5 h-3.5 text-emerald-600 border-gray-300 dark:border-gray-600 focus:ring-emerald-500 flex-shrink-0"
+                          />
+                          <span>
+                            <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">{label}</span>
+                            <span className="block text-xs text-gray-400 dark:text-gray-500">{description}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
 
                   {/* サンドボックス */}
