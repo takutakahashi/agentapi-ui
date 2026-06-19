@@ -46,7 +46,9 @@ export default function IntegrationsPage() {
 
   const startGoogleOAuth = () => {
     if (!googleStatus?.oauth_start_url) return
-    window.location.href = googleStatus.oauth_start_url
+    const startUrl = new URL(googleStatus.oauth_start_url, window.location.origin)
+    startUrl.searchParams.set('redirect_uri', `${window.location.origin}/api/oauth/google/callback`)
+    window.location.href = startUrl.toString()
   }
 
   return (
