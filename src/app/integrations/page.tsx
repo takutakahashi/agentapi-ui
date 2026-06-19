@@ -55,7 +55,6 @@ export default function IntegrationsPage() {
     <main className="min-h-dvh bg-gray-50 dark:bg-gray-900">
       <TopBar
         title="Integrations"
-        subtitle="Connect external SaaS accounts"
         showSettingsButton={true}
       >
         <div className="md:hidden">
