@@ -59,6 +59,19 @@ export interface GitSyncConfig {
   encryption?: GitSyncEncryptionConfig;
 }
 
+export interface GoogleOAuthStatus {
+  enabled: boolean;
+  health_ok: boolean;
+  health_status?: string;
+  client_configured: boolean;
+  connected: boolean;
+  credential?: string;
+  user_namespace?: string;
+  oauth_start_url?: string;
+  authorization_url_endpoint?: string;
+  proxy_configured: boolean;
+}
+
 // 設定データ（API で保存）
 export interface SettingsData {
   bedrock?: BedrockConfig;
