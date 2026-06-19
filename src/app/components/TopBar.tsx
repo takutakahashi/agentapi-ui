@@ -1,9 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
-import { LogOut } from 'lucide-react'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
 import TaskButton from './TaskButton'
 
@@ -20,16 +18,6 @@ interface TopBarProps {
   children?: React.ReactNode
 }
 
-const resourceLinks = [
-  { label: 'Schedules', href: '/schedules' },
-  { label: 'Webhooks', href: '/webhooks' },
-  { label: 'Slackbots', href: '/slackbots' },
-  { label: 'Profiles', href: '/session-profiles' },
-  { label: 'Sandbox', href: '/sandbox-policies' },
-  { label: 'Memories', href: '/memories' },
-  { label: 'Integrations', href: '/integrations' },
-]
-
 export default function TopBar({
   title,
   subtitle,
@@ -44,10 +32,8 @@ export default function TopBar({
 }: TopBarProps) {
   const router = useRouter()
   const [showTeamDropdown, setShowTeamDropdown] = useState(false)
-  const [showResourceDropdown, setShowResourceDropdown] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const teamDropdownRef = useRef<HTMLDivElement>(null)
-  const resourceDropdownRef = useRef<HTMLDivElement>(null)
 
   const { selectedTeam, availableTeams, selectTeam, setAvailableTeams, isLoading: isTeamLoading } = useTeamScope()
 
@@ -96,19 +82,16 @@ export default function TopBar({
       if (teamDropdownRef.current && !teamDropdownRef.current.contains(event.target as Node)) {
         setShowTeamDropdown(false)
       }
-      if (resourceDropdownRef.current && !resourceDropdownRef.current.contains(event.target as Node)) {
-        setShowResourceDropdown(false)
-      }
     }
 
-    if (showTeamDropdown || showResourceDropdown) {
+    if (showTeamDropdown) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showTeamDropdown, showResourceDropdown])
+  }, [showTeamDropdown])
 
   // Get display name for the current selection
   const getDisplayName = () => {
@@ -253,43 +236,6 @@ export default function TopBar({
                 )}
               </div>
             )}
-
-            {/* Resources ドロップダウン */}
-            <div className="relative" ref={resourceDropdownRef}>
-              <button
-                onClick={() => setShowResourceDropdown(!showResourceDropdown)}
-                className="inline-flex items-center px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
-                title="Resources"
-              >
-                <svg className="w-4 h-4 sm:mr-2 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                </svg>
-                <span className="hidden sm:inline">Resources</span>
-                <svg className="w-4 h-4 ml-1 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {showResourceDropdown && (
-                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 overflow-hidden">
-                  <div className="py-1">
-                    <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Resources
-                    </div>
-                    {resourceLinks.map((item) => (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => setShowResourceDropdown(false)}
-                        className="block px-3 py-2 text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700 transition-colors"
-                      >
-                        {item.label}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
 
             {/* タスクボタン */}
             <TaskButton />
