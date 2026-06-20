@@ -74,7 +74,7 @@ import {
   TaskListResponse,
   TaskListParams
 } from '../types/task';
-import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, GitSyncConfig, GoogleOAuthStatus, getSendGithubTokenOnSessionStart, getMemoryEnabled, getMemorySummarizeDrafts, AvailableManager } from '../types/settings';
+import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, GitSyncConfig, GoogleOAuthStatus, SciaIntegrationsResponse, getSendGithubTokenOnSessionStart, getMemoryEnabled, getMemorySummarizeDrafts, AvailableManager } from '../types/settings';
 import { ProxyUserInfo } from '../types/user';
 import { handleAuthenticationRequired, isAuthenticationRequiredError } from './auth-error-handler';
 
@@ -1458,6 +1458,13 @@ export class AgentAPIProxyClient {
    */
   async getGoogleOAuthStatus(): Promise<GoogleOAuthStatus> {
     return await this.makeRequest<GoogleOAuthStatus>('/integrations/google-oauth/status');
+  }
+
+  /**
+   * Get scia OAuth integrations configured for the current user.
+   */
+  async getIntegrations(): Promise<SciaIntegrationsResponse> {
+    return await this.makeRequest<SciaIntegrationsResponse>('/integrations');
   }
 
   /**

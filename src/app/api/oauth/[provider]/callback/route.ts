@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const DEFAULT_SCIA_INTERNAL_URL = 'http://scia-oauth.agentapi-ui-dev.svc.cluster.local:8081'
-const DEFAULT_COMPLETE_PATH = '/integrations?google_oauth=connected'
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ provider: string }> }
+) {
+  const { provider: rawProvider } = await params
+  const provider = encodeURIComponent(rawProvider)
   const sciaBaseUrl = (process.env.SCIA_OAUTH_INTERNAL_URL || DEFAULT_SCIA_INTERNAL_URL).replace(/\/$/, '')
-  const completePath = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_COMPLETE_PATH || DEFAULT_COMPLETE_PATH
   const publicBaseUrl = getPublicBaseUrl(request)
-  const callbackUrl = `${sciaBaseUrl}/oauth/google/callback${request.nextUrl.search}`
+  const completePath = process.env.NEXT_PUBLIC_OAUTH_COMPLETE_PATH || `/integrations?integration_connected=${provider}`
+  const callbackUrl = `${sciaBaseUrl}/oauth/${provider}/callback${request.nextUrl.search}`
 
   const response = await fetch(callbackUrl, {
     method: 'GET',
@@ -16,7 +20,7 @@ export async function GET(request: NextRequest) {
 
   if (!response.ok) {
     const text = await response.text()
-    return new NextResponse(text || 'Google OAuth callback failed', {
+    return new NextResponse(text || `${rawProvider} OAuth callback failed`, {
       status: response.status,
       headers: {
         'content-type': response.headers.get('content-type') || 'text/plain; charset=utf-8',
