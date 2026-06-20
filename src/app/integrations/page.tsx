@@ -152,25 +152,25 @@ export default function IntegrationsPage() {
                   {integration.scopes.length > 0 && (
                     <div className="mt-4 space-y-2">
                       {integration.scopes.map((scope) => {
-                        const checked = (selectedScopes[integration.id] || []).includes(scope.value)
+                        const checked = (selectedScopes[integration.id] || []).includes(scope.id)
                         return (
                           <label
-                            key={scope.value}
+                            key={scope.id}
                             className="flex cursor-pointer items-start gap-3 rounded-md border border-gray-200 p-3 text-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/60"
                           >
                             <input
                               type="checkbox"
                               checked={checked}
-                              onChange={(event) => setScopeSelected(integration, scope.value, event.target.checked)}
+                              onChange={(event) => setScopeSelected(integration, scope.id, event.target.checked)}
                               className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
                             <span className="min-w-0">
                               <span className="block font-medium text-gray-800 dark:text-gray-100">
-                                {scope.label || scope.value}
+                                {scope.name}
                               </span>
-                              {scope.description && (
+                              {scope.desc && (
                                 <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
-                                  {scope.description}
+                                  {scope.desc}
                                 </span>
                               )}
                             </span>
@@ -200,7 +200,7 @@ export default function IntegrationsPage() {
 }
 
 function defaultScopes(integration: SciaIntegration): string[] {
-  return integration.scopes.filter((scope) => scope.enabled).map((scope) => scope.value)
+  return integration.scopes.filter((scope) => scope.enabled).map((scope) => scope.id)
 }
 
 function scopeSeparator(provider: string): string {

@@ -73,9 +73,9 @@ export interface GoogleOAuthStatus {
 }
 
 export interface IntegrationScope {
-  value: string;
-  label?: string;
-  description?: string;
+  id: string;
+  name: string;
+  desc?: string;
   enabled: boolean;
 }
 
