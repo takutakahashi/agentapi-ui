@@ -59,7 +59,7 @@ export interface GitSyncConfig {
   encryption?: GitSyncEncryptionConfig;
 }
 
-export interface GoogleOAuthStatus {
+export interface SciaOAuthStatus {
   enabled: boolean;
   health_ok: boolean;
   health_status?: string;
@@ -71,6 +71,9 @@ export interface GoogleOAuthStatus {
   authorization_url_endpoint?: string;
   proxy_configured: boolean;
 }
+
+export type GoogleOAuthStatus = SciaOAuthStatus;
+export type NotionOAuthStatus = SciaOAuthStatus;
 
 // 設定データ（API で保存）
 export interface SettingsData {
