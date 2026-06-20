@@ -6,7 +6,7 @@ import TopBar from '../components/TopBar'
 import NavigationTabs from '../components/NavigationTabs'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
-import { SciaIntegration, SciaIntegrationsResponse } from '@/types/settings'
+import { IntegrationScope, SciaIntegration, SciaIntegrationsResponse } from '@/types/settings'
 
 export default function IntegrationsPage() {
   const [integrations, setIntegrations] = useState<SciaIntegrationsResponse | null>(null)
@@ -63,6 +63,15 @@ export default function IntegrationsPage() {
         ? Array.from(new Set([...currentValues, value]))
         : currentValues.filter((scope) => scope !== value)
       return { ...current, [integration.id]: nextValues }
+    })
+  }
+
+  const setScopeGroupSelected = (integration: SciaIntegration, group: string, value: string) => {
+    setSelectedScopes((current) => {
+      const currentValues = current[integration.id] || []
+      const groupScopeIDs = new Set(integration.scopes.filter((scope) => scope.group === group).map((scope) => scope.id))
+      const nextValues = [...currentValues.filter((scope) => !groupScopeIDs.has(scope)), value]
+      return { ...current, [integration.id]: Array.from(new Set(nextValues)) }
     })
   }
 
@@ -151,7 +160,52 @@ export default function IntegrationsPage() {
 
                   {integration.scopes.length > 0 && (
                     <div className="mt-4 space-y-2">
-                      {integration.scopes.map((scope) => {
+                      {scopeGroups(integration).map((group) => (
+                        <fieldset
+                          key={group.id}
+                          className="rounded-md border border-gray-200 p-3 dark:border-gray-700"
+                        >
+                          <legend className="px-1 text-sm font-medium text-gray-800 dark:text-gray-100">
+                            {group.name}
+                          </legend>
+                          {group.desc && (
+                            <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+                              {group.desc}
+                            </p>
+                          )}
+                          <div className="space-y-2">
+                            {group.scopes.map((scope) => {
+                              const checked = (selectedScopes[integration.id] || []).includes(scope.id)
+                              return (
+                                <label
+                                  key={scope.id}
+                                  className="flex cursor-pointer items-start gap-3 rounded-md p-2 text-sm transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/60"
+                                >
+                                  <input
+                                    type="radio"
+                                    name={`${integration.id}-${group.id}`}
+                                    checked={checked}
+                                    onChange={() => setScopeGroupSelected(integration, group.id, scope.id)}
+                                    className="mt-0.5 h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+                                  />
+                                  <span className="min-w-0">
+                                    <span className="block font-medium text-gray-800 dark:text-gray-100">
+                                      {scope.name}
+                                    </span>
+                                    {scope.desc && (
+                                      <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+                                        {scope.desc}
+                                      </span>
+                                    )}
+                                  </span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        </fieldset>
+                      ))}
+
+                      {ungroupedScopes(integration).map((scope) => {
                         const checked = (selectedScopes[integration.id] || []).includes(scope.id)
                         return (
                           <label
@@ -200,7 +254,37 @@ export default function IntegrationsPage() {
 }
 
 function defaultScopes(integration: SciaIntegration): string[] {
-  return integration.scopes.filter((scope) => scope.enabled).map((scope) => scope.id)
+  const selected: string[] = []
+  const selectedGroups = new Set<string>()
+  for (const scope of integration.scopes) {
+    if (!scope.enabled) continue
+    if (scope.group) {
+      if (selectedGroups.has(scope.group)) continue
+      selectedGroups.add(scope.group)
+    }
+    selected.push(scope.id)
+  }
+  return selected
+}
+
+function scopeGroups(integration: SciaIntegration): Array<{ id: string; name: string; desc?: string; scopes: IntegrationScope[] }> {
+  const groups = new Map<string, { id: string; name: string; desc?: string; scopes: IntegrationScope[] }>()
+  for (const scope of integration.scopes) {
+    if (!scope.group) continue
+    const group = groups.get(scope.group) || {
+      id: scope.group,
+      name: scope.group_name || scope.group,
+      desc: scope.group_desc,
+      scopes: [],
+    }
+    group.scopes.push(scope)
+    groups.set(scope.group, group)
+  }
+  return Array.from(groups.values())
+}
+
+function ungroupedScopes(integration: SciaIntegration): IntegrationScope[] {
+  return integration.scopes.filter((scope) => !scope.group)
 }
 
 function scopeSeparator(provider: string): string {

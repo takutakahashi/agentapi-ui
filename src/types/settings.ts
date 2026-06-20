@@ -76,6 +76,9 @@ export interface IntegrationScope {
   id: string;
   name: string;
   desc?: string;
+  group?: string;
+  group_name?: string;
+  group_desc?: string;
   enabled: boolean;
 }
 
