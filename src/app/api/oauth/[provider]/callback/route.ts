@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const DEFAULT_SCIA_INTERNAL_URL = 'http://scia-oauth.agentapi-ui-dev.svc.cluster.local:8081'
+const DEFAULT_SCIA_INTERNAL_URL = 'http://scia-oauth:8081'
 
 export async function GET(
   request: NextRequest,
