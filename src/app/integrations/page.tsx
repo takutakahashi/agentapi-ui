@@ -257,14 +257,13 @@ function ScopeRadio({
         checked
           ? 'border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-100'
           : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700/60'
-      } ${scope.enabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+      } cursor-pointer`}
     >
       <input
         type="radio"
         name={`${integrationID}-${groupID}`}
         value={scope.id}
         checked={checked}
-        disabled={!scope.enabled}
         onChange={onChange}
         className="mt-0.5 h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
       />
@@ -295,8 +294,8 @@ function defaultScopeForGroup(group: ScopeGroup): string {
 }
 
 function scopeIDsForSelectedGroups(integration: SciaIntegration, selectedGroups: Record<string, string>): string[] {
-  const enabledScopeIDs = new Set(integration.scopes.filter((scope) => scope.enabled).map((scope) => scope.id))
-  return Object.values(selectedGroups).filter((scopeID) => scopeID !== denyScopeValue && enabledScopeIDs.has(scopeID))
+  const scopeIDs = new Set(integration.scopes.map((scope) => scope.id))
+  return Object.values(selectedGroups).filter((scopeID) => scopeID !== denyScopeValue && scopeIDs.has(scopeID))
 }
 
 type ScopeGroup = { id: string; name: string; desc?: string; scopes: IntegrationScope[] }
