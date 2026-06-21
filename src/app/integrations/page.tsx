@@ -8,17 +8,13 @@ import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-clien
 import { useToast } from '@/contexts/ToastContext'
 import { IntegrationScope, SciaIntegration, SciaIntegrationsResponse } from '@/types/settings'
 
-type AccessLevel = 'read' | 'read_write' | 'none'
+type SelectedScopeGroups = Record<string, Record<string, string>>
 
-const accessOptions: Array<{ value: AccessLevel; label: string }> = [
-  { value: 'read', label: '読み込みのみ' },
-  { value: 'read_write', label: '読み込みと書き込み' },
-  { value: 'none', label: '許可しない' },
-]
+const denyScopeValue = '__none__'
 
 export default function IntegrationsPage() {
   const [integrations, setIntegrations] = useState<SciaIntegrationsResponse | null>(null)
-  const [selectedAccessLevels, setSelectedAccessLevels] = useState<Record<string, AccessLevel>>({})
+  const [selectedScopeGroups, setSelectedScopeGroups] = useState<SelectedScopeGroups>({})
   const [loading, setLoading] = useState(true)
   const [connectingIntegrationID, setConnectingIntegrationID] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -31,11 +27,11 @@ export default function IntegrationsPage() {
       const client = createAgentAPIProxyClientFromStorage()
       const response = await client.getIntegrations()
       setIntegrations(response)
-      setSelectedAccessLevels((current) => {
+      setSelectedScopeGroups((current) => {
         const next = { ...current }
         for (const integration of response.integrations || []) {
           if (!next[integration.id]) {
-            next[integration.id] = defaultAccessLevel(integration)
+            next[integration.id] = defaultScopeGroups(integration)
           }
         }
         return next
@@ -65,9 +61,15 @@ export default function IntegrationsPage() {
     return (integrations?.integrations || []).filter((integration) => integration.released)
   }, [integrations])
 
-  const setAccessLevel = (integration: SciaIntegration, value: AccessLevel) => {
-    setSelectedAccessLevels((current) => {
-      return { ...current, [integration.id]: value }
+  const setScopeGroup = (integration: SciaIntegration, groupID: string, scopeID: string) => {
+    setSelectedScopeGroups((current) => {
+      return {
+        ...current,
+        [integration.id]: {
+          ...(current[integration.id] || {}),
+          [groupID]: scopeID,
+        },
+      }
     })
   }
 
@@ -78,7 +80,7 @@ export default function IntegrationsPage() {
       const client = createAgentAPIProxyClientFromStorage()
       const response = await client.createIntegrationAuthorizationURL(integration.id, {
         redirect_uri: `${window.location.origin}/api/oauth/${integration.provider}/callback`,
-        scope_ids: scopeIDsForAccessLevel(integration, selectedAccessLevels[integration.id] || defaultAccessLevel(integration)),
+        scope_ids: scopeIDsForSelectedGroups(integration, selectedScopeGroups[integration.id] || defaultScopeGroups(integration)),
       })
       window.location.href = response.authorization_url
     } catch (err) {
@@ -159,38 +161,62 @@ export default function IntegrationsPage() {
                   </div>
 
                   {integration.scopes.length > 0 && (
-                    <fieldset className="mt-5">
-                      <legend className="text-sm font-semibold text-gray-900 dark:text-white">
-                        詳しいアクセス
-                      </legend>
-                      <div className="mt-3 grid gap-2">
-                        {accessOptions.map((option) => {
-                          const checked = (selectedAccessLevels[integration.id] || defaultAccessLevel(integration)) === option.value
-                          const disabled = option.value !== 'none' && scopeIDsForAccessLevel(integration, option.value).length === 0
+                    <div className="mt-5 space-y-3">
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                          アクセスを許可する
+                        </h3>
+                      </div>
+                      <div className="space-y-3">
+                        {scopeGroups(integration).map((group) => {
+                          const selectedScopeID = selectedScopeGroups[integration.id]?.[group.id] ?? defaultScopeForGroup(group)
                           return (
-                            <label
-                              key={option.value}
-                              className={`flex cursor-pointer items-center gap-3 rounded-md border p-3 text-sm transition-colors ${
-                                checked
-                                  ? 'border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-100'
-                                  : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700/60'
-                              } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
+                            <fieldset
+                              key={group.id}
+                              className="rounded-md border border-gray-200 p-3 dark:border-gray-700"
                             >
-                              <input
-                                type="radio"
-                                name={`${integration.id}-access`}
-                                value={option.value}
-                                checked={checked}
-                                disabled={disabled}
-                                onChange={() => setAccessLevel(integration, option.value)}
-                                className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
-                              />
-                              <span className="font-medium">{option.label}</span>
-                            </label>
+                              <legend className="px-1 text-sm font-medium text-gray-900 dark:text-white">
+                                {group.name}
+                              </legend>
+                              {group.desc && (
+                                <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+                                  {group.desc}
+                                </p>
+                              )}
+                              <div className="grid gap-2">
+                                {group.scopes.map((scope) => (
+                                  <ScopeRadio
+                                    key={scope.id}
+                                    integrationID={integration.id}
+                                    groupID={group.id}
+                                    scope={scope}
+                                    checked={selectedScopeID === scope.id}
+                                    onChange={() => setScopeGroup(integration, group.id, scope.id)}
+                                  />
+                                ))}
+                                <label
+                                  className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm transition-colors ${
+                                    selectedScopeID === denyScopeValue
+                                      ? 'border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-100'
+                                      : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700/60'
+                                  }`}
+                                >
+                                  <input
+                                    type="radio"
+                                    name={`${integration.id}-${group.id}`}
+                                    value={denyScopeValue}
+                                    checked={selectedScopeID === denyScopeValue}
+                                    onChange={() => setScopeGroup(integration, group.id, denyScopeValue)}
+                                    className="mt-0.5 h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+                                  />
+                                  <span className="font-medium">許可しない</span>
+                                </label>
+                              </div>
+                            </fieldset>
                           )
                         })}
                       </div>
-                    </fieldset>
+                    </div>
                   )}
 
                   <button
@@ -212,64 +238,81 @@ export default function IntegrationsPage() {
   )
 }
 
-function defaultAccessLevel(integration: SciaIntegration): AccessLevel {
-  if (scopeIDsForAccessLevel(integration, 'read').length > 0) return 'read'
-  if (scopeIDsForAccessLevel(integration, 'read_write').length > 0) return 'read_write'
-  return 'none'
+function ScopeRadio({
+  integrationID,
+  groupID,
+  scope,
+  checked,
+  onChange,
+}: {
+  integrationID: string
+  groupID: string
+  scope: IntegrationScope
+  checked: boolean
+  onChange: () => void
+}) {
+  return (
+    <label
+      className={`flex items-start gap-3 rounded-md border p-3 text-sm transition-colors ${
+        checked
+          ? 'border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-100'
+          : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700/60'
+      } ${scope.enabled ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+    >
+      <input
+        type="radio"
+        name={`${integrationID}-${groupID}`}
+        value={scope.id}
+        checked={checked}
+        disabled={!scope.enabled}
+        onChange={onChange}
+        className="mt-0.5 h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+      />
+      <span className="min-w-0">
+        <span className="block font-medium text-gray-900 dark:text-white">
+          {scope.name}
+        </span>
+        {scope.desc && (
+          <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+            {scope.desc}
+          </span>
+        )}
+      </span>
+    </label>
+  )
 }
 
-function scopeIDsForAccessLevel(integration: SciaIntegration, level: AccessLevel): string[] {
-  if (level === 'none') return []
-
-  const scopes = integration.scopes.filter((scope) => scope.enabled)
-  if (level === 'read_write') {
-    return preferredScopesByGroup(scopes, 'write').map((scope) => scope.id)
+function defaultScopeGroups(integration: SciaIntegration): Record<string, string> {
+  const selected: Record<string, string> = {}
+  for (const group of scopeGroups(integration)) {
+    selected[group.id] = defaultScopeForGroup(group)
   }
-
-  return preferredScopesByGroup(scopes, 'read').map((scope) => scope.id)
+  return selected
 }
 
-function preferredScopesByGroup(scopes: IntegrationScope[], preference: 'read' | 'write'): IntegrationScope[] {
-  const grouped = new Map<string, IntegrationScope[]>()
-  const standalone: IntegrationScope[] = []
+function defaultScopeForGroup(group: ScopeGroup): string {
+  return group.scopes.find((scope) => scope.enabled)?.id || denyScopeValue
+}
 
-  for (const scope of scopes) {
-    if (!scope.group) {
-      standalone.push(scope)
-      continue
+function scopeIDsForSelectedGroups(integration: SciaIntegration, selectedGroups: Record<string, string>): string[] {
+  const enabledScopeIDs = new Set(integration.scopes.filter((scope) => scope.enabled).map((scope) => scope.id))
+  return Object.values(selectedGroups).filter((scopeID) => scopeID !== denyScopeValue && enabledScopeIDs.has(scopeID))
+}
+
+type ScopeGroup = { id: string; name: string; desc?: string; scopes: IntegrationScope[] }
+
+function scopeGroups(integration: SciaIntegration): ScopeGroup[] {
+  const groups = new Map<string, ScopeGroup>()
+  for (const scope of integration.scopes) {
+    const groupID = scope.group || scope.id
+    const group = groups.get(groupID) || {
+      id: groupID,
+      name: scope.group_name || scope.name,
+      desc: scope.group_desc,
+      scopes: [],
     }
-    const groupScopes = grouped.get(scope.group) || []
-    groupScopes.push(scope)
-    grouped.set(scope.group, groupScopes)
+    group.scopes.push(scope)
+    groups.set(groupID, group)
   }
-
-  const selected = Array.from(grouped.values())
-    .map((groupScopes) => selectScope(groupScopes, preference))
-    .filter((scope): scope is IntegrationScope => Boolean(scope))
-
-  const standaloneScopes = standalone.filter((scope) => {
-    const type = scopeAccessType(scope)
-    return preference === 'write' ? type !== 'read' : type === 'read'
-  })
-
-  return [...selected, ...standaloneScopes]
-}
-
-function selectScope(scopes: IntegrationScope[], preference: 'read' | 'write'): IntegrationScope | undefined {
-  const readScopes = scopes.filter((scope) => scopeAccessType(scope) === 'read')
-  const writeScopes = scopes.filter((scope) => scopeAccessType(scope) === 'write')
-
-  if (preference === 'write') {
-    return writeScopes[0] || scopes[0]
-  }
-
-  return readScopes[0]
-}
-
-function scopeAccessType(scope: IntegrationScope): 'read' | 'write' {
-  const text = `${scope.id} ${scope.name} ${scope.desc || ''}`.toLowerCase()
-  if (/(write|read_write|read-write|read\/write|edit|create|delete|manage|admin|modify|full|post|send)/.test(text)) {
-    return 'write'
-  }
-  return 'read'
+  return Array.from(groups.values())
 }
