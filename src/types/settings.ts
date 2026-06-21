@@ -72,6 +72,48 @@ export interface GoogleOAuthStatus {
   proxy_configured: boolean;
 }
 
+export interface IntegrationScope {
+  id: string;
+  name: string;
+  desc?: string;
+  group?: string;
+  group_name?: string;
+  group_desc?: string;
+  enabled: boolean;
+}
+
+export interface SciaIntegration {
+  id: string;
+  provider: string;
+  namespace?: string;
+  credential_id: string;
+  name: string;
+  icon_url?: string;
+  description?: string;
+  released: boolean;
+  source?: string;
+  start_url: string;
+  authorization_url_endpoint?: string;
+  setup?: Record<string, string>;
+  scopes: IntegrationScope[];
+  connected: boolean;
+}
+
+export interface SciaIntegrationsResponse {
+  enabled: boolean;
+  health_ok: boolean;
+  health_status?: string;
+  integrations: SciaIntegration[];
+}
+
+export interface SciaAuthorizationURLResponse {
+  credential_id: string;
+  authorization_url: string;
+  auth_url?: string;
+  redirect_uri?: string;
+  scope?: string;
+}
+
 // 設定データ（API で保存）
 export interface SettingsData {
   bedrock?: BedrockConfig;

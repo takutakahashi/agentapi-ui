@@ -74,7 +74,7 @@ import {
   TaskListResponse,
   TaskListParams
 } from '../types/task';
-import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, GitSyncConfig, GoogleOAuthStatus, getSendGithubTokenOnSessionStart, getMemoryEnabled, getMemorySummarizeDrafts, AvailableManager } from '../types/settings';
+import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, GitSyncConfig, GoogleOAuthStatus, SciaAuthorizationURLResponse, SciaIntegrationsResponse, getSendGithubTokenOnSessionStart, getMemoryEnabled, getMemorySummarizeDrafts, AvailableManager } from '../types/settings';
 import { ProxyUserInfo } from '../types/user';
 import { handleAuthenticationRequired, isAuthenticationRequiredError } from './auth-error-handler';
 
@@ -1458,6 +1458,23 @@ export class AgentAPIProxyClient {
    */
   async getGoogleOAuthStatus(): Promise<GoogleOAuthStatus> {
     return await this.makeRequest<GoogleOAuthStatus>('/integrations/google-oauth/status');
+  }
+
+  /**
+   * Get scia OAuth integrations configured for the current user.
+   */
+  async getIntegrations(): Promise<SciaIntegrationsResponse> {
+    return await this.makeRequest<SciaIntegrationsResponse>('/integrations');
+  }
+
+  /**
+   * Ask scia, through the proxy, to build an OAuth authorization URL.
+   */
+  async createIntegrationAuthorizationURL(integrationId: string, request: { scope_ids: string[]; redirect_uri: string }): Promise<SciaAuthorizationURLResponse> {
+    return await this.makeRequest<SciaAuthorizationURLResponse>(`/integrations/${encodeURIComponent(integrationId)}/authorization-url`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
   }
 
   /**
