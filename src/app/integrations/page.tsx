@@ -73,6 +73,10 @@ export default function IntegrationsPage() {
     })
   }
 
+  const setScopeGroupAllowed = (integration: SciaIntegration, group: ScopeGroup, allowed: boolean) => {
+    setScopeGroup(integration, group.id, allowed ? fallbackScopeForGroup(group) : denyScopeValue)
+  }
+
   const startOAuth = async (integration: SciaIntegration) => {
     if (!integration.authorization_url_endpoint) return
     setConnectingIntegrationID(integration.id)
@@ -170,48 +174,63 @@ export default function IntegrationsPage() {
                       <div className="space-y-3">
                         {scopeGroups(integration).map((group) => {
                           const selectedScopeID = selectedScopeGroups[integration.id]?.[group.id] ?? defaultScopeForGroup(group)
+                          const allowed = selectedScopeID !== denyScopeValue
                           return (
                             <fieldset
                               key={group.id}
-                              className="rounded-md border border-gray-200 p-3 dark:border-gray-700"
+                              className={`rounded-md border p-3 transition-colors ${
+                                allowed
+                                  ? 'border-blue-200 bg-blue-50/50 dark:border-blue-900/70 dark:bg-blue-900/10'
+                                  : 'border-gray-200 bg-gray-50/60 dark:border-gray-700 dark:bg-gray-800/70'
+                              }`}
                             >
-                              <legend className="px-1 text-sm font-medium text-gray-900 dark:text-white">
-                                {group.name}
-                              </legend>
-                              {group.desc && (
-                                <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
-                                  {group.desc}
-                                </p>
-                              )}
-                              <div className="grid gap-2">
-                                {group.scopes.map((scope) => (
-                                  <ScopeRadio
-                                    key={scope.id}
-                                    integrationID={integration.id}
-                                    groupID={group.id}
-                                    scope={scope}
-                                    checked={selectedScopeID === scope.id}
-                                    onChange={() => setScopeGroup(integration, group.id, scope.id)}
-                                  />
-                                ))}
-                                <label
-                                  className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm transition-colors ${
-                                    selectedScopeID === denyScopeValue
-                                      ? 'border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-100'
-                                      : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700/60'
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                    {group.name}
+                                  </h4>
+                                  {group.desc && (
+                                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                      {group.desc}
+                                    </p>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={allowed}
+                                  onClick={() => setScopeGroupAllowed(integration, group, !allowed)}
+                                  className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${
+                                    allowed ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
                                   }`}
                                 >
-                                  <input
-                                    type="radio"
-                                    name={`${integration.id}-${group.id}`}
-                                    value={denyScopeValue}
-                                    checked={selectedScopeID === denyScopeValue}
-                                    onChange={() => setScopeGroup(integration, group.id, denyScopeValue)}
-                                    className="mt-0.5 h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+                                  <span
+                                    className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                                      allowed ? 'translate-x-5' : 'translate-x-0.5'
+                                    }`}
                                   />
-                                  <span className="font-medium">許可しない</span>
-                                </label>
+                                </button>
                               </div>
+
+                              {allowed && (
+                                <div className="mt-3 border-t border-blue-100 pt-3 dark:border-blue-900/50">
+                                  <div className="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                                    詳しいアクセス
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    {group.scopes.map((scope) => (
+                                      <ScopeRadio
+                                        key={scope.id}
+                                        integrationID={integration.id}
+                                        groupID={group.id}
+                                        scope={scope}
+                                        checked={selectedScopeID === scope.id}
+                                        onChange={() => setScopeGroup(integration, group.id, scope.id)}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </fieldset>
                           )
                         })}
@@ -253,11 +272,11 @@ function ScopeRadio({
 }) {
   return (
     <label
-      className={`flex items-start gap-3 rounded-md border p-3 text-sm transition-colors ${
+      className={`flex cursor-pointer items-start gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors ${
         checked
-          ? 'border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-100'
-          : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700/60'
-      } cursor-pointer`}
+          ? 'bg-white text-gray-900 shadow-sm ring-1 ring-blue-100 dark:bg-gray-800 dark:text-white dark:ring-blue-900/60'
+          : 'text-gray-600 hover:bg-white/70 dark:text-gray-300 dark:hover:bg-gray-800/70'
+      }`}
     >
       <input
         type="radio"
@@ -265,10 +284,10 @@ function ScopeRadio({
         value={scope.id}
         checked={checked}
         onChange={onChange}
-        className="mt-0.5 h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+        className="mt-0.5 h-3.5 w-3.5 border-gray-300 text-blue-600 focus:ring-blue-500"
       />
       <span className="min-w-0">
-        <span className="block font-medium text-gray-900 dark:text-white">
+        <span className="block font-medium">
           {scope.name}
         </span>
         {scope.desc && (
@@ -291,6 +310,10 @@ function defaultScopeGroups(integration: SciaIntegration): Record<string, string
 
 function defaultScopeForGroup(group: ScopeGroup): string {
   return group.scopes.find((scope) => scope.enabled)?.id || denyScopeValue
+}
+
+function fallbackScopeForGroup(group: ScopeGroup): string {
+  return group.scopes.find((scope) => scope.enabled)?.id || group.scopes[0]?.id || denyScopeValue
 }
 
 function scopeIDsForSelectedGroups(integration: SciaIntegration, selectedGroups: Record<string, string>): string[] {
