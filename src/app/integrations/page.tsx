@@ -12,6 +12,7 @@ export default function IntegrationsPage() {
   const [integrations, setIntegrations] = useState<SciaIntegrationsResponse | null>(null)
   const [selectedScopes, setSelectedScopes] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(true)
+  const [connectingIntegrationID, setConnectingIntegrationID] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const { showToast } = useToast()
 
@@ -75,17 +76,21 @@ export default function IntegrationsPage() {
     })
   }
 
-  const startOAuth = (integration: SciaIntegration) => {
-    if (!integration.start_url) return
-    const startUrl = new URL(integration.start_url, window.location.origin)
-    startUrl.searchParams.set('redirect_uri', `${window.location.origin}/api/oauth/${integration.provider}/callback`)
-
-    const scopes = selectedScopes[integration.id] || []
-    if (scopes.length > 0) {
-      startUrl.searchParams.set('scope', scopes.join(scopeSeparator(integration.provider)))
+  const startOAuth = async (integration: SciaIntegration) => {
+    if (!integration.authorization_url_endpoint) return
+    setConnectingIntegrationID(integration.id)
+    try {
+      const client = createAgentAPIProxyClientFromStorage()
+      const response = await client.createIntegrationAuthorizationURL(integration.id, {
+        redirect_uri: `${window.location.origin}/api/oauth/${integration.provider}/callback`,
+        scope_ids: selectedScopes[integration.id] || [],
+      })
+      window.location.href = response.authorization_url
+    } catch (err) {
+      console.error('Failed to create authorization URL:', err)
+      showToast('OAuth URL を作成できませんでした', 'error')
+      setConnectingIntegrationID(null)
     }
-
-    window.location.href = startUrl.toString()
   }
 
   return (
@@ -237,11 +242,11 @@ export default function IntegrationsPage() {
                   <button
                     type="button"
                     onClick={() => startOAuth(integration)}
-                    disabled={!integration.start_url}
+                    disabled={!integration.authorization_url_endpoint || connectingIntegrationID === integration.id}
                     className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
                   >
                     <ExternalLink className="h-4 w-4" />
-                    {integration.connected ? `Reconnect ${integration.name}` : `Connect ${integration.name}`}
+                    {connectingIntegrationID === integration.id ? 'Connecting...' : integration.connected ? `Reconnect ${integration.name}` : `Connect ${integration.name}`}
                   </button>
                 </section>
               ))}
@@ -285,8 +290,4 @@ function scopeGroups(integration: SciaIntegration): Array<{ id: string; name: st
 
 function ungroupedScopes(integration: SciaIntegration): IntegrationScope[] {
   return integration.scopes.filter((scope) => !scope.group)
-}
-
-function scopeSeparator(provider: string): string {
-  return provider === 'todoist' ? ',' : ' '
 }

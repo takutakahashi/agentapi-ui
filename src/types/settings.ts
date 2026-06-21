@@ -106,6 +106,14 @@ export interface SciaIntegrationsResponse {
   integrations: SciaIntegration[];
 }
 
+export interface SciaAuthorizationURLResponse {
+  credential_id: string;
+  authorization_url: string;
+  auth_url?: string;
+  redirect_uri?: string;
+  scope?: string;
+}
+
 // 設定データ（API で保存）
 export interface SettingsData {
   bedrock?: BedrockConfig;
