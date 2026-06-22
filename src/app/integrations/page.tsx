@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle, ExternalLink, RefreshCw } from 'lucide-react'
+import { CheckCircle, ExternalLink, RefreshCw, Unlink } from 'lucide-react'
 import TopBar from '../components/TopBar'
 import NavigationTabs from '../components/NavigationTabs'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
@@ -17,6 +17,7 @@ export default function IntegrationsPage() {
   const [selectedScopeGroups, setSelectedScopeGroups] = useState<SelectedScopeGroups>({})
   const [loading, setLoading] = useState(true)
   const [connectingIntegrationID, setConnectingIntegrationID] = useState<string | null>(null)
+  const [revokingIntegrationID, setRevokingIntegrationID] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const { showToast } = useToast()
 
@@ -91,6 +92,23 @@ export default function IntegrationsPage() {
       console.error('Failed to create authorization URL:', err)
       showToast('OAuth URL を作成できませんでした', 'error')
       setConnectingIntegrationID(null)
+    }
+  }
+
+  const revokeIntegration = async (integration: SciaIntegration) => {
+    if (!integration.connected) return
+    if (!window.confirm(`${integration.name} の連携を解除しますか？`)) return
+    setRevokingIntegrationID(integration.id)
+    try {
+      const client = createAgentAPIProxyClientFromStorage()
+      await client.revokeIntegration(integration.id)
+      showToast(`${integration.name} 連携を解除しました`, 'success')
+      await loadIntegrations()
+    } catch (err) {
+      console.error('Failed to revoke integration:', err)
+      showToast('連携を解除できませんでした', 'error')
+    } finally {
+      setRevokingIntegrationID(null)
     }
   }
 
@@ -238,15 +256,34 @@ export default function IntegrationsPage() {
                     </div>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={() => startOAuth(integration)}
-                    disabled={!integration.authorization_url_endpoint || connectingIntegrationID === integration.id}
-                    className="mt-auto inline-flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    {connectingIntegrationID === integration.id ? 'Connecting...' : integration.connected ? `Reconnect ${integration.name}` : `Connect ${integration.name}`}
-                  </button>
+                  <div className="mt-auto flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => startOAuth(integration)}
+                      disabled={!integration.authorization_url_endpoint || connectingIntegrationID === integration.id || revokingIntegrationID === integration.id}
+                      className={`inline-flex min-w-0 items-center justify-center gap-1.5 rounded-md bg-blue-600 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${
+                        integration.connected ? 'px-2.5 py-1.5 text-xs' : 'flex-1 px-3 py-2 text-sm'
+                      }`}
+                    >
+                      <ExternalLink className={`${integration.connected ? 'h-3.5 w-3.5' : 'h-4 w-4'} shrink-0`} />
+                      <span className="truncate">
+                        {connectingIntegrationID === integration.id ? 'Connecting...' : integration.connected ? 'Reconnect' : `Connect ${integration.name}`}
+                      </span>
+                    </button>
+                    {integration.connected && (
+                      <button
+                        type="button"
+                        onClick={() => revokeIntegration(integration)}
+                        disabled={revokingIntegrationID === integration.id || connectingIntegrationID === integration.id}
+                        aria-label={`Revoke ${integration.name}`}
+                        title={`Revoke ${integration.name}`}
+                        className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-red-200 bg-white px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:border-red-900/70 dark:bg-gray-800 dark:text-red-300 dark:hover:bg-red-900/20 dark:focus:ring-offset-gray-800"
+                      >
+                        <Unlink className={`h-3.5 w-3.5 ${revokingIntegrationID === integration.id ? 'animate-pulse' : ''}`} />
+                        <span>{revokingIntegrationID === integration.id ? 'Revoking...' : 'Revoke'}</span>
+                      </button>
+                    )}
+                  </div>
                 </section>
               ))}
             </div>

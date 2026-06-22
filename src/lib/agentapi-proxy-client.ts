@@ -74,7 +74,7 @@ import {
   TaskListResponse,
   TaskListParams
 } from '../types/task';
-import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, GitSyncConfig, GoogleOAuthStatus, SciaAuthorizationURLResponse, SciaIntegrationsResponse, getSendGithubTokenOnSessionStart, getMemoryEnabled, getMemorySummarizeDrafts, AvailableManager } from '../types/settings';
+import { loadFullGlobalSettings, getDefaultProxySettings, addRepositoryToHistory, SettingsData, GitSyncConfig, GoogleOAuthStatus, SciaAuthorizationURLResponse, SciaIntegrationsResponse, SciaRevokeResponse, getSendGithubTokenOnSessionStart, getMemoryEnabled, getMemorySummarizeDrafts, AvailableManager } from '../types/settings';
 import { ProxyUserInfo } from '../types/user';
 import { handleAuthenticationRequired, isAuthenticationRequiredError } from './auth-error-handler';
 
@@ -1474,6 +1474,16 @@ export class AgentAPIProxyClient {
     return await this.makeRequest<SciaAuthorizationURLResponse>(`/integrations/${encodeURIComponent(integrationId)}/authorization-url`, {
       method: 'POST',
       body: JSON.stringify(request),
+    });
+  }
+
+  /**
+   * Revoke/disconnect a scia OAuth integration for the current user.
+   */
+  async revokeIntegration(integrationId: string): Promise<SciaRevokeResponse> {
+    return await this.makeRequest<SciaRevokeResponse>(`/integrations/${encodeURIComponent(integrationId)}/revoke`, {
+      method: 'POST',
+      body: JSON.stringify({}),
     });
   }
 

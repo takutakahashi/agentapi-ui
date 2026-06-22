@@ -114,6 +114,11 @@ export interface SciaAuthorizationURLResponse {
   scope?: string;
 }
 
+export interface SciaRevokeResponse {
+  revoked: boolean;
+  credential_id?: string;
+}
+
 // 設定データ（API で保存）
 export interface SettingsData {
   bedrock?: BedrockConfig;
