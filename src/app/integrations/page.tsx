@@ -89,7 +89,6 @@ export default function IntegrationsPage() {
   }
 
   const startOAuth = async (integration: SciaIntegration) => {
-    if (!integration.authorization_url_endpoint) return
     setConnectingIntegrationID(integration.id)
     try {
       const client = createAgentAPIProxyClientFromStorage()
@@ -276,7 +275,7 @@ export default function IntegrationsPage() {
                     <button
                       type="button"
                       onClick={() => startOAuth(integration)}
-                      disabled={!integration.authorization_url_endpoint || connectingIntegrationID === integration.id || revokingIntegrationID === integration.id}
+                      disabled={connectingIntegrationID === integration.id || revokingIntegrationID === integration.id}
                       className={`inline-flex min-w-0 items-center justify-center gap-1.5 rounded-md bg-blue-600 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${
                         integration.connected ? 'px-2.5 py-1.5 text-xs' : 'flex-1 px-3 py-2 text-sm'
                       }`}
