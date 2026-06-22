@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CheckCircle, ExternalLink, RefreshCw, Unlink } from 'lucide-react'
 import TopBar from '../components/TopBar'
 import NavigationTabs from '../components/NavigationTabs'
 import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
+import { useTeamScope } from '@/contexts/TeamScopeContext'
 import { IntegrationScope, SciaIntegration, SciaIntegrationsResponse } from '@/types/settings'
 
 type SelectedScopeGroups = Record<string, Record<string, string>>
@@ -20,8 +21,9 @@ export default function IntegrationsPage() {
   const [revokingIntegrationID, setRevokingIntegrationID] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const { showToast } = useToast()
+  const { isTeamScope, isLoading: isTeamScopeLoading } = useTeamScope()
 
-  const loadIntegrations = async () => {
+  const loadIntegrations = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -43,7 +45,7 @@ export default function IntegrationsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -55,8 +57,16 @@ export default function IntegrationsPage() {
   }, [showToast])
 
   useEffect(() => {
+    if (isTeamScopeLoading) return
+
+    if (isTeamScope) {
+      setLoading(false)
+      setError(null)
+      return
+    }
+
     loadIntegrations()
-  }, [])
+  }, [isTeamScope, isTeamScopeLoading, loadIntegrations])
 
   const visibleIntegrations = useMemo(() => {
     return (integrations?.integrations || []).filter((integration) => integration.released)
@@ -125,22 +135,28 @@ export default function IntegrationsPage() {
 
       <div className="px-4 md:px-6 lg:px-8 pt-6 md:pt-8 pb-6 md:pb-8">
         <div className="mx-auto max-w-5xl">
-          <div className="mb-4 flex items-center justify-end">
-            <button
-              type="button"
-              onClick={loadIntegrations}
-              disabled={loading}
-              aria-label="Refresh integrations"
-              title="Refresh integrations"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
+          {!isTeamScope && (
+            <div className="mb-4 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={loadIntegrations}
+                disabled={loading}
+                aria-label="Refresh integrations"
+                title="Refresh integrations"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          )}
 
-          {loading ? (
+          {isTeamScopeLoading || loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
+            </div>
+          ) : isTeamScope ? (
+            <div className="rounded-lg border border-gray-200 bg-white p-6 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+              チームでは利用できません。
             </div>
           ) : error ? (
             <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
