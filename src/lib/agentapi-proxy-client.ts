@@ -334,6 +334,12 @@ export interface ACPSessionCallbacks {
   onStatus: (status: AgentStatus) => void;
   /** Called when a permission request arrives from the agent. */
   onPermission: (action: PendingAction, rpcId: number) => void;
+  /** Called when the message SSE stream opens. */
+  onConnectionOpen?: () => void;
+  /** Called when the message SSE stream is connecting or retrying. */
+  onConnectionConnecting?: (attempt?: number, delayMs?: number) => void;
+  /** Called when the message SSE stream closes permanently. */
+  onConnectionClosed?: () => void;
   /** Called on transport errors. */
   onError: (error: Error) => void;
 }
@@ -2402,6 +2408,7 @@ export class AgentAPIProxyClient {
       {
         onOpen: () => {
           console.log(`[ACP] SSE connection opened (url=${sseUrl}, acpSessionId=${acpSessionId})`);
+          callbacks.onConnectionOpen?.();
         },
         onMessage: (event: MessageEvent) => {
           try {
@@ -2641,12 +2648,15 @@ export class AgentAPIProxyClient {
         },
         onTransientError: (event, state) => {
           console.warn(`[ACP] SSE transient error; browser is reconnecting (url=${sseUrl}, acpSessionId=${acpSessionId}, readyState=${state})`, event);
+          callbacks.onConnectionConnecting?.();
         },
         onReconnect: (attempt, delayMs) => {
           console.warn(`[ACP] SSE closed; recreating EventSource in ${delayMs}ms (url=${sseUrl}, acpSessionId=${acpSessionId}, attempt=${attempt})`);
+          callbacks.onConnectionConnecting?.(attempt, delayMs);
         },
         onClosed: (event, state) => {
           console.error(`[ACP] SSE connection permanently closed (url=${sseUrl}, acpSessionId=${acpSessionId}, readyState=${state})`, event);
+          callbacks.onConnectionClosed?.();
           callbacks.onError(new Error(`ACP SSE connection closed (readyState=${state})`));
         },
       },

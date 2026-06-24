@@ -127,6 +127,9 @@ export interface ACPServerEventCallbacks {
   onTitleUpdate?: (title: string) => void;
   onModeUpdate?: (mode: string) => void;
   onConfigOptionsUpdate?: (configOptions: ACPConfigOption[]) => void;
+  onConnectionOpen?: () => void;
+  onConnectionConnecting?: (attempt?: number, delayMs?: number) => void;
+  onConnectionClosed?: () => void;
   onError?: (err: Event | Error) => void;
 }
 
@@ -606,10 +609,13 @@ export class ACPServerClient {
         if (!response.ok || !response.body) {
           callbacks.onError?.(new Error(`[ACPServerClient] SSE connection failed: ${response.status}`));
           if (!abortController.signal.aborted) {
+            callbacks.onConnectionConnecting?.(undefined, retryDelay);
             setTimeout(() => connect(Math.min(retryDelay * 2, 30000)), retryDelay);
           }
           return;
         }
+
+        callbacks.onConnectionOpen?.();
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -633,18 +639,25 @@ export class ACPServerClient {
 
         // Stream closed normally — reconnect after a short delay
         if (!abortController.signal.aborted) {
+          callbacks.onConnectionConnecting?.(undefined, 1000);
           setTimeout(() => connect(1000), 1000);
         }
       } catch (err) {
         if (abortController.signal.aborted) return;
         console.error('[ACPServerClient] SSE fetch error:', err);
+        callbacks.onConnectionConnecting?.(undefined, retryDelay);
         setTimeout(() => connect(Math.min(retryDelay * 2, 30000)), retryDelay);
       }
     };
 
     connect();
 
-    return { close: () => abortController.abort() };
+    return {
+      close: () => {
+        abortController.abort();
+        callbacks.onConnectionClosed?.();
+      },
+    };
   }
 }
 

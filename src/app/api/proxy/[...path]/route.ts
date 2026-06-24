@@ -392,10 +392,14 @@ async function handleSSERequest(
   targetUrl: string,
   headers: Headers
 ): Promise<NextResponse> {
+  const encoder = new TextEncoder();
+
   try {
     // Create a ReadableStream to handle Server-Sent Events
     const stream = new ReadableStream({
       async start(controller) {
+        let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
         try {
           const response = await fetch(targetUrl, {
             method: 'GET',
@@ -414,11 +418,27 @@ async function handleSSERequest(
           const reader = response.body?.getReader();
           if (!reader) {
             controller.enqueue(
-              new TextEncoder().encode(`data: ${JSON.stringify({ error: 'No response body' })}\n\n`)
+              encoder.encode(`data: ${JSON.stringify({ error: 'No response body' })}\n\n`)
             );
             controller.close();
             return;
           }
+
+          // Flush headers to the browser immediately. Some SSE backends do not
+          // send data until the next agent event, but the UI still needs to know
+          // that the message stream itself is connected.
+          controller.enqueue(encoder.encode(': connected\n\n'));
+
+          heartbeatTimer = setInterval(() => {
+            try {
+              controller.enqueue(encoder.encode(': heartbeat\n\n'));
+            } catch {
+              if (heartbeatTimer) {
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+              }
+            }
+          }, 15000);
 
           // Read the stream and forward chunks
           while (true) {
@@ -434,9 +454,13 @@ async function handleSSERequest(
         } catch (error) {
           console.error('SSE stream error:', error);
           controller.enqueue(
-            new TextEncoder().encode(`data: ${JSON.stringify({ error: 'Stream error', details: error instanceof Error ? error.message : 'Unknown error' })}\n\n`)
+            encoder.encode(`data: ${JSON.stringify({ error: 'Stream error', details: error instanceof Error ? error.message : 'Unknown error' })}\n\n`)
           );
           controller.close();
+        } finally {
+          if (heartbeatTimer) {
+            clearInterval(heartbeatTimer);
+          }
         }
       },
       cancel() {

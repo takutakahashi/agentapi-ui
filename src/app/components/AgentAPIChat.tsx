@@ -32,6 +32,8 @@ interface AgentStatus {
   message?: string;
 }
 
+type MessageSSEConnectionStatus = 'connecting' | 'connected';
+
 // Normalize raw proxy statuses to the three values the UI knows.
 // The proxy can return 'cancel', 'stopped', etc. after a cancel — treat them as stable.
 function normalizeAgentStatus(raw: string): 'stable' | 'running' | 'error' {
@@ -363,6 +365,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       setIsInitialLoadComplete(false);
       setIsStarting(false);
       setACPInfo(null);
+      setMessageSSEConnectionStatus('connecting');
       // Clear any pending retry timer
       if (retryTimerRef.current) {
         clearTimeout(retryTimerRef.current);
@@ -430,6 +433,15 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     setPendingAction(action);
                     setShowQuestionModal(true);
                   },
+                  onConnectionOpen: () => {
+                    setMessageSSEConnectionStatus('connected');
+                  },
+                  onConnectionConnecting: () => {
+                    setMessageSSEConnectionStatus('connecting');
+                  },
+                  onConnectionClosed: () => {
+                    setMessageSSEConnectionStatus('connecting');
+                  },
                   onError: (err: Event | Error) => {
                     console.error('[ACP] SSE error callback (from AgentAPIChat):', err);
                   },
@@ -472,6 +484,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                   console.log(`[ACP] initializeChat: closing existing SSE connection`);
                   acpEventSourceRef.current.close();
                 }
+                setMessageSSEConnectionStatus('connecting');
 
                 // Subscribe to SSE. In acpServerEnabled mode, route through the proxy's
                 // GET /acp endpoint with Acp-Session-Id header. Otherwise connect directly
@@ -506,6 +519,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 setIsStarting(false);
 
                 if (!acpEventSourceRef.current) {
+                  setMessageSSEConnectionStatus('connecting');
                   acpEventSourceRef.current = acpServerClientRef.current.subscribeToEvents(sessionId, acpCallbacks);
                 }
                 return;
@@ -647,6 +661,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [messageSSEConnectionStatus, setMessageSSEConnectionStatus] = useState<MessageSSEConnectionStatus>('connecting');
   const [isStarting, setIsStarting] = useState(false);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
@@ -693,6 +708,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [isSettingACPModel, setIsSettingACPModel] = useState(false);
   const [acpModelMessage, setACPModelMessage] = useState<string | null>(null);
   const isACPSession = !!acpInfo || isACPAgentType(agentType) || acpServerEnabled;
+  const isMessageSSEConnected = !isACPSession || messageSSEConnectionStatus === 'connected';
+  const isConnectionStatusConnected = isConnected && isMessageSSEConnected;
+  const connectionStatusLabel = isConnectionStatusConnected ? 'Connected' : 'Connecting';
+  const connectionStatusTextClass = isConnectionStatusConnected
+    ? 'text-green-600 dark:text-green-400'
+    : 'text-yellow-600 dark:text-yellow-400';
+  const connectionStatusDotClass = isConnectionStatusConnected ? 'bg-green-500' : 'bg-yellow-500';
   const tokenUsage = useMemo(() => getSessionTokenUsage(acpInfo, messages), [acpInfo, messages]);
   const [acpPendingPermission, setACPPendingPermission] = useState<{ action: PendingAction; rpcId: number } | null>(null);
   const acpNextPromptId = useRef(1);
@@ -1181,6 +1203,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       if (acpEventSourceRef.current) {
         acpEventSourceRef.current.close();
       }
+      setMessageSSEConnectionStatus('connecting');
 
       const reconnectCallbacks = {
           onMessage: (msg: SessionMessage) => {
@@ -1230,6 +1253,15 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             setACPPendingPermission({ action, rpcId });
             setPendingAction(action);
             setShowQuestionModal(true);
+          },
+          onConnectionOpen: () => {
+            setMessageSSEConnectionStatus('connected');
+          },
+          onConnectionConnecting: () => {
+            setMessageSSEConnectionStatus('connecting');
+          },
+          onConnectionClosed: () => {
+            setMessageSSEConnectionStatus('connecting');
           },
           onError: (err: Event | Error) => {
             console.error('[ACP] SSE error callback (from visibility reconnect):', err);
@@ -1647,9 +1679,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             
             {/* Connection Status */}
             <div className="flex items-center space-x-1 sm:space-x-2">
-              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <span className={`text-xs sm:text-sm ${isConnected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} hidden sm:inline`}>
-                {isConnected ? 'Connected' : 'Disconnected'}
+              <div className={`w-2 h-2 rounded-full ${connectionStatusDotClass}`}></div>
+              <span className={`text-xs sm:text-sm ${connectionStatusTextClass} hidden sm:inline`}>
+                {connectionStatusLabel}
               </span>
             </div>
 
@@ -1982,7 +2014,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             </div>
             <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
               <span className="text-gray-500 dark:text-gray-400">Connection</span>
-              <span className="break-all text-gray-900 dark:text-gray-100">{isConnected ? 'connected' : 'disconnected'}</span>
+              <span className="break-all text-gray-900 dark:text-gray-100">{connectionStatusLabel.toLowerCase()}</span>
             </div>
             <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
               <span className="text-gray-500 dark:text-gray-400">Tokens so far</span>
