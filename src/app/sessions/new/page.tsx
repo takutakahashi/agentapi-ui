@@ -20,12 +20,42 @@ import { SessionCreationProgress, SessionCreationStatus } from '../../../types/s
 import { useTeamScope } from '../../../contexts/TeamScopeContext'
 
 type AuthProxyMode = 'default' | 'enabled' | 'disabled'
+type CheckoutTarget = 'branch' | 'pr'
+
+function buildRepositoryTags(
+  repo: string,
+  checkoutTarget: CheckoutTarget,
+  branch: string,
+  prNumber: string
+): Record<string, string> {
+  const tags: Record<string, string> = {}
+  const trimmedRepo = repo.trim()
+  const trimmedBranch = branch.trim()
+  const trimmedPrNumber = prNumber.trim()
+
+  if (trimmedRepo) {
+    tags.repository = trimmedRepo
+  }
+
+  if (trimmedRepo && checkoutTarget === 'branch' && trimmedBranch) {
+    tags.branch = trimmedBranch
+  }
+
+  if (trimmedRepo && checkoutTarget === 'pr' && trimmedPrNumber) {
+    tags.pr_number = trimmedPrNumber
+  }
+
+  return tags
+}
 
 export default function NewSessionPage() {
   const { selectedTeam } = useTeamScope()
   const router = useRouter()
   const [initialMessage, setInitialMessage] = useState('')
   const [freeFormRepository, setFreeFormRepository] = useState('')
+  const [checkoutTarget, setCheckoutTarget] = useState<CheckoutTarget>('branch')
+  const [checkoutBranch, setCheckoutBranch] = useState('')
+  const [checkoutPrNumber, setCheckoutPrNumber] = useState('')
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState('')
@@ -142,10 +172,7 @@ export default function NewSessionPage() {
       console.log('Starting session creation with initial message...')
       updateProgress('creating')
 
-      const tags: Record<string, string> = {}
-      if (repo) {
-        tags.repository = repo
-      }
+      const tags = buildRepositoryTags(repo, checkoutTarget, checkoutBranch, checkoutPrNumber)
 
       const environment: Record<string, string> = {}
       if (repo) {
@@ -291,8 +318,7 @@ export default function NewSessionPage() {
         setShowProgressModal(true)
         const acpClient = createACPServerClientFromStorage()
         await acpClient.initialize()
-        const tags: Record<string, string> = {}
-        if (currentRepository) tags.repository = currentRepository
+        const tags = buildRepositoryTags(currentRepository, checkoutTarget, checkoutBranch, checkoutPrNumber)
         if (selectedTeam) tags.team = selectedTeam
         // cwd: リポジトリが指定されていれば /home/user/workdir/<repo名> を使用、なければデフォルト
         const repoPart = currentRepository ? currentRepository.split('/').pop() : ''
@@ -366,6 +392,15 @@ export default function NewSessionPage() {
       setShowFreeFormRepositorySuggestions(history.length > 0 || repositories.length > 0)
     } else {
       setShowFreeFormRepositorySuggestions(false)
+    }
+  }
+
+  const handleCheckoutTargetChange = (target: CheckoutTarget) => {
+    setCheckoutTarget(target)
+    if (target === 'branch') {
+      setCheckoutPrNumber('')
+    } else {
+      setCheckoutBranch('')
     }
   }
 
@@ -518,6 +553,89 @@ export default function NewSessionPage() {
 
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                 リポジトリを指定しない場合は一般的なチャットになります
+              </p>
+            </div>
+
+            {/* Checkout 指定 */}
+            <div>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Checkout 対象
+                </label>
+                {!freeFormRepository.trim() && (
+                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                    リポジトリ指定時に有効
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label
+                  className={`rounded-lg border p-3 transition-colors ${
+                    checkoutTarget === 'branch'
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                      : 'border-gray-200 dark:border-gray-600'
+                  } ${isCreating || !freeFormRepository.trim() ? 'opacity-60' : ''}`}
+                >
+                  <span className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="checkout-target"
+                      value="branch"
+                      checked={checkoutTarget === 'branch'}
+                      onChange={() => handleCheckoutTargetChange('branch')}
+                      disabled={isCreating || !freeFormRepository.trim()}
+                      className="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200">ブランチ</span>
+                  </span>
+                  <input
+                    type="text"
+                    value={checkoutBranch}
+                    onChange={(e) => {
+                      setCheckoutBranch(e.target.value)
+                      if (e.target.value.trim()) setCheckoutPrNumber('')
+                    }}
+                    placeholder="例: feature/session-form"
+                    disabled={isCreating || !freeFormRepository.trim() || checkoutTarget !== 'branch'}
+                    className="mt-3 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm font-mono disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400"
+                  />
+                </label>
+
+                <label
+                  className={`rounded-lg border p-3 transition-colors ${
+                    checkoutTarget === 'pr'
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                      : 'border-gray-200 dark:border-gray-600'
+                  } ${isCreating || !freeFormRepository.trim() ? 'opacity-60' : ''}`}
+                >
+                  <span className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="checkout-target"
+                      value="pr"
+                      checked={checkoutTarget === 'pr'}
+                      onChange={() => handleCheckoutTargetChange('pr')}
+                      disabled={isCreating || !freeFormRepository.trim()}
+                      className="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Pull Request</span>
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={checkoutPrNumber}
+                    onChange={(e) => {
+                      setCheckoutPrNumber(e.target.value)
+                      if (e.target.value.trim()) setCheckoutBranch('')
+                    }}
+                    placeholder="例: 123"
+                    disabled={isCreating || !freeFormRepository.trim() || checkoutTarget !== 'pr'}
+                    className="mt-3 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm font-mono disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400"
+                  />
+                </label>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                agentapi-proxy のタグ仕様に従い、ブランチは <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">branch</code>、PR は <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">pr_number</code> として送信します。
               </p>
             </div>
 
