@@ -1,16 +1,44 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Session, AgentStatus, SessionListParams } from '../../types/agentapi'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, ProxySessionStatusEvent } from '../../lib/agentapi-proxy-client'
 import { createACPServerClientFromStorage, ACPServerSession } from '../../lib/acp-server-client'
 import { getACPServerEnabled } from '../../types/settings'
-import { useBackgroundAwareInterval } from '../hooks/usePageVisibility'
 import { useSessionsStatusStream } from '../hooks/useSessionsStatusStream'
 import { formatDate, formatRelativeTime } from '../../utils/timeUtils'
 import { truncateText } from '../../utils/textUtils'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
+
+function createAgentStatusFromSession(session: Pick<Session, 'status' | 'updated_at'>): AgentStatus {
+  switch (session.status) {
+    case 'running':
+      return {
+        status: 'running',
+        last_activity: session.updated_at,
+      }
+    case 'active':
+      return {
+        status: 'stable',
+        last_activity: session.updated_at,
+      }
+    default:
+      return {
+        status: 'error',
+        last_activity: session.updated_at,
+      }
+  }
+}
+
+function createAgentStatusMapFromSessions(sessionList: Session[]): { [sessionId: string]: AgentStatus } {
+  return Object.fromEntries(
+    sessionList.map(session => [
+      session.session_id,
+      createAgentStatusFromSession(session),
+    ])
+  )
+}
 
 function mapACPSessionToSession(acpSession: ACPServerSession): Session {
   return {
@@ -82,55 +110,6 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     return 'desc'
   })
 
-  const fetchSessionStatusesInitial = useCallback(async (sessionList: Session[]) => {
-    if (sessionList.length === 0 || !agentAPIProxy) return
-
-    try {
-      // セッション数を制限してAPIコールを削減（表示分の20セッションまで）
-      const limitedSessions = sessionList.slice(0, 20)
-      
-      // 各セッションのエージェント状態を並列で取得
-      const statusPromises = limitedSessions.map(async (session) => {
-        try {
-          const status = await agentAPIProxy.getSessionStatus(session.session_id)
-          return { sessionId: session.session_id, status }
-        } catch (err) {
-          console.warn(`Failed to fetch status for session ${session.session_id}:`, err)
-          // エラーの場合はセッションステータスからデフォルト値を推測
-          return {
-            sessionId: session.session_id,
-            status: {
-              status: session.status === 'active' ? 'stable' : 'error',
-              last_activity: session.updated_at,
-              current_task: undefined
-            } as AgentStatus
-          }
-        }
-      })
-      
-      const statusResults = await Promise.all(statusPromises)
-      const statusMap: { [sessionId: string]: AgentStatus } = {}
-      
-      // 制限されたセッションの結果を設定
-      statusResults.forEach(result => {
-        statusMap[result.sessionId] = result.status
-      })
-
-      // 残りのセッションにはデフォルト値を設定（APIコールなし）
-      sessionList.slice(20).forEach(session => {
-        statusMap[session.session_id] = {
-          status: session.status === 'active' ? 'stable' : 'error',
-          last_activity: session.updated_at,
-          current_task: undefined
-        } as AgentStatus
-      })
-      
-      setSessionAgentStatus(statusMap)
-    } catch (err) {
-      console.warn('Failed to fetch initial session statuses:', err)
-    }
-  }, [agentAPIProxy])
-
   const fetchSessions = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true)
@@ -152,10 +131,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       }
 
       setSessions(sessionList)
-
-      if (sessionList.length > 0) {
-        await fetchSessionStatusesInitial(sessionList)
-      }
+      setSessionAgentStatus(createAgentStatusMapFromSessions(sessionList))
     } catch (err) {
       if (err instanceof AgentAPIProxyError) {
         setError(`セッション一覧の取得に失敗しました: ${err.message}`)
@@ -165,76 +141,11 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
 
       const mockSessions = getMockSessions()
       setSessions(mockSessions)
-
-      if (mockSessions.length > 0) {
-        await fetchSessionStatusesInitial(mockSessions)
-      }
+      setSessionAgentStatus(createAgentStatusMapFromSessions(mockSessions))
     } finally {
       setLoading(false)
     }
-  }, [acpMode, acpClient, agentAPI, fetchSessionStatusesInitial, selectedTeam])
-
-  const fetchSessionStatuses = useCallback(async () => {
-    if (sessions.length === 0 || !agentAPIProxy) return
-
-    try {
-      // セッション数を制限してAPIコールを削減（表示分の20セッションまで）
-      const limitedSessions = sessions.slice(0, 20)
-
-      // 各セッションのエージェント状態を並列で取得
-      const statusPromises = limitedSessions.map(async (session) => {
-        try {
-          const status = await agentAPIProxy.getSessionStatus(session.session_id)
-          return { sessionId: session.session_id, status }
-        } catch (err) {
-          console.warn(`Failed to fetch status for session ${session.session_id}:`, err)
-          // エラーの場合はセッションステータスからデフォルト値を推測
-          return {
-            sessionId: session.session_id,
-            status: {
-              status: session.status === 'active' ? 'stable' : 'error',
-              last_activity: session.updated_at,
-              current_task: undefined
-            } as AgentStatus
-          }
-        }
-      })
-
-      const statusResults = await Promise.all(statusPromises)
-      const statusMap: { [sessionId: string]: AgentStatus } = {}
-
-      // 制限されたセッションの結果を設定
-      statusResults.forEach(result => {
-        statusMap[result.sessionId] = result.status
-      })
-
-      // 残りのセッションにはデフォルト値を設定（APIコールなし）
-      sessions.slice(20).forEach(session => {
-        statusMap[session.session_id] = {
-          status: session.status === 'active' ? 'stable' : 'error',
-          last_activity: session.updated_at,
-          current_task: undefined
-        } as AgentStatus
-      })
-
-      setSessionAgentStatus(statusMap)
-    } catch (err) {
-      console.warn('Failed to fetch session statuses:', err)
-    }
-  }, [sessions, agentAPIProxy])
-
-  // 作成中のセッションがある場合（propsから渡されたもの）があるかどうかを判定
-  const hasCreatingSessions = useMemo(() => {
-    return creatingSessions.some(s => s.status !== 'completed' && s.status !== 'failed')
-  }, [creatingSessions])
-
-  // 起動中のセッションがあるかどうかを判定（エージェントステータスポーリング間隔の決定に使用）
-  const hasActiveSession = useMemo(() => {
-    if (hasCreatingSessions) return true
-    if (sessions.some(s => s.status === 'creating' || s.status === 'starting')) return true
-    if (Object.values(sessionAgentStatus).some(status => status.status === 'running')) return true
-    return false
-  }, [hasCreatingSessions, sessions, sessionAgentStatus])
+  }, [acpMode, acpClient, agentAPI, selectedTeam])
 
   // SSE でセッションステータス変化を受信したときの処理
   const handleProxyStatusEvent = useCallback((event: ProxySessionStatusEvent) => {
@@ -245,6 +156,13 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       updated[idx] = { ...updated[idx], status: event.status as Session['status'] }
       return updated
     })
+    setSessionAgentStatus(prev => ({
+      ...prev,
+      [event.session_id]: createAgentStatusFromSession({
+        status: event.status as Session['status'],
+        updated_at: event.timestamp,
+      }),
+    }))
 
     // セッションが active になったタイミングでフルリフレッシュ（メタデータ取得のため）
     if (event.status === 'active') {
@@ -258,29 +176,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     onStatusChange: handleProxyStatusEvent,
   })
 
-  // エージェントステータスポーリング間隔: 実行中セッションがある場合は7秒、ない場合は30秒
-  // （SSE がセッション作成ライフサイクルをカバーするため、ポーリング頻度を下げる）
-  const pollingInterval = hasActiveSession ? 7000 : 30000
-
-  // エージェントレベルのステータス（running / stable / error）は引き続きポーリングで取得
-  const statusPollingControl = useBackgroundAwareInterval(fetchSessionStatuses, pollingInterval, false)
-
   useEffect(() => {
     fetchSessions()
   }, [fetchSessions])
-
-  // エージェントステータスを定期的に更新
-  useEffect(() => {
-    if (sessions.length > 0) {
-      statusPollingControl.start()
-    } else {
-      statusPollingControl.stop()
-    }
-
-    return () => {
-      statusPollingControl.stop()
-    }
-  }, [sessions.length, statusPollingControl])
 
 
   useEffect(() => {
