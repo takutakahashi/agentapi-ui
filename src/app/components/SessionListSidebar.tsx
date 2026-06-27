@@ -19,6 +19,8 @@ function getStatusDotClass(status: SessionStatus): string {
     case 'starting': return 'bg-yellow-400 animate-pulse'
     case 'creating': return 'bg-blue-400 animate-pulse'
     case 'unhealthy':return 'bg-red-500'
+    case 'error':    return 'bg-red-500'
+    case 'timeout':  return 'bg-orange-500'
     default:         return 'bg-gray-300 dark:bg-gray-600'
   }
 }
@@ -33,6 +35,10 @@ function getSessionTitle(session: Session): string {
   if (typeof metaDesc === 'string' && metaDesc.trim()) return metaDesc.trim()
   if (session.description?.trim()) return session.description.trim()
   return `#${session.session_id.substring(0, 8)}`
+}
+
+function isFailureStatus(status: SessionStatus): boolean {
+  return status === 'error' || status === 'timeout' || status === 'unhealthy'
 }
 
 function formatRelativeTime(dateStr?: string): string {
@@ -80,10 +86,15 @@ export default function SessionListSidebar({
       const idx = prev.findIndex(s => s.session_id === event.session_id)
       if (idx === -1) return prev
       const updated = [...prev]
-      updated[idx] = { ...updated[idx], status: event.status as SessionStatus }
+      updated[idx] = {
+        ...updated[idx],
+        status: event.status as SessionStatus,
+        status_reason: event.status_reason ?? updated[idx].status_reason,
+        updated_at: event.timestamp,
+      }
       return updated
     })
-    if (event.status === 'active' || event.status === 'stopped') {
+    if (event.status === 'active' || event.status === 'stopped' || event.status === 'error' || event.status === 'timeout') {
       fetchSessions()
     }
   }, [fetchSessions])
@@ -149,6 +160,7 @@ export default function SessionListSidebar({
               const title = getSessionTitle(session)
               const timeStr = formatRelativeTime(session.updated_at || session.started_at)
               const isDeleting = deletingIds.has(session.session_id)
+              const statusReason = session.status_reason?.trim()
 
               return (
                 <li key={session.session_id} className="group/item relative">
@@ -178,12 +190,16 @@ export default function SessionListSidebar({
                             ? 'text-gray-900 dark:text-gray-100 font-medium'
                             : 'text-gray-700 dark:text-gray-300'
                         }`}
-                        title={title}
+                        title={statusReason ? `${title}\n${statusReason}` : title}
                       >
                         {title}
                       </p>
                       <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-0.5 leading-none">
-                        {session.status === 'running' ? (
+                        {isFailureStatus(session.status) && statusReason ? (
+                          <span className="text-red-500 dark:text-red-400 truncate block" title={statusReason}>
+                            {statusReason}
+                          </span>
+                        ) : session.status === 'running' ? (
                           <span className="text-yellow-500 dark:text-yellow-400">実行中</span>
                         ) : running && session.status !== 'active' ? (
                           <span className="text-yellow-500 dark:text-yellow-400">

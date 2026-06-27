@@ -11,7 +11,7 @@ import { formatDate, formatRelativeTime } from '../../utils/timeUtils'
 import { truncateText } from '../../utils/textUtils'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
 
-function createAgentStatusFromSession(session: Pick<Session, 'status' | 'updated_at'>): AgentStatus {
+function createAgentStatusFromSession(session: Pick<Session, 'status' | 'updated_at' | 'status_reason'>): AgentStatus {
   switch (session.status) {
     case 'running':
       return {
@@ -23,10 +23,17 @@ function createAgentStatusFromSession(session: Pick<Session, 'status' | 'updated
         status: 'stable',
         last_activity: session.updated_at,
       }
+    case 'creating':
+    case 'starting':
+      return {
+        status: 'running',
+        last_activity: session.updated_at,
+      }
     default:
       return {
         status: 'error',
         last_activity: session.updated_at,
+        message: session.status_reason,
       }
   }
 }
@@ -153,19 +160,25 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
       const idx = prev.findIndex(s => s.session_id === event.session_id)
       if (idx === -1) return prev
       const updated = [...prev]
-      updated[idx] = { ...updated[idx], status: event.status as Session['status'] }
+      updated[idx] = {
+        ...updated[idx],
+        status: event.status as Session['status'],
+        status_reason: event.status_reason ?? updated[idx].status_reason,
+        updated_at: event.timestamp,
+      }
       return updated
     })
     setSessionAgentStatus(prev => ({
       ...prev,
       [event.session_id]: createAgentStatusFromSession({
         status: event.status as Session['status'],
+        status_reason: event.status_reason,
         updated_at: event.timestamp,
       }),
     }))
 
     // セッションが active になったタイミングでフルリフレッシュ（メタデータ取得のため）
-    if (event.status === 'active') {
+    if (event.status === 'active' || event.status === 'error' || event.status === 'timeout') {
       fetchSessions()
     }
   }, [fetchSessions])
@@ -399,6 +412,15 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
     }
     if (session.status === 'running') {
       return { status: 'running' as const, colorClass: 'bg-yellow-500 animate-pulse', text: 'Running' }
+    }
+    if (session.status === 'error') {
+      return { status: 'error' as const, colorClass: 'bg-red-500', text: 'Error' }
+    }
+    if (session.status === 'timeout') {
+      return { status: 'timeout' as const, colorClass: 'bg-orange-500', text: 'Timeout' }
+    }
+    if (session.status === 'unhealthy') {
+      return { status: 'unhealthy' as const, colorClass: 'bg-red-500', text: 'Unhealthy' }
     }
 
     // ステータスが取得できていない場合
@@ -777,6 +799,8 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                   const agentStatusInfo = getAgentStatusForSession(session)
                   const description = getSessionDescription(session)
                   const isOld = isOldSession(session)
+                  const statusReason = session.status_reason?.trim()
+                  const isFailedSession = session.status === 'error' || session.status === 'timeout' || session.status === 'unhealthy'
 
                   const isSelected = selectedSessions.has(session.session_id)
                   return (
@@ -788,6 +812,8 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                     } ${
                       isSelected
                         ? 'bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-500'
+                        : isFailedSession
+                        ? 'bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 border-l-4 border-red-500'
                         : session.status === 'creating' || session.status === 'starting'
                         ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/30 dark:hover:to-indigo-900/30 border-l-4 border-blue-500'
                         : isNew
@@ -846,7 +872,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                             title={`Agent: ${agentStatusInfo.text}`}
                           />
                           {/* 新規セッション/作成中/起動中バッジ */}
-                          {(isNew || session.status === 'creating' || session.status === 'starting') && (
+                          {(!isFailedSession && (isNew || session.status === 'creating' || session.status === 'starting')) && (
                             <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${
                               session.status === 'creating'
                                 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
@@ -866,6 +892,12 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                             </span>
                           )}
                         </div>
+
+                        {isFailedSession && statusReason && (
+                          <p className="mb-2 text-xs text-red-700 dark:text-red-300 break-words">
+                            {truncateText(statusReason, isMobile ? 120 : 220)}
+                          </p>
+                        )}
 
                         {/* セッション情報 */}
                         <div className="flex flex-col sm:flex-row sm:items-center text-xs text-gray-500 dark:text-gray-400 space-y-1 sm:space-y-0 sm:space-x-4 mb-3">

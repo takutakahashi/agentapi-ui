@@ -18,6 +18,8 @@ interface SessionCardProps {
 
 export default function SessionCard({ session, onDelete, isDeleting, isSelected, onToggleSelect, isSelectionMode }: SessionCardProps) {
   const [isMobile, setIsMobile] = useState(false)
+  const statusReason = session.status_reason?.trim()
+  const showStatusReason = !!statusReason && ['error', 'timeout', 'unhealthy'].includes(session.status)
 
   useEffect(() => {
     const checkMobile = () => {
@@ -88,6 +90,12 @@ export default function SessionCard({ session, onDelete, isDeleting, isSelected,
             </h3>
             <StatusBadge status={session.status} />
           </div>
+
+          {showStatusReason && (
+            <p className="mb-2 text-xs text-red-700 dark:text-red-300 break-words">
+              {truncateText(statusReason, isMobile ? 120 : 220)}
+            </p>
+          )}
 
           {/* セッション情報 */}
           <div className="flex flex-col sm:flex-row sm:items-center text-xs text-gray-500 dark:text-gray-400 space-y-1 sm:space-y-0 sm:space-x-4 mb-3">

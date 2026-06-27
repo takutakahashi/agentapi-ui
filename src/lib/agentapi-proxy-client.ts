@@ -127,6 +127,7 @@ interface AgentStatus {
 export interface ProxySessionStatusEvent {
   session_id: string;
   status: string;
+  status_reason?: string;
   timestamp: string;
 }
 
