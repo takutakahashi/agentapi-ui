@@ -84,6 +84,22 @@ export default function StatusBadge({ status, className = '' }: StatusBadgeProps
           icon: '🔴',
           label: 'Unhealthy'
         }
+      case 'error':
+        return {
+          bg: 'bg-red-100 dark:bg-red-900',
+          text: 'text-red-800 dark:text-red-200',
+          border: 'border-red-200 dark:border-red-700',
+          icon: '❌',
+          label: 'Error'
+        }
+      case 'timeout':
+        return {
+          bg: 'bg-orange-100 dark:bg-orange-900',
+          text: 'text-orange-800 dark:text-orange-200',
+          border: 'border-orange-200 dark:border-orange-700',
+          icon: '⏱️',
+          label: 'Timeout'
+        }
       case 'stopped':
         return {
           bg: 'bg-gray-100 dark:bg-gray-800',
