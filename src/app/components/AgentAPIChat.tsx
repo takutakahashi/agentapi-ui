@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createAgentAPIProxyClientFromStorage, ACPSessionInfo, ACPConfigOption } from '../../lib/agentapi-proxy-client';
+import { createAgentAPIProxyClientFromStorage, ACPSessionInfo, ACPConfigOption, ACPUserPromptInfo } from '../../lib/agentapi-proxy-client';
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client';
 import { createACPServerClientFromStorage, ACPServerClient } from '../../lib/acp-server-client';
 import { getACPServerEnabled } from '../../types/settings';
@@ -320,6 +320,14 @@ function getSessionTokenUsage(info: ACPSessionInfo | null, messages: SessionMess
   return extractReportedTokenUsage(info) ?? aggregateReportedMessageUsage(messages) ?? estimateMessageTokens(messages);
 }
 
+function formatACPUserPromptLabel(prompt: ACPUserPromptInfo, isLatest: boolean): string {
+  const number = `#${prompt.index + 1}`;
+  const preview = prompt.preview?.trim();
+  if (isLatest) {
+    return preview ? `最新: ${preview}` : `最新 (${number})`;
+  }
+  return preview ? `${number}: ${preview}` : number;
+}
 
 interface AgentAPIChatProps {
   sessionId?: string;
@@ -365,6 +373,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       setIsInitialLoadComplete(false);
       setIsStarting(false);
       setACPInfo(null);
+      setACPUserPrompts([]);
+      setSelectedACPUserPromptIndex('latest');
       setMessageSSEConnectionStatus('connecting');
       // Clear any pending retry timer
       if (retryTimerRef.current) {
@@ -384,21 +394,26 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             // ACP-transport session – use SSE + JSON-RPC instead of polling.
             if (agentAPIRef.current) {
               // Shared callback object used for both normal ACP and early-ACP-fallback paths.
+              const isViewingLatestACPTurn = () => selectedACPUserPromptIndexRef.current === 'latest';
               const acpCallbacks = {
                   onMessage: (msg: SessionMessage) => {
+                    if (!isViewingLatestACPTurn()) return;
                     setMessages(prev => [...prev, msg]);
                   },
                   onChunk: (msgId: number, text: string) => {
+                    if (!isViewingLatestACPTurn()) return;
                     setMessages(prev => prev.map(m =>
                       m.id === msgId ? { ...m, content: m.content + text } : m
                     ));
                   },
                   onThoughtChunk: (msgId: number, thought: string) => {
+                    if (!isViewingLatestACPTurn()) return;
                     setMessages(prev => prev.map(m =>
                       m.id === msgId ? { ...m, thought: (m.thought ?? '') + thought } : m
                     ));
                   },
                   onToolUpdate: (toolCallId: string, status: string) => {
+                    if (!isViewingLatestACPTurn()) return;
                     setMessages(prev => prev.map(m =>
                       m.toolUseId === toolCallId
                         ? { ...m, content: JSON.stringify({ ...JSON.parse(m.content || '{}'), _status: status }) }
@@ -406,6 +421,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     ));
                   },
                   onToolInputUpdate: (toolCallId: string, input: unknown, title?: string, locations?: Array<{ path: string; line?: number }>) => {
+                    if (!isViewingLatestACPTurn()) return;
                     setMessages(prev => prev.map(m => {
                       if (m.toolUseId !== toolCallId) return m;
                       try {
@@ -427,6 +443,11 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                   },
                   onStatus: (status: { status: 'stable' | 'running' | 'error'; agent_type?: string }) => {
                     setAgentStatus(status);
+                    if (status.status === 'stable' && isViewingLatestACPTurn()) {
+                      void agentAPIRef.current?.getACPMessageHistory(sessionId, '').then(result => {
+                        setACPUserPrompts(result.userPrompts);
+                      });
+                    }
                   },
                   onPermission: (action: PendingAction, rpcId: number) => {
                     setACPPendingPermission({ action, rpcId });
@@ -456,9 +477,11 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 // Always fetch history from the per-session bridge.
                 // We always use the per-session SSE (which does NOT replay history),
                 // so there is no risk of duplicates from SSE replay.
-                const history = await agentAPIRef.current!.getACPMessageHistory(sessionId, info.sessionId);
-                setMessages(history);
-                console.log(`[ACP] initializeChat: restored ${history.length} messages from bridge history`);
+                const historyResult = await agentAPIRef.current!.getACPMessageHistory(sessionId, info.sessionId);
+                setMessages(historyResult.messages);
+                setACPUserPrompts(historyResult.userPrompts);
+                setSelectedACPUserPromptIndex('latest');
+                console.log(`[ACP] initializeChat: restored ${historyResult.messages.length} messages from bridge history`);
 
                 setHasMoreMessages(false);
                 setIsInitialLoadComplete(true);
@@ -717,8 +740,16 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const connectionStatusDotClass = isConnectionStatusConnected ? 'bg-green-500' : 'bg-yellow-500';
   const tokenUsage = useMemo(() => getSessionTokenUsage(acpInfo, messages), [acpInfo, messages]);
   const [acpPendingPermission, setACPPendingPermission] = useState<{ action: PendingAction; rpcId: number } | null>(null);
+  const [acpUserPrompts, setACPUserPrompts] = useState<ACPUserPromptInfo[]>([]);
+  const [selectedACPUserPromptIndex, setSelectedACPUserPromptIndex] = useState<number | 'latest'>('latest');
+  const [isLoadingACPPromptHistory, setIsLoadingACPPromptHistory] = useState(false);
   const acpNextPromptId = useRef(1);
   const acpEventSourceRef = useRef<{ close: () => void } | null>(null);
+  const selectedACPUserPromptIndexRef = useRef<number | 'latest'>('latest');
+
+  useEffect(() => {
+    selectedACPUserPromptIndexRef.current = selectedACPUserPromptIndex;
+  }, [selectedACPUserPromptIndex]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -749,6 +780,39 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       };
     });
   }, []);
+
+  const loadACPHistory = useCallback(async (userPromptIndex?: number) => {
+    if (!sessionId || !agentAPIRef.current) return;
+    const acpSessionId = acpInfo?.sessionId;
+    if (!acpSessionId) return;
+
+    setIsLoadingACPPromptHistory(true);
+    try {
+      const result = await agentAPIRef.current.getACPMessageHistory(
+        sessionId,
+        acpSessionId,
+        userPromptIndex
+      );
+      setMessages(result.messages);
+      setACPUserPrompts(result.userPrompts);
+      setSelectedACPUserPromptIndex(userPromptIndex ?? 'latest');
+      setHasMoreMessages(false);
+    } catch (err) {
+      console.warn('[ACP] Failed to load prompt history:', err);
+    } finally {
+      setIsLoadingACPPromptHistory(false);
+    }
+  }, [sessionId, acpInfo?.sessionId]);
+
+  const handleACPUserPromptChange = useCallback(async (value: string) => {
+    if (value === 'latest') {
+      await loadACPHistory(undefined);
+      return;
+    }
+    const index = Number(value);
+    if (Number.isNaN(index)) return;
+    await loadACPHistory(index);
+  }, [loadACPHistory]);
 
   const handleSetACPModel = useCallback(async () => {
     if (!sessionId || !acpModelConfigId || !selectedACPModel) return;
@@ -1183,9 +1247,15 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
       // 1. Fetch fresh message history from the bridge
       try {
-        const history = await agentAPIRef.current!.getACPMessageHistory(sessionId, acpInfo.sessionId);
-        setMessages(history);
-        console.log(`[ACP] Refreshed ${history.length} messages after visibility change`);
+        const selectedIndex = selectedACPUserPromptIndexRef.current;
+        const historyResult = await agentAPIRef.current!.getACPMessageHistory(
+          sessionId,
+          acpInfo.sessionId,
+          selectedIndex === 'latest' ? undefined : selectedIndex
+        );
+        setMessages(historyResult.messages);
+        setACPUserPrompts(historyResult.userPrompts);
+        console.log(`[ACP] Refreshed ${historyResult.messages.length} messages after visibility change`);
       } catch (err) {
         console.warn('[ACP] Failed to refresh message history on visibility change:', err);
       }
@@ -1205,21 +1275,26 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       }
       setMessageSSEConnectionStatus('connecting');
 
+      const isViewingLatestACPTurn = () => selectedACPUserPromptIndexRef.current === 'latest';
       const reconnectCallbacks = {
           onMessage: (msg: SessionMessage) => {
+            if (!isViewingLatestACPTurn()) return;
             setMessages(prev => [...prev, msg]);
           },
           onChunk: (msgId: number, text: string) => {
+            if (!isViewingLatestACPTurn()) return;
             setMessages(prev => prev.map(m =>
               m.id === msgId ? { ...m, content: m.content + text } : m
             ));
           },
           onThoughtChunk: (msgId: number, thought: string) => {
+            if (!isViewingLatestACPTurn()) return;
             setMessages(prev => prev.map(m =>
               m.id === msgId ? { ...m, thought: (m.thought ?? '') + thought } : m
             ));
           },
           onToolUpdate: (toolCallId: string, status: string) => {
+            if (!isViewingLatestACPTurn()) return;
             setMessages(prev => prev.map(m =>
               m.toolUseId === toolCallId
                 ? { ...m, content: JSON.stringify({ ...JSON.parse(m.content || '{}'), _status: status }) }
@@ -1227,6 +1302,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             ));
           },
           onToolInputUpdate: (toolCallId: string, input: unknown, title?: string, locations?: Array<{ path: string; line?: number }>) => {
+            if (!isViewingLatestACPTurn()) return;
             setMessages(prev => prev.map(m => {
               if (m.toolUseId !== toolCallId) return m;
               try {
@@ -1248,6 +1324,11 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           },
           onStatus: (status: { status: 'stable' | 'running' | 'error'; agent_type?: string }) => {
             setAgentStatus(status);
+            if (status.status === 'stable' && isViewingLatestACPTurn()) {
+              void agentAPIRef.current?.getACPMessageHistory(sessionId, '').then(result => {
+                setACPUserPrompts(result.userPrompts);
+              });
+            }
           },
           onPermission: (action: PendingAction, rpcId: number) => {
             setACPPendingPermission({ action, rpcId });
@@ -1764,6 +1845,36 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
         {/* Chat content column */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0">
+
+      {isACPSession && acpUserPrompts.length > 1 && (
+        <div className="border-b border-gray-200 dark:border-gray-700 px-3 sm:px-4 py-2 bg-gray-50 dark:bg-gray-800/50 flex items-center gap-2 flex-shrink-0">
+          <label htmlFor="acp-user-prompt-select" className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+            ユーザープロンプト
+          </label>
+          <select
+            id="acp-user-prompt-select"
+            value={selectedACPUserPromptIndex === 'latest' ? 'latest' : String(selectedACPUserPromptIndex)}
+            onChange={(e) => { void handleACPUserPromptChange(e.target.value); }}
+            disabled={isLoadingACPPromptHistory}
+            className="min-w-0 flex-1 max-w-xl text-xs sm:text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-2 py-1.5 disabled:opacity-60"
+          >
+            {acpUserPrompts.slice(0, -1).map((prompt) => (
+              <option key={prompt.index} value={String(prompt.index)}>
+                {formatACPUserPromptLabel(prompt, false)}
+              </option>
+            ))}
+            <option value="latest">
+              {formatACPUserPromptLabel(acpUserPrompts[acpUserPrompts.length - 1], true)}
+            </option>
+          </select>
+          {isLoadingACPPromptHistory && (
+            <span className="text-xs text-gray-500 dark:text-gray-400">読み込み中...</span>
+          )}
+          {selectedACPUserPromptIndex !== 'latest' && !isLoadingACPPromptHistory && (
+            <span className="text-xs text-amber-600 dark:text-amber-400 whitespace-nowrap">過去のターン</span>
+          )}
+        </div>
+      )}
 
       {/* Messages */}
       <div
