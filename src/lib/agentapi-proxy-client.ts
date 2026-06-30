@@ -288,6 +288,18 @@ export interface ACPJSONRPCMessage {
   error?: { code: number; message: string };
 }
 
+export interface ACPUserPromptInfo {
+  index: number;
+  preview?: string;
+}
+
+export interface ACPMessageHistoryResult {
+  messages: SessionMessage[];
+  userPromptCount: number;
+  userPromptIndex?: number;
+  userPrompts: ACPUserPromptInfo[];
+}
+
 export interface EventSubscription {
   close: () => void;
 }
@@ -438,6 +450,117 @@ function acpPlanToMarkdown(entries: NonNullable<ACPSessionUpdate['entries']>): s
     md += `${marker} ${e.content}${priority}\n`;
   }
   return md;
+}
+
+const emptyACPMessageHistory = (): ACPMessageHistoryResult => ({
+  messages: [],
+  userPromptCount: 0,
+  userPrompts: [],
+});
+
+function parseACPJSONRPCMessages(rawMsgs: ACPJSONRPCMessage[]): SessionMessage[] {
+  const result: SessionMessage[] = [];
+  let nextLocalId = Date.now();
+  let streamingMsgId: number | null = null;
+
+  for (const msg of rawMsgs) {
+    if (msg.method === 'session/update') {
+      const acpParams = msg.params as { sessionId: string; update: ACPSessionUpdate; time?: string };
+      const update = acpParams?.update;
+      if (!update) continue;
+      const now = acpParams?.time || new Date().toISOString();
+
+      switch (update.sessionUpdate) {
+        case 'agent_message_chunk': {
+          const text = acpExtractText(update.content);
+          if (!text) continue;
+          if (streamingMsgId !== null) {
+            const idx = result.findIndex(m => m.id === streamingMsgId);
+            if (idx >= 0) result[idx] = { ...result[idx], content: result[idx].content + text };
+          } else {
+            const id = nextLocalId++;
+            streamingMsgId = id;
+            result.push({ id, role: 'agent', content: text, time: now, type: 'normal' });
+          }
+          break;
+        }
+        case 'agent_thought_chunk': {
+          const thought = acpExtractText(update.content);
+          if (!thought) continue;
+          if (streamingMsgId !== null) {
+            const idx = result.findIndex(m => m.id === streamingMsgId);
+            if (idx >= 0) result[idx] = { ...result[idx], thought: (result[idx].thought ?? '') + thought };
+          } else {
+            const id = nextLocalId++;
+            streamingMsgId = id;
+            result.push({ id, role: 'agent', content: '', thought, time: now, type: 'normal' });
+          }
+          break;
+        }
+        case 'tool_call': {
+          streamingMsgId = null;
+          const toolObj = {
+            type: 'tool_use',
+            name: acpToolNameFromRawInput(update.rawInput) || acpToolDisplayName(update.kind, update.title),
+            id: update.toolCallId,
+            input: update.rawInput ?? {},
+            title: update.title,
+            locations: update.locations,
+          };
+          result.push({ id: nextLocalId++, role: 'agent', content: JSON.stringify(toolObj), time: now, type: 'normal', toolUseId: update.toolCallId });
+          break;
+        }
+        case 'tool_call_update': {
+          const isSuccess = update.status === 'completed' || update.status === 'success';
+          const isError = update.status === 'failed' || update.status === 'error';
+          const isRunning = update.status === 'running' || update.status === 'in_progress';
+          if (isRunning) continue;
+
+          if (!isSuccess && !isError) {
+            if (update.rawInput != null && update.toolCallId) {
+              let idx = -1;
+              for (let i = result.length - 1; i >= 0; i--) {
+                if (result[i].toolUseId === update.toolCallId) { idx = i; break; }
+              }
+              if (idx >= 0) {
+                try {
+                  const toolObj = JSON.parse(result[idx].content);
+                  toolObj.input = update.rawInput;
+                  if (update.title) toolObj.title = update.title;
+                  if (update.locations) toolObj.locations = update.locations;
+                  result[idx] = { ...result[idx], content: JSON.stringify(toolObj) };
+                } catch { /* ignore parse errors */ }
+              }
+            }
+            continue;
+          }
+
+          const acpText = extractACPToolContent(update.content);
+          const resultContent = acpText || extractRawOutputText(update.rawOutput);
+          result.push({ id: nextLocalId++, role: 'tool_result', content: resultContent, time: now, type: 'normal', parentToolUseId: update.toolCallId, status: isError ? 'error' : 'success' });
+          break;
+        }
+        case 'plan': {
+          streamingMsgId = null;
+          if (!update.entries || update.entries.length === 0) continue;
+          result.push({ id: nextLocalId++, role: 'agent', content: acpPlanToMarkdown(update.entries), time: now, type: 'plan' });
+          break;
+        }
+        case 'user_message_chunk': {
+          const text = acpExtractText(update.content);
+          if (!text) continue;
+          result.push({ id: nextLocalId++, role: 'user', content: text, time: now, type: 'normal' });
+          break;
+        }
+        default:
+          streamingMsgId = null;
+      }
+    } else if (msg.result != null || msg.error) {
+      streamingMsgId = null;
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -2244,132 +2367,35 @@ export class AgentAPIProxyClient {
   }
 
   /**
-   * Fetch the full message history from the ACP bridge's in-memory store.
-   * Returns parsed SessionMessage array reconstructed from the stored JSON-RPC messages.
-   * Used on reconnect to replay events that arrived before the SSE connection was established.
+   * Fetch message history from the ACP bridge's in-memory store.
+   * When userPromptIndex is omitted, returns the current turn (latest user prompt onward).
    */
   async getACPMessageHistory(
     sessionId: string,
-    acpSessionId: string
-  ): Promise<SessionMessage[]> {
+    _acpSessionId: string,
+    userPromptIndex?: number
+  ): Promise<ACPMessageHistoryResult> {
     try {
-      const resp = await this.makeRequest<{ messages: ACPJSONRPCMessage[] }>(`/${sessionId}/messages`);
-      const rawMsgs = resp?.messages ?? [];
-      const result: SessionMessage[] = [];
-      let nextLocalId = Date.now(); // use timestamp-based IDs to avoid collision with SSE ids
-      let streamingMsgId: number | null = null;
+      const query = userPromptIndex !== undefined ? `?userPromptIndex=${userPromptIndex}` : '';
+      const resp = await this.makeRequest<{
+        messages: ACPJSONRPCMessage[];
+        userPromptCount?: number;
+        userPromptIndex?: number;
+        userPrompts?: ACPUserPromptInfo[];
+      }>(`/${sessionId}/messages${query}`);
 
-      for (const msg of rawMsgs) {
-        if (msg.method === 'session/update') {
-          const acpParams = msg.params as { sessionId: string; update: ACPSessionUpdate; time?: string };
-          const update = acpParams?.update;
-          if (!update) continue;
-          const now = acpParams?.time || new Date().toISOString();
+      const messages = parseACPJSONRPCMessages(resp?.messages ?? []);
+      console.log(`[ACP] getACPMessageHistory: ${messages.length} messages restored (userPromptIndex=${userPromptIndex ?? 'latest'})`);
 
-          switch (update.sessionUpdate) {
-            case 'agent_message_chunk': {
-              const text = acpExtractText(update.content);
-              if (!text) continue;
-              if (streamingMsgId !== null) {
-                // Append to existing streaming message.
-                const idx = result.findIndex(m => m.id === streamingMsgId);
-                if (idx >= 0) result[idx] = { ...result[idx], content: result[idx].content + text };
-              } else {
-                const id = nextLocalId++;
-                streamingMsgId = id;
-                result.push({ id, role: 'agent', content: text, time: now, type: 'normal' });
-              }
-              break;
-            }
-            case 'agent_thought_chunk': {
-              const thought = acpExtractText(update.content);
-              if (!thought) continue;
-              if (streamingMsgId !== null) {
-                // Append thought to existing streaming message.
-                const idx = result.findIndex(m => m.id === streamingMsgId);
-                if (idx >= 0) result[idx] = { ...result[idx], thought: (result[idx].thought ?? '') + thought };
-              } else {
-                // Start a new message that begins with thought (content filled later).
-                const id = nextLocalId++;
-                streamingMsgId = id;
-                result.push({ id, role: 'agent', content: '', thought, time: now, type: 'normal' });
-              }
-              break;
-            }
-            case 'tool_call': {
-              streamingMsgId = null;
-              const toolObj = {
-                type: 'tool_use',
-                name: acpToolNameFromRawInput(update.rawInput) || acpToolDisplayName(update.kind, update.title),
-                id: update.toolCallId,
-                input: update.rawInput ?? {},
-                title: update.title,
-                locations: update.locations,
-              };
-              result.push({ id: nextLocalId++, role: 'agent', content: JSON.stringify(toolObj), time: now, type: 'normal', toolUseId: update.toolCallId });
-              break;
-            }
-            case 'tool_call_update': {
-              const isSuccess = update.status === 'completed' || update.status === 'success';
-              const isError = update.status === 'failed' || update.status === 'error';
-              // Proxy sends "running"; ACP spec also defines "in_progress"
-              const isRunning = update.status === 'running' || update.status === 'in_progress';
-              if (isRunning) continue;
-
-              // Step 2: rawInput/title/description patch (no completion status).
-              // Note: content[] may be present here (contains description, not the result).
-              // Use status as the sole discriminator — do NOT check for output.
-              if (!isSuccess && !isError) {
-                if (update.rawInput != null && update.toolCallId) {
-                  let idx = -1;
-                  for (let i = result.length - 1; i >= 0; i--) {
-                    if (result[i].toolUseId === update.toolCallId) { idx = i; break; }
-                  }
-                  if (idx >= 0) {
-                    try {
-                      const toolObj = JSON.parse(result[idx].content);
-                      toolObj.input = update.rawInput;
-                      if (update.title) toolObj.title = update.title;
-                      if (update.locations) toolObj.locations = update.locations;
-                      result[idx] = { ...result[idx], content: JSON.stringify(toolObj) };
-                    } catch { /* ignore parse errors */ }
-                  }
-                }
-                continue;
-              }
-
-              // Step 3: result update (status = completed/failed, or content/rawOutput present).
-              // Prefer ACP content[] over rawOutput (rawOutput may contain non-text Anthropic blocks).
-              const acpText = extractACPToolContent(update.content);
-              const resultContent = acpText || extractRawOutputText(update.rawOutput);
-              result.push({ id: nextLocalId++, role: 'tool_result', content: resultContent, time: now, type: 'normal', parentToolUseId: update.toolCallId, status: isError ? 'error' : 'success' });
-              break;
-            }
-            case 'plan': {
-              streamingMsgId = null;
-              if (!update.entries || update.entries.length === 0) continue;
-              result.push({ id: nextLocalId++, role: 'agent', content: acpPlanToMarkdown(update.entries), time: now, type: 'plan' });
-              break;
-            }
-            case 'user_message_chunk': {
-              const text = acpExtractText(update.content);
-              if (!text) continue;
-              result.push({ id: nextLocalId++, role: 'user', content: text, time: now, type: 'normal' });
-              break;
-            }
-            default:
-              streamingMsgId = null;
-          }
-        } else if (msg.result != null || msg.error) {
-          // prompt result/error: reset streaming state
-          streamingMsgId = null;
-        }
-      }
-      console.log(`[ACP] getACPMessageHistory: ${result.length} messages restored`);
-      return result;
+      return {
+        messages,
+        userPromptCount: resp?.userPromptCount ?? 0,
+        userPromptIndex: resp?.userPromptIndex,
+        userPrompts: resp?.userPrompts ?? [],
+      };
     } catch (err) {
       console.warn(`[ACP] getACPMessageHistory failed:`, err);
-      return [];
+      return emptyACPMessageHistory();
     }
   }
 

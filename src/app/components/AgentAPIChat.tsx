@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, type TouchEvent } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createAgentAPIProxyClientFromStorage, ACPSessionInfo, ACPConfigOption } from '../../lib/agentapi-proxy-client';
+import { createAgentAPIProxyClientFromStorage, ACPSessionInfo, ACPConfigOption, ACPUserPromptInfo } from '../../lib/agentapi-proxy-client';
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client';
 import { createACPServerClientFromStorage, ACPServerClient } from '../../lib/acp-server-client';
 import { getACPServerEnabled } from '../../types/settings';
@@ -320,6 +320,16 @@ function getSessionTokenUsage(info: ACPSessionInfo | null, messages: SessionMess
   return extractReportedTokenUsage(info) ?? aggregateReportedMessageUsage(messages) ?? estimateMessageTokens(messages);
 }
 
+function getLatestACPUserPromptIndex(prompts: ACPUserPromptInfo[]): number | null {
+  return prompts.length > 0 ? prompts[prompts.length - 1].index : null;
+}
+
+function withACPHistoryMessageIds(messages: SessionMessage[], userPromptIndex: number): SessionMessage[] {
+  return messages.map((message, index) => ({
+    ...message,
+    id: -((userPromptIndex + 1) * 100000 + index + 1),
+  }));
+}
 
 interface AgentAPIChatProps {
   sessionId?: string;
@@ -365,6 +375,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       setIsInitialLoadComplete(false);
       setIsStarting(false);
       setACPInfo(null);
+      setACPUserPrompts([]);
+      setLoadedACPStartPromptIndex(null);
       setMessageSSEConnectionStatus('connecting');
       // Clear any pending retry timer
       if (retryTimerRef.current) {
@@ -427,6 +439,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                   },
                   onStatus: (status: { status: 'stable' | 'running' | 'error'; agent_type?: string }) => {
                     setAgentStatus(status);
+                    if (status.status === 'stable') {
+                      void agentAPIRef.current?.getACPMessageHistory(sessionId, '').then(result => {
+                        setACPUserPrompts(result.userPrompts);
+                        setLoadedACPStartPromptIndex(prev => prev ?? result.userPromptIndex ?? getLatestACPUserPromptIndex(result.userPrompts));
+                      });
+                    }
                   },
                   onPermission: (action: PendingAction, rpcId: number) => {
                     setACPPendingPermission({ action, rpcId });
@@ -456,9 +474,11 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 // Always fetch history from the per-session bridge.
                 // We always use the per-session SSE (which does NOT replay history),
                 // so there is no risk of duplicates from SSE replay.
-                const history = await agentAPIRef.current!.getACPMessageHistory(sessionId, info.sessionId);
-                setMessages(history);
-                console.log(`[ACP] initializeChat: restored ${history.length} messages from bridge history`);
+                const historyResult = await agentAPIRef.current!.getACPMessageHistory(sessionId, info.sessionId);
+                setMessages(historyResult.messages);
+                setACPUserPrompts(historyResult.userPrompts);
+                setLoadedACPStartPromptIndex(historyResult.userPromptIndex ?? getLatestACPUserPromptIndex(historyResult.userPrompts));
+                console.log(`[ACP] initializeChat: restored ${historyResult.messages.length} messages from bridge history`);
 
                 setHasMoreMessages(false);
                 setIsInitialLoadComplete(true);
@@ -717,8 +737,16 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const connectionStatusDotClass = isConnectionStatusConnected ? 'bg-green-500' : 'bg-yellow-500';
   const tokenUsage = useMemo(() => getSessionTokenUsage(acpInfo, messages), [acpInfo, messages]);
   const [acpPendingPermission, setACPPendingPermission] = useState<{ action: PendingAction; rpcId: number } | null>(null);
+  const [acpUserPrompts, setACPUserPrompts] = useState<ACPUserPromptInfo[]>([]);
+  const [isLoadingACPPromptHistory, setIsLoadingACPPromptHistory] = useState(false);
+  const [loadedACPStartPromptIndex, setLoadedACPStartPromptIndex] = useState<number | null>(null);
+  const [acpPullDistance, setACPPullDistance] = useState(0);
   const acpNextPromptId = useRef(1);
   const acpEventSourceRef = useRef<{ close: () => void } | null>(null);
+  const loadedACPStartPromptIndexRef = useRef<number | null>(null);
+  const acpPullStartYRef = useRef<number | null>(null);
+  const acpPullTrackingRef = useRef(false);
+  const acpPullDistanceRef = useRef(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -726,6 +754,11 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const prevMessagesLengthRef = useRef(0);
   const prevAgentStatusRef = useRef<AgentStatus | null>(null);
   const lastLoadTimeRef = useRef<number>(0);
+  const acpPullThreshold = 72;
+
+  useEffect(() => {
+    loadedACPStartPromptIndexRef.current = loadedACPStartPromptIndex;
+  }, [loadedACPStartPromptIndex]);
 
   useEffect(() => {
     if (isACPSession) {
@@ -749,6 +782,98 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       };
     });
   }, []);
+
+  const loadPreviousACPTurn = useCallback(async () => {
+    if (!sessionId || !agentAPIRef.current) return;
+    const acpSessionId = acpInfo?.sessionId;
+    if (!acpSessionId) return;
+    if (isLoadingACPPromptHistory) return;
+
+    const currentStartIndex = loadedACPStartPromptIndexRef.current ?? getLatestACPUserPromptIndex(acpUserPrompts);
+    if (currentStartIndex === null || currentStartIndex <= 0) return;
+    const previousPromptIndex = currentStartIndex - 1;
+    const container = messagesContainerRef.current;
+    const previousScrollHeight = container?.scrollHeight ?? 0;
+    const previousScrollTop = container?.scrollTop ?? 0;
+    const restoreScrollPosition = () => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (!container) return;
+          const scrollDiff = container.scrollHeight - previousScrollHeight;
+          container.scrollTop = previousScrollTop + scrollDiff;
+        });
+      });
+    };
+
+    setIsLoadingACPPromptHistory(true);
+    try {
+      const result = await agentAPIRef.current.getACPMessageHistory(
+        sessionId,
+        acpSessionId,
+        previousPromptIndex
+      );
+      const olderMessages = withACPHistoryMessageIds(result.messages, previousPromptIndex);
+      setMessages(prev => [...olderMessages, ...prev]);
+      setACPUserPrompts(result.userPrompts);
+      setLoadedACPStartPromptIndex(previousPromptIndex);
+      setHasMoreMessages(false);
+      restoreScrollPosition();
+    } catch (err) {
+      console.warn('[ACP] Failed to load previous prompt history:', err);
+    } finally {
+      setIsLoadingACPPromptHistory(false);
+    }
+  }, [sessionId, acpInfo?.sessionId, acpUserPrompts, isLoadingACPPromptHistory]);
+
+  const canLoadPreviousACPTurn = useCallback(() => {
+    if (!isACPSession || acpUserPrompts.length <= 1 || isLoadingACPPromptHistory) return false;
+    const currentStartIndex = loadedACPStartPromptIndexRef.current ?? getLatestACPUserPromptIndex(acpUserPrompts);
+    return currentStartIndex !== null && currentStartIndex > 0;
+  }, [isACPSession, acpUserPrompts, isLoadingACPPromptHistory]);
+
+  const handleMessagesTouchStart = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    const container = messagesContainerRef.current;
+    if (!container || container.scrollTop > 0 || !canLoadPreviousACPTurn()) {
+      acpPullTrackingRef.current = false;
+      acpPullStartYRef.current = null;
+      return;
+    }
+    acpPullTrackingRef.current = true;
+    acpPullStartYRef.current = event.touches[0]?.clientY ?? null;
+  }, [canLoadPreviousACPTurn]);
+
+  const handleMessagesTouchMove = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    if (!acpPullTrackingRef.current || acpPullStartYRef.current === null) return;
+    const container = messagesContainerRef.current;
+    if (!container || container.scrollTop > 0) return;
+
+    const currentY = event.touches[0]?.clientY;
+    if (currentY === undefined) return;
+    const delta = currentY - acpPullStartYRef.current;
+    if (delta <= 0) {
+      acpPullDistanceRef.current = 0;
+      setACPPullDistance(0);
+      return;
+    }
+
+    const distance = Math.min(delta * 0.55, 96);
+    acpPullDistanceRef.current = distance;
+    setACPPullDistance(distance);
+    if (distance > 8) {
+      event.preventDefault();
+    }
+  }, []);
+
+  const finishMessagesPull = useCallback(() => {
+    const shouldLoad = acpPullTrackingRef.current && acpPullDistanceRef.current >= acpPullThreshold;
+    acpPullTrackingRef.current = false;
+    acpPullStartYRef.current = null;
+    acpPullDistanceRef.current = 0;
+    setACPPullDistance(0);
+    if (shouldLoad) {
+      void loadPreviousACPTurn();
+    }
+  }, [loadPreviousACPTurn]);
 
   const handleSetACPModel = useCallback(async () => {
     if (!sessionId || !acpModelConfigId || !selectedACPModel) return;
@@ -1183,9 +1308,26 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
       // 1. Fetch fresh message history from the bridge
       try {
-        const history = await agentAPIRef.current!.getACPMessageHistory(sessionId, acpInfo.sessionId);
-        setMessages(history);
-        console.log(`[ACP] Refreshed ${history.length} messages after visibility change`);
+        const latestResult = await agentAPIRef.current!.getACPMessageHistory(sessionId, acpInfo.sessionId);
+        const latestPromptIndex = latestResult.userPromptIndex ?? getLatestACPUserPromptIndex(latestResult.userPrompts);
+        const currentStartIndex = loadedACPStartPromptIndexRef.current;
+
+        if (currentStartIndex !== null && latestPromptIndex !== null && currentStartIndex < latestPromptIndex) {
+          const historicalTurns = await Promise.all(
+            Array.from({ length: latestPromptIndex - currentStartIndex }, (_, offset) => {
+              const promptIndex = currentStartIndex + offset;
+              return agentAPIRef.current!.getACPMessageHistory(sessionId, acpInfo.sessionId, promptIndex)
+                .then(result => withACPHistoryMessageIds(result.messages, promptIndex));
+            })
+          );
+          setMessages([...historicalTurns.flat(), ...latestResult.messages]);
+          setLoadedACPStartPromptIndex(currentStartIndex);
+        } else {
+          setMessages(latestResult.messages);
+          setLoadedACPStartPromptIndex(latestPromptIndex);
+        }
+        setACPUserPrompts(latestResult.userPrompts);
+        console.log(`[ACP] Refreshed messages after visibility change`);
       } catch (err) {
         console.warn('[ACP] Failed to refresh message history on visibility change:', err);
       }
@@ -1248,6 +1390,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           },
           onStatus: (status: { status: 'stable' | 'running' | 'error'; agent_type?: string }) => {
             setAgentStatus(status);
+            if (status.status === 'stable') {
+              void agentAPIRef.current?.getACPMessageHistory(sessionId, '').then(result => {
+                setACPUserPrompts(result.userPrompts);
+                setLoadedACPStartPromptIndex(prev => prev ?? result.userPromptIndex ?? getLatestACPUserPromptIndex(result.userPrompts));
+              });
+            }
           },
           onPermission: (action: PendingAction, rpcId: number) => {
             setACPPendingPermission({ action, rpcId });
@@ -1769,6 +1917,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
+        onTouchStart={handleMessagesTouchStart}
+        onTouchMove={handleMessagesTouchMove}
+        onTouchEnd={finishMessagesPull}
+        onTouchCancel={finishMessagesPull}
         className="flex-1 overflow-y-auto bg-white dark:bg-gray-900 mobile-scroll min-h-0 relative"
         style={{ 
           overscrollBehavior: 'contain',
@@ -1776,6 +1928,23 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           transform: 'translateZ(0)' // GPU acceleration
         }}
       >
+        {(acpPullDistance > 0 || isLoadingACPPromptHistory) && (
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 z-20 flex h-9 items-center justify-center border-b border-blue-100 bg-blue-50/95 text-xs text-blue-700 shadow-sm dark:border-blue-900/40 dark:bg-blue-950/80 dark:text-blue-200"
+            style={{ transform: isLoadingACPPromptHistory ? 'translateY(0)' : `translateY(${Math.max(0, Math.min(acpPullDistance, 36)) - 36}px)` }}
+          >
+            {isLoadingACPPromptHistory ? (
+              <span className="inline-flex items-center gap-2">
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-300 border-t-blue-700 dark:border-blue-700 dark:border-t-blue-200" />
+                読み込み中...
+              </span>
+            ) : acpPullDistance >= acpPullThreshold ? (
+              '離して読み込み'
+            ) : (
+              '前のターン'
+            )}
+          </div>
+        )}
         {agentStatus?.status === 'error' && (
           <div className="flex flex-col items-center justify-center py-12 px-6">
             <div className="mb-4 text-red-500 dark:text-red-400">
