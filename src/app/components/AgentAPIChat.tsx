@@ -795,6 +795,15 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     const container = messagesContainerRef.current;
     const previousScrollHeight = container?.scrollHeight ?? 0;
     const previousScrollTop = container?.scrollTop ?? 0;
+    const restoreScrollPosition = () => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (!container) return;
+          const scrollDiff = container.scrollHeight - previousScrollHeight;
+          container.scrollTop = previousScrollTop + scrollDiff;
+        });
+      });
+    };
 
     setIsLoadingACPPromptHistory(true);
     try {
@@ -808,11 +817,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       setACPUserPrompts(result.userPrompts);
       setLoadedACPStartPromptIndex(previousPromptIndex);
       setHasMoreMessages(false);
-      setTimeout(() => {
-        if (!container) return;
-        const scrollDiff = container.scrollHeight - previousScrollHeight;
-        container.scrollTop = previousScrollTop + scrollDiff;
-      }, 0);
+      restoreScrollPosition();
     } catch (err) {
       console.warn('[ACP] Failed to load previous prompt history:', err);
     } finally {
@@ -1925,8 +1930,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       >
         {(acpPullDistance > 0 || isLoadingACPPromptHistory) && (
           <div
-            className="sticky top-0 z-20 flex items-center justify-center border-b border-blue-100 dark:border-blue-900/40 bg-blue-50/95 dark:bg-blue-950/80 text-xs text-blue-700 dark:text-blue-200 transition-[height]"
-            style={{ height: isLoadingACPPromptHistory ? 36 : Math.max(24, acpPullDistance) }}
+            className="pointer-events-none absolute inset-x-0 top-0 z-20 flex h-9 items-center justify-center border-b border-blue-100 bg-blue-50/95 text-xs text-blue-700 shadow-sm dark:border-blue-900/40 dark:bg-blue-950/80 dark:text-blue-200"
+            style={{ transform: isLoadingACPPromptHistory ? 'translateY(0)' : `translateY(${Math.max(0, Math.min(acpPullDistance, 36)) - 36}px)` }}
           >
             {isLoadingACPPromptHistory ? (
               <span className="inline-flex items-center gap-2">
