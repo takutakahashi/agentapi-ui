@@ -708,6 +708,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [recentMessages, setRecentMessages] = useState<string[]>([]);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showPRLinks, setShowPRLinks] = useState(false);
+  const [showSessionActionsMenu, setShowSessionActionsMenu] = useState(false);
   const [sessionAnnotations, setSessionAnnotations] = useState<SessionAnnotations | undefined>();
   const [showFontSettings, setShowFontSettings] = useState(false);
   const [showSessionInfo, setShowSessionInfo] = useState(false);
@@ -1034,20 +1035,22 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           setShowTemplateModal(false)
         } else if (showPRLinks) {
           setShowPRLinks(false)
+        } else if (showSessionActionsMenu) {
+          setShowSessionActionsMenu(false)
         } else if (showFontSettings) {
           setShowFontSettings(false)
         }
       }
     }
 
-    if (showQuestionModal || showTemplateModal || showPRLinks || showFontSettings) {
+    if (showQuestionModal || showTemplateModal || showPRLinks || showSessionActionsMenu || showFontSettings) {
       document.addEventListener('keydown', handleKeyDown)
     }
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [showQuestionModal, showTemplateModal, showPRLinks, showFontSettings])
+  }, [showQuestionModal, showTemplateModal, showPRLinks, showSessionActionsMenu, showFontSettings])
 
   // Listen for font settings changes
   useEffect(() => {
@@ -1831,41 +1834,53 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
               </span>
             </div>
 
-            {/* Delete Session Button */}
+            {/* Session actions */}
             {sessionId && (
-              <button
-                onClick={deleteSession}
-                disabled={isDeleting}
-                className="p-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title={isDeleting ? 'セッションを削除中...' : 'セッションを削除'}
-              >
-                {isDeleting ? (
-                  <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                ) : (
+              <div className="relative">
+                <button
+                  onClick={() => setShowSessionActionsMenu(prev => !prev)}
+                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+                  title="セッション操作"
+                  aria-haspopup="menu"
+                  aria-expanded={showSessionActionsMenu}
+                >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 12h.01M12 12h.01M18 12h.01" />
                   </svg>
+                </button>
+                {showSessionActionsMenu && (
+                  <div className="absolute right-0 top-full z-20 mt-2 w-48 rounded-md border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                    {relatedLinks.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setShowSessionActionsMenu(false);
+                          setShowPRLinks(true);
+                        }}
+                        className="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                      >
+                        <span>関連リンク</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{relatedLinks.length}</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setShowSessionActionsMenu(false);
+                        deleteSession();
+                      }}
+                      disabled={isDeleting}
+                      className="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                    >
+                      <span>{isDeleting ? '削除中...' : 'セッションを削除'}</span>
+                      {isDeleting && (
+                        <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 )}
-              </button>
-            )}
-
-            {/* Related Links Button - 必要なときだけ表示 */}
-            {relatedLinks.length > 0 && (
-              <button
-                onClick={() => setShowPRLinks(!showPRLinks)}
-                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors relative"
-                title={`関連リンク (${relatedLinks.length}件)`}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 6H15a3 3 0 010 6h-1.5m-3 0H9a3 3 0 010-6h1.5m-1 6h5" />
-                </svg>
-                <span className="absolute -top-1 -right-1 bg-gray-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  {relatedLinks.length}
-                </span>
-              </button>
+              </div>
             )}
 
 
