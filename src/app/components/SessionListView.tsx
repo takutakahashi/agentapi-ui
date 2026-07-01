@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { CircleDot, GitPullRequest, LoaderCircle } from 'lucide-react'
 import { Session, AgentStatus, SessionListParams } from '../../types/agentapi'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, ProxySessionStatusEvent } from '../../lib/agentapi-proxy-client'
 import { createACPServerClientFromStorage, ACPServerSession } from '../../lib/acp-server-client'
@@ -55,6 +56,26 @@ function mapACPSessionToSession(acpSession: ACPServerSession): Session {
     scope: (acpSession._meta?.scope as Session['scope']) || 'user',
     team_id: acpSession._meta?.teamId,
   }
+}
+
+function getSessionAnnotations(session: Session) {
+  const pick = (key: 'pr_url' | 'issue_url' | 'description' | 'running_task') => {
+    const directValue = session.annotations?.[key]
+    if (typeof directValue === 'string' && directValue.trim()) return directValue.trim()
+    return ''
+  }
+
+  return {
+    prUrl: pick('pr_url'),
+    issueUrl: pick('issue_url'),
+    description: pick('description'),
+    runningTask: pick('running_task'),
+  }
+}
+
+function getURLNumber(url: string): string | null {
+  const match = url.match(/\/(?:pull|issues)\/(\d+)(?:[/?#]|$)/)
+  return match?.[1] ?? null
 }
 
 interface TagFilter {
@@ -371,6 +392,11 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
 
   // セッションの表示用説明を取得
   const getSessionDescription = (session: Session) => {
+    const annotations = getSessionAnnotations(session)
+    if (annotations.description) {
+      return annotations.description
+    }
+
     const description = session.metadata?.description
 
     if (description && description !== 'No description available') {
@@ -777,6 +803,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                   const agentStatusInfo = getAgentStatusForSession(session)
                   const description = getSessionDescription(session)
                   const isOld = isOldSession(session)
+                  const annotations = getSessionAnnotations(session)
+                  const prNumber = annotations.prUrl ? getURLNumber(annotations.prUrl) : null
+                  const issueNumber = annotations.issueUrl ? getURLNumber(annotations.issueUrl) : null
 
                   const isSelected = selectedSessions.has(session.session_id)
                   return (
@@ -867,6 +896,47 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                           )}
                         </div>
 
+                        {(annotations.runningTask || annotations.prUrl || annotations.issueUrl) && (
+                          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                            {annotations.runningTask && (
+                              <span
+                                className="inline-flex max-w-full items-center gap-1.5 px-2 py-0.5 text-xs bg-amber-50 text-amber-800 ring-1 ring-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:ring-amber-800 rounded"
+                                title={annotations.runningTask}
+                              >
+                                <LoaderCircle className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
+                                <span className="font-medium">作業中</span>
+                                <span className="truncate">{truncateText(annotations.runningTask, isMobile ? 32 : 64)}</span>
+                              </span>
+                            )}
+                            {annotations.prUrl && (
+                              <a
+                                href={annotations.prUrl.replace(/\s+/g, '')}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-violet-50 text-violet-700 ring-1 ring-violet-200 hover:bg-violet-100 dark:bg-violet-950/40 dark:text-violet-200 dark:ring-violet-800 dark:hover:bg-violet-900/50 rounded"
+                                title={annotations.prUrl}
+                              >
+                                <GitPullRequest className="h-3 w-3" aria-hidden="true" />
+                                {prNumber ? `PR #${prNumber}` : 'PR'}
+                              </a>
+                            )}
+                            {annotations.issueUrl && (
+                              <a
+                                href={annotations.issueUrl.replace(/\s+/g, '')}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-800 dark:hover:bg-emerald-900/50 rounded"
+                                title={annotations.issueUrl}
+                              >
+                                <CircleDot className="h-3 w-3" aria-hidden="true" />
+                                {issueNumber ? `Issue #${issueNumber}` : 'Issue'}
+                              </a>
+                            )}
+                          </div>
+                        )}
+
                         {/* セッション情報 */}
                         <div className="flex flex-col sm:flex-row sm:items-center text-xs text-gray-500 dark:text-gray-400 space-y-1 sm:space-y-0 sm:space-x-4 mb-3">
                           <span>#{session.session_id.substring(0, 8)}</span>
@@ -947,20 +1017,6 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                           </svg>
                           <span className="hidden sm:inline">チャット</span>
                         </button>
-                        
-                        {session.metadata?.pr_url ? (
-                          <a
-                            href={String(session.metadata.pr_url).replace(/\s+/g, '')}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center px-3 py-2 sm:px-3 sm:py-1.5 border border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-700 text-purple-700 dark:text-purple-300 text-sm font-medium rounded-md transition-colors min-h-[44px] sm:min-h-0"
-                          >
-                            <svg className="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                            <span className="hidden sm:inline">PR表示</span>
-                          </a>
-                        ) : null}
                         
                         {session.metadata?.claude_login_url ? (
                           <a
