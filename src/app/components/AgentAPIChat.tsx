@@ -7,7 +7,7 @@ import { createAgentAPIProxyClientFromStorage, ACPSessionInfo, ACPConfigOption, 
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client';
 import { createACPServerClientFromStorage, ACPServerClient } from '../../lib/acp-server-client';
 import { getACPServerEnabled } from '../../types/settings';
-import { SessionMessage, SessionMessageListResponse, PendingAction } from '../../types/agentapi';
+import { Session, SessionAnnotations, SessionMessage, SessionMessageListResponse, PendingAction } from '../../types/agentapi';
 import { useBackgroundAwareInterval, usePageVisibility } from '../hooks/usePageVisibility';
 import { messageTemplateManager } from '../../utils/messageTemplateManager';
 import { MessageTemplate } from '../../types/messageTemplate';
@@ -56,39 +56,32 @@ function isValidSessionMessageResponse(response: unknown): response is SessionMe
   );
 }
 
-// PR URLを抽出する関数
-function extractPRUrls(text: string): string[] {
-  if (!text || typeof text !== 'string') return [];
-  
-  // GitHub/GitHub Enterprise PR URLのパターン
-  // 1. GitHub.com: https://github.com/owner/repo/pull/number
-  // 2. GitHub Enterprise: https://ghe.example.com/owner/repo/pull/number
-  // GitHub Enterpriseは任意のドメインで動作するため、より汎用的なパターンを使用
-  const prUrlRegex = /https?:\/\/[^\/\s]+\/[^\/\s]+\/[^\/\s]+\/pull\/\d+/g;
-  const matches = text.match(prUrlRegex);
-  
-  // URLがGitHub形式のPR URLかを検証
-  const validPRUrls = matches ? matches.filter(url => {
-    // URLのパスが /owner/repo/pull/number の形式であることを確認
-    const urlParts = url.split('/');
-    const hasPullPath = urlParts.length >= 7 && urlParts[urlParts.length - 2] === 'pull';
-    
-    // pull以降が数値であることを確認
-    const prNumber = urlParts[urlParts.length - 1];
-    const hasValidPRNumber = /^\d+$/.test(prNumber);
-    
-    return hasPullPath && hasValidPRNumber;
-  }) : [];
-  
-  const result = Array.from(new Set(validPRUrls)); // 重複を除去
-  
-  // デバッグ用ログ
-  if (text.includes('pull')) {
-    console.log('PR URL検索対象:', text);
-    console.log('検出されたPR URL:', result);
-  }
-  
-  return result;
+type RelatedLink = {
+  type: 'pr' | 'issue';
+  url: string;
+};
+
+function getSessionFromList(sessions: Session[], sessionId: string): Session | undefined {
+  return sessions.find(session => session.session_id === sessionId);
+}
+
+function getRelatedLinks(annotations?: SessionAnnotations): RelatedLink[] {
+  return [
+    annotations?.pr_url ? { type: 'pr' as const, url: annotations.pr_url } : null,
+    annotations?.issue_url ? { type: 'issue' as const, url: annotations.issue_url } : null,
+  ].filter((link): link is RelatedLink => Boolean(link));
+}
+
+function getGitHubLinkParts(url: string, type: RelatedLink['type']) {
+  const urlParts = url.split('/');
+  const marker = type === 'pr' ? 'pull' : 'issues';
+  const markerIndex = urlParts.findIndex(part => part === marker);
+  const domain = urlParts[2] || '';
+  const number = markerIndex >= 0 ? urlParts[markerIndex + 1] || '' : '';
+  const owner = markerIndex >= 2 ? urlParts[markerIndex - 2] || '' : '';
+  const repo = markerIndex >= 1 ? urlParts[markerIndex - 1] || '' : '';
+  const repoName = owner && repo ? `${owner}/${repo}` : '';
+  return { domain, number, repoName, isGitHubCom: domain === 'github.com' };
 }
 
 function formatACPModelValue(value: unknown): string | null {
@@ -391,6 +384,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           setIsConnected(true); // Set connected immediately for better UX
 
           if (sessionId) {
+            void agentAPIRef.current.search({ limit: 100 })
+              .then(response => {
+                setSessionAnnotations(getSessionFromList(response.sessions, sessionId)?.annotations);
+                lastSessionAnnotationLoadTimeRef.current = Date.now();
+              })
+              .catch(err => console.warn('Failed to load session annotations:', err));
+
             // ── ACP session detection ───────────────────────────────────────
             // Try GET /{sessionId}/session first. If it succeeds, this is an
             // ACP-transport session – use SSE + JSON-RPC instead of polling.
@@ -708,7 +708,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [recentMessages, setRecentMessages] = useState<string[]>([]);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showPRLinks, setShowPRLinks] = useState(false);
-  const [prLinks, setPRLinks] = useState<string[]>([]);
+  const [sessionAnnotations, setSessionAnnotations] = useState<SessionAnnotations | undefined>();
   const [showFontSettings, setShowFontSettings] = useState(false);
   const [showSessionInfo, setShowSessionInfo] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
@@ -736,6 +736,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     : 'text-yellow-600 dark:text-yellow-400';
   const connectionStatusDotClass = isConnectionStatusConnected ? 'bg-green-500' : 'bg-yellow-500';
   const tokenUsage = useMemo(() => getSessionTokenUsage(acpInfo, messages), [acpInfo, messages]);
+  const relatedLinks = useMemo(() => getRelatedLinks(sessionAnnotations), [sessionAnnotations]);
   const [acpPendingPermission, setACPPendingPermission] = useState<{ action: PendingAction; rpcId: number } | null>(null);
   const [acpUserPrompts, setACPUserPrompts] = useState<ACPUserPromptInfo[]>([]);
   const [isLoadingACPPromptHistory, setIsLoadingACPPromptHistory] = useState(false);
@@ -754,6 +755,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const prevMessagesLengthRef = useRef(0);
   const prevAgentStatusRef = useRef<AgentStatus | null>(null);
   const lastLoadTimeRef = useRef<number>(0);
+  const lastSessionAnnotationLoadTimeRef = useRef<number>(0);
   const acpPullThreshold = 72;
 
   useEffect(() => {
@@ -1147,10 +1149,11 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       const latestMessage = messages[messages.length - 1];
       const latestMessageId = latestMessage && typeof latestMessage.id === 'number' ? latestMessage.id : undefined;
 
-      // Poll messages, status, and pending actions
+      // Poll messages, status, pending actions, and session annotations.
       // For claude agents: fetch only new messages using 'after' parameter
       // For other agents: always fetch all messages to ensure timeline is updated
-      const [sessionMessagesResponse, sessionStatus, pendingActions] = await Promise.all([
+      const shouldRefreshAnnotations = Date.now() - lastSessionAnnotationLoadTimeRef.current > 5000;
+      const [sessionMessagesResponse, sessionStatus, pendingActions, sessionListResponse] = await Promise.all([
         agentAPIRef.current.getSessionMessages(sessionId,
           agentType === 'claude' && latestMessageId !== undefined ? {
             after: latestMessageId, // Get messages with ID > latestMessageId (newer messages)
@@ -1161,7 +1164,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           }
         ),
         agentAPIRef.current.getSessionStatus(sessionId),
-        agentAPIRef.current.getPendingActions(sessionId)
+        agentAPIRef.current.getPendingActions(sessionId),
+        shouldRefreshAnnotations ? agentAPIRef.current.search({ limit: 100 }) : Promise.resolve(null)
       ]);
 
       // Validate and safely handle session messages response
@@ -1204,6 +1208,10 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
       const normalizedSessionStatus = { ...sessionStatus, status: normalizeAgentStatus(sessionStatus.status) };
       setAgentStatus(normalizedSessionStatus);
+      if (sessionListResponse) {
+        setSessionAnnotations(getSessionFromList(sessionListResponse.sessions, sessionId)?.annotations);
+        lastSessionAnnotationLoadTimeRef.current = Date.now();
+      }
       // When the provisioner has permanently failed, surface the error once.
       if (
         sessionStatus.status === 'error' &&
@@ -1474,16 +1482,6 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         setHasNewMessages(true);
       }
     }
-    
-    // PR URLを抽出してリストに追加
-    const allPRUrls = messages.reduce((urls: string[], message) => {
-      const prUrls = extractPRUrls(message.content);
-      return [...urls, ...prUrls];
-    }, []);
-    
-    // 重複を除去してステートを更新
-    const uniquePRUrls = Array.from(new Set(allPRUrls));
-    setPRLinks(uniquePRUrls);
     
     prevMessagesLengthRef.current = currentLength;
   }, [messages, shouldAutoScroll]);
@@ -1854,18 +1852,18 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
               </button>
             )}
 
-            {/* PR Links Button - 必要なときだけ表示 */}
-            {prLinks.length > 0 && (
+            {/* Related Links Button - 必要なときだけ表示 */}
+            {relatedLinks.length > 0 && (
               <button
                 onClick={() => setShowPRLinks(!showPRLinks)}
-                className="p-2 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-200 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-md transition-colors relative"
-                title={`プルリクエスト (${prLinks.length}個)`}
+                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors relative"
+                title={`関連リンク (${relatedLinks.length}件)`}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 6H15a3 3 0 010 6h-1.5m-3 0H9a3 3 0 010-6h1.5m-1 6h5" />
                 </svg>
-                <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  {prLinks.length}
+                <span className="absolute -top-1 -right-1 bg-gray-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {relatedLinks.length}
                 </span>
               </button>
             )}
@@ -2522,7 +2520,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         </div>
       )}
 
-      {/* PR Links Modal */}
+      {/* Related Links Modal */}
       {showPRLinks && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
@@ -2536,7 +2534,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  プルリクエスト一覧 ({prLinks.length}個)
+                  関連リンク ({relatedLinks.length}件)
                 </h2>
                 <button
                   onClick={() => setShowPRLinks(false)}
@@ -2550,39 +2548,29 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             </div>
             
             <div className="overflow-y-auto max-h-[calc(80vh-8rem)] px-6 py-4">
-              {prLinks.length > 0 ? (
+              {relatedLinks.length > 0 ? (
                 <div className="space-y-3">
-                  {prLinks.map((url, index) => {
-                    // URLからドメイン、リポジトリ名、PR番号を抽出
-                    const urlParts = url.split('/');
-                    const domain = urlParts[2]; // ドメイン名
-                    const prNumber = urlParts[urlParts.length - 1];
-                    
-                    // リポジトリ名を取得（owner/repo形式）
-                    const ownerIndex = urlParts.findIndex(part => part === 'pull') - 2;
-                    const owner = urlParts[ownerIndex] || '';
-                    const repo = urlParts[ownerIndex + 1] || '';
-                    const repoName = owner && repo ? `${owner}/${repo}` : '';
-                    
-                    // GitHub.com以外の場合はドメイン名も表示
-                    const isGitHubCom = domain === 'github.com';
+                  {relatedLinks.map((link, index) => {
+                    const { domain, number, repoName, isGitHubCom } = getGitHubLinkParts(link.url, link.type);
+                    const label = link.type === 'pr' ? 'Pull Request' : 'Issue';
+                    const shortLabel = link.type === 'pr' ? 'PR' : 'Issue';
                     
                     return (
                       <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm text-gray-900 dark:text-white truncate">
-                            {repoName}
+                            {repoName || link.url}
                           </div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">
                             {!isGitHubCom && (
-                              <span className="text-purple-600 dark:text-purple-400">{domain} • </span>
+                              <span>{domain} • </span>
                             )}
-                            プルリクエスト #{prNumber}
+                            {label}{number ? ` #${number}` : ''}
                           </div>
                         </div>
                         <div className="flex items-center space-x-2 ml-4">
                           <button
-                            onClick={() => navigator.clipboard.writeText(url)}
+                            onClick={() => navigator.clipboard.writeText(link.url)}
                             className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded"
                             title="URLをコピー"
                           >
@@ -2591,12 +2579,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                             </svg>
                           </button>
                           <a
-                            href={url}
+                            href={link.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-md transition-colors"
+                            className="inline-flex items-center px-3 py-1 bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900 text-xs rounded-md transition-colors"
                           >
-                            開く
+                            {shortLabel}
                             <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                             </svg>
@@ -2611,7 +2599,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                   <svg className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                   </svg>
-                  <p className="text-sm">プルリクエストのURLが見つかりませんでした</p>
+                  <p className="text-sm">関連リンクが見つかりませんでした</p>
                 </div>
               )}
             </div>
