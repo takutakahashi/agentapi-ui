@@ -1945,6 +1945,27 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             )}
           </div>
         )}
+
+        {canLoadPreviousACPTurn() && (
+          <div className="hidden justify-center border-b border-gray-100 bg-white px-4 py-3 md:flex dark:border-gray-800 dark:bg-gray-900">
+            <button
+              type="button"
+              onClick={() => void loadPreviousACPTurn()}
+              disabled={isLoadingACPPromptHistory}
+              className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-700 shadow-sm transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-200 dark:hover:bg-blue-950"
+            >
+              {isLoadingACPPromptHistory ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-700 dark:border-blue-700 dark:border-t-blue-200" />
+              ) : (
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 0l-7 7m7-7l7 7" />
+                </svg>
+              )}
+              {isLoadingACPPromptHistory ? '読み込み中...' : '前のターンを読み込む'}
+            </button>
+          </div>
+        )}
+
         {agentStatus?.status === 'error' && (
           <div className="flex flex-col items-center justify-center py-12 px-6">
             <div className="mb-4 text-red-500 dark:text-red-400">
