@@ -686,6 +686,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const [hasNewMessages, setHasNewMessages] = useState(false);
+  const [isAtMessagesTop, setIsAtMessagesTop] = useState(false);
   const [showControlPanel, setShowControlPanel] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(false); // initialized via effect
@@ -933,6 +934,8 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
 
   const handleScroll = useCallback(() => {
     if (!messagesContainerRef.current) return;
+
+    setIsAtMessagesTop(messagesContainerRef.current.scrollTop <= 4);
 
     const isAtBottom = checkIfAtBottom();
     setShouldAutoScroll(isAtBottom);
@@ -1945,6 +1948,22 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             )}
           </div>
         )}
+
+        {isAtMessagesTop && canLoadPreviousACPTurn() && (
+          <div className="sticky top-3 z-20 hidden justify-center px-4 md:flex pointer-events-none">
+            <button
+              type="button"
+              onClick={() => void loadPreviousACPTurn()}
+              className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-700 shadow-md transition-colors hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900 dark:text-blue-200 dark:hover:bg-blue-950"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 0l-7 7m7-7l7 7" />
+              </svg>
+              前のターンを読み込む
+            </button>
+          </div>
+        )}
+
         {agentStatus?.status === 'error' && (
           <div className="flex flex-col items-center justify-center py-12 px-6">
             <div className="mb-4 text-red-500 dark:text-red-400">
