@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { CircleDot, GitPullRequest, LoaderCircle } from 'lucide-react'
 import { Session } from '../../types/agentapi'
 import StatusBadge from './StatusBadge'
 import { formatRelativeTime } from '../../utils/timeUtils'
@@ -16,24 +17,10 @@ interface SessionCardProps {
   isSelectionMode?: boolean
 }
 
-const SESSION_ANNOTATION_METADATA_KEYS = new Set([
-  'annotations',
-  'pr_url',
-  'issue_url',
-  'running_task',
-])
-
 function getSessionAnnotations(session: Session) {
-  const metadataAnnotations = session.metadata?.annotations
-  const annotations = metadataAnnotations && typeof metadataAnnotations === 'object' && !Array.isArray(metadataAnnotations)
-    ? metadataAnnotations as Record<string, unknown>
-    : {}
-
   const pick = (key: 'pr_url' | 'issue_url' | 'description' | 'running_task') => {
     const directValue = session.annotations?.[key]
     if (typeof directValue === 'string' && directValue.trim()) return directValue.trim()
-    const metadataValue = annotations[key] ?? session.metadata?.[key]
-    if (typeof metadataValue === 'string' && metadataValue.trim()) return metadataValue.trim()
     return ''
   }
 
@@ -48,6 +35,11 @@ function getSessionAnnotations(session: Session) {
 function getSessionTitle(session: Session, annotationDescription: string): string {
   if (annotationDescription) return annotationDescription
   return String(session.tags?.description || session.metadata?.description || `Session ${session.session_id.substring(0, 8)}`)
+}
+
+function getURLNumber(url: string): string | null {
+  const match = url.match(/\/(?:pull|issues)\/(\d+)(?:[/?#]|$)/)
+  return match?.[1] ?? null
 }
 
 export default function SessionCard({ session, onDelete, isDeleting, isSelected, onToggleSelect, isSelectionMode }: SessionCardProps) {
@@ -78,12 +70,10 @@ export default function SessionCard({ session, onDelete, isDeleting, isSelected,
   const isOld = isOldSession()
   const annotations = getSessionAnnotations(session)
   const title = getSessionTitle(session, annotations.description)
-  const annotationLinks = [
-    annotations.prUrl ? { label: 'PR', url: annotations.prUrl } : null,
-    annotations.issueUrl ? { label: 'Issue', url: annotations.issueUrl } : null,
-  ].filter(Boolean) as Array<{ label: string; url: string }>
+  const prNumber = annotations.prUrl ? getURLNumber(annotations.prUrl) : null
+  const issueNumber = annotations.issueUrl ? getURLNumber(annotations.issueUrl) : null
   const metadataEntries = session.metadata
-    ? Object.entries(session.metadata).filter(([key]) => key !== 'description' && !SESSION_ANNOTATION_METADATA_KEYS.has(key))
+    ? Object.entries(session.metadata).filter(([key]) => key !== 'description')
     : []
 
 
@@ -132,29 +122,44 @@ export default function SessionCard({ session, onDelete, isDeleting, isSelected,
             <StatusBadge status={session.status} />
           </div>
 
-          {(annotations.runningTask || annotationLinks.length > 0) && (
+          {(annotations.runningTask || annotations.prUrl || annotations.issueUrl) && (
             <div className="flex flex-wrap items-center gap-1.5 mb-2">
               {annotations.runningTask && (
                 <span
-                  className="inline-flex max-w-full items-center px-2 py-0.5 text-xs bg-amber-50 text-amber-800 ring-1 ring-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:ring-amber-800 rounded"
+                  className="inline-flex max-w-full items-center gap-1.5 px-2 py-0.5 text-xs bg-amber-50 text-amber-800 ring-1 ring-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:ring-amber-800 rounded"
                   title={annotations.runningTask}
                 >
-                  <span className="font-medium mr-1">Task</span>
+                  <LoaderCircle className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
+                  <span className="font-medium">作業中</span>
                   <span className="truncate">{truncateText(annotations.runningTask, isMobile ? 32 : 64)}</span>
                 </span>
               )}
-              {annotationLinks.map((link) => (
+              {annotations.prUrl && (
                 <a
-                  key={`${link.label}:${link.url}`}
-                  href={link.url}
+                  href={annotations.prUrl}
                   target="_blank"
                   rel="noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center px-2 py-0.5 text-xs bg-gray-100 text-gray-700 ring-1 ring-gray-200 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-700 dark:hover:bg-gray-700 rounded"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-violet-50 text-violet-700 ring-1 ring-violet-200 hover:bg-violet-100 dark:bg-violet-950/40 dark:text-violet-200 dark:ring-violet-800 dark:hover:bg-violet-900/50 rounded"
+                  title={annotations.prUrl}
                 >
-                  {link.label}
+                  <GitPullRequest className="h-3 w-3" aria-hidden="true" />
+                  {prNumber ? `PR #${prNumber}` : 'PR'}
                 </a>
-              ))}
+              )}
+              {annotations.issueUrl && (
+                <a
+                  href={annotations.issueUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-800 dark:hover:bg-emerald-900/50 rounded"
+                  title={annotations.issueUrl}
+                >
+                  <CircleDot className="h-3 w-3" aria-hidden="true" />
+                  {issueNumber ? `Issue #${issueNumber}` : 'Issue'}
+                </a>
+              )}
             </div>
           )}
 

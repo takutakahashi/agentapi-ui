@@ -28,16 +28,9 @@ function isRunningStatus(status: SessionStatus): boolean {
 }
 
 function getSessionAnnotations(session: Session) {
-  const metadataAnnotations = session.metadata?.annotations
-  const annotations = metadataAnnotations && typeof metadataAnnotations === 'object' && !Array.isArray(metadataAnnotations)
-    ? metadataAnnotations as Record<string, unknown>
-    : {}
-
   const pick = (key: 'description' | 'running_task') => {
     const directValue = session.annotations?.[key]
     if (typeof directValue === 'string' && directValue.trim()) return directValue.trim()
-    const metadataValue = annotations[key] ?? session.metadata?.[key]
-    if (typeof metadataValue === 'string' && metadataValue.trim()) return metadataValue.trim()
     return ''
   }
 
