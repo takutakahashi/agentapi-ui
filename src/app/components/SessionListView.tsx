@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { CircleDot, GitPullRequest, LoaderCircle } from 'lucide-react'
+import { CircleDot, GitPullRequest, LoaderCircle, MoreHorizontal } from 'lucide-react'
 import { Session, AgentStatus, SessionListParams } from '../../types/agentapi'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, ProxySessionStatusEvent } from '../../lib/agentapi-proxy-client'
 import { createACPServerClientFromStorage, ACPServerSession } from '../../lib/acp-server-client'
@@ -117,6 +117,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
   const [isSelectionMode, setIsSelectionMode] = useState(false)
   const [showHiddenSessions, setShowHiddenSessions] = useState(false)
+  const [openAnnotationMenuId, setOpenAnnotationMenuId] = useState<string | null>(null)
 
   const [sortBy, setSortBy] = useState<'started_at' | 'updated_at'>(() => {
     if (typeof window !== 'undefined') {
@@ -897,42 +898,59 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                         </div>
 
                         {(annotations.runningTask || annotations.prUrl || annotations.issueUrl) && (
-                          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
                             {annotations.runningTask && (
                               <span
-                                className="inline-flex max-w-full items-center gap-1.5 px-2 py-0.5 text-xs bg-amber-50 text-amber-800 ring-1 ring-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:ring-amber-800 rounded"
+                                className="inline-flex max-w-full items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400"
                                 title={annotations.runningTask}
                               >
                                 <LoaderCircle className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
-                                <span className="font-medium">作業中</span>
+                                <span>作業中:</span>
                                 <span className="truncate">{truncateText(annotations.runningTask, isMobile ? 32 : 64)}</span>
                               </span>
                             )}
-                            {annotations.prUrl && (
-                              <a
-                                href={annotations.prUrl.replace(/\s+/g, '')}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-violet-50 text-violet-700 ring-1 ring-violet-200 hover:bg-violet-100 dark:bg-violet-950/40 dark:text-violet-200 dark:ring-violet-800 dark:hover:bg-violet-900/50 rounded"
-                                title={annotations.prUrl}
-                              >
-                                <GitPullRequest className="h-3 w-3" aria-hidden="true" />
-                                {prNumber ? `PR #${prNumber}` : 'PR'}
-                              </a>
-                            )}
-                            {annotations.issueUrl && (
-                              <a
-                                href={annotations.issueUrl.replace(/\s+/g, '')}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-800 dark:hover:bg-emerald-900/50 rounded"
-                                title={annotations.issueUrl}
-                              >
-                                <CircleDot className="h-3 w-3" aria-hidden="true" />
-                                {issueNumber ? `Issue #${issueNumber}` : 'Issue'}
-                              </a>
+                            {(annotations.prUrl || annotations.issueUrl) && (
+                              <div className="relative" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenAnnotationMenuId(prev => prev === session.session_id ? null : session.session_id)}
+                                  className="inline-flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                                  aria-label="関連リンク"
+                                  title="関連リンク"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                                </button>
+                                {openAnnotationMenuId === session.session_id && (
+                                  <div className="absolute left-0 top-7 z-20 min-w-32 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-xs shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                                    {annotations.prUrl && (
+                                      <a
+                                        href={annotations.prUrl.replace(/\s+/g, '')}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => setOpenAnnotationMenuId(null)}
+                                        className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                                        title={annotations.prUrl}
+                                      >
+                                        <GitPullRequest className="h-3.5 w-3.5 text-violet-500" aria-hidden="true" />
+                                        {prNumber ? `PR #${prNumber}` : 'PR'}
+                                      </a>
+                                    )}
+                                    {annotations.issueUrl && (
+                                      <a
+                                        href={annotations.issueUrl.replace(/\s+/g, '')}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => setOpenAnnotationMenuId(null)}
+                                        className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                                        title={annotations.issueUrl}
+                                      >
+                                        <CircleDot className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
+                                        {issueNumber ? `Issue #${issueNumber}` : 'Issue'}
+                                      </a>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </div>
                         )}
