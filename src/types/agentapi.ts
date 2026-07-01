@@ -163,6 +163,13 @@ export type SessionStatus = 'creating' | 'starting' | 'running' | 'active' | 'un
 export type ResourceScope = 'user' | 'team';
 
 // Session types for agentapi-proxy
+export interface SessionAnnotations {
+  pr_url?: string;
+  issue_url?: string;
+  description?: string;
+  running_task?: string;
+}
+
 export interface Session {
   session_id: string;
   user_id: string;
@@ -173,6 +180,7 @@ export interface Session {
   description?: string;
   environment?: Record<string, string>;
   metadata?: Record<string, unknown>;
+  annotations?: SessionAnnotations;
   tags?: Record<string, string>;
   scope?: ResourceScope;
   team_id?: string;

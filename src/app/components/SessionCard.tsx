@@ -16,6 +16,40 @@ interface SessionCardProps {
   isSelectionMode?: boolean
 }
 
+const SESSION_ANNOTATION_METADATA_KEYS = new Set([
+  'annotations',
+  'pr_url',
+  'issue_url',
+  'running_task',
+])
+
+function getSessionAnnotations(session: Session) {
+  const metadataAnnotations = session.metadata?.annotations
+  const annotations = metadataAnnotations && typeof metadataAnnotations === 'object' && !Array.isArray(metadataAnnotations)
+    ? metadataAnnotations as Record<string, unknown>
+    : {}
+
+  const pick = (key: 'pr_url' | 'issue_url' | 'description' | 'running_task') => {
+    const directValue = session.annotations?.[key]
+    if (typeof directValue === 'string' && directValue.trim()) return directValue.trim()
+    const metadataValue = annotations[key] ?? session.metadata?.[key]
+    if (typeof metadataValue === 'string' && metadataValue.trim()) return metadataValue.trim()
+    return ''
+  }
+
+  return {
+    prUrl: pick('pr_url'),
+    issueUrl: pick('issue_url'),
+    description: pick('description'),
+    runningTask: pick('running_task'),
+  }
+}
+
+function getSessionTitle(session: Session, annotationDescription: string): string {
+  if (annotationDescription) return annotationDescription
+  return String(session.tags?.description || session.metadata?.description || `Session ${session.session_id.substring(0, 8)}`)
+}
+
 export default function SessionCard({ session, onDelete, isDeleting, isSelected, onToggleSelect, isSelectionMode }: SessionCardProps) {
   const [isMobile, setIsMobile] = useState(false)
 
@@ -42,6 +76,15 @@ export default function SessionCard({ session, onDelete, isDeleting, isSelected,
   }
 
   const isOld = isOldSession()
+  const annotations = getSessionAnnotations(session)
+  const title = getSessionTitle(session, annotations.description)
+  const annotationLinks = [
+    annotations.prUrl ? { label: 'PR', url: annotations.prUrl } : null,
+    annotations.issueUrl ? { label: 'Issue', url: annotations.issueUrl } : null,
+  ].filter(Boolean) as Array<{ label: string; url: string }>
+  const metadataEntries = session.metadata
+    ? Object.entries(session.metadata).filter(([key]) => key !== 'description' && !SESSION_ANNOTATION_METADATA_KEYS.has(key))
+    : []
 
 
   return (
@@ -84,10 +127,36 @@ export default function SessionCard({ session, onDelete, isDeleting, isSelected,
           {/* タイトルとステータス */}
           <div className="flex items-start gap-3 mb-2">
             <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white leading-5 sm:leading-6">
-              {truncateText(String(session.tags?.description || session.metadata?.description || `Session ${session.session_id.substring(0, 8)}`), isMobile ? 100 : 120)}
+              {truncateText(title, isMobile ? 100 : 120)}
             </h3>
             <StatusBadge status={session.status} />
           </div>
+
+          {(annotations.runningTask || annotationLinks.length > 0) && (
+            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+              {annotations.runningTask && (
+                <span
+                  className="inline-flex max-w-full items-center px-2 py-0.5 text-xs bg-amber-50 text-amber-800 ring-1 ring-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:ring-amber-800 rounded"
+                  title={annotations.runningTask}
+                >
+                  <span className="font-medium mr-1">Task</span>
+                  <span className="truncate">{truncateText(annotations.runningTask, isMobile ? 32 : 64)}</span>
+                </span>
+              )}
+              {annotationLinks.map((link) => (
+                <a
+                  key={`${link.label}:${link.url}`}
+                  href={link.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center px-2 py-0.5 text-xs bg-gray-100 text-gray-700 ring-1 ring-gray-200 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-700 dark:hover:bg-gray-700 rounded"
+                >
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          )}
 
           {/* セッション情報 */}
           <div className="flex flex-col sm:flex-row sm:items-center text-xs text-gray-500 dark:text-gray-400 space-y-1 sm:space-y-0 sm:space-x-4 mb-3">
@@ -107,10 +176,9 @@ export default function SessionCard({ session, onDelete, isDeleting, isSelected,
           </div>
 
           {/* メタデータタグ - モバイルでは最大2個まで表示 */}
-          {session.metadata && (
+          {metadataEntries.length > 0 && (
             <div className="flex flex-wrap gap-1 sm:gap-2">
-              {Object.entries(session.metadata)
-                .filter(([key]) => key !== 'description')
+              {metadataEntries
                 .slice(0, isMobile ? 2 : 10)
                 .map(([key, value]) => (
                   <span
@@ -122,9 +190,9 @@ export default function SessionCard({ session, onDelete, isDeleting, isSelected,
                     {String(value).substring(0, isMobile ? 8 : 20)}
                   </span>
                 ))}
-              {Object.entries(session.metadata).filter(([key]) => key !== 'description').length > 2 && isMobile && (
+              {metadataEntries.length > 2 && isMobile && (
                 <span className="inline-flex items-center px-2 py-1 text-xs bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400 rounded-full">
-                  +{Object.entries(session.metadata).filter(([key]) => key !== 'description').length - 2}
+                  +{metadataEntries.length - 2}
                 </span>
               )}
             </div>
