@@ -109,6 +109,9 @@ export default function SessionProfileCard({
         {profile.config?.tags && Object.keys(profile.config.tags).length > 0 && (
           <span>タグ: <strong className="text-gray-700 dark:text-gray-300">{Object.keys(profile.config.tags).length}</strong></span>
         )}
+        {profile.config?.unsynced_file_paths && profile.config.unsynced_file_paths.length > 0 && (
+          <span>同期除外: <strong className="text-gray-700 dark:text-gray-300">{profile.config.unsynced_file_paths.length}</strong></span>
+        )}
       </div>
 
       {/* Timestamps */}
