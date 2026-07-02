@@ -27,7 +27,22 @@ function isRunningStatus(status: SessionStatus): boolean {
   return status === 'active' || status === 'running' || status === 'starting' || status === 'creating'
 }
 
+function getSessionAnnotations(session: Session) {
+  const pick = (key: 'description' | 'running_task') => {
+    const directValue = session.annotations?.[key]
+    if (typeof directValue === 'string' && directValue.trim()) return directValue.trim()
+    return ''
+  }
+
+  return {
+    description: pick('description'),
+    runningTask: pick('running_task'),
+  }
+}
+
 function getSessionTitle(session: Session): string {
+  const annotations = getSessionAnnotations(session)
+  if (annotations.description) return annotations.description
   if (session.tags?.description?.trim()) return session.tags.description.trim()
   const metaDesc = session.metadata?.description
   if (typeof metaDesc === 'string' && metaDesc.trim()) return metaDesc.trim()
@@ -147,6 +162,7 @@ export default function SessionListSidebar({
               const isActive = session.session_id === currentSessionId
               const running = isRunningStatus(session.status)
               const title = getSessionTitle(session)
+              const annotations = getSessionAnnotations(session)
               const timeStr = formatRelativeTime(session.updated_at || session.started_at)
               const isDeleting = deletingIds.has(session.session_id)
 
@@ -182,6 +198,14 @@ export default function SessionListSidebar({
                       >
                         {title}
                       </p>
+                      {annotations.runningTask && (
+                        <p
+                          className="text-[10px] text-amber-600 dark:text-amber-400 truncate mt-0.5 leading-none"
+                          title={annotations.runningTask}
+                        >
+                          {annotations.runningTask}
+                        </p>
+                      )}
                       <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-0.5 leading-none">
                         {session.status === 'running' ? (
                           <span className="text-yellow-500 dark:text-yellow-400">実行中</span>

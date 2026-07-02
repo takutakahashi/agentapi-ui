@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { CircleDot, GitPullRequest, LoaderCircle, MoreHorizontal } from 'lucide-react'
 import { Session } from '../../types/agentapi'
 import StatusBadge from './StatusBadge'
 import { formatRelativeTime } from '../../utils/timeUtils'
@@ -16,8 +17,34 @@ interface SessionCardProps {
   isSelectionMode?: boolean
 }
 
+function getSessionAnnotations(session: Session) {
+  const pick = (key: 'pr_url' | 'issue_url' | 'description' | 'running_task') => {
+    const directValue = session.annotations?.[key]
+    if (typeof directValue === 'string' && directValue.trim()) return directValue.trim()
+    return ''
+  }
+
+  return {
+    prUrl: pick('pr_url'),
+    issueUrl: pick('issue_url'),
+    description: pick('description'),
+    runningTask: pick('running_task'),
+  }
+}
+
+function getSessionTitle(session: Session, annotationDescription: string): string {
+  if (annotationDescription) return annotationDescription
+  return String(session.tags?.description || session.metadata?.description || `Session ${session.session_id.substring(0, 8)}`)
+}
+
+function getURLNumber(url: string): string | null {
+  const match = url.match(/\/(?:pull|issues)\/(\d+)(?:[/?#]|$)/)
+  return match?.[1] ?? null
+}
+
 export default function SessionCard({ session, onDelete, isDeleting, isSelected, onToggleSelect, isSelectionMode }: SessionCardProps) {
   const [isMobile, setIsMobile] = useState(false)
+  const [showAnnotationMenu, setShowAnnotationMenu] = useState(false)
 
   useEffect(() => {
     const checkMobile = () => {
@@ -42,6 +69,13 @@ export default function SessionCard({ session, onDelete, isDeleting, isSelected,
   }
 
   const isOld = isOldSession()
+  const annotations = getSessionAnnotations(session)
+  const title = getSessionTitle(session, annotations.description)
+  const prNumber = annotations.prUrl ? getURLNumber(annotations.prUrl) : null
+  const issueNumber = annotations.issueUrl ? getURLNumber(annotations.issueUrl) : null
+  const metadataEntries = session.metadata
+    ? Object.entries(session.metadata).filter(([key]) => key !== 'description')
+    : []
 
 
   return (
@@ -84,10 +118,23 @@ export default function SessionCard({ session, onDelete, isDeleting, isSelected,
           {/* タイトルとステータス */}
           <div className="flex items-start gap-3 mb-2">
             <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white leading-5 sm:leading-6">
-              {truncateText(String(session.tags?.description || session.metadata?.description || `Session ${session.session_id.substring(0, 8)}`), isMobile ? 100 : 120)}
+              {truncateText(title, isMobile ? 100 : 120)}
             </h3>
             <StatusBadge status={session.status} />
           </div>
+
+          {annotations.runningTask && (
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span
+                className="inline-flex max-w-full items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400"
+                title={annotations.runningTask}
+              >
+                <LoaderCircle className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
+                <span>作業中:</span>
+                <span className="truncate">{truncateText(annotations.runningTask, isMobile ? 32 : 64)}</span>
+              </span>
+            </div>
+          )}
 
           {/* セッション情報 */}
           <div className="flex flex-col sm:flex-row sm:items-center text-xs text-gray-500 dark:text-gray-400 space-y-1 sm:space-y-0 sm:space-x-4 mb-3">
@@ -107,10 +154,9 @@ export default function SessionCard({ session, onDelete, isDeleting, isSelected,
           </div>
 
           {/* メタデータタグ - モバイルでは最大2個まで表示 */}
-          {session.metadata && (
+          {metadataEntries.length > 0 && (
             <div className="flex flex-wrap gap-1 sm:gap-2">
-              {Object.entries(session.metadata)
-                .filter(([key]) => key !== 'description')
+              {metadataEntries
                 .slice(0, isMobile ? 2 : 10)
                 .map(([key, value]) => (
                   <span
@@ -122,9 +168,9 @@ export default function SessionCard({ session, onDelete, isDeleting, isSelected,
                     {String(value).substring(0, isMobile ? 8 : 20)}
                   </span>
                 ))}
-              {Object.entries(session.metadata).filter(([key]) => key !== 'description').length > 2 && isMobile && (
+              {metadataEntries.length > 2 && isMobile && (
                 <span className="inline-flex items-center px-2 py-1 text-xs bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400 rounded-full">
-                  +{Object.entries(session.metadata).filter(([key]) => key !== 'description').length - 2}
+                  +{metadataEntries.length - 2}
                 </span>
               )}
             </div>
@@ -156,6 +202,50 @@ export default function SessionCard({ session, onDelete, isDeleting, isSelected,
             </svg>
             <span className="hidden sm:inline">詳細</span>
           </Link>
+
+          {(annotations.prUrl || annotations.issueUrl) && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowAnnotationMenu(prev => !prev)}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white sm:min-h-0 sm:px-3 sm:py-1.5"
+                aria-label="関連リンク"
+                title="関連リンク"
+              >
+                <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+              </button>
+              {showAnnotationMenu && (
+                <div className="absolute right-0 top-full z-20 mt-2 min-w-32 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-xs shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                  {annotations.prUrl && (
+                    <a
+                      href={annotations.prUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => setShowAnnotationMenu(false)}
+                      className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                      title={annotations.prUrl}
+                    >
+                      <GitPullRequest className="h-3.5 w-3.5 text-violet-500" aria-hidden="true" />
+                      {prNumber ? `PR #${prNumber}` : 'PR'}
+                    </a>
+                  )}
+                  {annotations.issueUrl && (
+                    <a
+                      href={annotations.issueUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => setShowAnnotationMenu(false)}
+                      className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                      title={annotations.issueUrl}
+                    >
+                      <CircleDot className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
+                      {issueNumber ? `Issue #${issueNumber}` : 'Issue'}
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           
           {onDelete && (
             <button

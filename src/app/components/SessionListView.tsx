@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { CircleDot, GitPullRequest, LoaderCircle, MoreHorizontal } from 'lucide-react'
 import { Session, AgentStatus, SessionListParams } from '../../types/agentapi'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, ProxySessionStatusEvent } from '../../lib/agentapi-proxy-client'
 import { createACPServerClientFromStorage, ACPServerSession } from '../../lib/acp-server-client'
@@ -57,6 +58,26 @@ function mapACPSessionToSession(acpSession: ACPServerSession): Session {
   }
 }
 
+function getSessionAnnotations(session: Session) {
+  const pick = (key: 'pr_url' | 'issue_url' | 'description' | 'running_task') => {
+    const directValue = session.annotations?.[key]
+    if (typeof directValue === 'string' && directValue.trim()) return directValue.trim()
+    return ''
+  }
+
+  return {
+    prUrl: pick('pr_url'),
+    issueUrl: pick('issue_url'),
+    description: pick('description'),
+    runningTask: pick('running_task'),
+  }
+}
+
+function getURLNumber(url: string): string | null {
+  const match = url.match(/\/(?:pull|issues)\/(\d+)(?:[/?#]|$)/)
+  return match?.[1] ?? null
+}
+
 interface TagFilter {
   [key: string]: string[]
 }
@@ -96,6 +117,7 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
   const [isSelectionMode, setIsSelectionMode] = useState(false)
   const [showHiddenSessions, setShowHiddenSessions] = useState(false)
+  const [openAnnotationMenuId, setOpenAnnotationMenuId] = useState<string | null>(null)
 
   const [sortBy, setSortBy] = useState<'started_at' | 'updated_at'>(() => {
     if (typeof window !== 'undefined') {
@@ -371,6 +393,11 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
 
   // セッションの表示用説明を取得
   const getSessionDescription = (session: Session) => {
+    const annotations = getSessionAnnotations(session)
+    if (annotations.description) {
+      return annotations.description
+    }
+
     const description = session.metadata?.description
 
     if (description && description !== 'No description available') {
@@ -777,6 +804,9 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                   const agentStatusInfo = getAgentStatusForSession(session)
                   const description = getSessionDescription(session)
                   const isOld = isOldSession(session)
+                  const annotations = getSessionAnnotations(session)
+                  const prNumber = annotations.prUrl ? getURLNumber(annotations.prUrl) : null
+                  const issueNumber = annotations.issueUrl ? getURLNumber(annotations.issueUrl) : null
 
                   const isSelected = selectedSessions.has(session.session_id)
                   return (
@@ -867,6 +897,19 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                           )}
                         </div>
 
+                        {annotations.runningTask && (
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <span
+                              className="inline-flex max-w-full items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400"
+                              title={annotations.runningTask}
+                            >
+                              <LoaderCircle className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
+                              <span>作業中:</span>
+                              <span className="truncate">{truncateText(annotations.runningTask, isMobile ? 32 : 64)}</span>
+                            </span>
+                          </div>
+                        )}
+
                         {/* セッション情報 */}
                         <div className="flex flex-col sm:flex-row sm:items-center text-xs text-gray-500 dark:text-gray-400 space-y-1 sm:space-y-0 sm:space-x-4 mb-3">
                           <span>#{session.session_id.substring(0, 8)}</span>
@@ -948,20 +991,6 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                           <span className="hidden sm:inline">チャット</span>
                         </button>
                         
-                        {session.metadata?.pr_url ? (
-                          <a
-                            href={String(session.metadata.pr_url).replace(/\s+/g, '')}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center px-3 py-2 sm:px-3 sm:py-1.5 border border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-700 text-purple-700 dark:text-purple-300 text-sm font-medium rounded-md transition-colors min-h-[44px] sm:min-h-0"
-                          >
-                            <svg className="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                            <span className="hidden sm:inline">PR表示</span>
-                          </a>
-                        ) : null}
-                        
                         {session.metadata?.claude_login_url ? (
                           <a
                             href={String(session.metadata.claude_login_url).replace(/\s+/g, '')}
@@ -975,6 +1004,50 @@ export default function SessionListView({ tagFilters, onSessionsUpdate, creating
                             <span className="hidden sm:inline">ログイン</span>
                           </a>
                         ) : null}
+
+                        {(annotations.prUrl || annotations.issueUrl) && (
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() => setOpenAnnotationMenuId(prev => prev === session.session_id ? null : session.session_id)}
+                              className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white sm:min-h-0 sm:px-3 sm:py-1.5"
+                              aria-label="関連リンク"
+                              title="関連リンク"
+                            >
+                              <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                            {openAnnotationMenuId === session.session_id && (
+                              <div className="absolute right-0 top-full z-20 mt-2 min-w-32 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-xs shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                                {annotations.prUrl && (
+                                  <a
+                                    href={annotations.prUrl.replace(/\s+/g, '')}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={() => setOpenAnnotationMenuId(null)}
+                                    className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                                    title={annotations.prUrl}
+                                  >
+                                    <GitPullRequest className="h-3.5 w-3.5 text-violet-500" aria-hidden="true" />
+                                    {prNumber ? `PR #${prNumber}` : 'PR'}
+                                  </a>
+                                )}
+                                {annotations.issueUrl && (
+                                  <a
+                                    href={annotations.issueUrl.replace(/\s+/g, '')}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={() => setOpenAnnotationMenuId(null)}
+                                    className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                                    title={annotations.issueUrl}
+                                  >
+                                    <CircleDot className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
+                                    {issueNumber ? `Issue #${issueNumber}` : 'Issue'}
+                                  </a>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                         
                         <button
                           onClick={() => deleteSession(session.session_id)}
