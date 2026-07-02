@@ -123,61 +123,16 @@ export default function SessionCard({ session, onDelete, isDeleting, isSelected,
             <StatusBadge status={session.status} />
           </div>
 
-          {(annotations.runningTask || annotations.prUrl || annotations.issueUrl) && (
+          {annotations.runningTask && (
             <div className="flex flex-wrap items-center gap-2 mb-2">
-              {annotations.runningTask && (
-                <span
-                  className="inline-flex max-w-full items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400"
-                  title={annotations.runningTask}
-                >
-                  <LoaderCircle className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
-                  <span>作業中:</span>
-                  <span className="truncate">{truncateText(annotations.runningTask, isMobile ? 32 : 64)}</span>
-                </span>
-              )}
-              {(annotations.prUrl || annotations.issueUrl) && (
-                <div className="relative" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    onClick={() => setShowAnnotationMenu(prev => !prev)}
-                    className="inline-flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-                    aria-label="関連リンク"
-                    title="関連リンク"
-                  >
-                    <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                  {showAnnotationMenu && (
-                    <div className="absolute left-0 top-7 z-20 min-w-32 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-xs shadow-lg dark:border-gray-700 dark:bg-gray-900">
-                      {annotations.prUrl && (
-                        <a
-                          href={annotations.prUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={() => setShowAnnotationMenu(false)}
-                          className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
-                          title={annotations.prUrl}
-                        >
-                          <GitPullRequest className="h-3.5 w-3.5 text-violet-500" aria-hidden="true" />
-                          {prNumber ? `PR #${prNumber}` : 'PR'}
-                        </a>
-                      )}
-                      {annotations.issueUrl && (
-                        <a
-                          href={annotations.issueUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={() => setShowAnnotationMenu(false)}
-                          className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
-                          title={annotations.issueUrl}
-                        >
-                          <CircleDot className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
-                          {issueNumber ? `Issue #${issueNumber}` : 'Issue'}
-                        </a>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+              <span
+                className="inline-flex max-w-full items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400"
+                title={annotations.runningTask}
+              >
+                <LoaderCircle className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
+                <span>作業中:</span>
+                <span className="truncate">{truncateText(annotations.runningTask, isMobile ? 32 : 64)}</span>
+              </span>
             </div>
           )}
 
@@ -247,6 +202,50 @@ export default function SessionCard({ session, onDelete, isDeleting, isSelected,
             </svg>
             <span className="hidden sm:inline">詳細</span>
           </Link>
+
+          {(annotations.prUrl || annotations.issueUrl) && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowAnnotationMenu(prev => !prev)}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white sm:min-h-0 sm:px-3 sm:py-1.5"
+                aria-label="関連リンク"
+                title="関連リンク"
+              >
+                <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+              </button>
+              {showAnnotationMenu && (
+                <div className="absolute right-0 top-full z-20 mt-2 min-w-32 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-xs shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                  {annotations.prUrl && (
+                    <a
+                      href={annotations.prUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => setShowAnnotationMenu(false)}
+                      className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                      title={annotations.prUrl}
+                    >
+                      <GitPullRequest className="h-3.5 w-3.5 text-violet-500" aria-hidden="true" />
+                      {prNumber ? `PR #${prNumber}` : 'PR'}
+                    </a>
+                  )}
+                  {annotations.issueUrl && (
+                    <a
+                      href={annotations.issueUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => setShowAnnotationMenu(false)}
+                      className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800"
+                      title={annotations.issueUrl}
+                    >
+                      <CircleDot className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
+                      {issueNumber ? `Issue #${issueNumber}` : 'Issue'}
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           
           {onDelete && (
             <button
