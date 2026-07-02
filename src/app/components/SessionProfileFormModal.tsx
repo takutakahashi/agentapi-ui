@@ -60,6 +60,7 @@ export default function SessionProfileFormModal({
 
   // Session TTL
   const [sessionTTL, setSessionTTL] = useState('')
+  const [unsyncedFilePaths, setUnsyncedFilePaths] = useState('')
 
   const addDockerRegistry = () => setDockerRegistries(prev => [...prev, { server: '', username: '', password: '', secretName: '', insecure: false }])
   const removeDockerRegistry = (index: number) => setDockerRegistries(prev => prev.filter((_, i) => i !== index))
@@ -169,6 +170,10 @@ export default function SessionProfileFormModal({
       const ttl = cfg?.session_ttl ?? ''
       setSessionTTL(ttl)
       if (ttl) setShowAdvanced(true)
+
+      const paths = cfg?.unsynced_file_paths ?? cfg?.params?.unsynced_file_paths ?? []
+      setUnsyncedFilePaths(paths.join('\n'))
+      if (paths.length > 0) setShowAdvanced(true)
     } else {
       // Reset form
       setName('')
@@ -186,6 +191,7 @@ export default function SessionProfileFormModal({
       setDockerRegistries([])
       setAuthProxyMode('default')
       setSessionTTL('')
+      setUnsyncedFilePaths('')
       setShowAdvanced(false)
     }
     setError(null)
@@ -258,6 +264,10 @@ export default function SessionProfileFormModal({
 
       const environment = pairsToRecord(envPairs)
       const tags = pairsToRecord(tagPairs)
+      const parsedUnsyncedFilePaths = unsyncedFilePaths
+        .split('\n')
+        .map(path => path.trim())
+        .filter(Boolean)
 
       // Build sandbox config if enabled
       let sandboxConfig: { enabled: boolean; allowed_domains?: string[]; denied_domains?: string[]; count_mode?: boolean } | undefined
@@ -301,6 +311,7 @@ export default function SessionProfileFormModal({
         ...(params ? { params } : {}),
         ...(sandboxPolicyId ? { sandbox_policy_id: sandboxPolicyId } : {}),
         ...(sessionTTL.trim() ? { session_ttl: sessionTTL.trim() } : {}),
+        ...(parsedUnsyncedFilePaths.length > 0 ? { unsynced_file_paths: parsedUnsyncedFilePaths } : {}),
       }
 
       if (isEditing && editingProfile) {
@@ -842,6 +853,23 @@ export default function SessionProfileFormModal({
                       onChange={e => setSessionTTL(e.target.value)}
                       placeholder="例: 24h、72h、168h"
                       className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+
+                  {/* 同期しないファイルパス */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      同期しないファイルパス
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      変更を保存先へ同期しない管理ファイルのパスを 1 行に 1 つ指定します。
+                    </p>
+                    <textarea
+                      value={unsyncedFilePaths}
+                      onChange={e => setUnsyncedFilePaths(e.target.value)}
+                      placeholder="/home/agentapi/.codex/auth.json"
+                      rows={3}
+                      className="w-full px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white font-mono resize-y"
                     />
                   </div>
                 </div>
