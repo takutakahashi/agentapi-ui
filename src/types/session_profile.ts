@@ -9,6 +9,7 @@ export interface SessionProfileParams {
   docker?: DockerConfig;
   auth_proxy?: boolean;
   session_ttl?: string;
+  unsynced_file_paths?: string[];
 }
 
 // Session profile config
@@ -22,6 +23,7 @@ export interface SessionProfileConfig {
   params?: SessionProfileParams;
   sandbox_policy_id?: string;
   session_ttl?: string;
+  unsynced_file_paths?: string[];
 }
 
 // SessionProfile entity
