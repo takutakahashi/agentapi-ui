@@ -207,8 +207,9 @@ export interface FontSettings {
 // 'default': agent_type を送信しない（バックエンドのデフォルト動作）
 // 'claude-acp': claude-acp を使用
 // 'codex-acp': codex-acp を使用
+// 'pi-ollama': Pi + pi-acp + pi-ollama-cloud を使用
 // 'cursor': Cursor ACP を使用
-export type AgentApiType = 'default' | 'claude-acp' | 'codex-acp' | 'cursor'
+export type AgentApiType = 'default' | 'claude-acp' | 'codex-acp' | 'pi-ollama' | 'cursor'
 
 export interface GlobalSettings {
   agentApiProxy: AgentApiProxySettings
@@ -813,6 +814,7 @@ export const getAgentApiType = (): AgentApiType => {
   if (
     settings.agentApiType === 'claude-acp' ||
     settings.agentApiType === 'codex-acp' ||
+    settings.agentApiType === 'pi-ollama' ||
     settings.agentApiType === 'cursor'
   ) {
     return settings.agentApiType

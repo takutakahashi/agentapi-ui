@@ -22,6 +22,21 @@ import { useTeamScope } from '../../../contexts/TeamScopeContext'
 type AuthProxyMode = 'default' | 'enabled' | 'disabled'
 type CheckoutTarget = 'branch' | 'pr' | ''
 
+const getAgentTypeLabel = (agentType: AgentApiType): string => {
+  switch (agentType) {
+    case 'claude-acp':
+      return 'Claude ACP'
+    case 'codex-acp':
+      return 'Codex ACP'
+    case 'pi-ollama':
+      return 'Pi Ollama'
+    case 'cursor':
+      return 'Cursor ACP'
+    default:
+      return 'Claude ACP'
+  }
+}
+
 function buildRepositoryTags(
   repo: string,
   checkoutTarget: CheckoutTarget,
@@ -674,10 +689,7 @@ export default function NewSessionPage() {
                 その他の設定
                 {selectedAgentType !== 'default' && (
                   <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-xs rounded-full">
-                    {selectedAgentType === 'claude-acp' ? 'Claude ACP'
-                      : selectedAgentType === 'codex-acp' ? 'Codex ACP'
-                      : selectedAgentType === 'cursor' ? 'Cursor ACP'
-                      : selectedAgentType}
+                    {getAgentTypeLabel(selectedAgentType)}
                   </span>
                 )}
                 {selectedManagerId !== '' && (
@@ -1083,7 +1095,7 @@ export default function NewSessionPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
                         <span className="text-xs text-blue-700 dark:text-blue-300">
-                          ACP サーバーモード: <strong>{selectedAgentType === 'codex-acp' ? 'Codex' : 'Claude'}</strong>（{selectedAgentType === 'codex-acp' ? 'codex-acp' : 'claude-acp'}）が使用されます
+                          ACP サーバーモード: <strong>{getAgentTypeLabel(selectedAgentType)}</strong>（{selectedAgentType !== 'default' ? selectedAgentType : 'claude-acp'}）が使用されます
                         </span>
                       </div>
                     ) : (
@@ -1092,6 +1104,7 @@ export default function NewSessionPage() {
                         { value: 'default', label: 'デフォルト', description: 'agent_type を送信しない' },
                         { value: 'claude-acp', label: 'Claude ACP', description: 'agent_type=claude-acp を送信' },
                         { value: 'codex-acp', label: 'Codex ACP', description: 'agent_type=codex-acp を送信' },
+                        { value: 'pi-ollama', label: 'Pi Ollama', description: 'agent_type=pi-ollama を送信' },
                         { value: 'cursor', label: 'Cursor ACP', description: 'agent_type=cursor を送信' },
                       ] as { value: AgentApiType; label: string; description: string }[]).map(({ value, label, description }) => (
                         <label key={value} className="flex items-start cursor-pointer group">
