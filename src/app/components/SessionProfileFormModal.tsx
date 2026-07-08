@@ -19,7 +19,7 @@ interface SessionProfileFormModalProps {
 
 type KeyValuePair = { key: string; value: string }
 type AuthProxyMode = 'default' | 'enabled' | 'disabled'
-const SUPPORTED_AGENT_TYPES = new Set(['claude-acp', 'codex-acp', 'cursor'])
+const SUPPORTED_AGENT_TYPES = new Set(['claude-acp', 'codex-acp', 'pi-ollama', 'cursor'])
 
 const normalizeAgentType = (value?: string): string => {
   return value && SUPPORTED_AGENT_TYPES.has(value) ? value : ''
@@ -565,6 +565,7 @@ export default function SessionProfileFormModal({
                         { value: '', label: 'デフォルト', description: 'agent_type を送信しない' },
                         { value: 'claude-acp', label: 'Claude ACP', description: 'agent_type=claude-acp を送信' },
                         { value: 'codex-acp', label: 'Codex ACP', description: 'agent_type=codex-acp を送信' },
+                        { value: 'pi-ollama', label: 'Pi Ollama', description: 'agent_type=pi-ollama を送信' },
                         { value: 'cursor', label: 'Cursor ACP', description: 'agent_type=cursor を送信' },
                       ]).map(({ value: v, label, description }) => (
                         <label key={v} className="flex items-start cursor-pointer group">
