@@ -19,7 +19,6 @@ import SessionProfileSelect from '../../components/SessionProfileSelect'
 import { SessionCreationProgress, SessionCreationStatus } from '../../../types/sessionProgress'
 import { useTeamScope } from '../../../contexts/TeamScopeContext'
 
-type AuthProxyMode = 'default' | 'enabled' | 'disabled'
 type CheckoutTarget = 'branch' | 'pr' | ''
 
 const getAgentTypeLabel = (agentType: AgentApiType): string => {
@@ -90,12 +89,8 @@ export default function NewSessionPage() {
   const [cycleMessage, setCycleMessage] = useState('')
   const [cycleMaxCount, setCycleMaxCount] = useState(10)
   const [sessionProfileId, setSessionProfileId] = useState('')
-  const [sandboxEnabled, setSandboxEnabled] = useState(false)
-  const [sandboxMode, setSandboxMode] = useState<'allowlist' | 'denylist'>('allowlist')
-  const [sandboxDomains, setSandboxDomains] = useState('')
   const [dockerEnabled, setDockerEnabled] = useState(false)
   const [dockerRegistries, setDockerRegistries] = useState<Array<{ server: string; username: string; password: string; secretName: string; insecure: boolean }>>([])
-  const [authProxyMode, setAuthProxyMode] = useState<AuthProxyMode>('default')
   const [sessionTTL, setSessionTTL] = useState('')
 
   const addDockerRegistry = () => {
@@ -221,24 +216,6 @@ export default function NewSessionPage() {
         params.cycle_message = cycleMessage.trim()
         if (cycleMaxCount > 0) {
           params.cycle_max_count = cycleMaxCount
-        }
-      }
-
-      // 認証プロキシが明示指定されている場合は送信
-      if (authProxyMode !== 'default') {
-        params.auth_proxy = authProxyMode === 'enabled'
-      }
-
-      // サンドボックスが有効な場合はsandboxを送信
-      if (sandboxEnabled) {
-        const domains = sandboxDomains
-          .split('\n')
-          .map(d => d.trim())
-          .filter(d => d.length > 0)
-        params.sandbox = {
-          enabled: true,
-          ...(sandboxMode === 'allowlist' && domains.length > 0 ? { allowed_domains: domains } : {}),
-          ...(sandboxMode === 'denylist' && domains.length > 0 ? { denied_domains: domains } : {}),
         }
       }
 
@@ -702,11 +679,6 @@ export default function NewSessionPage() {
                     サイクル{cycleMaxCount > 0 ? ` (${cycleMaxCount}回)` : ''}
                   </span>
                 )}
-                {sandboxEnabled && (
-                  <span className="px-1.5 py-0.5 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 text-xs rounded-full">
-                    サンドボックス
-                  </span>
-                )}
               </button>
 
               {showAdvancedSettings && (
@@ -837,110 +809,6 @@ export default function NewSessionPage() {
                           />
                           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                             0 の場合は無制限。<code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">/tmp/check/CYCLE_COUNT</code> で進捗を確認できます。
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 認証プロキシ */}
-                  <div>
-                    <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">認証プロキシ</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {([
-                        { value: 'default', label: 'デフォルト', description: 'profile/server に従う' },
-                        { value: 'enabled', label: '有効', description: 'このセッションに追加' },
-                        { value: 'disabled', label: '無効', description: 'このセッションでは使わない' },
-                      ] as { value: AuthProxyMode; label: string; description: string }[]).map(({ value, label, description }) => (
-                        <label key={value} className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${authProxyMode === value ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}>
-                          <input
-                            type="radio"
-                            name="auth-proxy-mode"
-                            value={value}
-                            checked={authProxyMode === value}
-                            onChange={() => setAuthProxyMode(value)}
-                            disabled={isCreating}
-                            className="mt-0.5 w-3.5 h-3.5 text-emerald-600 border-gray-300 dark:border-gray-600 focus:ring-emerald-500 flex-shrink-0"
-                          />
-                          <span>
-                            <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">{label}</span>
-                            <span className="block text-xs text-gray-400 dark:text-gray-500">{description}</span>
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* サンドボックス */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400">ネットワークサンドボックス</p>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <span className="text-xs text-gray-400 dark:text-gray-500">
-                          {sandboxEnabled ? '有効' : '無効'}
-                        </span>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={sandboxEnabled}
-                          onClick={() => setSandboxEnabled(!sandboxEnabled)}
-                          disabled={isCreating}
-                          className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed ${
-                            sandboxEnabled ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
-                          }`}
-                        >
-                          <span
-                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                              sandboxEnabled ? 'translate-x-4' : 'translate-x-0'
-                            }`}
-                          />
-                        </button>
-                      </label>
-                    </div>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
-                      iptables でセッションの外部ネットワークアクセスを制限します。ブロックするドメインを指定できます。
-                    </p>
-                    {sandboxEnabled && (
-                      <div className="pl-1 space-y-3">
-                        {/* モード選択 */}
-                        <div className="flex gap-3">
-                          {([
-                            { value: 'allowlist', label: '許可リスト', description: '指定ドメインのみ通過' },
-                            { value: 'denylist', label: 'ブロックリスト', description: '指定ドメインのみ拒否' },
-                          ] as { value: 'allowlist' | 'denylist'; label: string; description: string }[]).map(({ value, label, description }) => (
-                            <label key={value} className={`flex-1 flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${sandboxMode === value ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}>
-                              <input
-                                type="radio"
-                                name="sandbox-mode"
-                                value={value}
-                                checked={sandboxMode === value}
-                                onChange={() => setSandboxMode(value)}
-                                disabled={isCreating}
-                                className="mt-0.5 w-3.5 h-3.5 text-orange-500 border-gray-300 dark:border-gray-600 focus:ring-orange-500 flex-shrink-0"
-                              />
-                              <span>
-                                <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">{label}</span>
-                                <span className="block text-xs text-gray-400 dark:text-gray-500">{description}</span>
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                        {/* ドメイン入力 */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                            {sandboxMode === 'allowlist' ? '許可するドメイン' : 'ブロックするドメイン'}
-                          </label>
-                          <textarea
-                            value={sandboxDomains}
-                            onChange={(e) => setSandboxDomains(e.target.value)}
-                            placeholder={sandboxMode === 'allowlist' ? 'api.example.com\n*.trusted.com' : 'github.com\n*.github.com'}
-                            rows={3}
-                            disabled={isCreating}
-                            className="w-full px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 dark:bg-gray-700 dark:text-white resize-y font-mono"
-                          />
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                            1行に1ドメイン。ワイルドカード（<code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">*.example.com</code>）も使用可能。
-                            {sandboxMode === 'allowlist' && '空の場合はすべてのドメインをブロック。'}
                           </p>
                         </div>
                       </div>
