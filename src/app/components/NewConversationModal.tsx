@@ -22,7 +22,6 @@ interface EnvironmentVariable {
 }
 
 type KeyValuePair = MemoryKeyPair
-type AuthProxyMode = 'default' | 'enabled' | 'disabled'
 
 export default function NewConversationModal({ isOpen, onClose, onSuccess, currentFilters, initialRepository }: NewConversationModalProps) {
   const { selectedTeam } = useTeamScope()
@@ -36,7 +35,6 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
   const [repositorySuggestions, setRepositorySuggestions] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [oneshot, setOneshot] = useState(false)
-  const [authProxyMode, setAuthProxyMode] = useState<AuthProxyMode>('default')
   const [memoryKeyPairs, setMemoryKeyPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
   
   // Initialize with current filter values
@@ -140,7 +138,6 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
     setError(null)
     setShowSuggestions(false)
     setOneshot(false)
-    setAuthProxyMode('default')
   }
 
   const handleClose = () => {
@@ -244,8 +241,7 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
         tags: sessionData.tags,
         params: {
           message: description.trim(),
-          ...(oneshot ? { oneshot: true } : {}),
-          ...(authProxyMode !== 'default' ? { auth_proxy: authProxyMode === 'enabled' } : {})
+          ...(oneshot ? { oneshot: true } : {})
         },
         ...(memoryKey ? { memory_key: memoryKey } : {}),
         ...scopeParams
@@ -391,36 +387,6 @@ export default function NewConversationModal({ isOpen, onClose, onSuccess, curre
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                 セッションが停止した後、自動的にセッションを削除します。
               </p>
-            </div>
-          </div>
-
-          {/* Auth Proxy */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              認証プロキシ
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {([
-                { value: 'default', label: 'デフォルト', description: 'サーバー設定に従う' },
-                { value: 'enabled', label: '有効', description: 'このセッションに追加' },
-                { value: 'disabled', label: '無効', description: 'このセッションでは使わない' },
-              ] as { value: AuthProxyMode; label: string; description: string }[]).map(({ value, label, description }) => (
-                <label key={value} className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${authProxyMode === value ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}>
-                  <input
-                    type="radio"
-                    name="modal-auth-proxy-mode"
-                    value={value}
-                    checked={authProxyMode === value}
-                    onChange={() => setAuthProxyMode(value)}
-                    disabled={isCreating}
-                    className="mt-0.5 w-3.5 h-3.5 text-emerald-600 border-gray-300 dark:border-gray-600 focus:ring-emerald-500 flex-shrink-0"
-                  />
-                  <span>
-                    <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">{label}</span>
-                    <span className="block text-xs text-gray-400 dark:text-gray-500">{description}</span>
-                  </span>
-                </label>
-              ))}
             </div>
           </div>
 

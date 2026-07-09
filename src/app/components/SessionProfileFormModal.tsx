@@ -6,7 +6,6 @@ import {
   CreateSessionProfileRequest,
   UpdateSessionProfileRequest,
 } from '../../types/session_profile'
-import { SandboxPolicy } from '../../types/sandbox_policy'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
 
@@ -18,7 +17,6 @@ interface SessionProfileFormModalProps {
 }
 
 type KeyValuePair = { key: string; value: string }
-type AuthProxyMode = 'default' | 'enabled' | 'disabled'
 const SUPPORTED_AGENT_TYPES = new Set(['claude-acp', 'codex-acp', 'pi-ollama', 'cursor'])
 
 const normalizeAgentType = (value?: string): string => {
@@ -43,20 +41,9 @@ export default function SessionProfileFormModal({
   const [tagPairs, setTagPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
   const [agentType, setAgentType] = useState('')
 
-  // Sandbox fields
-  const [sandboxEnabled, setSandboxEnabled] = useState(false)
-  const [sandboxPolicyId, setSandboxPolicyId] = useState('')
-  const [sandboxMode, setSandboxMode] = useState<'allowlist' | 'denylist'>('allowlist')
-  const [sandboxDomains, setSandboxDomains] = useState('')
-  const [sandboxCountMode, setSandboxCountMode] = useState(false)
-  const [availablePolicies, setAvailablePolicies] = useState<SandboxPolicy[]>([])
-
   // Docker / DinD fields
   const [dockerEnabled, setDockerEnabled] = useState(false)
   const [dockerRegistries, setDockerRegistries] = useState<Array<{ server: string; username: string; password: string; secretName: string; insecure: boolean }>>([])
-
-  // Auth proxy
-  const [authProxyMode, setAuthProxyMode] = useState<AuthProxyMode>('default')
 
   // Session TTL
   const [sessionTTL, setSessionTTL] = useState('')
@@ -73,17 +60,6 @@ export default function SessionProfileFormModal({
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   const isEditing = !!editingProfile
-
-  // Load available sandbox policies when modal opens
-  useEffect(() => {
-    if (!isOpen) return
-    const client = createAgentAPIProxyClientFromStorage()
-    client.getSandboxPolicies().then((res) => {
-      setAvailablePolicies(res.sandbox_policies || [])
-    }).catch(() => {
-      setAvailablePolicies([])
-    })
-  }, [isOpen])
 
   // Initialize form when editing
   useEffect(() => {
@@ -111,42 +87,6 @@ export default function SessionProfileFormModal({
 
       if (cfg?.params?.agent_type) {
         setShowAdvanced(true)
-      }
-
-      const authProxy = cfg?.params?.auth_proxy
-      if (authProxy === true) {
-        setAuthProxyMode('enabled')
-        setShowAdvanced(true)
-      } else if (authProxy === false) {
-        setAuthProxyMode('disabled')
-        setShowAdvanced(true)
-      } else {
-        setAuthProxyMode('default')
-      }
-
-      // Initialize sandbox_policy_id from profile config
-      const policyId = cfg?.sandbox_policy_id ?? ''
-      setSandboxPolicyId(policyId)
-      if (policyId) setShowAdvanced(true)
-
-      // Initialize sandbox from profile params
-      const sandbox = cfg?.params?.sandbox
-      if (sandbox) {
-        setSandboxEnabled(sandbox.enabled)
-        if (sandbox.allowed_domains && sandbox.allowed_domains.length > 0) {
-          setSandboxMode('allowlist')
-          setSandboxDomains(sandbox.allowed_domains.join('\n'))
-        } else if (sandbox.denied_domains && sandbox.denied_domains.length > 0) {
-          setSandboxMode('denylist')
-          setSandboxDomains(sandbox.denied_domains.join('\n'))
-        }
-        setSandboxCountMode(sandbox.count_mode ?? false)
-        if (sandbox.enabled) setShowAdvanced(true)
-      } else {
-        setSandboxEnabled(false)
-        setSandboxMode('allowlist')
-        setSandboxDomains('')
-        setSandboxCountMode(false)
       }
 
       // Initialize docker from profile params
@@ -182,14 +122,8 @@ export default function SessionProfileFormModal({
       setEnvPairs([{ key: '', value: '' }])
       setTagPairs([{ key: '', value: '' }])
       setAgentType('')
-      setSandboxEnabled(false)
-      setSandboxPolicyId('')
-      setSandboxMode('allowlist')
-      setSandboxDomains('')
-      setSandboxCountMode(false)
       setDockerEnabled(false)
       setDockerRegistries([])
-      setAuthProxyMode('default')
       setSessionTTL('')
       setUnsyncedFilePaths('')
       setShowAdvanced(false)
@@ -269,18 +203,6 @@ export default function SessionProfileFormModal({
         .map(path => path.trim())
         .filter(Boolean)
 
-      // Build sandbox config if enabled
-      let sandboxConfig: { enabled: boolean; allowed_domains?: string[]; denied_domains?: string[]; count_mode?: boolean } | undefined
-      if (sandboxEnabled) {
-        const domainList = sandboxDomains.split('\n').map(d => d.trim()).filter(Boolean)
-        sandboxConfig = {
-          enabled: true,
-          ...(sandboxMode === 'allowlist' && domainList.length > 0 ? { allowed_domains: domainList } : {}),
-          ...(sandboxMode === 'denylist' && domainList.length > 0 ? { denied_domains: domainList } : {}),
-          ...(sandboxCountMode ? { count_mode: true } : {}),
-        }
-      }
-
       // Build docker config if enabled
       let dockerConfig: { enabled: boolean; registries?: { server?: string; username?: string; password?: string; secret_name?: string; insecure?: boolean }[] } | undefined
       if (dockerEnabled) {
@@ -296,20 +218,16 @@ export default function SessionProfileFormModal({
       }
 
       // Build params if any param is set
-      const authProxyValue = authProxyMode === 'default' ? undefined : authProxyMode === 'enabled'
-      const hasParams = agentType.trim() || sandboxConfig || dockerConfig || authProxyValue !== undefined
+      const hasParams = agentType.trim() || dockerConfig
       const params = hasParams ? {
         ...(agentType.trim() ? { agent_type: agentType.trim() } : {}),
-        ...(sandboxConfig ? { sandbox: sandboxConfig } : {}),
         ...(dockerConfig ? { docker: dockerConfig } : {}),
-        ...(authProxyValue !== undefined ? { auth_proxy: authProxyValue } : {}),
       } : undefined
 
       const config = {
         ...(Object.keys(environment).length > 0 ? { environment } : {}),
         ...(Object.keys(tags).length > 0 ? { tags } : {}),
         ...(params ? { params } : {}),
-        ...(sandboxPolicyId ? { sandbox_policy_id: sandboxPolicyId } : {}),
         ...(sessionTTL.trim() ? { session_ttl: sessionTTL.trim() } : {}),
         ...(parsedUnsyncedFilePaths.length > 0 ? { unsynced_file_paths: parsedUnsyncedFilePaths } : {}),
       }
@@ -590,148 +508,6 @@ export default function SessionProfileFormModal({
                     </div>
                   </div>
 
-                  {/* Auth Proxy */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      認証プロキシ
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {([
-                        { value: 'default', label: 'デフォルト', description: 'サーバー設定に従う' },
-                        { value: 'enabled', label: '有効', description: 'セッションに追加' },
-                        { value: 'disabled', label: '無効', description: 'セッションでは使わない' },
-                      ] as { value: AuthProxyMode; label: string; description: string }[]).map(({ value, label, description }) => (
-                        <label
-                          key={value}
-                          className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
-                            authProxyMode === value
-                              ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20'
-                              : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="profile-auth-proxy"
-                            value={value}
-                            checked={authProxyMode === value}
-                            onChange={() => setAuthProxyMode(value)}
-                            className="mt-0.5 w-3.5 h-3.5 text-emerald-600 border-gray-300 dark:border-gray-600 focus:ring-emerald-500"
-                          />
-                          <span>
-                            <span className="block text-xs font-medium text-gray-700 dark:text-gray-300">{label}</span>
-                            <span className="block text-xs text-gray-400 dark:text-gray-500">{description}</span>
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Sandbox Policy */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      サンドボックスポリシー
-                    </label>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                      事前定義されたポリシーを選択すると、セッション作成時にそのドメインルールが自動的に適用されます。
-                    </p>
-                    <select
-                      value={sandboxPolicyId}
-                      onChange={(e) => setSandboxPolicyId(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">使用しない</option>
-                      {availablePolicies.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}{p.description ? ` — ${p.description}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    {sandboxPolicyId && (
-                      <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
-                        ポリシーのドメインルールが自動でサンドボックスを有効にします。追加の制限は下の設定で上書きできます。
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Sandbox manual override */}
-                  <div>
-                    <label className="flex items-start gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={sandboxEnabled}
-                        onChange={(e) => setSandboxEnabled(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                      />
-                      <div>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          {sandboxPolicyId ? 'ドメインを追加で上書き設定する' : 'サンドボックス（ネットワーク制限）を有効にする'}
-                        </span>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                          {sandboxPolicyId
-                            ? 'ポリシーのドメインリストに加えて、追加の許可/拒否ドメインを設定します。'
-                            : 'セッションのアウトバウンドネットワークアクセスをドメインレベルで制限します。'}
-                        </p>
-                      </div>
-                    </label>
-
-                    {sandboxEnabled && (
-                      <div className="mt-3 ml-6 space-y-3">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                            モード
-                          </label>
-                          <div className="flex gap-4">
-                            <label className="flex items-center gap-1.5 cursor-pointer">
-                              <input
-                                type="radio"
-                                value="allowlist"
-                                checked={sandboxMode === 'allowlist'}
-                                onChange={() => setSandboxMode('allowlist')}
-                                className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500"
-                              />
-                              <span className="text-xs text-gray-700 dark:text-gray-300">許可リスト（指定ドメインのみ許可）</span>
-                            </label>
-                            <label className="flex items-center gap-1.5 cursor-pointer">
-                              <input
-                                type="radio"
-                                value="denylist"
-                                checked={sandboxMode === 'denylist'}
-                                onChange={() => setSandboxMode('denylist')}
-                                className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500"
-                              />
-                              <span className="text-xs text-gray-700 dark:text-gray-300">拒否リスト（指定ドメインをブロック）</span>
-                            </label>
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                            ドメインリスト（1行に1ドメイン）
-                          </label>
-                          <textarea
-                            value={sandboxDomains}
-                            onChange={(e) => setSandboxDomains(e.target.value)}
-                            placeholder={sandboxMode === 'allowlist' ? 'example.com\napi.github.com' : 'example.com\nbad-domain.com'}
-                            rows={4}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono resize-y"
-                          />
-                        </div>
-                        <div>
-                          <label className="flex items-start gap-1.5 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={sandboxCountMode}
-                              onChange={(e) => setSandboxCountMode(e.target.checked)}
-                              className="mt-0.5 h-3.5 w-3.5 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                            />
-                            <div>
-                              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">カウントモード</span>
-                              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">ポリシーを評価してブロック対象ドメインを記録するが、トラフィックは実際にはブロックしない。本番適用前の監査に利用できる。</p>
-                            </div>
-                          </label>
-                        </div>
-                      </div>
-                    )}
-                  </div>
                   {/* Docker in Docker (DinD) */}
                   <div>
                     <label className="flex items-start gap-2 cursor-pointer">

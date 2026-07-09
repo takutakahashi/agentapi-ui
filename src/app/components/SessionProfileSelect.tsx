@@ -119,19 +119,6 @@ export default function SessionProfileSelect({
               {selected.config.params.agent_type}
             </span>
           )}
-          {selected.config?.params?.sandbox?.enabled && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-orange-600 dark:text-orange-400">
-              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              サンドボックス
-            </span>
-          )}
-          {selected.config?.params?.auth_proxy !== undefined && (
-            <span className={`text-[10px] font-medium ${selected.config.params.auth_proxy ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
-              認証プロキシ{selected.config.params.auth_proxy ? '' : 'OFF'}
-            </span>
-          )}
           {selected.config?.environment && Object.keys(selected.config.environment).length > 0 && (
             <span className="text-[10px] text-gray-500 dark:text-gray-400">
               ENV×{Object.keys(selected.config.environment).length}
