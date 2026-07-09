@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Session, SessionListParams } from '../../types/agentapi'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../../lib/agentapi-proxy-client'
@@ -16,7 +16,10 @@ import SessionCard from './SessionCard'
 import LoadingSpinner from './LoadingSpinner'
 import NewConversationModal from './NewConversationModal'
 import SessionFilterSidebar from './SessionFilterSidebar'
+import { SmartSessionList } from './VirtualizedSessionList'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
+import { useSessionList, mutateSessionList } from '../../hooks/useSessionList'
+import { useSessionStatusSSE } from '../../hooks/useSessionStatusSSE'
 
 interface PageState {
   page: number
@@ -37,13 +40,10 @@ export default function ConversationList() {
   // Create global API client
   const [agentAPI] = useState(() => createAgentAPIProxyClientFromStorage(repositoryParam || undefined))
 
-  const [allSessions, setAllSessions] = useState<Session[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [sessionFilters, setSessionFilters] = useState<SessionFilter>(() => parseFiltersFromURL(searchParams))
   const [pageState, setPageState] = useState<PageState>({
     page: 1,
-    limit: 20
+    limit: 50 // Increased limit for better UX with SWR caching
   })
   const [showNewConversationModal, setShowNewConversationModal] = useState(false)
   const [quickStartMessage, setQuickStartMessage] = useState('')
@@ -66,70 +66,85 @@ export default function ConversationList() {
     return 'desc'
   })
 
-  // Extract filter groups from all sessions
-  const filterGroups = extractFilterGroups(allSessions)
+  // Compute scope parameters for SWR hook
+  const scopeParams: SessionListParams = useMemo(() => {
+    return selectedTeam
+      ? { scope: 'team', team_id: selectedTeam }
+      : { scope: 'user' }
+  }, [selectedTeam])
 
-  // Apply filters to get filtered sessions
-  const filteredSessionsBeforeSort = applySessionFilters(allSessions, sessionFilters)
-
-  // Apply sorting
-  const filteredSessions = [...filteredSessionsBeforeSort].sort((a, b) => {
-    const aValue = a[sortBy] || ''
-    const bValue = b[sortBy] || ''
-
-    if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1
-    if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1
-    return 0
+  // Use SWR hook for data fetching with caching
+  const { sessions: allSessions, isLoading, isError, error: swrError, mutate } = useSessionList(scopeParams, {
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    refreshInterval: 30000, // Refresh every 30 seconds
   })
 
-  // Apply pagination to filtered sessions
-  const paginatedSessions = filteredSessions.slice(
-    (pageState.page - 1) * pageState.limit,
-    pageState.page * pageState.limit
+  // Local error state for user actions (create, delete, etc.)
+  const [localError, setLocalError] = useState<string | null>(null)
+
+  // Convert SWR error to display message
+  const error = localError || (isError && swrError
+    ? swrError instanceof AgentAPIProxyError
+      ? `Failed to load sessions: ${swrError.message}`
+      : 'An unexpected error occurred while loading sessions'
+    : null)
+
+  // Extract filter groups from all sessions (memoized)
+  const filterGroups = useMemo(() => extractFilterGroups(allSessions), [allSessions])
+
+  // Apply filters to get filtered sessions (memoized)
+  const filteredSessionsBeforeSort = useMemo(
+    () => applySessionFilters(allSessions, sessionFilters),
+    [allSessions, sessionFilters]
+  )
+
+  // Apply sorting (memoized)
+  const filteredSessions = useMemo(
+    () => [...filteredSessionsBeforeSort].sort((a, b) => {
+      const aValue = a[sortBy] || ''
+      const bValue = b[sortBy] || ''
+
+      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1
+      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1
+      return 0
+    }),
+    [filteredSessionsBeforeSort, sortBy, sortOrder]
+  )
+
+  // Apply pagination to filtered sessions (memoized)
+  const paginatedSessions = useMemo(
+    () => filteredSessions.slice(
+      (pageState.page - 1) * pageState.limit,
+      pageState.page * pageState.limit
+    ),
+    [filteredSessions, pageState]
   )
 
   const totalPages = Math.ceil(filteredSessions.length / pageState.limit)
 
-  const fetchSessions = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
+  // Loading state from SWR
+  const loading = isLoading
 
-      // Compute scope parameters directly from selectedTeam to avoid stale closure
-      const scopeParams: { scope: 'user' | 'team'; team_id?: string } = selectedTeam
-        ? { scope: 'team', team_id: selectedTeam }
-        : { scope: 'user' }
+  // Refresh sessions using SWR mutate
+  const fetchSessions = useCallback(() => {
+    mutate()
+  }, [mutate])
 
-      console.log('[ConversationList] Fetching sessions with scope params:', scopeParams)
-
-      // Fetch all sessions (or a large number) to enable client-side filtering
-      // TODO: When backend supports metadata filtering, add those params here
-      const params: SessionListParams = {
-        limit: 1000, // Fetch many sessions for client-side filtering
-        ...scopeParams,
-      }
-
-      const response = await agentAPI.search(params)
-      console.log('[ConversationList] Received sessions:', response.sessions?.length || 0)
-      setAllSessions(response.sessions || [])
-    } catch (err) {
-      if (err instanceof AgentAPIProxyError) {
-        setError(`Failed to load sessions: ${err.message}`)
+  // Subscribe to real-time session status updates via SSE
+  useSessionStatusSSE({
+    enabled: true,
+    onStatusChange: (event) => {
+      console.log('[ConversationList] Session status update:', event)
+    },
+    onConnectionChange: (connected) => {
+      if (connected) {
+        console.log('[ConversationList] SSE connected')
       } else {
-        setError('An unexpected error occurred while loading sessions')
+        console.log('[ConversationList] SSE disconnected')
       }
-
-      // Set mock data for demo purposes when API is not available
-      setAllSessions(getMockSessions())
-    } finally {
-      setLoading(false)
-    }
-  }, [agentAPI, selectedTeam])
-
-  // Refetch sessions when team scope changes
-  useEffect(() => {
-    fetchSessions()
-  }, [fetchSessions, selectedTeam])
+    },
+  })
 
   const getMockSessions = (): Session[] => []
 
@@ -152,7 +167,7 @@ export default function ConversationList() {
 
   const handleNewConversationSuccess = () => {
     // Refresh the session list to show the new session
-    fetchSessions()
+    mutateSessionList()
   }
 
   const handleQuickStart = async () => {
@@ -160,7 +175,7 @@ export default function ConversationList() {
 
     try {
       setIsCreatingQuickSession(true)
-      setError(null)
+      setLocalError(null)
 
       // Get current filter values to use as default parameters for new session
       const { metadata, environment } = getFilterValuesForSessionCreation(sessionFilters)
@@ -187,12 +202,12 @@ export default function ConversationList() {
       })
 
       setQuickStartMessage('')
-      fetchSessions() // Refresh the session list
+      mutateSessionList() // Refresh the session list
     } catch (err) {
       if (err instanceof AgentAPIProxyError) {
-        setError(`Failed to start session: ${err.message}`)
+        setLocalError(`Failed to start session: ${err.message}`)
       } else {
-        setError('An unexpected error occurred while starting session')
+        setLocalError('An unexpected error occurred while starting session')
       }
     } finally {
       setIsCreatingQuickSession(false)
@@ -215,10 +230,10 @@ export default function ConversationList() {
       await agentAPI.delete(sessionId)
 
       // セッション一覧を更新
-      fetchSessions()
+      mutateSessionList()
     } catch (err) {
       console.error('Failed to delete session:', err)
-      setError('セッションの削除に失敗しました')
+      setLocalError('セッションの削除に失敗しました')
     } finally {
       setDeletingSession(null)
     }
@@ -251,15 +266,15 @@ export default function ConversationList() {
 
     try {
       setIsBulkDeleting(true)
-      setError(null)
+      setLocalError(null)
 
       await agentAPI.deleteBatch(Array.from(selectedSessions))
 
       setSelectedSessions(new Set())
-      fetchSessions()
+      mutateSessionList()
     } catch (err) {
       console.error('Failed to bulk delete sessions:', err)
-      setError('セッションの一括削除に失敗しました')
+      setLocalError('セッションの一括削除に失敗しました')
     } finally {
       setIsBulkDeleting(false)
     }
@@ -522,17 +537,15 @@ export default function ConversationList() {
             </div>
           ) : (
             <div>
-              {paginatedSessions.map((session) => (
-                <SessionCard
-                  key={session.session_id}
-                  session={session}
-                  onDelete={deleteSession}
-                  isDeleting={deletingSession === session.session_id}
-                  isSelected={selectedSessions.has(session.session_id)}
-                  onToggleSelect={toggleSessionSelection}
-                  isSelectionMode={isSelectionMode}
-                />
-              ))}
+              <SmartSessionList
+                sessions={paginatedSessions}
+                onDelete={deleteSession}
+                deletingSession={deletingSession}
+                selectedSessions={selectedSessions}
+                onToggleSelect={toggleSessionSelection}
+                isSelectionMode={isSelectionMode}
+                virtualizationThreshold={50}
+              />
 
               {/* Pagination */}
               {totalPages > 1 && (
