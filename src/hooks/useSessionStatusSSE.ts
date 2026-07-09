@@ -1,25 +1,16 @@
 'use client'
 
 import { useEffect, useRef, useCallback } from 'react'
-import useSWR, { mutate } from 'swr'
+import { mutate } from 'swr'
 import { Session, SessionStatus } from '../types/agentapi'
-import { createAgentAPIProxyClientFromStorage } from '../lib/agentapi-proxy-client'
-import { SESSION_LIST_MUTATION_KEY } from './useSessionList'
-
-/**
- * SSE event for proxy-wide session status changes
- */
-export interface ProxySessionStatusEvent {
-  session_id: string
-  status: string
-  timestamp: string
-}
+import { AgentAPIProxyClient, createAgentAPIProxyClientFromStorage, ProxySessionStatusEvent } from '../lib/agentapi-proxy-client'
 
 /**
  * Hook options
  */
 interface UseSessionStatusSSEOptions {
   enabled?: boolean
+  client?: AgentAPIProxyClient
   onStatusChange?: (event: ProxySessionStatusEvent) => void
   onConnectionChange?: (connected: boolean) => void
 }
@@ -35,7 +26,7 @@ interface UseSessionStatusSSEOptions {
  * @param options - Configuration options
  */
 export function useSessionStatusSSE(options: UseSessionStatusSSEOptions = {}) {
-  const { enabled = true, onStatusChange, onConnectionChange } = options
+  const { enabled = true, client, onStatusChange, onConnectionChange } = options
   const eventSourceRef = useRef<EventSource | null>(null)
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const reconnectAttemptsRef = useRef(0)
@@ -45,12 +36,38 @@ export function useSessionStatusSSE(options: UseSessionStatusSSEOptions = {}) {
       eventSourceRef.current.close()
     }
 
-    const isUsingProxy = typeof window !== 'undefined' && window.location.pathname.includes('/api/proxy')
-    const eventSourceUrl = isUsingProxy
-      ? '/api/proxy/sessions/status/stream'
-      : '/sessions/status/stream'
+    const agentAPI = client || createAgentAPIProxyClientFromStorage()
+    const eventSource = agentAPI.subscribeToSessionsStatusEvents((data) => {
+      onStatusChange?.(data)
 
-    const eventSource = new EventSource(eventSourceUrl)
+      mutate(
+        (key) => Array.isArray(key) && key[0] === 'session-list',
+        (currentData: Session[] | undefined) => {
+          if (!currentData) return currentData
+
+          return currentData.map(session =>
+            session.session_id === data.session_id
+              ? { ...session, status: data.status as SessionStatus, updated_at: data.timestamp }
+              : session
+          )
+        },
+        false
+      )
+    }, () => {
+      console.error('[SSE] Session status stream error')
+      onConnectionChange?.(false)
+
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000)
+      reconnectAttemptsRef.current++
+
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current)
+      }
+      reconnectTimeoutRef.current = setTimeout(() => {
+        console.log(`[SSE] Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current})`)
+        connect()
+      }, delay)
+    })
     eventSourceRef.current = eventSource
 
     eventSource.onopen = () => {
@@ -59,50 +76,7 @@ export function useSessionStatusSSE(options: UseSessionStatusSSEOptions = {}) {
       onConnectionChange?.(true)
     }
 
-    eventSource.onmessage = (event) => {
-      if (!event.data) return
-
-      try {
-        const data: ProxySessionStatusEvent = JSON.parse(event.data)
-        
-        // Call custom handler if provided
-        onStatusChange?.(data)
-
-        // Optimistically update the session in SWR cache
-        mutate(
-          (key) => Array.isArray(key) && key[0] === 'session-list',
-          (currentData: Session[] | undefined) => {
-            if (!currentData) return currentData
-            
-            const updatedData = currentData.map(session =>
-              session.session_id === data.session_id
-                ? { ...session, status: data.status as SessionStatus, updated_at: data.timestamp }
-                : session
-            )
-            
-            return updatedData
-          },
-          false // Don't revalidate - we trust the SSE event
-        )
-      } catch (err) {
-        console.error('[SSE] Failed to parse session status event:', err)
-      }
-    }
-
-    eventSource.onerror = () => {
-      console.error('[SSE] Session status stream error')
-      onConnectionChange?.(false)
-
-      // Exponential backoff reconnection
-      const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000)
-      reconnectAttemptsRef.current++
-
-      reconnectTimeoutRef.current = setTimeout(() => {
-        console.log(`[SSE] Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current})`)
-        connect()
-      }, delay)
-    }
-  }, [onStatusChange, onConnectionChange])
+  }, [client, onStatusChange, onConnectionChange])
 
   useEffect(() => {
     if (!enabled) return

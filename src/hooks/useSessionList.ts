@@ -2,7 +2,7 @@
 
 import useSWR, { SWRConfiguration, mutate } from 'swr'
 import { Session, SessionListParams } from '../types/agentapi'
-import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../lib/agentapi-proxy-client'
+import { AgentAPIProxyClient, createAgentAPIProxyClientFromStorage, AgentAPIProxyError } from '../lib/agentapi-proxy-client'
 
 // Global mutation key for session list
 export const SESSION_LIST_MUTATION_KEY = 'session-list'
@@ -10,8 +10,8 @@ export const SESSION_LIST_MUTATION_KEY = 'session-list'
 /**
  * Fetcher function for session list
  */
-async function fetchSessionList(params: SessionListParams): Promise<Session[]> {
-  const agentAPI = createAgentAPIProxyClientFromStorage()
+async function fetchSessionList(params: SessionListParams, client?: AgentAPIProxyClient): Promise<Session[]> {
+  const agentAPI = client || createAgentAPIProxyClientFromStorage()
   const response = await agentAPI.search(params)
   return response.sessions || []
 }
@@ -30,14 +30,23 @@ async function fetchSessionList(params: SessionListParams): Promise<Session[]> {
  */
 export function useSessionList(
   params: SessionListParams,
+  client?: AgentAPIProxyClient,
   config?: SWRConfiguration
 ) {
   // Create a stable key for SWR based on params
-  const key = ['session-list', params.scope, params.team_id, params.status]
+  const key = [
+    'session-list',
+    params.user_id || '',
+    params.scope || '',
+    params.team_id || '',
+    params.status || '',
+    params.page || '',
+    params.limit || '',
+  ]
   
   const { data, error, isLoading, mutate } = useSWR<Session[], AgentAPIProxyError>(
     key,
-    () => fetchSessionList(params),
+    () => fetchSessionList(params, client),
     {
       // Refresh interval for near real-time updates (30 seconds)
       refreshInterval: 30000,

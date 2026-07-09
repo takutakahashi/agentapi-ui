@@ -12,7 +12,6 @@ import {
   getFilterValuesForSessionCreation,
   SessionFilter
 } from '../../lib/filter-utils'
-import SessionCard from './SessionCard'
 import LoadingSpinner from './LoadingSpinner'
 import NewConversationModal from './NewConversationModal'
 import SessionFilterSidebar from './SessionFilterSidebar'
@@ -69,12 +68,12 @@ export default function ConversationList() {
   // Compute scope parameters for SWR hook
   const scopeParams: SessionListParams = useMemo(() => {
     return selectedTeam
-      ? { scope: 'team', team_id: selectedTeam }
-      : { scope: 'user' }
+      ? { scope: 'team', team_id: selectedTeam, limit: 1000 }
+      : { scope: 'user', limit: 1000 }
   }, [selectedTeam])
 
   // Use SWR hook for data fetching with caching
-  const { sessions: allSessions, isLoading, isError, error: swrError, mutate } = useSessionList(scopeParams, {
+  const { sessions: allSessions, isLoading, isError, error: swrError, mutate } = useSessionList(scopeParams, agentAPI, {
     revalidateOnFocus: true,
     revalidateOnReconnect: true,
     refreshInterval: 30000, // Refresh every 30 seconds
@@ -134,6 +133,7 @@ export default function ConversationList() {
   // Subscribe to real-time session status updates via SSE
   useSessionStatusSSE({
     enabled: true,
+    client: agentAPI,
     onStatusChange: (event) => {
       console.log('[ConversationList] Session status update:', event)
     },
@@ -145,8 +145,6 @@ export default function ConversationList() {
       }
     },
   })
-
-  const getMockSessions = (): Session[] => []
 
   // Update URL when filters change
   const updateURL = useCallback((filters: SessionFilter) => {
