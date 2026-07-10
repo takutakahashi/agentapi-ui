@@ -137,6 +137,7 @@ export interface SettingsData {
   notification_channels?: string[];  // Active notification channels (e.g. ["web", "slack"])
   external_session_managers?: ExternalSessionManagerConfig[];  // External session managers
   git_sync?: GitSyncConfig;  // GitHub sync configuration (token redacted in responses)
+  default_session_profile_id?: string;  // Default session profile ID for this settings scope
 }
 
 // External session manager configuration
@@ -419,6 +420,10 @@ export const prepareSettingsForSave = (data: SettingsData): SettingsData => {
       hmac_secret: manager.hmac_secret,
       default: manager.default,
     }))
+  }
+
+  if (data.default_session_profile_id !== undefined) {
+    prepared.default_session_profile_id = data.default_session_profile_id
   }
 
   return prepared
