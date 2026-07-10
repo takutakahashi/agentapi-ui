@@ -6,6 +6,7 @@ import {
   CreateSessionProfileRequest,
   UpdateSessionProfileRequest,
 } from '../../types/session_profile'
+import { SandboxPolicy } from '../../types/sandbox_policy'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
 
@@ -45,6 +46,11 @@ export default function SessionProfileFormModal({
   const [dockerEnabled, setDockerEnabled] = useState(false)
   const [dockerRegistries, setDockerRegistries] = useState<Array<{ server: string; username: string; password: string; secretName: string; insecure: boolean }>>([])
 
+  // Network sandbox fields. Profiles always run with sandbox enabled; no selected
+  // policy means count mode so traffic is recorded but not blocked.
+  const [sandboxPolicyId, setSandboxPolicyId] = useState('')
+  const [sandboxPolicies, setSandboxPolicies] = useState<SandboxPolicy[]>([])
+
   // Session TTL
   const [sessionTTL, setSessionTTL] = useState('')
   const [unsyncedFilePaths, setUnsyncedFilePaths] = useState('')
@@ -60,6 +66,20 @@ export default function SessionProfileFormModal({
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   const isEditing = !!editingProfile
+
+  useEffect(() => {
+    if (!isOpen) return
+    const fetchSandboxPolicies = async () => {
+      try {
+        const client = createAgentAPIProxyClientFromStorage()
+        const response = await client.getSandboxPolicies({ ...getScopeParams() })
+        setSandboxPolicies(response.sandbox_policies || [])
+      } catch {
+        setSandboxPolicies([])
+      }
+    }
+    fetchSandboxPolicies()
+  }, [isOpen, getScopeParams])
 
   // Initialize form when editing
   useEffect(() => {
@@ -106,6 +126,12 @@ export default function SessionProfileFormModal({
         setDockerRegistries([])
       }
 
+      // Initialize network sandbox from profile params and legacy top-level policy ID
+      const sandbox = cfg?.params?.sandbox
+      const policyId = sandbox?.policy_id ?? cfg?.sandbox_policy_id ?? ''
+      setSandboxPolicyId(policyId)
+      if (sandbox?.enabled || sandbox?.count_mode || policyId) setShowAdvanced(true)
+
       // Initialize session_ttl from profile config
       const ttl = cfg?.session_ttl ?? ''
       setSessionTTL(ttl)
@@ -124,6 +150,7 @@ export default function SessionProfileFormModal({
       setAgentType('')
       setDockerEnabled(false)
       setDockerRegistries([])
+      setSandboxPolicyId('')
       setSessionTTL('')
       setUnsyncedFilePaths('')
       setShowAdvanced(false)
@@ -217,17 +244,24 @@ export default function SessionProfileFormModal({
         dockerConfig = { enabled: true, ...(regs.length > 0 ? { registries: regs } : {}) }
       }
 
+      const sandboxConfig = {
+        enabled: true,
+        ...(sandboxPolicyId ? { policy_id: sandboxPolicyId } : {}),
+        ...(!sandboxPolicyId ? { count_mode: true } : {}),
+      }
+
       // Build params if any param is set
-      const hasParams = agentType.trim() || dockerConfig
-      const params = hasParams ? {
+      const params = {
         ...(agentType.trim() ? { agent_type: agentType.trim() } : {}),
+        sandbox: sandboxConfig,
         ...(dockerConfig ? { docker: dockerConfig } : {}),
-      } : undefined
+      }
 
       const config = {
         ...(Object.keys(environment).length > 0 ? { environment } : {}),
         ...(Object.keys(tags).length > 0 ? { tags } : {}),
-        ...(params ? { params } : {}),
+        params,
+        ...(sandboxPolicyId ? { sandbox_policy_id: sandboxPolicyId } : {}),
         ...(sessionTTL.trim() ? { session_ttl: sessionTTL.trim() } : {}),
         ...(parsedUnsyncedFilePaths.length > 0 ? { unsynced_file_paths: parsedUnsyncedFilePaths } : {}),
       }
@@ -506,6 +540,30 @@ export default function SessionProfileFormModal({
                         </label>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Network Sandbox */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      sandbox policy
+                    </label>
+                    <select
+                      value={sandboxPolicyId}
+                      onChange={(e) => setSandboxPolicyId(e.target.value)}
+                      className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    >
+                      <option value="">ポリシーなし（count mode）</option>
+                      {sandboxPolicies.map((policy) => (
+                        <option key={policy.id} value={policy.id}>
+                          {policy.name}{policy.scope === 'team' ? ' [チーム]' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {sandboxPolicies.length === 0 && (
+                      <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                        適用できる sandbox policy がありません。count mode で起動します。
+                      </p>
+                    )}
                   </div>
 
                   {/* Docker in Docker (DinD) */}
