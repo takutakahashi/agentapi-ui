@@ -30,15 +30,24 @@ export function useSessionStatusSSE(options: UseSessionStatusSSEOptions = {}) {
   const eventSourceRef = useRef<EventSource | null>(null)
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const reconnectAttemptsRef = useRef(0)
+  const activeRef = useRef(false)
+  const onStatusChangeRef = useRef(onStatusChange)
+  const onConnectionChangeRef = useRef(onConnectionChange)
+
+  // Callback identity should not tear down and recreate the SSE connection.
+  onStatusChangeRef.current = onStatusChange
+  onConnectionChangeRef.current = onConnectionChange
 
   const connect = useCallback(() => {
+    if (!activeRef.current) return
+
     if (eventSourceRef.current) {
       eventSourceRef.current.close()
     }
 
     const agentAPI = client || createAgentAPIProxyClientFromStorage()
     const eventSource = agentAPI.subscribeToSessionsStatusEvents((data) => {
-      onStatusChange?.(data)
+      onStatusChangeRef.current?.(data)
 
       mutate(
         (key) => Array.isArray(key) && key[0] === 'session-list',
@@ -55,7 +64,9 @@ export function useSessionStatusSSE(options: UseSessionStatusSSEOptions = {}) {
       )
     }, () => {
       console.error('[SSE] Session status stream error')
-      onConnectionChange?.(false)
+      onConnectionChangeRef.current?.(false)
+
+      if (!activeRef.current) return
 
       const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000)
       reconnectAttemptsRef.current++
@@ -64,6 +75,8 @@ export function useSessionStatusSSE(options: UseSessionStatusSSEOptions = {}) {
         clearTimeout(reconnectTimeoutRef.current)
       }
       reconnectTimeoutRef.current = setTimeout(() => {
+        reconnectTimeoutRef.current = null
+        if (!activeRef.current) return
         console.log(`[SSE] Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current})`)
         connect()
       }, delay)
@@ -73,17 +86,19 @@ export function useSessionStatusSSE(options: UseSessionStatusSSEOptions = {}) {
     eventSource.onopen = () => {
       console.log('[SSE] Connected to session status stream')
       reconnectAttemptsRef.current = 0
-      onConnectionChange?.(true)
+      onConnectionChangeRef.current?.(true)
     }
 
-  }, [client, onStatusChange, onConnectionChange])
+  }, [client])
 
   useEffect(() => {
     if (!enabled) return
 
+    activeRef.current = true
     connect()
 
     return () => {
+      activeRef.current = false
       if (eventSourceRef.current) {
         eventSourceRef.current.close()
         eventSourceRef.current = null
@@ -96,6 +111,7 @@ export function useSessionStatusSSE(options: UseSessionStatusSSEOptions = {}) {
   }, [enabled, connect])
 
   const disconnect = useCallback(() => {
+    activeRef.current = false
     if (eventSourceRef.current) {
       eventSourceRef.current.close()
       eventSourceRef.current = null
@@ -123,58 +139,55 @@ export function useSessionMessagePoll(
   } = {}
 ) {
   const { enabled = true, onMessageUpdate } = options
-  const pollingRef = useRef(false)
   const abortControllerRef = useRef<AbortController | null>(null)
-
-  const poll = useCallback(async () => {
-    if (!sessionId || !enabled || pollingRef.current) return
-
-    const agentAPI = createAgentAPIProxyClientFromStorage()
-    pollingRef.current = true
-
-    try {
-      abortControllerRef.current = new AbortController()
-      
-      const result = await agentAPI.waitSessionMessages(sessionId, {
-        timeout: 30,
-        signal: abortControllerRef.current.signal,
-      })
-
-      if (result.updated) {
-        onMessageUpdate?.(result.timestamp)
-      }
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        // Polling was cancelled, this is expected
-        return
-      }
-      console.error('[LongPoll] Error waiting for message updates:', err)
-    } finally {
-      pollingRef.current = false
-      // Continue polling
-      if (enabled) {
-        poll()
-      }
-    }
-  }, [sessionId, enabled, onMessageUpdate])
+  const stopRef = useRef<() => void>(() => {})
+  const onMessageUpdateRef = useRef(onMessageUpdate)
+  onMessageUpdateRef.current = onMessageUpdate
 
   useEffect(() => {
     if (!enabled || !sessionId) return
 
-    poll()
+    let cancelled = false
+    const agentAPI = createAgentAPIProxyClientFromStorage()
 
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
+    const poll = async () => {
+      while (!cancelled) {
+        const controller = new AbortController()
+        abortControllerRef.current = controller
+
+        try {
+          const result = await agentAPI.waitSessionMessages(sessionId, {
+            timeout: 30,
+            signal: controller.signal,
+          })
+
+          if (result.updated && !cancelled) {
+            onMessageUpdateRef.current?.(result.timestamp)
+          }
+        } catch (err) {
+          if (err instanceof Error && err.name === "AbortError") break
+          console.error("[LongPoll] Error waiting for message updates:", err)
+        } finally {
+          if (abortControllerRef.current === controller) {
+            abortControllerRef.current = null
+          }
+        }
       }
     }
-  }, [enabled, sessionId, poll])
+
+    const stopPolling = () => {
+      cancelled = true
+      abortControllerRef.current?.abort()
+      abortControllerRef.current = null
+    }
+    stopRef.current = stopPolling
+    void poll()
+
+    return stopPolling
+  }, [enabled, sessionId])
 
   const stop = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-    pollingRef.current = false
+    stopRef.current()
   }, [])
 
   return { stop }
