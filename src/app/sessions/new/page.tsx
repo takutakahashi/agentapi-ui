@@ -23,6 +23,8 @@ type CheckoutTarget = 'branch' | 'pr' | ''
 
 const getAgentTypeLabel = (agentType: AgentApiType): string => {
   switch (agentType) {
+    case 'claude-legacy':
+      return 'Claude Legacy'
     case 'claude-acp':
       return 'Claude ACP'
     case 'codex-acp':
@@ -970,6 +972,7 @@ export default function NewSessionPage() {
                       <div className="space-y-2">
                       {([
                         { value: 'default', label: 'デフォルト', description: 'agent_type を送信しない' },
+                        { value: 'claude-legacy', label: 'Claude Legacy', description: 'agent_type=claude-legacy を送信' },
                         { value: 'claude-acp', label: 'Claude ACP', description: 'agent_type=claude-acp を送信' },
                         { value: 'codex-acp', label: 'Codex ACP', description: 'agent_type=codex-acp を送信' },
                         { value: 'pi-ollama', label: 'Pi Ollama', description: 'agent_type=pi-ollama を送信' },
