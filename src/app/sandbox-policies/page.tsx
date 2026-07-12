@@ -7,6 +7,7 @@ import { useTeamScope } from '../../contexts/TeamScopeContext'
 import TopBar from '../components/TopBar'
 import NavigationTabs from '../components/NavigationTabs'
 import TagFilterSidebar from '../components/TagFilterSidebar'
+import CopyableResourceId from '../components/CopyableResourceId'
 
 // ---- Session Domain Import Page ----
 interface SessionDomainImportPanelProps {
@@ -642,7 +643,7 @@ function PolicyCard({
       ) : (
         <p className="text-xs text-gray-400">ドメイン未設定</p>
       )}
-      <p className="truncate text-xs text-gray-400 dark:text-gray-500">ID: {policy.id}</p>
+      <CopyableResourceId id={policy.id} />
     </div>
   )
 }

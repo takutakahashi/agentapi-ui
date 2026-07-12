@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Schedule } from '../../types/schedule'
 import ScheduleStatusBadge from './ScheduleStatusBadge'
+import CopyableResourceId from './CopyableResourceId'
 
 interface ScheduleCardProps {
   schedule: Schedule
@@ -77,6 +78,7 @@ export default function ScheduleCard({
           <h3 className="text-lg font-medium text-gray-900 dark:text-white truncate">
             {schedule.name}
           </h3>
+          <CopyableResourceId id={schedule.id} className="mt-1" />
           <div className="flex items-center gap-2 mt-1">
             <ScheduleStatusBadge status={schedule.status} />
             {schedule.timezone && (

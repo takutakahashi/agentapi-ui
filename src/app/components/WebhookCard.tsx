@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Webhook } from '../../types/webhook'
 import WebhookStatusBadge from './WebhookStatusBadge'
+import CopyableResourceId from './CopyableResourceId'
 
 interface WebhookCardProps {
   webhook: Webhook
@@ -99,6 +100,7 @@ export default function WebhookCard({
           <h3 className="text-lg font-medium text-gray-900 dark:text-white truncate">
             {webhook.name}
           </h3>
+          <CopyableResourceId id={webhook.id} className="mt-1" />
           <div className="flex items-center gap-2 mt-1">
             <WebhookStatusBadge status={webhook.status} />
             <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 rounded-full">
