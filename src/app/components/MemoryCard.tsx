@@ -1,6 +1,7 @@
 'use client'
 
 import { Memory, MemoryScope } from '../../types/memory'
+import CopyableResourceId from './CopyableResourceId'
 
 interface MemoryCardProps {
   memory: Memory
@@ -69,6 +70,8 @@ export default function MemoryCard({
         </div>
         <ScopeBadge scope={memory.scope} />
       </div>
+
+      <CopyableResourceId id={memory.id} className="mb-3" />
 
       {/* Content preview */}
       {memory.content && (

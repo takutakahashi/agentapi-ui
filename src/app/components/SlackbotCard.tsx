@@ -2,6 +2,7 @@
 
 import { SlackBot, SlackBotStatus } from '../../types/slackbot'
 import SlackbotStatusBadge from './SlackbotStatusBadge'
+import CopyableResourceId from './CopyableResourceId'
 
 interface SlackbotCardProps {
   slackbot: SlackBot
@@ -62,6 +63,8 @@ export default function SlackbotCard({
         </div>
         <SlackbotStatusBadge status={slackbot.status} />
       </div>
+
+      <CopyableResourceId id={slackbot.id} className="mb-3" />
 
       {/* Allowed Channel Names */}
       {slackbot.allowed_channel_names && slackbot.allowed_channel_names.length > 0 && (

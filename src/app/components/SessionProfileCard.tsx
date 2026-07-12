@@ -1,6 +1,7 @@
 'use client'
 
 import { SessionProfile } from '../../types/session_profile'
+import CopyableResourceId from './CopyableResourceId'
 
 interface SessionProfileCardProps {
   profile: SessionProfile
@@ -67,6 +68,8 @@ export default function SessionProfileCard({
           )}
         </div>
       </div>
+
+      <CopyableResourceId id={profile.id} className="mb-3" />
 
       {/* Description */}
       {profile.description && (

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ExternalLink, Terminal, RefreshCw, CheckCircle2, Circle, AlertCircle, ClipboardList, ArrowLeft } from 'lucide-react'
 import TopBar from '../components/TopBar'
+import CopyableResourceId from '../components/CopyableResourceId'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import { Task } from '../../types/task'
 
@@ -60,6 +61,8 @@ function TaskItem({
         >
           {task.title}
         </p>
+
+        <CopyableResourceId id={task.id} className="mt-1" />
 
         {task.description && (
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ExternalLink, Terminal, RefreshCw, AlertCircle, ClipboardList } from 'lucide-react'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import { Task } from '../../types/task'
+import CopyableResourceId from './CopyableResourceId'
 
 const REFRESH_INTERVAL_MS = 30000
 
@@ -58,6 +59,7 @@ function TaskItem({ task }: { task: Task }) {
           >
             {task.title}
           </p>
+          <CopyableResourceId id={task.id} className="mt-1" />
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             <StatusBadge status={task.status} />
             <TypeBadge type={task.task_type} />

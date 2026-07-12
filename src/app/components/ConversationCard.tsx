@@ -1,6 +1,7 @@
 import { Chat } from '../../types/chat'
 import StatusBadge from './StatusBadge'
 import { formatDate } from '../../utils/timeUtils'
+import CopyableResourceId from './CopyableResourceId'
 
 interface ConversationCardProps {
   chat: Chat
@@ -59,9 +60,7 @@ export default function ConversationCard({ chat }: ConversationCardProps) {
 
       <div className="mt-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400 dark:text-gray-500">
-            ID: {chat.id.slice(0, 8)}...
-          </span>
+          <CopyableResourceId id={chat.id} />
           {chat.metadata?.repository && (
             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
               {chat.metadata.repository}
