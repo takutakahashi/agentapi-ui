@@ -145,7 +145,6 @@ export default function SessionProfileFormModal({
 
       const source = cfg?.params?.credential_source ?? ''
       setCredentialSource(source)
-      if (source) setShowAdvanced(true)
     } else {
       // Reset form
       setName('')
@@ -377,6 +376,26 @@ export default function SessionProfileFormModal({
                 rows={2}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
               />
+            </div>
+
+            {/* Credential source */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                認証情報の配布元
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                Codex の <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">auth.json</code> など、セッションへ配布する認証情報を選択します。
+              </p>
+              <select
+                value={credentialSource}
+                onChange={(e) => setCredentialSource(e.target.value as CredentialSource | '')}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="">デフォルト（個人: 作成者 / チーム: 配布なし）</option>
+                <option value="session_user">セッションを作成したユーザー</option>
+                <option value="team">セッションのチーム</option>
+                <option value="none">配布しない</option>
+              </select>
             </div>
 
             {/* is_default */}
@@ -698,26 +717,6 @@ export default function SessionProfileFormModal({
                       placeholder="例: 24h、72h、168h"
                       className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     />
-                  </div>
-
-                  {/* 認証情報の配布元 */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      認証情報の配布元
-                    </label>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                      Codex の <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">auth.json</code> など、セッションへ配布する管理認証ファイルの所有者を選択します。
-                    </p>
-                    <select
-                      value={credentialSource}
-                      onChange={(e) => setCredentialSource(e.target.value as CredentialSource | '')}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    >
-                      <option value="">デフォルト（個人セッション: 作成者 / チームセッション: 配布なし）</option>
-                      <option value="session_user">セッションを作成したユーザー</option>
-                      <option value="team">セッションのチーム</option>
-                      <option value="none">配布しない</option>
-                    </select>
                   </div>
 
                   {/* 同期しないファイルパス */}
