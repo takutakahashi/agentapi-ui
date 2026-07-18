@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, GitSyncConfig, prepareSettingsForSave } from '@/types/settings'
-import { BedrockSettings, SettingsAccordion, MCPServerSettings, MarketplaceSettings, PluginSettings, EnvVarsSettings, GitHubSyncSettings } from '@/components/settings'
-import { createAgentAPIProxyClientFromStorage } from '@/lib/agentapi-proxy-client'
+import { BedrockSettings, SettingsAccordion, MCPServerSettings, MarketplaceSettings, PluginSettings, EnvVarsSettings, GitHubSyncSettings, CodexDeviceAuthSettings } from '@/components/settings'
+import { createAgentAPIProxyClientFromStorage, CredentialsMetadata } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
 export default function TeamSettingsPage() {
@@ -16,6 +16,7 @@ export default function TeamSettingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [isTeamLoaded, setIsTeamLoaded] = useState(false)
   const [gitSyncConfig, setGitSyncConfig] = useState<GitSyncConfig | undefined>(undefined)
+  const [credentialsMetadata, setCredentialsMetadata] = useState<CredentialsMetadata | null>(null)
   const { showToast } = useToast()
   const hasUnsavedChangesRef = useRef(false)
 
@@ -53,6 +54,12 @@ export default function TeamSettingsPage() {
       setOriginalSettings(data)
       setTeamName(name)
       setIsTeamLoaded(true)
+
+      try {
+        setCredentialsMetadata(await client.getCredentials(name))
+      } catch {
+        setCredentialsMetadata(null)
+      }
 
       // GitHub Sync 設定を読み込み
       try {
@@ -261,6 +268,23 @@ export default function TeamSettingsPage() {
 
       {isTeamLoaded && (
         <>
+          <SettingsAccordion
+            title="Codex Authentication"
+            description="Register a shared Codex auth.json for the team"
+            defaultOpen={false}
+          >
+            <CodexDeviceAuthSettings
+              scope="team"
+              teamId={teamName}
+              hasCredentials={!!credentialsMetadata?.has_data}
+              onAuthComplete={async () => {
+                const client = createAgentAPIProxyClientFromStorage()
+                setCredentialsMetadata(await client.getCredentials(teamName))
+                showToast('チームの Codex 認証情報を保存しました', 'success')
+              }}
+            />
+          </SettingsAccordion>
+
           <SettingsAccordion
             title="Marketplace"
             description="Configure plugin marketplaces"
