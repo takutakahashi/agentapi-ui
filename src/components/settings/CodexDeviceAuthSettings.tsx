@@ -13,11 +13,13 @@ interface DeviceAuthState {
 interface CodexDeviceAuthSettingsProps {
   hasCredentials: boolean
   onAuthComplete?: () => void
+  scope?: 'user' | 'team'
+  teamId?: string
 }
 
 const POLL_INTERVAL_MS = 3000
 
-export function CodexDeviceAuthSettings({ hasCredentials, onAuthComplete }: CodexDeviceAuthSettingsProps) {
+export function CodexDeviceAuthSettings({ hasCredentials, onAuthComplete, scope = 'user', teamId }: CodexDeviceAuthSettingsProps) {
   const [phase, setPhase] = useState<AuthPhase>('idle')
   const [starting, setStarting] = useState(false)
   const [deviceAuth, setDeviceAuth] = useState<DeviceAuthState | null>(null)
@@ -78,7 +80,9 @@ export function CodexDeviceAuthSettings({ hasCredentials, onAuthComplete }: Code
 
     const client = createAgentAPIProxyClientFromStorage()
     try {
-      const res = await client.startCodexDeviceAuth()
+      const res = await client.startCodexDeviceAuth(
+        scope === 'team' ? { scope, team_id: teamId } : { scope }
+      )
       setDeviceAuth({ userCode: res.user_code, verificationUri: res.verification_uri })
       setPhase('polling')
       pollTimerRef.current = setTimeout(poll, POLL_INTERVAL_MS)
@@ -133,7 +137,7 @@ export function CodexDeviceAuthSettings({ hasCredentials, onAuthComplete }: Code
             デバイス認証
           </label>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            codex コマンドを使って認証を行います。auth.json を手動でアップロードする代わりに利用できます。
+            codex コマンドを使って認証を行います。{scope === 'team' ? `${teamId} の共有 auth.json` : '個人の auth.json'} として保存されます。
           </p>
         </div>
         <div>

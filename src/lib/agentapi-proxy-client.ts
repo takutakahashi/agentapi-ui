@@ -102,6 +102,11 @@ export interface CodexDeviceAuthStatus {
   status: 'pending' | 'authorized' | 'denied';
 }
 
+export interface CodexDeviceAuthTarget {
+  scope?: 'user' | 'team';
+  team_id?: string;
+}
+
 // GitHubUser type (moved from profile.ts)
 export interface GitHubUser {
   id: number;
@@ -1698,12 +1703,13 @@ export class AgentAPIProxyClient {
    * Start Codex OAuth device authorization flow
    * POST /codex/device-auth
    */
-  async startCodexDeviceAuth(): Promise<CodexDeviceAuthStart> {
+  async startCodexDeviceAuth(target?: CodexDeviceAuthTarget): Promise<CodexDeviceAuthStart> {
     if (this.debug) {
       console.log('[AgentAPIProxy] Starting Codex device auth');
     }
     return await this.makeRequest<CodexDeviceAuthStart>('/codex/device-auth', {
       method: 'POST',
+      ...(target ? { body: JSON.stringify(target) } : {}),
     });
   }
 
