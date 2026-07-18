@@ -10,7 +10,10 @@ export interface SessionProfileParams {
   auth_proxy?: boolean;
   session_ttl?: string;
   unsynced_file_paths?: string[];
+  credential_source?: CredentialSource;
 }
+
+export type CredentialSource = 'session_user' | 'team' | 'none';
 
 // Session profile config
 export interface SessionProfileConfig {
