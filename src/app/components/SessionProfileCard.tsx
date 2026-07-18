@@ -99,6 +99,13 @@ export default function SessionProfileCard({
         {profile.config?.unsynced_file_paths && profile.config.unsynced_file_paths.length > 0 && (
           <span>同期除外: <strong className="text-gray-700 dark:text-gray-300">{profile.config.unsynced_file_paths.length}</strong></span>
         )}
+        {profile.config?.params?.credential_source && (
+          <span>
+            認証情報: <strong className="text-gray-700 dark:text-gray-300">
+              {{ session_user: '作成者', team: 'チーム', none: '配布なし' }[profile.config.params.credential_source]}
+            </strong>
+          </span>
+        )}
       </div>
 
       {/* Timestamps */}

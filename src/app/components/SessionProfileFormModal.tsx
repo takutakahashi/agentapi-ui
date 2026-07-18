@@ -5,6 +5,7 @@ import {
   SessionProfile,
   CreateSessionProfileRequest,
   UpdateSessionProfileRequest,
+  CredentialSource,
 } from '../../types/session_profile'
 import { SandboxPolicy } from '../../types/sandbox_policy'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
@@ -54,6 +55,7 @@ export default function SessionProfileFormModal({
   // Session TTL
   const [sessionTTL, setSessionTTL] = useState('')
   const [unsyncedFilePaths, setUnsyncedFilePaths] = useState('')
+  const [credentialSource, setCredentialSource] = useState<CredentialSource | ''>('')
 
   const addDockerRegistry = () => setDockerRegistries(prev => [...prev, { server: '', username: '', password: '', secretName: '', insecure: false }])
   const removeDockerRegistry = (index: number) => setDockerRegistries(prev => prev.filter((_, i) => i !== index))
@@ -140,6 +142,10 @@ export default function SessionProfileFormModal({
       const paths = cfg?.unsynced_file_paths ?? cfg?.params?.unsynced_file_paths ?? []
       setUnsyncedFilePaths(paths.join('\n'))
       if (paths.length > 0) setShowAdvanced(true)
+
+      const source = cfg?.params?.credential_source ?? ''
+      setCredentialSource(source)
+      if (source) setShowAdvanced(true)
     } else {
       // Reset form
       setName('')
@@ -153,6 +159,7 @@ export default function SessionProfileFormModal({
       setSandboxPolicyId('')
       setSessionTTL('')
       setUnsyncedFilePaths('')
+      setCredentialSource('')
       setShowAdvanced(false)
     }
     setError(null)
@@ -255,6 +262,7 @@ export default function SessionProfileFormModal({
         ...(agentType.trim() ? { agent_type: agentType.trim() } : {}),
         sandbox: sandboxConfig,
         ...(dockerConfig ? { docker: dockerConfig } : {}),
+        ...(credentialSource ? { credential_source: credentialSource } : {}),
       }
 
       const config = {
@@ -690,6 +698,26 @@ export default function SessionProfileFormModal({
                       placeholder="例: 24h、72h、168h"
                       className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     />
+                  </div>
+
+                  {/* 認証情報の配布元 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      認証情報の配布元
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      Codex の <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">auth.json</code> など、セッションへ配布する管理認証ファイルの所有者を選択します。
+                    </p>
+                    <select
+                      value={credentialSource}
+                      onChange={(e) => setCredentialSource(e.target.value as CredentialSource | '')}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    >
+                      <option value="">デフォルト（個人セッション: 作成者 / チームセッション: 配布なし）</option>
+                      <option value="session_user">セッションを作成したユーザー</option>
+                      <option value="team">セッションのチーム</option>
+                      <option value="none">配布しない</option>
+                    </select>
                   </div>
 
                   {/* 同期しないファイルパス */}
