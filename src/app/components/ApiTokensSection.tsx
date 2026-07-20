@@ -190,11 +190,9 @@ export default function ApiTokensSection({
                       <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
                         {token.name}
                       </span>
-                      {token.token_prefix && (
-                        <code className="text-xs font-mono text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
-                          {token.token_prefix}
-                        </code>
-                      )}
+                      <code className="text-xs font-mono text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                        {token.token_prefix}
+                      </code>
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
                       {scope === 'team' && token.created_by && (

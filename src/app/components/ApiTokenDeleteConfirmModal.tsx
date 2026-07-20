@@ -57,11 +57,9 @@ export default function ApiTokenDeleteConfirmModal({
             <div className="text-sm font-medium text-gray-900 dark:text-white">
               {token.name}
             </div>
-            {token.token_prefix && (
-              <div className="mt-1 text-xs font-mono text-gray-500 dark:text-gray-400">
-                {token.token_prefix}
-              </div>
-            )}
+            <div className="mt-1 text-xs font-mono text-gray-500 dark:text-gray-400">
+              {token.token_prefix}
+            </div>
           </div>
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-md p-3">
             <p className="text-xs text-yellow-800 dark:text-yellow-300">
