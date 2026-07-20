@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, GitSyncConfig, prepareSettingsForSave } from '@/types/settings'
 import { BedrockSettings, SettingsAccordion, MCPServerSettings, MarketplaceSettings, PluginSettings, EnvVarsSettings, GitHubSyncSettings, CodexDeviceAuthSettings } from '@/components/settings'
 import { createAgentAPIProxyClientFromStorage, CredentialsMetadata } from '@/lib/agentapi-proxy-client'
+import ApiTokensSection from '@/app/components/ApiTokensSection'
 import { useToast } from '@/contexts/ToastContext'
 
 export default function TeamSettingsPage() {
@@ -268,6 +269,8 @@ export default function TeamSettingsPage() {
 
       {isTeamLoaded && (
         <>
+          <ApiTokensSection scope="team" teamId={teamName} defaultOpen={false} />
+
           <SettingsAccordion
             title="Codex Authentication"
             description="Register a shared Codex auth.json for the team"

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { SettingsData, BedrockConfig, APIMCPServerConfig, MarketplaceConfig, AuthMode, ExternalSessionManagerConfig, GitSyncConfig, prepareSettingsForSave, getSendGithubTokenOnSessionStart, setSendGithubTokenOnSessionStart, EnterKeyBehavior, getEnterKeyBehavior, setEnterKeyBehavior, FontSettings as FontSettingsType, getFontSettings, setFontSettings } from '@/types/settings'
 import { BedrockSettings, SettingsAccordion, GithubTokenSettings, MCPServerSettings, MarketplaceSettings, PluginSettings, KeyBindingSettings, ClaudeOAuthSettings, FontSettings, EnvVarsSettings, SlackSettings, FileSettings, GitHubSyncSettings, CodexDeviceAuthSettings } from '@/components/settings'
+import ApiTokensSection from '@/app/components/ApiTokensSection'
 import { createAgentAPIProxyClientFromStorage, AgentAPIProxyError, CredentialsMetadata } from '@/lib/agentapi-proxy-client'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -533,6 +534,8 @@ export default function PersonalSettingsPage() {
 
       {userName && (
         <>
+          <ApiTokensSection scope="personal" defaultOpen={false} />
+
           <SettingsAccordion
             title="Marketplace"
             description="Configure plugin marketplaces"
