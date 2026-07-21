@@ -10,6 +10,8 @@ import {
 import { SandboxPolicy } from '../../types/sandbox_policy'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
+import type { APIMCPServerConfig } from '../../types/settings'
+import { MCPServerSettings } from '../../components/settings/MCPServerSettings'
 
 interface SessionProfileFormModalProps {
   isOpen: boolean
@@ -42,6 +44,7 @@ export default function SessionProfileFormModal({
   const [envPairs, setEnvPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
   const [tagPairs, setTagPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
   const [agentType, setAgentType] = useState('')
+  const [mcpServers, setMcpServers] = useState<Record<string, APIMCPServerConfig>>({})
 
   // Docker / DinD fields
   const [dockerEnabled, setDockerEnabled] = useState(false)
@@ -92,6 +95,10 @@ export default function SessionProfileFormModal({
 
       const cfg = editingProfile.config
       setAgentType(normalizeAgentType(cfg?.params?.agent_type))
+      setMcpServers(cfg?.mcp_servers ?? {})
+      if (cfg?.mcp_servers && Object.keys(cfg.mcp_servers).length > 0) {
+        setShowAdvanced(true)
+      }
 
       if (cfg?.environment && Object.keys(cfg.environment).length > 0) {
         setEnvPairs(Object.entries(cfg.environment).map(([key, value]) => ({ key, value })))
@@ -153,6 +160,7 @@ export default function SessionProfileFormModal({
       setEnvPairs([{ key: '', value: '' }])
       setTagPairs([{ key: '', value: '' }])
       setAgentType('')
+      setMcpServers({})
       setDockerEnabled(false)
       setDockerRegistries([])
       setSandboxPolicyId('')
@@ -267,6 +275,7 @@ export default function SessionProfileFormModal({
       const config = {
         ...(Object.keys(environment).length > 0 ? { environment } : {}),
         ...(Object.keys(tags).length > 0 ? { tags } : {}),
+        ...(Object.keys(mcpServers).length > 0 ? { mcp_servers: mcpServers } : {}),
         params,
         ...(sandboxPolicyId ? { sandbox_policy_id: sandboxPolicyId } : {}),
         ...(sessionTTL.trim() ? { session_ttl: sessionTTL.trim() } : {}),
@@ -568,6 +577,17 @@ export default function SessionProfileFormModal({
                         </label>
                       ))}
                     </div>
+                  </div>
+
+                  {/* MCP Servers */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      MCP サーバー
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                      個人・チーム設定の MCP サーバーを継承します。同じ名前のサーバーは、このプロファイルの設定で上書きされます。
+                    </p>
+                    <MCPServerSettings servers={mcpServers} onChange={setMcpServers} />
                   </div>
 
                   {/* Network Sandbox */}
