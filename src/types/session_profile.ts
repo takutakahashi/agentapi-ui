@@ -1,4 +1,5 @@
 import { ResourceScope, SandboxConfig, DockerConfig } from './agentapi';
+import type { APIMCPServerConfig } from './settings';
 
 // Session profile params
 export interface SessionProfileParams {
@@ -27,6 +28,7 @@ export interface SessionProfileConfig {
   sandbox_policy_id?: string;
   session_ttl?: string;
   unsynced_file_paths?: string[];
+  mcp_servers?: Record<string, APIMCPServerConfig>;
 }
 
 // SessionProfile entity
