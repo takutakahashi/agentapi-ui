@@ -151,11 +151,6 @@ export default function NewSessionPage() {
       const client = createAgentAPIProxyClientFromStorage()
       const managers = await client.getAvailableManagers()
       setAvailableManagers(managers)
-      // auto-select the default manager if one exists
-      const defaultManager = managers.find(m => m.default)
-      if (defaultManager) {
-        setSelectedManagerId(defaultManager.id)
-      }
     } catch (error) {
       console.error('Failed to load available managers:', error)
     }
@@ -641,7 +636,10 @@ export default function NewSessionPage() {
               </label>
               <SessionProfileSelect
                 value={sessionProfileId}
-                onChange={setSessionProfileId}
+                onChange={(profileId) => {
+                  setSessionProfileId(profileId)
+                  setSelectedManagerId('')
+                }}
                 disabled={isCreating}
               />
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
@@ -690,7 +688,7 @@ export default function NewSessionPage() {
                     <div>
                       <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">セッションマネージャー</p>
                       <div className="space-y-1.5">
-                        {/* ローカル（マネージャーなし）オプション */}
+                        {/* Profile / automatic placement option */}
                         <label
                           className={`flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
                             selectedManagerId === ''
@@ -708,8 +706,14 @@ export default function NewSessionPage() {
                             className="mt-0.5 w-3.5 h-3.5 text-blue-600 border-gray-300 dark:border-gray-600 focus:ring-blue-500 flex-shrink-0"
                           />
                           <span className="flex-1 min-w-0">
-                            <span className="block text-xs font-medium text-gray-800 dark:text-gray-200">ローカル</span>
-                            <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">このサーバー上で作成</span>
+                            <span className="block text-xs font-medium text-gray-800 dark:text-gray-200">
+                              {sessionProfileId ? 'プロファイルの設定を使用' : '自動選択'}
+                            </span>
+                            <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                              {sessionProfileId
+                                ? 'プロファイルのManager、allocatorタグ、デフォルトの順で選択'
+                                : 'allocatorタグ、デフォルト、ローカルの順で選択'}
+                            </span>
                           </span>
                         </label>
                         {/* 各マネージャーオプション */}

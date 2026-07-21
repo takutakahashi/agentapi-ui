@@ -8,6 +8,7 @@ import {
   CredentialSource,
 } from '../../types/session_profile'
 import { SandboxPolicy } from '../../types/sandbox_policy'
+import { AvailableManager } from '../../types/settings'
 import { createAgentAPIProxyClientFromStorage } from '../../lib/agentapi-proxy-client'
 import { useTeamScope } from '../../contexts/TeamScopeContext'
 
@@ -42,6 +43,8 @@ export default function SessionProfileFormModal({
   const [envPairs, setEnvPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
   const [tagPairs, setTagPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }])
   const [agentType, setAgentType] = useState('')
+  const [managerId, setManagerId] = useState('')
+  const [availableManagers, setAvailableManagers] = useState<AvailableManager[]>([])
 
   // Docker / DinD fields
   const [dockerEnabled, setDockerEnabled] = useState(false)
@@ -74,10 +77,20 @@ export default function SessionProfileFormModal({
     const fetchSandboxPolicies = async () => {
       try {
         const client = createAgentAPIProxyClientFromStorage()
-        const response = await client.getSandboxPolicies({ ...getScopeParams() })
-        setSandboxPolicies(response.sandbox_policies || [])
+        const scopeParams = getScopeParams()
+        const [policyResponse, managers] = await Promise.all([
+          client.getSandboxPolicies({ ...scopeParams }),
+          client.getAvailableManagers(),
+        ])
+        setSandboxPolicies(policyResponse.sandbox_policies || [])
+        setAvailableManagers(
+          scopeParams.scope === 'team'
+            ? managers.filter(manager => manager.source === 'team' && manager.source_name === scopeParams.team_id)
+            : managers
+        )
       } catch {
         setSandboxPolicies([])
+        setAvailableManagers([])
       }
     }
     fetchSandboxPolicies()
@@ -92,6 +105,7 @@ export default function SessionProfileFormModal({
 
       const cfg = editingProfile.config
       setAgentType(normalizeAgentType(cfg?.params?.agent_type))
+      setManagerId(cfg?.params?.manager_id ?? '')
 
       if (cfg?.environment && Object.keys(cfg.environment).length > 0) {
         setEnvPairs(Object.entries(cfg.environment).map(([key, value]) => ({ key, value })))
@@ -108,6 +122,9 @@ export default function SessionProfileFormModal({
       }
 
       if (cfg?.params?.agent_type) {
+        setShowAdvanced(true)
+      }
+      if (cfg?.params?.manager_id) {
         setShowAdvanced(true)
       }
 
@@ -153,6 +170,7 @@ export default function SessionProfileFormModal({
       setEnvPairs([{ key: '', value: '' }])
       setTagPairs([{ key: '', value: '' }])
       setAgentType('')
+      setManagerId('')
       setDockerEnabled(false)
       setDockerRegistries([])
       setSandboxPolicyId('')
@@ -259,6 +277,7 @@ export default function SessionProfileFormModal({
       // Build params if any param is set
       const params = {
         ...(agentType.trim() ? { agent_type: agentType.trim() } : {}),
+        ...(managerId ? { manager_id: managerId } : {}),
         sandbox: sandboxConfig,
         ...(dockerConfig ? { docker: dockerConfig } : {}),
         ...(credentialSource ? { credential_source: credentialSource } : {}),
@@ -438,6 +457,31 @@ export default function SessionProfileFormModal({
 
               {showAdvanced && (
                 <div className="mt-4 space-y-5 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
+                  {/* Session Manager */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      セッションマネージャー
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      このプロファイルを使うセッションの配置先を指定します。セッション作成時の明示指定が優先されます。
+                    </p>
+                    <select
+                      value={managerId}
+                      onChange={(e) => setManagerId(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    >
+                      <option value="">自動選択（allocatorタグ / デフォルト / ローカル）</option>
+                      {managerId && !availableManagers.some(manager => manager.id === managerId) && (
+                        <option value={managerId}>{managerId}（現在利用不可）</option>
+                      )}
+                      {availableManagers.map((manager) => (
+                        <option key={manager.id} value={manager.id}>
+                          {manager.name}{manager.default ? '（デフォルト）' : ''} [{manager.source === 'team' ? 'チーム' : '個人'}]
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Environment Variables */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
