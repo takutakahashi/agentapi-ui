@@ -5,6 +5,7 @@ export interface SessionProfileParams {
   initial_message?: string;
   github_token?: string;
   agent_type?: string;
+  manager_id?: string;
   sandbox?: SandboxConfig;
   docker?: DockerConfig;
   auth_proxy?: boolean;

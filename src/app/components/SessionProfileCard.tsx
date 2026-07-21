@@ -90,6 +90,11 @@ export default function SessionProfileCard({
             {profile.config.params.agent_type}
           </span>
         )}
+        {profile.config?.params?.manager_id && (
+          <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+            Manager: {profile.config.params.manager_id}
+          </span>
+        )}
         {profile.config?.environment && Object.keys(profile.config.environment).length > 0 && (
           <span>環境変数: <strong className="text-gray-700 dark:text-gray-300">{Object.keys(profile.config.environment).length}</strong></span>
         )}

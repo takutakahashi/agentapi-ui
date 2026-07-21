@@ -119,6 +119,11 @@ export default function SessionProfileSelect({
               {selected.config.params.agent_type}
             </span>
           )}
+          {selected.config?.params?.manager_id && (
+            <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+              Manager: {selected.config.params.manager_id}
+            </span>
+          )}
           {selected.config?.environment && Object.keys(selected.config.environment).length > 0 && (
             <span className="text-[10px] text-gray-500 dark:text-gray-400">
               ENV×{Object.keys(selected.config.environment).length}
