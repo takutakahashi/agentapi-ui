@@ -464,12 +464,6 @@ function acpPlanToMarkdown(entries: NonNullable<ACPSessionUpdate['entries']>): s
   return md;
 }
 
-const emptyACPMessageHistory = (): ACPMessageHistoryResult => ({
-  messages: [],
-  userPromptCount: 0,
-  userPrompts: [],
-});
-
 function parseACPJSONRPCMessages(rawMsgs: ACPJSONRPCMessage[]): SessionMessage[] {
   const result: SessionMessage[] = [];
   let nextLocalId = Date.now();
@@ -2465,28 +2459,23 @@ export class AgentAPIProxyClient {
     _acpSessionId: string,
     userPromptIndex?: number
   ): Promise<ACPMessageHistoryResult> {
-    try {
-      const query = userPromptIndex !== undefined ? `?userPromptIndex=${userPromptIndex}` : '';
-      const resp = await this.makeRequest<{
-        messages: ACPJSONRPCMessage[];
-        userPromptCount?: number;
-        userPromptIndex?: number;
-        userPrompts?: ACPUserPromptInfo[];
-      }>(`/${sessionId}/messages${query}`);
+    const query = userPromptIndex !== undefined ? `?userPromptIndex=${userPromptIndex}` : '';
+    const resp = await this.makeRequest<{
+      messages: ACPJSONRPCMessage[];
+      userPromptCount?: number;
+      userPromptIndex?: number;
+      userPrompts?: ACPUserPromptInfo[];
+    }>(`/${sessionId}/messages${query}`);
 
-      const messages = parseACPJSONRPCMessages(resp?.messages ?? []);
-      console.log(`[ACP] getACPMessageHistory: ${messages.length} messages restored (userPromptIndex=${userPromptIndex ?? 'latest'})`);
+    const messages = parseACPJSONRPCMessages(resp?.messages ?? []);
+    console.log(`[ACP] getACPMessageHistory: ${messages.length} messages restored (userPromptIndex=${userPromptIndex ?? 'latest'})`);
 
-      return {
-        messages,
-        userPromptCount: resp?.userPromptCount ?? 0,
-        userPromptIndex: resp?.userPromptIndex,
-        userPrompts: resp?.userPrompts ?? [],
-      };
-    } catch (err) {
-      console.warn(`[ACP] getACPMessageHistory failed:`, err);
-      return emptyACPMessageHistory();
-    }
+    return {
+      messages,
+      userPromptCount: resp?.userPromptCount ?? 0,
+      userPromptIndex: resp?.userPromptIndex,
+      userPrompts: resp?.userPrompts ?? [],
+    };
   }
 
   /**
