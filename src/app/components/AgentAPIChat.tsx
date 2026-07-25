@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo, type TouchEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, type ClipboardEvent, type TouchEvent } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createAgentAPIProxyClientFromStorage, ACPSessionInfo, ACPConfigOption, ACPUserPromptInfo } from '../../lib/agentapi-proxy-client';
@@ -1001,7 +1001,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     applyACPConfigOptions,
   ]);
 
-  const handleImageSelection = useCallback(async (files: FileList | null) => {
+  const handleImageSelection = useCallback(async (files: FileList | File[] | null) => {
     if (!files) return;
     const selected = Array.from(files).filter(file => file.type.startsWith('image/'));
     const encoded = await Promise.all(selected.map(file => new Promise<{
@@ -1024,6 +1024,17 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     setAttachedImages(prev => [...prev, ...encoded].slice(0, 4));
     if (imageInputRef.current) imageInputRef.current.value = '';
   }, []);
+
+  const handleImagePaste = useCallback((event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const images = Array.from(event.clipboardData.items)
+      .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+      .map(item => item.getAsFile())
+      .filter((file): file is File => file !== null);
+    if (images.length === 0) return;
+
+    event.preventDefault();
+    void handleImageSelection(images);
+  }, [handleImageSelection]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -2492,6 +2503,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
+              onPaste={handleImagePaste}
               onFocus={() => {
                 // テンプレートの自動表示を無効化
               }}
@@ -2566,11 +2578,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     onClick={() => imageInputRef.current?.click()}
                     disabled={!isConnected || isLoading || agentStatus?.status === 'running' || attachedImages.length >= 4}
                     className="rounded-md bg-sky-600 px-2 py-2 text-xs text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-600"
-                    title="画像を添付（最大4枚）"
+                    title="画像をアップロード（最大4枚、ペースト対応）"
                     aria-label="画像を添付"
                   >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4-4a2 2 0 012.828 0L16 17m-2-2l1-1a2 2 0 012.828 0L20 16m-2-9h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15V3m0 0L8 7m4-4 4 4" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13v5a2 2 0 002 2h14a2 2 0 002-2v-5" />
                     </svg>
                   </button>
                 )}
