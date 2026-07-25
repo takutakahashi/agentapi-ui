@@ -292,6 +292,66 @@ function renderContent(content: string, enableMarkdown: boolean = false): JSX.El
   return <MarkdownContent content={content} />;
 }
 
+interface CopyableMessageImageProps {
+  mimeType: string;
+  data: string;
+  alt: string;
+}
+
+function CopyableMessageImage({ mimeType, data, alt }: CopyableMessageImageProps) {
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
+  const src = `data:${mimeType};base64,${data}`;
+
+  const handleCopy = async () => {
+    try {
+      if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+        throw new Error('Image clipboard is not supported');
+      }
+      const response = await fetch(src);
+      const blob = await response.blob();
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      setCopyStatus('copied');
+    } catch (error) {
+      console.error('Failed to copy image:', error);
+      setCopyStatus('error');
+    }
+    window.setTimeout(() => setCopyStatus('idle'), 2000);
+  };
+
+  return (
+    <div className="group relative w-fit max-w-full">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        className="max-h-96 w-auto max-w-full rounded-lg border border-gray-200 object-contain dark:border-gray-700"
+      />
+      <button
+        type="button"
+        onClick={() => void handleCopy()}
+        aria-label={`${alt}をコピー`}
+        title={copyStatus === 'copied' ? 'コピーしました' : copyStatus === 'error' ? 'コピーに失敗しました' : '画像をコピー'}
+        className={`absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-md text-white shadow-md transition-colors ${
+          copyStatus === 'copied'
+            ? 'bg-green-600'
+            : copyStatus === 'error'
+              ? 'bg-red-600'
+              : 'bg-gray-900/70 hover:bg-gray-900'
+        }`}
+      >
+        {copyStatus === 'copied' ? (
+          <span aria-hidden="true">✓</span>
+        ) : (
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V5a2 2 0 012-2h8a2 2 0 012 2v10a2 2 0 01-2 2h-2" />
+            <rect x="4" y="7" width="12" height="14" rx="2" strokeWidth={2} />
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+}
+
 interface MessageItemProps {
   message: SessionMessage;
   toolResult?: SessionMessage; // 対応するツール結果（オプショナル）
@@ -456,12 +516,11 @@ function MessageItem({
           {toolResult?.images && toolResult.images.length > 0 && (
             <div className="ml-3 mt-2 mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {toolResult.images.map((image, index) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <CopyableMessageImage
                   key={`${image.mimeType}:${index}`}
-                  src={`data:${image.mimeType};base64,${image.data}`}
+                  mimeType={image.mimeType}
+                  data={image.data}
                   alt={`Agent output image ${index + 1}`}
-                  className="max-h-96 w-auto max-w-full rounded-lg border border-gray-200 object-contain dark:border-gray-700"
                 />
               ))}
             </div>
@@ -656,12 +715,11 @@ function MessageItem({
           {message.images && message.images.length > 0 && (
             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {message.images.map((image, index) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <CopyableMessageImage
                   key={`${image.mimeType}:${index}`}
-                  src={`data:${image.mimeType};base64,${image.data}`}
+                  mimeType={image.mimeType}
+                  data={image.data}
                   alt={`Message image ${index + 1}`}
-                  className="max-h-96 w-auto max-w-full rounded-lg border border-gray-200 object-contain dark:border-gray-700"
                 />
               ))}
             </div>
