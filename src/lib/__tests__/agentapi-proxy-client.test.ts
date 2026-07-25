@@ -82,4 +82,60 @@ describe('AgentAPIProxyClient ACP message history', () => {
       { mimeType: 'image/png', data: 'iVBORw0KGgo=' },
     ]);
   });
+
+  it('restores images nested in completed ACP tool results', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        messages: [
+          {
+            jsonrpc: '2.0',
+            method: 'session/update',
+            params: {
+              sessionId: 'acp-session-1',
+              update: {
+                sessionUpdate: 'tool_call',
+                toolCallId: 'image-tool-1',
+                kind: 'other',
+                title: 'Generate image',
+              },
+            },
+          },
+          {
+            jsonrpc: '2.0',
+            method: 'session/update',
+            params: {
+              sessionId: 'acp-session-1',
+              update: {
+                sessionUpdate: 'tool_call_update',
+                toolCallId: 'image-tool-1',
+                status: 'completed',
+                content: [{
+                  type: 'content',
+                  content: {
+                    type: 'image',
+                    mimeType: 'image/png',
+                    data: 'generated-image-data',
+                    uri: '/tmp/generated.png',
+                  },
+                }],
+              },
+            },
+          },
+        ],
+        userPromptCount: 0,
+        userPrompts: [],
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const client = new AgentAPIProxyClient({ baseURL: 'http://proxy.example.test' });
+
+    const history = await client.getACPMessageHistory('session-1', 'acp-session-1');
+    const toolResult = history.messages.find(message => message.role === 'tool_result');
+
+    expect(toolResult?.images).toEqual([
+      { mimeType: 'image/png', data: 'generated-image-data' },
+    ]);
+  });
 });

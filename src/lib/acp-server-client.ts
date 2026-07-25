@@ -208,6 +208,17 @@ function extractACPToolContent(content: unknown): string {
   return texts.join('\n');
 }
 
+function extractACPToolImages(content: unknown): Array<{ mimeType: string; data: string }> {
+  if (!Array.isArray(content)) return [];
+  return content.flatMap(item => {
+    if (!item || typeof item !== 'object') return [];
+    const block = item as Record<string, unknown>;
+    if (block.type !== 'content' || !block.content || typeof block.content !== 'object') return [];
+    const image = acpExtractImage(block.content);
+    return image ? [image] : [];
+  });
+}
+
 function extractRawOutputText(rawOutput: unknown): string {
   if (rawOutput == null) return '';
   if (typeof rawOutput === 'string') return rawOutput;
@@ -505,11 +516,13 @@ export class ACPServerClient {
               callbacks.onToolUpdate?.(update.toolCallId!, isError ? 'error' : 'success');
 
               const acpText = extractACPToolContent(update.content);
+              const images = extractACPToolImages(update.content);
               const resultContent = acpText || extractRawOutputText(update.rawOutput);
               callbacks.onMessage({
                 id: nextId(),
                 role: 'tool_result',
                 content: resultContent,
+                images: images.length > 0 ? images : undefined,
                 time: now,
                 type: 'normal',
                 parentToolUseId: update.toolCallId,

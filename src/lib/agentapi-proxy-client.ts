@@ -420,6 +420,17 @@ function extractACPToolContent(content: unknown): string {
   return texts.join('\n');
 }
 
+function extractACPToolImages(content: unknown): Array<{ mimeType: string; data: string }> {
+  if (!Array.isArray(content)) return [];
+  return content.flatMap(item => {
+    if (!item || typeof item !== 'object') return [];
+    const block = item as Record<string, unknown>;
+    if (block.type !== 'content' || !block.content || typeof block.content !== 'object') return [];
+    const image = acpExtractImage(block.content);
+    return image ? [image] : [];
+  });
+}
+
 /**
  * Extract human-readable text from rawOutput.
  * rawOutput can be:
@@ -567,8 +578,9 @@ function parseACPJSONRPCMessages(rawMsgs: ACPJSONRPCMessage[]): SessionMessage[]
           }
 
           const acpText = extractACPToolContent(update.content);
+          const images = extractACPToolImages(update.content);
           const resultContent = acpText || extractRawOutputText(update.rawOutput);
-          result.push({ id: nextLocalId++, role: 'tool_result', content: resultContent, time: now, type: 'normal', parentToolUseId: update.toolCallId, status: isError ? 'error' : 'success' });
+          result.push({ id: nextLocalId++, role: 'tool_result', content: resultContent, images: images.length > 0 ? images : undefined, time: now, type: 'normal', parentToolUseId: update.toolCallId, status: isError ? 'error' : 'success' });
           break;
         }
         case 'plan': {
@@ -2679,11 +2691,13 @@ export class AgentAPIProxyClient {
 
               // Step 3: result (status = completed/failed) — prefer ACP content[] over rawOutput
               const acpText = extractACPToolContent(update.content);
+              const images = extractACPToolImages(update.content);
               const resultContent = acpText || extractRawOutputText(update.rawOutput);
               callbacks.onMessage({
                 id: nextLocalId++,
                 role: 'tool_result',
                 content: resultContent,
+                images: images.length > 0 ? images : undefined,
                 time: now,
                 type: 'normal',
                 parentToolUseId: update.toolCallId,

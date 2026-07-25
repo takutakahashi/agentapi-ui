@@ -453,6 +453,19 @@ function MessageItem({
               )}
             </div>
           )}
+          {toolResult?.images && toolResult.images.length > 0 && (
+            <div className="ml-3 mt-2 mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {toolResult.images.map((image, index) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={`${image.mimeType}:${index}`}
+                  src={`data:${image.mimeType};base64,${image.data}`}
+                  alt={`Agent output image ${index + 1}`}
+                  className="max-h-96 w-auto max-w-full rounded-lg border border-gray-200 object-contain dark:border-gray-700"
+                />
+              ))}
+            </div>
+          )}
         </div>
       );
     }
@@ -679,7 +692,8 @@ function areEqual(prevProps: MessageItemProps, nextProps: MessageItemProps): boo
   const toolResultEqual =
     prevProps.toolResult?.id === nextProps.toolResult?.id &&
     prevProps.toolResult?.content === nextProps.toolResult?.content &&
-    prevProps.toolResult?.status === nextProps.toolResult?.status;
+    prevProps.toolResult?.status === nextProps.toolResult?.status &&
+    JSON.stringify(prevProps.toolResult?.images) === JSON.stringify(nextProps.toolResult?.images);
 
   // Compare fontSettings
   const fontSettingsEqual =
