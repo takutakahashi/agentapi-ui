@@ -152,6 +152,21 @@ function getACPModelConfigOption(info: ACPSessionInfo | null): ACPConfigOption |
   }) ?? null;
 }
 
+function getACPEffortConfigOption(info: ACPSessionInfo | null): ACPConfigOption | null {
+  if (!info?.configOptions?.length) return null;
+
+  const byCategory = info.configOptions.find(option => option.category?.toLowerCase() === 'effort');
+  if (byCategory) return byCategory;
+
+  return info.configOptions.find(option => {
+    const haystack = [option.id, option.key, option.name, option.description]
+      .filter((value): value is string => typeof value === 'string')
+      .join(' ')
+      .toLowerCase();
+    return /\b(effort|reasoning effort)\b/.test(haystack);
+  }) ?? null;
+}
+
 function flattenACPModelOptions(options: unknown): ACPModelOption[] {
   if (!Array.isArray(options)) return [];
 
@@ -403,6 +418,11 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                   onChunk: (msgId: number, text: string) => {
                     setMessages(prev => prev.map(m =>
                       m.id === msgId ? { ...m, content: m.content + text } : m
+                    ));
+                  },
+                  onImageChunk: (msgId: number, image: { mimeType: string; data: string }) => {
+                    setMessages(prev => prev.map(m =>
+                      m.id === msgId ? { ...m, images: [...(m.images ?? []), image] } : m
                     ));
                   },
                   onThoughtChunk: (msgId: number, thought: string) => {
@@ -676,6 +696,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [attachedImages, setAttachedImages] = useState<Array<{
+    name: string;
+    mimeType: string;
+    data: string;
+  }>>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [fontSettings, setFontSettings] = useState<FontSettings>(() => getFontSettings());
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
@@ -727,6 +753,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [selectedACPModel, setSelectedACPModel] = useState('');
   const [isSettingACPModel, setIsSettingACPModel] = useState(false);
   const [acpModelMessage, setACPModelMessage] = useState<string | null>(null);
+  const acpEffortConfigOption = useMemo(() => getACPEffortConfigOption(acpInfo), [acpInfo]);
+  const acpEffortConfigId = useMemo(() => getACPConfigOptionId(acpEffortConfigOption ?? undefined), [acpEffortConfigOption]);
+  const acpEffortOptions = useMemo(() => flattenACPModelOptions(acpEffortConfigOption?.options), [acpEffortConfigOption]);
+  const acpCurrentEffortValue = useMemo(() => getACPConfigOptionCurrentValue(acpEffortConfigOption ?? undefined), [acpEffortConfigOption]);
+  const [selectedACPEffort, setSelectedACPEffort] = useState('');
+  const [isSettingACPEffort, setIsSettingACPEffort] = useState(false);
+  const [acpEffortMessage, setACPEffortMessage] = useState<string | null>(null);
   const isACPSession = !!acpInfo || isACPAgentType(agentType) || acpServerEnabled;
   const isMessageSSEConnected = !isACPSession || messageSSEConnectionStatus === 'connected';
   const isConnectionStatusConnected = isConnected && isMessageSSEConnected;
@@ -774,6 +807,11 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     setSelectedACPModel(acpCurrentModelValue ?? '');
     setACPModelMessage(null);
   }, [acpCurrentModelValue, acpModelConfigId]);
+
+  useEffect(() => {
+    setSelectedACPEffort(acpCurrentEffortValue ?? '');
+    setACPEffortMessage(null);
+  }, [acpCurrentEffortValue, acpEffortConfigId]);
 
   const applyACPConfigOptions = useCallback((configOptions: ACPConfigOption[]) => {
     setACPInfo(prev => {
@@ -921,6 +959,71 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     acpCurrentModelValue,
     applyACPConfigOptions,
   ]);
+
+  const handleSetACPEffort = useCallback(async () => {
+    if (!sessionId || !acpEffortConfigId || !selectedACPEffort) return;
+    if (selectedACPEffort === acpCurrentEffortValue) return;
+
+    setIsSettingACPEffort(true);
+    setACPEffortMessage(null);
+    try {
+      let result: { configOptions?: ACPConfigOption[] } | undefined;
+      if (acpServerEnabled && acpServerClientRef.current) {
+        result = await acpServerClientRef.current.setSessionConfigOption(
+          sessionId,
+          acpEffortConfigId,
+          selectedACPEffort
+        );
+      } else {
+        if (!acpInfo || !agentAPIRef.current) return;
+        result = await agentAPIRef.current.setACPSessionConfigOption(
+          sessionId,
+          acpInfo.sessionId,
+          acpEffortConfigId,
+          selectedACPEffort
+        );
+      }
+      if (result?.configOptions) applyACPConfigOptions(result.configOptions);
+      setACPEffortMessage('Effort updated');
+    } catch (err) {
+      console.error('Failed to update ACP effort:', err);
+      setACPEffortMessage(err instanceof Error ? err.message : 'Failed to update effort');
+    } finally {
+      setIsSettingACPEffort(false);
+    }
+  }, [
+    sessionId,
+    acpInfo,
+    acpServerEnabled,
+    acpEffortConfigId,
+    selectedACPEffort,
+    acpCurrentEffortValue,
+    applyACPConfigOptions,
+  ]);
+
+  const handleImageSelection = useCallback(async (files: FileList | null) => {
+    if (!files) return;
+    const selected = Array.from(files).filter(file => file.type.startsWith('image/'));
+    const encoded = await Promise.all(selected.map(file => new Promise<{
+      name: string;
+      mimeType: string;
+      data: string;
+    }>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error ?? new Error(`Failed to read ${file.name}`));
+      reader.onload = () => {
+        const result = String(reader.result ?? '');
+        resolve({
+          name: file.name,
+          mimeType: file.type,
+          data: result.split(',', 2)[1] ?? '',
+        });
+      };
+      reader.readAsDataURL(file);
+    })));
+    setAttachedImages(prev => [...prev, ...encoded].slice(0, 4));
+    if (imageInputRef.current) imageInputRef.current.value = '';
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1364,6 +1467,11 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
               m.id === msgId ? { ...m, content: m.content + text } : m
             ));
           },
+          onImageChunk: (msgId: number, image: { mimeType: string; data: string }) => {
+            setMessages(prev => prev.map(m =>
+              m.id === msgId ? { ...m, images: [...(m.images ?? []), image] } : m
+            ));
+          },
           onThoughtChunk: (msgId: number, thought: string) => {
             setMessages(prev => prev.map(m =>
               m.id === msgId ? { ...m, thought: (m.thought ?? '') + thought } : m
@@ -1489,7 +1597,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const sendMessage = useCallback(async (messageType: 'user' | 'raw' = 'user', content?: string) => {
     const messageContent = content || inputValue.trim();
     
-    if (!messageContent && messageType === 'user') return;
+    if (!messageContent && attachedImages.length === 0 && messageType === 'user') return;
     if (isLoading || !isConnected) return;
     
     if (agentStatus?.status === 'running' && messageType === 'user') {
@@ -1515,19 +1623,35 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           // The bridge broadcasts a synthetic user_message_chunk via SSE,
           // which will arrive via onMessage and be added to the message list.
           setAgentStatus({ status: 'running' });
+          const prompt = [
+            ...(messageContent ? [{ type: 'text' as const, text: messageContent }] : []),
+            ...attachedImages.map(image => ({
+              type: 'image' as const,
+              mimeType: image.mimeType,
+              data: image.data,
+            })),
+          ];
           if (acpServerEnabled && acpServerClientRef.current) {
             // ACP server mode: global POST /acp endpoint with proxy session ID
-            await acpServerClientRef.current.sendPrompt(sessionId!, messageContent, promptId);
+            await acpServerClientRef.current.sendPrompt(sessionId!, prompt, promptId);
           } else {
             // Per-session bridge mode: POST /{proxySessionId}/rpc directly to the bridge.
             // acpInfo.sessionId is the bridge-internal ACP session ID.
-            await agentAPIRef.current.sendACPPrompt(sessionId!, acpInfo.sessionId, messageContent, promptId);
+            await agentAPIRef.current.sendACPPrompt(sessionId!, acpInfo.sessionId, prompt, promptId);
           }
         } else if (acpServerEnabled && acpServerClientRef.current) {
           // ── Global ACP server only (no per-session bridge) ────────────
           const promptId = acpNextPromptId.current++;
           setAgentStatus({ status: 'running' });
-          await acpServerClientRef.current.sendPrompt(sessionId, messageContent, promptId);
+          const prompt = [
+            ...(messageContent ? [{ type: 'text' as const, text: messageContent }] : []),
+            ...attachedImages.map(image => ({
+              type: 'image' as const,
+              mimeType: image.mimeType,
+              data: image.data,
+            })),
+          ];
+          await acpServerClientRef.current.sendPrompt(sessionId, prompt, promptId);
         } else {
           // ── Regular session ───────────────────────────────────────────
           const sessionMessage = await agentAPIRef.current.sendSessionMessage(sessionId, {
@@ -1551,6 +1675,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         await loadRecentMessages();
 
         setInputValue('');
+        setAttachedImages([]);
         // メッセージ送信時は必ずスクロール
         setShouldAutoScroll(true);
         setTimeout(() => scrollToBottom(), 100);
@@ -1572,7 +1697,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, isLoading, isConnected, sessionId, agentStatus, loadRecentMessages, acpInfo, acpServerEnabled]);
+  }, [inputValue, attachedImages, isLoading, isConnected, sessionId, agentStatus, loadRecentMessages, acpInfo, acpServerEnabled]);
 
   const handleShowPlanModal = useCallback((content: string) => {
     setPlanContent(content);
@@ -2270,6 +2395,48 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     </div>
                   </div>
                 )}
+                {acpEffortConfigId && acpEffortOptions.length > 0 && (
+                  <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
+                    <label htmlFor="acp-effort-select" className="pt-2 text-gray-500 dark:text-gray-400">
+                      Effort
+                    </label>
+                    <div className="min-w-0">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                        <select
+                          id="acp-effort-select"
+                          value={selectedACPEffort}
+                          onChange={(event) => setSelectedACPEffort(event.target.value)}
+                          disabled={isSettingACPEffort || agentStatus?.status === 'running'}
+                          className="min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:disabled:bg-gray-700"
+                        >
+                          {acpEffortOptions.map(option => (
+                            <option key={`effort:${option.value}`} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={handleSetACPEffort}
+                          disabled={
+                            isSettingACPEffort ||
+                            agentStatus?.status === 'running' ||
+                            !selectedACPEffort ||
+                            selectedACPEffort === acpCurrentEffortValue
+                          }
+                          className="shrink-0 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-600"
+                        >
+                          {isSettingACPEffort ? 'Applying...' : 'Apply'}
+                        </button>
+                      </div>
+                      {acpEffortMessage && (
+                        <p className={`mt-1 text-[11px] ${acpEffortMessage === 'Effort updated' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {acpEffortMessage}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
                   <span className="text-gray-500 dark:text-gray-400">ACP Status</span>
                   <span className="break-all text-gray-900 dark:text-gray-100">{acpInfo.status || '-'}</span>
@@ -2288,6 +2455,37 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             </div>
           </div>
           <div className="flex-1 relative">
+            {attachedImages.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {attachedImages.map((image, index) => (
+                  <div key={`${image.name}:${index}`} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`data:${image.mimeType};base64,${image.data}`}
+                      alt={image.name}
+                      className="h-20 w-20 rounded-md border border-gray-300 object-cover dark:border-gray-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setAttachedImages(prev => prev.filter((_, itemIndex) => itemIndex !== index))}
+                      className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-gray-800 text-xs text-white shadow"
+                      aria-label={`${image.name} を削除`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(event) => void handleImageSelection(event.target.files)}
+              aria-label="画像を添付"
+            />
             <textarea
               ref={messageInputRef}
               aria-label="Message"
@@ -2362,6 +2560,20 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 })()}
               </div>
               <div className="flex items-center space-x-2">
+                {isACPSession && (
+                  <button
+                    type="button"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={!isConnected || isLoading || agentStatus?.status === 'running' || attachedImages.length >= 4}
+                    className="rounded-md bg-sky-600 px-2 py-2 text-xs text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-600"
+                    title="画像を添付（最大4枚）"
+                    aria-label="画像を添付"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4-4a2 2 0 012.828 0L16 17m-2-2l1-1a2 2 0 012.828 0L20 16m-2-9h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                )}
                 {isACPSession ? (
                   <button
                     onClick={() => setShowSessionInfo(prev => !prev)}
@@ -2414,7 +2626,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                 
                 <button
                   onClick={() => sendMessage()}
-                  disabled={!isConnected || isLoading || !inputValue.trim() || agentStatus?.status === 'running'}
+                  disabled={!isConnected || isLoading || (!inputValue.trim() && attachedImages.length === 0) || agentStatus?.status === 'running'}
                   aria-label="Send"
                   className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-sm font-medium"
                 >

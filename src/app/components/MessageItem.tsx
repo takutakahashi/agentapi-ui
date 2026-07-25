@@ -640,6 +640,19 @@ function MessageItem({
           >
             {renderContent(message.content, isClaudeAgent)}
           </div>
+          {message.images && message.images.length > 0 && (
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {message.images.map((image, index) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={`${image.mimeType}:${index}`}
+                  src={`data:${image.mimeType};base64,${image.data}`}
+                  alt={`Message image ${index + 1}`}
+                  className="max-h-96 w-auto max-w-full rounded-lg border border-gray-200 object-contain dark:border-gray-700"
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -654,6 +667,7 @@ function areEqual(prevProps: MessageItemProps, nextProps: MessageItemProps): boo
     prevProps.message.role === nextProps.message.role &&
     prevProps.message.content === nextProps.message.content &&
     prevProps.message.thought === nextProps.message.thought &&
+    JSON.stringify(prevProps.message.images) === JSON.stringify(nextProps.message.images) &&
     prevProps.message.type === nextProps.message.type &&
     prevProps.message.toolUseId === nextProps.message.toolUseId &&
     prevProps.message.parentToolUseId === nextProps.message.parentToolUseId &&

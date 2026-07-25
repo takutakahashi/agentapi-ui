@@ -17,4 +17,69 @@ describe('AgentAPIProxyClient ACP message history', () => {
       message: 'connection lost',
     } satisfies Partial<AgentAPIProxyError>);
   });
+
+  it('sends text and image content blocks unchanged to an ACP session', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 202,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    const client = new AgentAPIProxyClient({ baseURL: 'http://proxy.example.test' });
+
+    await client.sendACPPrompt(
+      'session-1',
+      'acp-session-1',
+      [
+        { type: 'text', text: 'What is in this image?' },
+        { type: 'image', mimeType: 'image/png', data: 'iVBORw0KGgo=' },
+      ],
+      42
+    );
+
+    const request = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(String(request.body))).toMatchObject({
+      id: 42,
+      method: 'session/prompt',
+      params: {
+        sessionId: 'acp-session-1',
+        prompt: [
+          { type: 'text', text: 'What is in this image?' },
+          { type: 'image', mimeType: 'image/png', data: 'iVBORw0KGgo=' },
+        ],
+      },
+    });
+  });
+
+  it('restores ACP image output from message history', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        messages: [{
+          jsonrpc: '2.0',
+          method: 'session/update',
+          params: {
+            sessionId: 'acp-session-1',
+            time: '2026-07-25T00:00:00Z',
+            update: {
+              sessionUpdate: 'agent_message_chunk',
+              content: { type: 'image', mimeType: 'image/png', data: 'iVBORw0KGgo=' },
+            },
+          },
+        }],
+        userPromptCount: 0,
+        userPrompts: [],
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    const client = new AgentAPIProxyClient({ baseURL: 'http://proxy.example.test' });
+
+    const history = await client.getACPMessageHistory('session-1', 'acp-session-1');
+
+    expect(history.messages).toHaveLength(1);
+    expect(history.messages[0].images).toEqual([
+      { mimeType: 'image/png', data: 'iVBORw0KGgo=' },
+    ]);
+  });
 });

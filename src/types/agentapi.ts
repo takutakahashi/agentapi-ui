@@ -252,6 +252,8 @@ export interface SessionMessage {
   content: string;
   /** Agent thinking / reasoning text (ACP agent_thought_chunk). Shown in a collapsible section. */
   thought?: string;
+  /** Images carried by ACP image content blocks. */
+  images?: Array<{ mimeType: string; data: string }>;
   timestamp?: string; // Made optional (for backwards compatibility)
   time: string; // ISO 8601 timestamp from API
   session_id?: string; // Made optional (not in API spec)

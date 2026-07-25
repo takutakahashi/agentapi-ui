@@ -202,6 +202,13 @@ export interface ACPSessionInfo {
   _meta?: Record<string, unknown>;
 }
 
+export interface ACPPromptContentBlock {
+  type: 'text' | 'image';
+  text?: string;
+  mimeType?: string;
+  data?: string;
+}
+
 /** Discriminated union for ACP session/update payloads. */
 export interface ACPSessionUpdate {
   sessionUpdate: string;
@@ -322,6 +329,8 @@ export interface ACPSessionCallbacks {
   onMessage: (message: SessionMessage) => void;
   /** Called with additional text to append to an existing streaming message. */
   onChunk: (messageId: number, text: string) => void;
+  /** Called when an image is appended to an existing streaming message. */
+  onImageChunk?: (messageId: number, image: { mimeType: string; data: string }) => void;
   /**
    * Called with additional thought text to append to an existing streaming message.
    * The thought is displayed in a collapsible "Thinking…" section.
@@ -376,6 +385,15 @@ function acpExtractText(content: unknown): string {
   const obj = content as Record<string, unknown>;
   if (obj.type === 'text' && typeof obj.text === 'string') return obj.text;
   return '';
+}
+
+function acpExtractImage(content: unknown): { mimeType: string; data: string } | null {
+  if (!content || typeof content !== 'object' || Array.isArray(content)) return null;
+  const obj = content as Record<string, unknown>;
+  if (obj.type === 'image' && typeof obj.mimeType === 'string' && typeof obj.data === 'string') {
+    return { mimeType: obj.mimeType, data: obj.data };
+  }
+  return null;
 }
 
 /**
@@ -479,14 +497,21 @@ function parseACPJSONRPCMessages(rawMsgs: ACPJSONRPCMessage[]): SessionMessage[]
       switch (update.sessionUpdate) {
         case 'agent_message_chunk': {
           const text = acpExtractText(update.content);
-          if (!text) continue;
+          const image = acpExtractImage(update.content);
+          if (!text && !image) continue;
           if (streamingMsgId !== null) {
             const idx = result.findIndex(m => m.id === streamingMsgId);
-            if (idx >= 0) result[idx] = { ...result[idx], content: result[idx].content + text };
+            if (idx >= 0) {
+              result[idx] = {
+                ...result[idx],
+                content: result[idx].content + text,
+                images: image ? [...(result[idx].images ?? []), image] : result[idx].images,
+              };
+            }
           } else {
             const id = nextLocalId++;
             streamingMsgId = id;
-            result.push({ id, role: 'agent', content: text, time: now, type: 'normal' });
+            result.push({ id, role: 'agent', content: text, images: image ? [image] : undefined, time: now, type: 'normal' });
           }
           break;
         }
@@ -554,8 +579,21 @@ function parseACPJSONRPCMessages(rawMsgs: ACPJSONRPCMessage[]): SessionMessage[]
         }
         case 'user_message_chunk': {
           const text = acpExtractText(update.content);
-          if (!text) continue;
-          result.push({ id: nextLocalId++, role: 'user', content: text, time: now, type: 'normal' });
+          const image = acpExtractImage(update.content);
+          if (!text && !image) continue;
+          const previous = result[result.length - 1];
+          if (image && previous?.role === 'user') {
+            previous.images = [...(previous.images ?? []), image];
+          } else {
+            result.push({
+              id: nextLocalId++,
+              role: 'user',
+              content: text,
+              images: image ? [image] : undefined,
+              time: now,
+              type: 'normal',
+            });
+          }
           break;
         }
         default:
@@ -2505,6 +2543,7 @@ export class AgentAPIProxyClient {
     let nextLocalId = 1;
     // Track the current streaming agent message id (for chunk accumulation).
     let streamingMsgId: number | null = null;
+    let streamingUserMsgId: number | null = null;
 
     console.log(`[ACP] EventSource subscription created (url=${sseUrl}, acpSessionId=${acpSessionId})`);
 
@@ -2534,7 +2573,8 @@ export class AgentAPIProxyClient {
           switch (update.sessionUpdate) {
             case 'agent_message_chunk': {
               const text = acpExtractText(update.content);
-              if (!text) return;
+              const image = acpExtractImage(update.content);
+              if (!text && !image) return;
 
               // Agent is actively streaming — mark as running so the UI
               // suppresses input and shows the stop button even when the
@@ -2543,7 +2583,8 @@ export class AgentAPIProxyClient {
 
               if (streamingMsgId !== null) {
                 // Append to existing streaming message.
-                callbacks.onChunk(streamingMsgId, text);
+                if (text) callbacks.onChunk(streamingMsgId, text);
+                if (image) callbacks.onImageChunk?.(streamingMsgId, image);
               } else {
                 // Start a new streaming message.
                 const id = nextLocalId++;
@@ -2552,6 +2593,7 @@ export class AgentAPIProxyClient {
                   id,
                   role: 'agent',
                   content: text,
+                  images: image ? [image] : undefined,
                   time: now,
                   type: 'normal',
                 });
@@ -2666,14 +2708,21 @@ export class AgentAPIProxyClient {
 
             case 'user_message_chunk': {
               const text = acpExtractText(update.content);
-              if (!text) return;
-              callbacks.onMessage({
-                id: nextLocalId++,
-                role: 'user',
-                content: text,
-                time: now,
-                type: 'normal',
-              });
+              const image = acpExtractImage(update.content);
+              if (!text && !image) return;
+              if (image && streamingUserMsgId !== null) {
+                callbacks.onImageChunk?.(streamingUserMsgId, image);
+              } else {
+                streamingUserMsgId = nextLocalId++;
+                callbacks.onMessage({
+                  id: streamingUserMsgId,
+                  role: 'user',
+                  content: text,
+                  images: image ? [image] : undefined,
+                  time: now,
+                  type: 'normal',
+                });
+              }
               break;
             }
 
@@ -2777,7 +2826,7 @@ export class AgentAPIProxyClient {
   async sendACPPrompt(
     sessionId: string,
     acpSessionId: string,
-    text: string,
+    prompt: ACPPromptContentBlock[],
     promptId: number
   ): Promise<void> {
     await this.makeRequest<unknown>(`/${sessionId}/rpc`, {
@@ -2788,7 +2837,7 @@ export class AgentAPIProxyClient {
         method: 'session/prompt',
         params: {
           sessionId: acpSessionId,
-          prompt: [{ type: 'text', text }],
+          prompt,
         },
       }),
     });
