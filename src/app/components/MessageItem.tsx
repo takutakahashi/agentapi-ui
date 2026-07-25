@@ -307,8 +307,9 @@ function CopyableMessageImage({ mimeType, data, alt }: CopyableMessageImageProps
       if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
         throw new Error('Image clipboard is not supported');
       }
-      const response = await fetch(src);
-      const blob = await response.blob();
+      const binary = atob(data);
+      const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+      const blob = new Blob([bytes], { type: mimeType });
       await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
       setCopyStatus('copied');
     } catch (error) {

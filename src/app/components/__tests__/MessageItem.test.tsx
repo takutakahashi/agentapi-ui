@@ -77,17 +77,13 @@ describe('MessageItem ACP images', () => {
     vi.stubGlobal('ClipboardItem', class {
       constructor(public items: Record<string, Blob>) {}
     });
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(new Blob(['image'], { type: 'image/png' })),
-    );
-
     render(
       <MessageItem
         message={{
           id: 1,
           role: 'agent',
           content: '',
-          images: [{ mimeType: 'image/png', data: 'image-data' }],
+          images: [{ mimeType: 'image/png', data: 'aW1hZ2U=' }],
           time: '2026-07-25T00:00:00Z',
           type: 'normal',
         }}
