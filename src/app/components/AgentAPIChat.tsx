@@ -7,7 +7,7 @@ import { createAgentAPIProxyClientFromStorage, ACPSessionInfo, ACPConfigOption, 
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client';
 import { createACPServerClientFromStorage, ACPServerClient } from '../../lib/acp-server-client';
 import { getACPServerEnabled } from '../../types/settings';
-import { Session, SessionAnnotations, SessionMessage, SessionMessageListResponse, PendingAction } from '../../types/agentapi';
+import { Session, SessionAnnotations, SessionMessage, SessionMessageListResponse, PendingAction, ACPElicitationParams } from '../../types/agentapi';
 import { useBackgroundAwareInterval, usePageVisibility } from '../hooks/usePageVisibility';
 import { messageTemplateManager } from '../../utils/messageTemplateManager';
 import { MessageTemplate } from '../../types/messageTemplate';
@@ -19,6 +19,7 @@ import MessageItem from './MessageItem';
 import ToolExecutionPane from './ToolExecutionPane';
 import PlanApprovalModal from './PlanApprovalModal';
 import AskUserQuestionModal from './AskUserQuestionModal';
+import ACPElicitationModal from './ACPElicitationModal';
 import SessionListSidebar from './SessionListSidebar';
 
 const SIDEBAR_VISIBLE_KEY = 'session_list_sidebar_visible';
@@ -471,6 +472,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     setPendingAction(action);
                     setShowQuestionModal(true);
                   },
+                  onElicitation: (elicitation: ACPElicitationParams, rpcId: number) => {
+                    setACPPendingElicitation({ elicitation, rpcId });
+                  },
                   onConnectionOpen: () => {
                     setMessageSSEConnectionStatus('connected');
                   },
@@ -771,6 +775,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const tokenUsage = useMemo(() => getSessionTokenUsage(acpInfo, messages), [acpInfo, messages]);
   const relatedLinks = useMemo(() => getRelatedLinks(sessionAnnotations), [sessionAnnotations]);
   const [acpPendingPermission, setACPPendingPermission] = useState<{ action: PendingAction; rpcId: number } | null>(null);
+  const [acpPendingElicitation, setACPPendingElicitation] = useState<{ elicitation: ACPElicitationParams; rpcId: number } | null>(null);
   const [acpUserPrompts, setACPUserPrompts] = useState<ACPUserPromptInfo[]>([]);
   const [isLoadingACPPromptHistory, setIsLoadingACPPromptHistory] = useState(false);
   const [loadedACPStartPromptIndex, setLoadedACPStartPromptIndex] = useState<number | null>(null);
@@ -1388,6 +1393,27 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     setShowQuestionModal(false);
   }, []);
 
+  const replyToElicitation = useCallback(async (
+    result: { action: 'accept'; content: Record<string, unknown> } | { action: 'cancel' }
+  ) => {
+    if (!sessionId || !agentAPIRef.current || !acpPendingElicitation) return;
+
+    if (acpServerEnabled && acpServerClientRef.current) {
+      await acpServerClientRef.current.sendElicitationResponse(
+        sessionId,
+        acpPendingElicitation.rpcId,
+        result
+      );
+    } else {
+      await agentAPIRef.current.replyToACPElicitation(
+        sessionId,
+        acpPendingElicitation.rpcId,
+        result
+      );
+    }
+    setACPPendingElicitation(null);
+  }, [sessionId, acpPendingElicitation, acpServerEnabled]);
+
   // 1秒インターバルポーリング（接続中かつ非ACPセッションのみ動作）
   const pollingControl = useBackgroundAwareInterval(pollMessages, 1000, false);
 
@@ -1528,6 +1554,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             setACPPendingPermission({ action, rpcId });
             setPendingAction(action);
             setShowQuestionModal(true);
+          },
+          onElicitation: (elicitation: ACPElicitationParams, rpcId: number) => {
+            setACPPendingElicitation({ elicitation, rpcId });
           },
           onConnectionOpen: () => {
             setMessageSSEConnectionStatus('connected');
@@ -2964,6 +2993,14 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           questions={pendingAction.content.questions}
           onSubmit={handleAnswerSubmit}
           onClose={handleQuestionModalClose}
+        />
+      )}
+
+      {acpPendingElicitation && (
+        <ACPElicitationModal
+          elicitation={acpPendingElicitation.elicitation}
+          onSubmit={content => void replyToElicitation({ action: 'accept', content })}
+          onCancel={() => void replyToElicitation({ action: 'cancel' })}
         />
       )}
     </div>

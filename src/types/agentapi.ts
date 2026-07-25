@@ -327,6 +327,32 @@ export interface Question {
   multiSelect: boolean;
 }
 
+export interface ACPElicitationOption {
+  const: string;
+  title?: string;
+  description?: string;
+}
+
+export interface ACPElicitationProperty {
+  type: 'string' | 'array';
+  title?: string;
+  description?: string;
+  oneOf?: ACPElicitationOption[];
+  items?: { anyOf?: ACPElicitationOption[] };
+}
+
+export interface ACPElicitationParams {
+  sessionId: string;
+  toolCallId?: string;
+  mode: 'form';
+  message: string;
+  requestedSchema: {
+    type: 'object';
+    properties?: Record<string, ACPElicitationProperty>;
+    required?: string[];
+  };
+}
+
 export interface PendingAction {
   type: 'answer_question' | 'approve_plan' | 'stop_agent';
   tool_use_id: string;

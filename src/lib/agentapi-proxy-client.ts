@@ -14,6 +14,7 @@ import {
   AgentListParams,
   ToolStatusResponseBody,
   PendingAction,
+  ACPElicitationParams,
   ActionRequest,
   ActionResponse
 } from '../types/agentapi';
@@ -367,6 +368,8 @@ export interface ACPSessionCallbacks {
   onStatus: (status: AgentStatus) => void;
   /** Called when a permission request arrives from the agent. */
   onPermission: (action: PendingAction, rpcId: number) => void;
+  /** Called when an agent requests a structured form response. */
+  onElicitation?: (elicitation: ACPElicitationParams, rpcId: number) => void;
   /** Called when the message SSE stream opens. */
   onConnectionOpen?: () => void;
   /** Called when the message SSE stream is connecting or retrying. */
@@ -2792,6 +2795,11 @@ export class AgentAPIProxyClient {
           return;
         }
 
+        if (msg.method === 'session/create_elicitation' && msg.id != null) {
+          callbacks.onElicitation?.(msg.params as ACPElicitationParams, Number(msg.id));
+          return;
+        }
+
         // ── Result of session/prompt (turn finished) ──────────────────────
         if (msg.result != null && msg.id != null) {
           streamingMsgId = null;
@@ -2876,6 +2884,17 @@ export class AgentAPIProxyClient {
           outcome: { outcome: 'selected', optionId },
         },
       }),
+    });
+  }
+
+  async replyToACPElicitation(
+    sessionId: string,
+    rpcId: number,
+    result: { action: 'accept'; content: Record<string, unknown> } | { action: 'cancel' | 'decline' }
+  ): Promise<void> {
+    await this.makeRequest<unknown>(`/${sessionId}/rpc`, {
+      method: 'POST',
+      body: JSON.stringify({ jsonrpc: '2.0', id: rpcId, result }),
     });
   }
 
