@@ -318,6 +318,8 @@ export interface ToolStatusResponseBody {
 export interface QuestionOption {
   label: string;
   description: string;
+  /** Transport value to return when it differs from the display label. */
+  value?: string;
 }
 
 export interface Question {
@@ -325,6 +327,32 @@ export interface Question {
   header: string;
   options: QuestionOption[];
   multiSelect: boolean;
+}
+
+export interface ACPElicitationOption {
+  const: string;
+  title?: string;
+  description?: string;
+}
+
+export interface ACPElicitationProperty {
+  type: 'string' | 'array';
+  title?: string;
+  description?: string;
+  oneOf?: ACPElicitationOption[];
+  items?: { anyOf?: ACPElicitationOption[] };
+}
+
+export interface ACPElicitationParams {
+  sessionId: string;
+  toolCallId?: string;
+  mode: 'form';
+  message: string;
+  requestedSchema: {
+    type: 'object';
+    properties?: Record<string, ACPElicitationProperty>;
+    required?: string[];
+  };
 }
 
 export interface PendingAction {

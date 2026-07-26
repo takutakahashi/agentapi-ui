@@ -9,8 +9,9 @@
  * these are proxy-wide endpoints that handle full session lifecycle via JSON-RPC 2.0.
  */
 
-import { SessionMessage, PendingAction } from '../types/agentapi';
+import { SessionMessage, PendingAction, ACPElicitationParams } from '../types/agentapi';
 import { loadFullGlobalSettings, getDefaultProxySettings } from '../types/settings';
+import { ACPPermissionParams, createACPPermissionAction } from './acp-permission';
 
 // ─── JSON-RPC types ───────────────────────────────────────────────────────────
 
@@ -86,6 +87,7 @@ interface ACPSessionUpdate {
   locations?: Array<{ path: string; line?: number }>;
   entries?: Array<{ content: string; status?: string; priority?: number }>;
   mode?: string;
+  currentModeId?: string;
   configOptions?: ACPConfigOption[];
 }
 
@@ -109,18 +111,6 @@ export interface ACPPromptContentBlock {
   data?: string;
 }
 
-interface ACPPermissionOption {
-  optionId: string;
-  name: string;
-  description?: string;
-}
-
-interface ACPPermissionParams {
-  sessionId: string;
-  toolCall: { toolCallId: string; kind?: string };
-  options: ACPPermissionOption[];
-}
-
 // ─── Callback types ───────────────────────────────────────────────────────────
 
 export interface ACPServerEventCallbacks {
@@ -132,6 +122,7 @@ export interface ACPServerEventCallbacks {
   onToolInputUpdate?: (toolCallId: string, input: unknown, title?: string, locations?: Array<{ path: string; line?: number }>) => void;
   onStatus?: (status: { status: 'stable' | 'running' | 'error'; agent_type?: string }) => void;
   onPermission?: (action: PendingAction, rpcId: number) => void;
+  onElicitation?: (elicitation: ACPElicitationParams, rpcId: number) => void;
   onTitleUpdate?: (title: string) => void;
   onModeUpdate?: (mode: string) => void;
   onConfigOptionsUpdate?: (configOptions: ACPConfigOption[]) => void;
@@ -416,6 +407,18 @@ export class ACPServerClient {
     });
   }
 
+  async sendElicitationResponse(
+    sessionId: string,
+    rpcId: number,
+    result: { action: 'accept'; content: Record<string, unknown> } | { action: 'cancel' | 'decline' }
+  ): Promise<void> {
+    await fetch(this.acpUrl, {
+      method: 'POST',
+      headers: { ...this.getHeaders(), 'Acp-Session-Id': sessionId },
+      body: JSON.stringify({ jsonrpc: '2.0', id: rpcId, result }),
+    });
+  }
+
   /**
    * Subscribe to session/update events via GET /acp with Acp-Session-Id header.
    * Uses fetch() + ReadableStream to allow custom headers (EventSource cannot).
@@ -571,7 +574,8 @@ export class ACPServerClient {
             }
 
             case 'current_mode_update': {
-              if (update.mode) callbacks.onModeUpdate?.(update.mode);
+              const modeId = update.currentModeId || update.mode;
+              if (modeId) callbacks.onModeUpdate?.(modeId);
               break;
             }
 
@@ -599,24 +603,18 @@ export class ACPServerClient {
           const permParams = msg.params as ACPPermissionParams;
           if (!permParams || !callbacks.onPermission) return;
 
-          const pendingAction: PendingAction = {
-            type: 'answer_question',
-            tool_use_id: permParams.toolCall?.toolCallId ?? '',
-            content: {
-              questions: [{
-                question: 'Permission required',
-                header: 'Permission Required',
-                options: (permParams.options ?? []).map(o => ({
-                  label: o.name || o.optionId,
-                  description: o.description ?? '',
-                })),
-                multiSelect: false,
-              }],
-            },
-          };
+          const pendingAction = createACPPermissionAction(permParams);
 
           const rpcId = typeof msg.id === 'number' ? msg.id : parseInt(String(msg.id ?? '0'), 10);
           callbacks.onPermission(pendingAction, rpcId);
+          return;
+        }
+
+        if (msg.method === 'session/create_elicitation' && msg.id != null) {
+          callbacks.onElicitation?.(
+            msg.params as ACPElicitationParams,
+            typeof msg.id === 'number' ? msg.id : Number(msg.id)
+          );
           return;
         }
 

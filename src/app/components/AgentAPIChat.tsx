@@ -7,7 +7,7 @@ import { createAgentAPIProxyClientFromStorage, ACPSessionInfo, ACPConfigOption, 
 import { AgentAPIProxyError } from '../../lib/agentapi-proxy-client';
 import { createACPServerClientFromStorage, ACPServerClient } from '../../lib/acp-server-client';
 import { getACPServerEnabled } from '../../types/settings';
-import { Session, SessionAnnotations, SessionMessage, SessionMessageListResponse, PendingAction } from '../../types/agentapi';
+import { Session, SessionAnnotations, SessionMessage, SessionMessageListResponse, PendingAction, ACPElicitationParams } from '../../types/agentapi';
 import { useBackgroundAwareInterval, usePageVisibility } from '../hooks/usePageVisibility';
 import { messageTemplateManager } from '../../utils/messageTemplateManager';
 import { MessageTemplate } from '../../types/messageTemplate';
@@ -19,6 +19,7 @@ import MessageItem from './MessageItem';
 import ToolExecutionPane from './ToolExecutionPane';
 import PlanApprovalModal from './PlanApprovalModal';
 import AskUserQuestionModal from './AskUserQuestionModal';
+import ACPElicitationModal from './ACPElicitationModal';
 import SessionListSidebar from './SessionListSidebar';
 
 const SIDEBAR_VISIBLE_KEY = 'session_list_sidebar_visible';
@@ -453,6 +454,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                   },
                   onModeUpdate: (modeId: string) => {
                     console.log('[ACP] current_mode_update:', modeId);
+                    setACPInfo(prev => prev ? {
+                      ...prev,
+                      modes: {
+                        ...prev.modes,
+                        currentModeId: modeId,
+                      },
+                    } : prev);
                   },
                   onConfigOptionsUpdate: (configOptions: ACPConfigOption[]) => {
                     applyACPConfigOptions(configOptions);
@@ -470,6 +478,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     setACPPendingPermission({ action, rpcId });
                     setPendingAction(action);
                     setShowQuestionModal(true);
+                  },
+                  onElicitation: (elicitation: ACPElicitationParams, rpcId: number) => {
+                    setACPPendingElicitation({ elicitation, rpcId });
                   },
                   onConnectionOpen: () => {
                     setMessageSSEConnectionStatus('connected');
@@ -771,6 +782,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const tokenUsage = useMemo(() => getSessionTokenUsage(acpInfo, messages), [acpInfo, messages]);
   const relatedLinks = useMemo(() => getRelatedLinks(sessionAnnotations), [sessionAnnotations]);
   const [acpPendingPermission, setACPPendingPermission] = useState<{ action: PendingAction; rpcId: number } | null>(null);
+  const [acpPendingElicitation, setACPPendingElicitation] = useState<{ elicitation: ACPElicitationParams; rpcId: number } | null>(null);
   const [acpUserPrompts, setACPUserPrompts] = useState<ACPUserPromptInfo[]>([]);
   const [isLoadingACPPromptHistory, setIsLoadingACPPromptHistory] = useState(false);
   const [loadedACPStartPromptIndex, setLoadedACPStartPromptIndex] = useState<number | null>(null);
@@ -1358,7 +1370,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         const selectedLabel = Object.values(answers)[0] as string | undefined;
         const options = acpPendingPermission.action.content?.questions?.[0]?.options ?? [];
         const matched = options.find(o => o.label === selectedLabel);
-        const optionId = matched ? matched.label : (selectedLabel ?? '');
+        const optionId = matched?.value ?? matched?.label ?? selectedLabel ?? '';
         if (acpServerEnabled && acpServerClientRef.current) {
           await acpServerClientRef.current.sendPermissionResponse(sessionId, acpPendingPermission.rpcId, optionId);
         } else {
@@ -1387,6 +1399,27 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const handleQuestionModalClose = useCallback(() => {
     setShowQuestionModal(false);
   }, []);
+
+  const replyToElicitation = useCallback(async (
+    result: { action: 'accept'; content: Record<string, unknown> } | { action: 'cancel' }
+  ) => {
+    if (!sessionId || !agentAPIRef.current || !acpPendingElicitation) return;
+
+    if (acpServerEnabled && acpServerClientRef.current) {
+      await acpServerClientRef.current.sendElicitationResponse(
+        sessionId,
+        acpPendingElicitation.rpcId,
+        result
+      );
+    } else {
+      await agentAPIRef.current.replyToACPElicitation(
+        sessionId,
+        acpPendingElicitation.rpcId,
+        result
+      );
+    }
+    setACPPendingElicitation(null);
+  }, [sessionId, acpPendingElicitation, acpServerEnabled]);
 
   // 1秒インターバルポーリング（接続中かつ非ACPセッションのみ動作）
   const pollingControl = useBackgroundAwareInterval(pollMessages, 1000, false);
@@ -1511,6 +1544,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           },
           onModeUpdate: (modeId: string) => {
             console.log('[ACP] current_mode_update:', modeId);
+            setACPInfo(prev => prev ? {
+              ...prev,
+              modes: {
+                ...prev.modes,
+                currentModeId: modeId,
+              },
+            } : prev);
           },
           onConfigOptionsUpdate: (configOptions: ACPConfigOption[]) => {
             applyACPConfigOptions(configOptions);
@@ -1528,6 +1568,9 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
             setACPPendingPermission({ action, rpcId });
             setPendingAction(action);
             setShowQuestionModal(true);
+          },
+          onElicitation: (elicitation: ACPElicitationParams, rpcId: number) => {
+            setACPPendingElicitation({ elicitation, rpcId });
           },
           onConnectionOpen: () => {
             setMessageSSEConnectionStatus('connected');
@@ -1741,7 +1784,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         const options = acpPendingPermission.action.content?.questions?.[0]?.options ?? [];
         const allowOpt = options.find(o => o.description?.includes('allow'));
         const optionId = approved
-          ? (allowOpt?.label ?? options[0]?.label ?? 'allow-once')
+          ? (allowOpt?.value ?? allowOpt?.label ?? options[0]?.value ?? options[0]?.label ?? 'allow-once')
           : 'plan';
         await agentAPIRef.current.replyToACPPermission(sessionId, acpPendingPermission.rpcId, optionId);
         setACPPendingPermission(null);
@@ -2360,6 +2403,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                   <span className="text-gray-500 dark:text-gray-400">Model</span>
                   <span className="break-all text-gray-900 dark:text-gray-100">{acpModelDisplay || '-'}</span>
                 </div>
+                {acpInfo.modes?.currentModeId && (
+                  <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
+                    <span className="text-gray-500 dark:text-gray-400">Mode</span>
+                    <span className="break-all text-gray-900 dark:text-gray-100">{acpInfo.modes.currentModeId}</span>
+                  </div>
+                )}
                 {acpModelConfigId && acpModelOptions.length > 0 && (
                   <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
                     <label htmlFor="acp-model-select" className="text-gray-500 dark:text-gray-400 pt-2">
@@ -2962,8 +3011,21 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       {showQuestionModal && pendingAction?.content?.questions && (
         <AskUserQuestionModal
           questions={pendingAction.content.questions}
+          details={
+            typeof pendingAction.content.plan === 'string'
+              ? pendingAction.content.plan
+              : undefined
+          }
           onSubmit={handleAnswerSubmit}
           onClose={handleQuestionModalClose}
+        />
+      )}
+
+      {acpPendingElicitation && (
+        <ACPElicitationModal
+          elicitation={acpPendingElicitation.elicitation}
+          onSubmit={content => void replyToElicitation({ action: 'accept', content })}
+          onCancel={() => void replyToElicitation({ action: 'cancel' })}
         />
       )}
     </div>

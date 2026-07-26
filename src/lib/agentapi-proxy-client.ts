@@ -14,6 +14,7 @@ import {
   AgentListParams,
   ToolStatusResponseBody,
   PendingAction,
+  ACPElicitationParams,
   ActionRequest,
   ActionResponse
 } from '../types/agentapi';
@@ -42,6 +43,7 @@ import {
   CreateSlackBotRequest,
   UpdateSlackBotRequest
 } from '../types/slackbot';
+import { ACPPermissionParams, createACPPermissionAction } from './acp-permission';
 import {
   SessionProfile,
   SessionProfileListParams,
@@ -199,6 +201,10 @@ export interface ACPSessionInfo {
   selectedModel?: unknown;
   modelInfo?: unknown;
   configOptions?: ACPConfigOption[];
+  modes?: {
+    currentModeId: string;
+    availableModes?: Array<{ id: string; name: string; description?: string }>;
+  };
   _meta?: Record<string, unknown>;
 }
 
@@ -235,6 +241,7 @@ export interface ACPSessionUpdate {
   entries?: Array<{ content: string; status: string; priority: string }>;
   // current_mode_update
   modeId?: string;
+  currentModeId?: string;
   // available_commands_update
   availableCommands?: Array<{ name: string; description: string; input?: { hint?: string } }>;
   // config_option_update
@@ -281,20 +288,6 @@ function acpToolNameFromRawInput(rawInput: unknown): string | undefined {
   const toolName = (rawInput as Record<string, unknown>)._toolName;
   if (typeof toolName !== 'string' || toolName.length === 0) return undefined;
   return ACP_KIND_TO_NAME[toolName] || titleToToolName(toolName) || toolName;
-}
-
-/** A permission option offered by the ACP agent. */
-export interface ACPPermissionOption {
-  optionId: string;
-  name: string;
-  kind?: string;
-}
-
-/** Params for session/request_permission (agent → client). */
-export interface ACPPermissionParams {
-  sessionId: string;
-  toolCall: { toolCallId: string; kind?: string };
-  options: ACPPermissionOption[];
 }
 
 /** Raw JSON-RPC 2.0 message envelope received from the SSE stream. */
@@ -367,6 +360,8 @@ export interface ACPSessionCallbacks {
   onStatus: (status: AgentStatus) => void;
   /** Called when a permission request arrives from the agent. */
   onPermission: (action: PendingAction, rpcId: number) => void;
+  /** Called when an agent requests a structured form response. */
+  onElicitation?: (elicitation: ACPElicitationParams, rpcId: number) => void;
   /** Called when the message SSE stream opens. */
   onConnectionOpen?: () => void;
   /** Called when the message SSE stream is connecting or retrying. */
@@ -2741,8 +2736,9 @@ export class AgentAPIProxyClient {
             }
 
             case 'current_mode_update': {
-              if (update.modeId) {
-                callbacks.onModeUpdate?.(update.modeId);
+              const modeId = update.currentModeId || update.modeId;
+              if (modeId) {
+                callbacks.onModeUpdate?.(modeId);
               }
               break;
             }
@@ -2773,22 +2769,13 @@ export class AgentAPIProxyClient {
         if (msg.method === 'session/request_permission' && msg.id != null) {
           streamingMsgId = null;
           const params = msg.params as ACPPermissionParams;
-          const action: PendingAction = {
-            type: 'answer_question',
-            tool_use_id: params.toolCall?.toolCallId ?? '',
-            content: {
-              questions: [{
-                question: 'Permission required',
-                header: 'Permission Required',
-                options: (params.options ?? []).map(o => ({
-                  label: o.name || o.optionId,
-                  description: o.kind ?? '',
-                })),
-                multiSelect: false,
-              }],
-            },
-          };
+          const action = createACPPermissionAction(params);
           callbacks.onPermission(action, msg.id as number);
+          return;
+        }
+
+        if (msg.method === 'session/create_elicitation' && msg.id != null) {
+          callbacks.onElicitation?.(msg.params as ACPElicitationParams, Number(msg.id));
           return;
         }
 
@@ -2876,6 +2863,17 @@ export class AgentAPIProxyClient {
           outcome: { outcome: 'selected', optionId },
         },
       }),
+    });
+  }
+
+  async replyToACPElicitation(
+    sessionId: string,
+    rpcId: number,
+    result: { action: 'accept'; content: Record<string, unknown> } | { action: 'cancel' | 'decline' }
+  ): Promise<void> {
+    await this.makeRequest<unknown>(`/${sessionId}/rpc`, {
+      method: 'POST',
+      body: JSON.stringify({ jsonrpc: '2.0', id: rpcId, result }),
     });
   }
 

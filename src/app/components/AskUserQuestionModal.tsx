@@ -1,16 +1,20 @@
 'use client';
 
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Question } from '../../types/agentapi';
 
 interface AskUserQuestionModalProps {
   questions: Question[];
+  details?: string;
   onSubmit: (answers: Record<string, string | string[]>) => void;
   onClose: () => void;
 }
 
 export default function AskUserQuestionModal({
   questions,
+  details,
   onSubmit,
   onClose
 }: AskUserQuestionModalProps) {
@@ -72,6 +76,13 @@ export default function AskUserQuestionModal({
           </div>
 
           <div className="space-y-6">
+            {details && (
+              <div className="max-h-[45vh] overflow-y-auto rounded-md border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40">
+                <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{details}</ReactMarkdown>
+                </div>
+              </div>
+            )}
             {questions.map((question, questionIndex) => (
               <div key={questionIndex} className="border-b border-gray-200 dark:border-gray-700 pb-6 last:border-0">
                 <div className="mb-3">
