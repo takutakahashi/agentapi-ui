@@ -10,6 +10,9 @@ describe('createACPPermissionAction', () => {
         toolCallId: 'tool-1',
         kind: 'switch_mode',
         title: 'Ready to code?',
+        rawInput: {
+          plan: '# Plan\n\nImplement it.',
+        },
       },
       options: [
         {
@@ -33,5 +36,25 @@ describe('createACPPermissionAction', () => {
         { label: 'No, keep planning', value: 'plan' },
       ],
     });
+    expect(action.content?.plan).toBe('# Plan\n\nImplement it.');
+  });
+
+  it('uses structured ExitPlanMode content when rawInput is unavailable', () => {
+    const action = createACPPermissionAction({
+      sessionId: 'session-1',
+      toolCall: {
+        toolCallId: 'tool-1',
+        kind: 'switch_mode',
+        content: [
+          {
+            type: 'content',
+            content: { type: 'text', text: '# Fallback plan' },
+          },
+        ],
+      },
+      options: [],
+    });
+
+    expect(action.content?.plan).toBe('# Fallback plan');
   });
 });

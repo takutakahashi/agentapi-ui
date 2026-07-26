@@ -3011,6 +3011,11 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
       {showQuestionModal && pendingAction?.content?.questions && (
         <AskUserQuestionModal
           questions={pendingAction.content.questions}
+          details={
+            typeof pendingAction.content.plan === 'string'
+              ? pendingAction.content.plan
+              : undefined
+          }
           onSubmit={handleAnswerSubmit}
           onClose={handleQuestionModalClose}
         />
