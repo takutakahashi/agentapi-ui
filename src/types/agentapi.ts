@@ -318,6 +318,8 @@ export interface ToolStatusResponseBody {
 export interface QuestionOption {
   label: string;
   description: string;
+  /** Transport value to return when it differs from the display label. */
+  value?: string;
 }
 
 export interface Question {

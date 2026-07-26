@@ -11,6 +11,7 @@
 
 import { SessionMessage, PendingAction, ACPElicitationParams } from '../types/agentapi';
 import { loadFullGlobalSettings, getDefaultProxySettings } from '../types/settings';
+import { ACPPermissionParams, createACPPermissionAction } from './acp-permission';
 
 // ─── JSON-RPC types ───────────────────────────────────────────────────────────
 
@@ -86,6 +87,7 @@ interface ACPSessionUpdate {
   locations?: Array<{ path: string; line?: number }>;
   entries?: Array<{ content: string; status?: string; priority?: number }>;
   mode?: string;
+  currentModeId?: string;
   configOptions?: ACPConfigOption[];
 }
 
@@ -107,18 +109,6 @@ export interface ACPPromptContentBlock {
   text?: string;
   mimeType?: string;
   data?: string;
-}
-
-interface ACPPermissionOption {
-  optionId: string;
-  name: string;
-  description?: string;
-}
-
-interface ACPPermissionParams {
-  sessionId: string;
-  toolCall: { toolCallId: string; kind?: string };
-  options: ACPPermissionOption[];
 }
 
 // ─── Callback types ───────────────────────────────────────────────────────────
@@ -584,7 +574,8 @@ export class ACPServerClient {
             }
 
             case 'current_mode_update': {
-              if (update.mode) callbacks.onModeUpdate?.(update.mode);
+              const modeId = update.currentModeId || update.mode;
+              if (modeId) callbacks.onModeUpdate?.(modeId);
               break;
             }
 
@@ -612,21 +603,7 @@ export class ACPServerClient {
           const permParams = msg.params as ACPPermissionParams;
           if (!permParams || !callbacks.onPermission) return;
 
-          const pendingAction: PendingAction = {
-            type: 'answer_question',
-            tool_use_id: permParams.toolCall?.toolCallId ?? '',
-            content: {
-              questions: [{
-                question: 'Permission required',
-                header: 'Permission Required',
-                options: (permParams.options ?? []).map(o => ({
-                  label: o.name || o.optionId,
-                  description: o.description ?? '',
-                })),
-                multiSelect: false,
-              }],
-            },
-          };
+          const pendingAction = createACPPermissionAction(permParams);
 
           const rpcId = typeof msg.id === 'number' ? msg.id : parseInt(String(msg.id ?? '0'), 10);
           callbacks.onPermission(pendingAction, rpcId);

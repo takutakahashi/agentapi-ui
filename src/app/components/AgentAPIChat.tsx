@@ -454,6 +454,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                   },
                   onModeUpdate: (modeId: string) => {
                     console.log('[ACP] current_mode_update:', modeId);
+                    setACPInfo(prev => prev ? {
+                      ...prev,
+                      modes: {
+                        ...prev.modes,
+                        currentModeId: modeId,
+                      },
+                    } : prev);
                   },
                   onConfigOptionsUpdate: (configOptions: ACPConfigOption[]) => {
                     applyACPConfigOptions(configOptions);
@@ -1363,7 +1370,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         const selectedLabel = Object.values(answers)[0] as string | undefined;
         const options = acpPendingPermission.action.content?.questions?.[0]?.options ?? [];
         const matched = options.find(o => o.label === selectedLabel);
-        const optionId = matched ? matched.label : (selectedLabel ?? '');
+        const optionId = matched?.value ?? matched?.label ?? selectedLabel ?? '';
         if (acpServerEnabled && acpServerClientRef.current) {
           await acpServerClientRef.current.sendPermissionResponse(sessionId, acpPendingPermission.rpcId, optionId);
         } else {
@@ -1537,6 +1544,13 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           },
           onModeUpdate: (modeId: string) => {
             console.log('[ACP] current_mode_update:', modeId);
+            setACPInfo(prev => prev ? {
+              ...prev,
+              modes: {
+                ...prev.modes,
+                currentModeId: modeId,
+              },
+            } : prev);
           },
           onConfigOptionsUpdate: (configOptions: ACPConfigOption[]) => {
             applyACPConfigOptions(configOptions);
@@ -1770,7 +1784,7 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
         const options = acpPendingPermission.action.content?.questions?.[0]?.options ?? [];
         const allowOpt = options.find(o => o.description?.includes('allow'));
         const optionId = approved
-          ? (allowOpt?.label ?? options[0]?.label ?? 'allow-once')
+          ? (allowOpt?.value ?? allowOpt?.label ?? options[0]?.value ?? options[0]?.label ?? 'allow-once')
           : 'plan';
         await agentAPIRef.current.replyToACPPermission(sessionId, acpPendingPermission.rpcId, optionId);
         setACPPendingPermission(null);
@@ -2389,6 +2403,12 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                   <span className="text-gray-500 dark:text-gray-400">Model</span>
                   <span className="break-all text-gray-900 dark:text-gray-100">{acpModelDisplay || '-'}</span>
                 </div>
+                {acpInfo.modes?.currentModeId && (
+                  <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
+                    <span className="text-gray-500 dark:text-gray-400">Mode</span>
+                    <span className="break-all text-gray-900 dark:text-gray-100">{acpInfo.modes.currentModeId}</span>
+                  </div>
+                )}
                 {acpModelConfigId && acpModelOptions.length > 0 && (
                   <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
                     <label htmlFor="acp-model-select" className="text-gray-500 dark:text-gray-400 pt-2">
