@@ -20,7 +20,7 @@ export default function PersonalSettingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [isAuthError, setIsAuthError] = useState(false)
   const [sendGithubToken, setSendGithubToken] = useState(false)
-  const [enterKeyBehavior, setEnterKeyBehaviorState] = useState<EnterKeyBehavior>('send')
+  const [enterKeyBehavior, setEnterKeyBehaviorState] = useState<EnterKeyBehavior>('newline')
   const [fontSettings, setFontSettingsState] = useState<FontSettingsType>({ fontSize: 14, fontFamily: 'sans-serif' })
   const [slackUserId, setSlackUserId] = useState<string>('')
   const [notificationChannels, setNotificationChannels] = useState<string[] | undefined>(undefined)

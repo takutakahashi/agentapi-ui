@@ -221,7 +221,7 @@ export interface GlobalSettings {
   githubAuth?: GitHubOAuthSettings
   sendGithubTokenOnSessionStart?: boolean  // デフォルト true
   agentApiType?: AgentApiType  // デフォルト 'default'
-  enterKeyBehavior?: EnterKeyBehavior  // デフォルト 'send' (Enter で送信、Shift+Enter で改行)
+  enterKeyBehavior?: EnterKeyBehavior  // デフォルト 'newline' (Enter で改行、Command/Ctrl+Enter で送信)
   fontSettings?: FontSettings  // デフォルト { fontSize: 14, fontFamily: 'sans-serif' }
   memoryEnabled?: boolean  // デフォルト true（メモリ機能の有効/無効）
   memorySummarizeDrafts?: boolean  // デフォルト undefined（プロキシのグローバル設定に従う）
@@ -782,8 +782,8 @@ export const setSendGithubTokenOnSessionStart = (enabled: boolean): void => {
 // Enter Key Behavior utilities
 export const getEnterKeyBehavior = (): EnterKeyBehavior => {
   const settings = loadFullGlobalSettings()
-  // デフォルトは 'send' (Enter で送信、Shift+Enter で改行)
-  return settings.enterKeyBehavior ?? 'send'
+  // 未設定の既存ユーザーにも新しいデフォルトを適用する
+  return settings.enterKeyBehavior ?? 'newline'
 }
 
 export const setEnterKeyBehavior = (behavior: EnterKeyBehavior): void => {
