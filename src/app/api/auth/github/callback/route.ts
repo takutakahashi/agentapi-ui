@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { encryptApiKey } from '@/lib/cookie-auth'
+import { getPublicBaseUrl, getPublicUrl } from '@/lib/public-url'
+
+function redirectToError(request: NextRequest, error: string) {
+  const url = getPublicUrl(request, '/login/github/error')
+  url.searchParams.set('error', error)
+  return NextResponse.redirect(url)
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,9 +15,7 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state')
 
     if (!code || !state) {
-      return NextResponse.redirect(
-        new URL('/login/github?error=missing_params', request.url)
-      )
+      return redirectToError(request, 'missing_params')
     }
 
     // stateの検証（CSRF対策）
@@ -18,9 +23,7 @@ export async function GET(request: NextRequest) {
     const savedState = cookies.get('oauth_state')?.value
 
     if (!savedState || savedState !== state) {
-      return NextResponse.redirect(
-        new URL('/login/github?error=invalid_state', request.url)
-      )
+      return redirectToError(request, 'invalid_state')
     }
 
     // agentapi-proxyのOAuthコールバックエンドポイントを使用
@@ -36,9 +39,7 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       console.error('OAuth callback error:', response.status, 'Response details omitted for security')
-      return NextResponse.redirect(
-        new URL('/login/github?error=auth_failed', request.url)
-      )
+      return redirectToError(request, 'auth_failed')
     }
 
     const data = await response.json()
@@ -56,10 +57,7 @@ export async function GET(request: NextRequest) {
     headers.append('Set-Cookie', 'oauth_state=; Path=/; Max-Age=0')
 
     // ホームページにリダイレクト - 適切なホスト名を使用
-    const redirectUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-      (process.env.NODE_ENV === 'production' 
-        ? `https://${request.headers.get('host')}` 
-        : 'http://localhost:3000')
+    const redirectUrl = getPublicBaseUrl(request)
     const redirectResponse = NextResponse.redirect(new URL('/chats', redirectUrl))
     headers.forEach((value, key) => {
       redirectResponse.headers.append(key, value)
@@ -68,8 +66,6 @@ export async function GET(request: NextRequest) {
     return redirectResponse
   } catch (error) {
     console.error('OAuth callback error:', error)
-    return NextResponse.redirect(
-      new URL('/login/github?error=server_error', request.url)
-    )
+    return redirectToError(request, 'server_error')
   }
 }
