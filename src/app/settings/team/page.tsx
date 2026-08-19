@@ -88,8 +88,11 @@ export default function TeamSettingsPage() {
 
         setAvailableTeams(teams)
 
+        const requestedTeam = new URLSearchParams(window.location.search).get('team')
+        if (requestedTeam && teams.includes(requestedTeam)) {
+          loadTeamSettings(requestedTeam)
         // If only one team, auto-select it
-        if (teams.length === 1) {
+        } else if (teams.length === 1) {
           loadTeamSettings(teams[0])
         } else {
           setLoading(false)
@@ -207,8 +210,8 @@ export default function TeamSettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="flex flex-col">
+      <div id="settings-overview" className="scroll-mt-24 border-b border-gray-200 pb-6 dark:border-gray-700">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
           Team Settings
         </h2>
@@ -264,9 +267,11 @@ export default function TeamSettingsPage() {
 
       {isTeamLoaded && (
         <>
-          <ApiTokensSection scope="team" teamId={teamName} defaultOpen={false} />
+          <ApiTokensSection scope="team" teamId={teamName} defaultOpen={false} sectionId="security-settings" displayOrder={60} />
 
           <SettingsAccordion
+            sectionId="ai-authentication"
+            displayOrder={20}
             title="Codex Authentication"
             description="Register a shared Codex auth.json for the team"
             defaultOpen={false}
@@ -284,6 +289,8 @@ export default function TeamSettingsPage() {
           </SettingsAccordion>
 
           <SettingsAccordion
+            sectionId="extensions"
+            displayOrder={30}
             title="Marketplace"
             description="Configure plugin marketplaces"
             defaultOpen
@@ -292,6 +299,7 @@ export default function TeamSettingsPage() {
           </SettingsAccordion>
 
           <SettingsAccordion
+            displayOrder={31}
             title="Plugins"
             description="Enable plugins from official and registered marketplaces"
             defaultOpen
@@ -304,6 +312,7 @@ export default function TeamSettingsPage() {
           </SettingsAccordion>
 
           <SettingsAccordion
+            displayOrder={21}
             title="Default Agent Type"
             description="Choose the agent used when a team session does not specify one"
             defaultOpen={false}
@@ -325,6 +334,7 @@ export default function TeamSettingsPage() {
           </SettingsAccordion>
 
           <SettingsAccordion
+            displayOrder={22}
             title="AI Settings"
             description="Configure AI providers and models"
             defaultOpen
@@ -333,6 +343,7 @@ export default function TeamSettingsPage() {
           </SettingsAccordion>
 
           <SettingsAccordion
+            displayOrder={32}
             title="MCP Servers"
             description="Configure Model Context Protocol servers for the team"
             defaultOpen
@@ -341,6 +352,7 @@ export default function TeamSettingsPage() {
           </SettingsAccordion>
 
           <SettingsAccordion
+            displayOrder={61}
             title="GitHub App Authentication"
             description="Configure the GitHub App installation used by team sessions"
             defaultOpen={false}
@@ -369,6 +381,8 @@ export default function TeamSettingsPage() {
           </SettingsAccordion>
 
           <SettingsAccordion
+            sectionId="session-settings"
+            displayOrder={40}
             title="Environment Variables"
             description="Configure custom environment variables for team sessions"
             defaultOpen
@@ -377,6 +391,7 @@ export default function TeamSettingsPage() {
           </SettingsAccordion>
 
           <SettingsAccordion
+            displayOrder={41}
             title="セッションマネージャー"
             description="チームで共有する External Session Manager を登録します"
             defaultOpen={false}
@@ -423,7 +438,7 @@ export default function TeamSettingsPage() {
             </div>
           </SettingsAccordion>
 
-          <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <div className="sticky bottom-0 z-20 order-[80] -mx-4 mt-6 flex items-center justify-between border-t border-gray-200 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.06)] backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 md:mx-0 md:rounded-t-lg">
             {hasUnsavedChanges && (
               <div className="flex items-center gap-2 text-sm text-yellow-600 dark:text-yellow-400">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -435,7 +450,7 @@ export default function TeamSettingsPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 ml-auto"
+              className="ml-auto flex min-h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-6 py-2 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 max-sm:flex-1"
             >
               {saving && (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>

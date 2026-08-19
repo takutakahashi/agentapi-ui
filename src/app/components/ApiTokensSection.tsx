@@ -20,6 +20,8 @@ interface ApiTokensSectionProps {
   teamId?: string
   /** Whether the accordion is open by default. */
   defaultOpen?: boolean
+  sectionId?: string
+  displayOrder?: number
 }
 
 function formatDate(iso?: string | null): string {
@@ -35,6 +37,8 @@ export default function ApiTokensSection({
   scope,
   teamId,
   defaultOpen = false,
+  sectionId,
+  displayOrder,
 }: ApiTokensSectionProps) {
   const { showToast } = useToast()
   const [tokens, setTokens] = useState<ApiToken[]>([])
@@ -131,6 +135,8 @@ export default function ApiTokensSection({
 
   return (
     <SettingsAccordion
+      sectionId={sectionId}
+      displayOrder={displayOrder}
       title="API トークン"
       description={scope === 'team' ? 'チーム用 API トークンを管理します' : 'パーソナル API トークンを管理します'}
       defaultOpen={defaultOpen}
