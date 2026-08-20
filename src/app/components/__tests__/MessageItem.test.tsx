@@ -101,3 +101,25 @@ describe('MessageItem ACP images', () => {
     );
   });
 });
+
+describe('MessageItem plan messages', () => {
+  it('renders plan content as a regular message without the obsolete approval UI', () => {
+    render(
+      <MessageItem
+        message={{
+          id: 1,
+          role: 'agent',
+          content: '1. Inspect the code\n2. Make the change',
+          time: '2026-07-25T00:00:00Z',
+          type: 'plan',
+        }}
+        formatTimestamp={() => '00:00'}
+        fontSettings={{ fontSize: 14, fontFamily: 'sans-serif' }}
+      />,
+    );
+
+    expect(screen.getByText('Inspect the code')).toBeInTheDocument();
+    expect(screen.queryByText('A plan is ready for your review.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /View plan details/i })).not.toBeInTheDocument();
+  });
+});

@@ -17,7 +17,6 @@ import { getEnterKeyBehavior, getFontSettings, FontSettings, setFontSettings as 
 import ShareSessionButton from './ShareSessionButton';
 import MessageItem from './MessageItem';
 import ToolExecutionPane from './ToolExecutionPane';
-import PlanApprovalModal from './PlanApprovalModal';
 import AskUserQuestionModal from './AskUserQuestionModal';
 import SessionListSidebar from './SessionListSidebar';
 import { mergeRefreshedMessageHistory } from './messageHistory';
@@ -745,8 +744,6 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
   const [sessionAnnotations, setSessionAnnotations] = useState<SessionAnnotations | undefined>();
   const [showFontSettings, setShowFontSettings] = useState(false);
   const [showSessionInfo, setShowSessionInfo] = useState(false);
-  const [showPlanModal, setShowPlanModal] = useState(false);
-  const [planContent, setPlanContent] = useState<string>('');
   const [agentType, setAgentType] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
@@ -1721,66 +1718,6 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
     }
   }, [inputValue, attachedImages, isLoading, isConnected, sessionId, agentStatus, loadRecentMessages, acpInfo, acpServerEnabled]);
 
-  const handleShowPlanModal = useCallback((content: string) => {
-    setPlanContent(content);
-    setShowPlanModal(true);
-  }, []);
-
-  // Memoize plan modal callbacks for each message to prevent unnecessary re-renders
-  const planModalCallbacks = useMemo(() => {
-    const callbacks = new Map<string, () => void>();
-    messages.forEach(message => {
-      if (message.type === 'plan') {
-        callbacks.set(message.id.toString(), () => handleShowPlanModal(message.content));
-      }
-    });
-    return callbacks;
-  }, [messages, handleShowPlanModal]);
-
-  const handleApprovePlan = useCallback(async (approved: boolean) => {
-    if (!sessionId || !agentAPIRef.current) {
-      setError('Session not available for plan approval');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      if (acpInfo && acpPendingPermission) {
-        // ACP: approve/reject via per-session bridge (always).
-        const options = acpPendingPermission.action.content?.questions?.[0]?.options ?? [];
-        const allowOpt = options.find(o => o.description?.includes('allow'));
-        const optionId = approved
-          ? (allowOpt?.label ?? options[0]?.label ?? 'allow-once')
-          : 'plan';
-        await agentAPIRef.current.replyToACPPermission(sessionId, acpPendingPermission.rpcId, optionId);
-        setACPPendingPermission(null);
-      } else {
-        await agentAPIRef.current.sendAction(sessionId, {
-          type: 'approve_plan',
-          approved
-        });
-      }
-
-      // モーダルを閉じる
-      setShowPlanModal(false);
-
-      // スクロールを有効にして下部へ移動
-      setShouldAutoScroll(true);
-      setTimeout(() => scrollToBottom(), 100);
-    } catch (err) {
-      console.error('Failed to approve plan:', err);
-      if (err instanceof AgentAPIProxyError) {
-        setError(`プラン承認に失敗しました: ${err.message}`);
-      } else {
-        setError(`プラン承認に失敗しました: ${err instanceof Error ? err.message : '不明なエラー'}`);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [sessionId, acpInfo, acpPendingPermission]);
-
   const sendStopSignal = async () => {
     if (!sessionId || !agentAPIRef.current) {
       setError('セッションが利用できません');
@@ -2195,7 +2132,6 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     toolResult={toolResult}
                     formatTimestamp={formatTimestamp}
                     fontSettings={fontSettings}
-                    onShowPlanModal={planModalCallbacks.get(message.id.toString())}
                     isClaudeAgent={agentType === 'claude' || agentType === 'codex' || isACPAgentType(agentType)}
                   />
                 );
@@ -2216,7 +2152,6 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
                     message={message}
                     formatTimestamp={formatTimestamp}
                     fontSettings={fontSettings}
-                    onShowPlanModal={planModalCallbacks.get(message.id.toString())}
                     isClaudeAgent={agentType === 'claude' || agentType === 'codex' || isACPAgentType(agentType)}
                   />
                 );
@@ -2958,16 +2893,6 @@ export default function AgentAPIChat({ sessionId: propSessionId }: AgentAPIChatP
           </div>
         </div>
       )}
-
-      {/* Plan Approval Modal */}
-      <PlanApprovalModal
-        isOpen={showPlanModal}
-        planContent={planContent}
-        onApprove={() => handleApprovePlan(true)}
-        onReject={() => handleApprovePlan(false)}
-        onClose={() => setShowPlanModal(false)}
-        isLoading={isLoading}
-      />
 
       {/* AskUserQuestion Modal */}
       {showQuestionModal && pendingAction?.content?.questions && (
